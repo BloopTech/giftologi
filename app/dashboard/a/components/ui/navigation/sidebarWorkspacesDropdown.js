@@ -8,10 +8,9 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../../Dropdown";
-import { cx, focusInput } from "../../utils";
-import React, { useRef, useState } from "react";
-import { ModalAddWorkspace } from "./modalAddWorkspace";
+} from "../../../../../components/Dropdown";
+import { cx, focusInput } from "../../../../../components/utils";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ChevronsUpDown,
   MoveRight,
@@ -19,8 +18,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import Image from "next/image";
-import logo from "../../../../public/logo-dark.png";
-import { useUser } from "../../../context/UserContext";
+import { createClient } from "../../../../../utils/supabase/client";
 
 const workspaces = [
   {
@@ -34,7 +32,37 @@ const workspaces = [
 ];
 
 export const WorkspacesDropdownDesktop = () => {
-  const { userData, refreshUserData, isLoading } = useUser();
+  const supabase = createClient();
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      const { data: { user } = {} } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (!ignore) {
+        if (error) {
+          console.error("profiles select error", error);
+          setError(error);
+        }
+        setUserData(data || null);
+        setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [supabase]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hasOpenDialog, setHasOpenDialog] = useState(false);
   const dropdownTriggerRef = useRef(null);
@@ -51,7 +79,14 @@ export const WorkspacesDropdownDesktop = () => {
     }
   };
 
-  //console.log("workspaces", userData?.data);
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+
   return (
     <>
       {/* sidebar (lg+) */}
@@ -68,12 +103,13 @@ export const WorkspacesDropdownDesktop = () => {
             )}
           >
             <div className="flex aspect-square items-center justify-center px-2 -my-3">
-              <Image src={logo} alt="logo" width={80} height={80} priority />
+              {/* <Image src={logo} alt="logo" width={80} height={80} priority /> */}
+              LOGO
             </div>
             <div className="flex w-full items-center justify-between gap-x-4 truncate">
               <div className="truncate">
                 <p className="truncate whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-50 line-clamp-1">
-                  {userData?.data?.business?.business_name}
+                  {userData?.firstname} {userData?.lastname}
                 </p>
               </div>
               <ChevronDown
@@ -98,7 +134,7 @@ export const WorkspacesDropdownDesktop = () => {
               Workspaces ({workspaces.length})
             </DropdownMenuLabel>
             
-              <DropdownMenuItem key={userData?.data?.business?.business_name}>
+              <DropdownMenuItem key={userData?.role}>
                 <div className="flex w-full items-center gap-x-2.5">
                   <span
                     className={cx(
@@ -107,14 +143,14 @@ export const WorkspacesDropdownDesktop = () => {
                     )}
                     aria-hidden="true"
                   >
-                    {userData?.data?.business?.business_name?.[0]}
+                    {userData?.role}
                   </span>
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
-                    {userData?.data?.business?.business_name}
+                    {userData?.role}
                     </p>
                     <p className="text-xs text-gray-700 dark:text-white">
-                    {userData?.data?.business?.business_type}
+                    {userData?.role}
                     </p>
                   </div>
                 </div>
@@ -122,11 +158,7 @@ export const WorkspacesDropdownDesktop = () => {
     
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {/* <ModalAddWorkspace
-            onSelect={handleDialogItemSelect}
-            onOpenChange={handleDialogItemOpenChange}
-            itemName="Add workspace"
-          /> */}
+
         </DropdownMenuContent>
       </DropdownMenu>
     </>
@@ -134,7 +166,37 @@ export const WorkspacesDropdownDesktop = () => {
 };
 
 export const WorkspacesDropdownMobile = () => {
-  const { userData, refreshUserData, isLoading } = useUser();
+  const supabase = createClient();
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      const { data: { user } = {} } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (!ignore) {
+        if (error) {
+          console.error("profiles select error", error);
+          setError(error);
+        }
+        setUserData(data || null);
+        setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [supabase]);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [hasOpenDialog, setHasOpenDialog] = useState(false);
   const dropdownTriggerRef = useRef(null);
@@ -150,6 +212,15 @@ export const WorkspacesDropdownMobile = () => {
       setDropdownOpen(false);
     }
   };
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div>Error: {error.message}</div>;
+  }
+
   return (
     <>
       {/* sidebar (xs-lg) */}
@@ -161,12 +232,13 @@ export const WorkspacesDropdownMobile = () => {
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-x-1.5 rounded-md p-2 hover:bg-gray-100 focus:outline-none hover:dark:bg-gray-900">
             <div className="flex aspect-square items-center justify-center p-2">
-              <Image src={logo} alt="logo" width={80} height={80} priority />
+              {/* <Image src={logo} alt="logo" width={80} height={80} priority /> */}
+              Giftologi
             </div>
 
             <div className="flex w-full items-center justify-between gap-x-3 truncate">
               <p className="truncate whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-50 line-clamp-1">
-                {userData?.data?.business?.business_name}
+                {userData?.role}
               </p>
               <ChevronsUpDown
                 className="size-4 shrink-0 text-gray-500 dark:text-white"
@@ -191,7 +263,7 @@ export const WorkspacesDropdownMobile = () => {
               Workspaces ({workspaces.length})
             </DropdownMenuLabel>
             
-              <DropdownMenuItem key={userData?.data?.business?.business_name}>
+              <DropdownMenuItem key={userData?.role}>
                 <div className="flex w-full items-center gap-x-2.5">
                   <span
                     className={cx(
@@ -200,14 +272,14 @@ export const WorkspacesDropdownMobile = () => {
                     )}
                     aria-hidden="true"
                   >
-                   {userData?.data?.business?.business_name?.[0]}
+                   {userData?.role}
                   </span>
                   <div>
                     <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
-                      {userData?.data?.business?.business_name}
+                      {userData?.role}
                     </p>
                     <p className="text-xs text-gray-700 dark:text-gray-300">
-                    {userData?.data?.business?.business_type}
+                    {userData?.role}
                     </p>
                   </div>
                 </div>
@@ -215,11 +287,7 @@ export const WorkspacesDropdownMobile = () => {
             
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          {/* <ModalAddWorkspace
-            onSelect={handleDialogItemSelect}
-            onOpenChange={handleDialogItemOpenChange}
-            itemName="Add workspace"
-          /> */}
+
         </DropdownMenuContent>
       </DropdownMenu>
     </>

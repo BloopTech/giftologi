@@ -13,11 +13,12 @@ export const apiAuthPath = `/api/auth`;
 
 export const loginRedirect = `/`;
 
-export const protectedRoutes = ["/dashboard/h", "/dashboard/a", "/dashboard/v"];
+export const protectedRoutes = ["/dashboard/h", "/dashboard/a", "/dashboard/v", "/g"];
 
 // Map user roles in `profiles.role` to their dashboard paths
 export const roleRedirects = {
   host: "/dashboard/h",
   admin: "/dashboard/a",
   vendor: "/dashboard/v",
+  guest: "/g",
 };

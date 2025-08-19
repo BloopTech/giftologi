@@ -89,7 +89,7 @@ export async function signup(prevState, queryData) {
     password: getPassword,
     confirm_password: getConfirmPassword,
   });
-console.log("validatedFields.......................", validatedFields);
+  console.log("validatedFields.......................", validatedFields);
   if (!validatedFields.success) {
     return {
       message: validatedFields.error[0].message,
@@ -122,10 +122,34 @@ console.log("validatedFields.......................", validatedFields);
     hashColor += colorCharacters[Math.floor(Math.random() * 16)];
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("email", email)
+    .single();
+
+  if (profile) {
+    return {
+      message: "Email already exists",
+      errors: {
+        ...defaultSignupValues,
+        credentials: "Email already exists",
+      },
+      values: {
+        firstname: getFirstName,
+        lastname: getLastName,
+        email: getBusinessEmail,
+        phone: getPhoneNumber,
+        password: getPassword,
+        confirm_password: getConfirmPassword,
+      },
+      data: {},
+    };
+  }
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    //email_confirm: true,
   });
   console.log("signup.......................................", data, error);
   if (error) {
@@ -147,53 +171,61 @@ console.log("validatedFields.......................", validatedFields);
     };
   }
 
-  // const { data: profile, error: profileError } = await supabase
-  //   .from("profiles")
-  //   .insert([
-  //     {
-  //       id: data.user.id,
-  //       email,
-  //       firstname,
-  //       lastname,
-  //       phone,
-  //       color: hashColor,
-  //       role: "host",
-  //       created_at: new Date(),
-  //       updated_at: new Date(),
-  //     },
-  //   ])
-  //   .select("*")
-  //   .single();
-  // console.log(
-  //   "profile....................................",
-  //   profile,
-  //   profileError
-  // );
-  // if (profileError) {
-  //   return {
-  //     message: profileError.message,
-  //     errors: {
-  //       ...defaultSignupValues,
-  //       credentials: profileError?.message,
-  //     },
-  //     values: {
-  //       firstname: getFirstName,
-  //       lastname: getLastName,
-  //       email: getBusinessEmail,
-  //       phone: getPhoneNumber,
-  //       password: getPassword,
-  //       confirm_password: getConfirmPassword,
-  //     },
-  //     data: {},
-  //   };
-  // }
+  const { data: check_signup_profile, error: check_signup_profileError } =
+    await supabase
+      .from("signup_profiles")
+      .select("*")
+      .eq("user_id", data.user.id)
+      .single();
+
+  if (!check_signup_profile) {
+    const { data: signup_profile, error: signup_profileError } = await supabase
+      .from("signup_profiles")
+      .insert([
+        {
+          user_id: data.user.id,
+          email,
+          firstname,
+          lastname,
+          phone,
+          color: hashColor,
+          role: "host",
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ])
+      .select("*")
+      .single();
+    console.log(
+      "profile....................................",
+      signup_profile,
+      signup_profileError
+    );
+    if (signup_profileError) {
+      return {
+        message: signup_profileError.message,
+        errors: {
+          ...defaultSignupValues,
+          credentials: signup_profileError?.message,
+        },
+        values: {
+          firstname: getFirstName,
+          lastname: getLastName,
+          email: getBusinessEmail,
+          phone: getPhoneNumber,
+          password: getPassword,
+          confirm_password: getConfirmPassword,
+        },
+        data: {},
+      };
+    }
+  }
 
   return {
     message: "Check your email for a confirmation link.",
     errors: {},
     data: {
       email: getBusinessEmail,
-      //...profile,
     },
     values: {},
   };

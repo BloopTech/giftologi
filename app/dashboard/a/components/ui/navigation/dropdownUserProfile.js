@@ -13,17 +13,36 @@ import {
   DropdownMenuSubMenuContent,
   DropdownMenuSubMenuTrigger,
   DropdownMenuTrigger,
-} from "../../Dropdown";
+} from "../../../../../components/Dropdown";
 import { ArrowUpRight, Globe, LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
+import { createClient } from "../../../../../utils/supabase/client";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
-
-
-export function DropdownUserProfile({ children, align = "start" }) {
-  const { userData, refreshUserData, isLoading } = useUser();
+export function DropdownUserProfile({ children, align = "start", userData }) {
   const [isPending, startTransition] = useTransition();
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
+  const router = useRouter();
+  const supabase = createClient();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+    } catch (e) {
+      console.error("signOut error", e);
+      toast.error("Failed to log out");
+    } finally {
+      // Force a server navigation so middleware reads cleared cookies
+      window.location.href = "/login";
+      // Alternatively: router.replace('/login')
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -38,7 +57,7 @@ export function DropdownUserProfile({ children, align = "start" }) {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent align={align}>
-          <DropdownMenuLabel>Gift</DropdownMenuLabel>
+          <DropdownMenuLabel>{userData?.email}</DropdownMenuLabel>
           <DropdownMenuGroup>
             <DropdownMenuSubMenu>
               <DropdownMenuSubMenuTrigger>Theme</DropdownMenuSubMenuTrigger>
@@ -77,38 +96,17 @@ export function DropdownUserProfile({ children, align = "start" }) {
               </DropdownMenuSubMenuContent>
             </DropdownMenuSubMenu>
           </DropdownMenuGroup>
-          <DropdownMenuGroup className="flex lg:hidden w-full">
-            <DropdownMenuSubMenu>
-
-
-              <DropdownMenuSubMenuContent>
-                {items.map(({ value, label }) => (
-                  <DropdownMenuRadioGroup
-                    key={value}
-                    value={value}
-                    onValueChange={() => handleLanguageChange(value)}
-                    defaultValue={value}
-                  >
-                    <DropdownMenuRadioItem
-                      aria-label="Select language"
-                      value={locale}
-                      iconType="check"
-                    >
-                      {label}
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                ))}
-              </DropdownMenuSubMenuContent>
-            </DropdownMenuSubMenu>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-
-          {/* <DropdownMenuGroup>
-            <LogoutButton className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1">
-              Signout
+          
+          <DropdownMenuGroup>
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              {loggingOut ? "Logging out..." : "LogOut"}
               <LogOut className="size-4 text-gray-500" />
-            </LogoutButton>
-          </DropdownMenuGroup> */}
+            </button>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
     </>
@@ -116,7 +114,7 @@ export function DropdownUserProfile({ children, align = "start" }) {
 }
 
 export function DropdownTheme({ children, align = "start" }) {
-  const tNav = useTranslations("Navigation");
+
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   useEffect(() => {
@@ -143,7 +141,7 @@ export function DropdownTheme({ children, align = "start" }) {
               iconType="check"
             >
               <Sun className="size-4 shrink-0" aria-hidden="true" />
-              {tNav("theme.light")}
+              Light
             </DropdownMenuRadioItem>
             <DropdownMenuRadioItem
               aria-label="Switch to Dark Mode"
@@ -151,7 +149,7 @@ export function DropdownTheme({ children, align = "start" }) {
               iconType="check"
             >
               <Moon className="size-4 shrink-0" aria-hidden="true" />
-              {tNav("theme.dark")}
+              Dark
             </DropdownMenuRadioItem>
             <DropdownMenuRadioItem
               aria-label="Switch to System Mode"
@@ -159,7 +157,7 @@ export function DropdownTheme({ children, align = "start" }) {
               iconType="check"
             >
               <Monitor className="size-4 shrink-0" aria-hidden="true" />
-              {tNav("theme.system")}
+              System
             </DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>

@@ -8,13 +8,13 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
-} from "../../Drawer";
-import { cx, focusRing } from "../../utils";
+} from "../../../../../components/Drawer";
+import { cx, focusRing } from "../../../../../components/utils";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, ChevronDown } from "lucide-react";
 import { useNavigationData } from "./utils";
-import { Switch } from "../../Switch";
+import { Switch } from "../../../../../components/Switch";
 
 import { toast } from "sonner";
 

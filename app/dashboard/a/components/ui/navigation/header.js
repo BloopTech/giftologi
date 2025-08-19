@@ -2,7 +2,7 @@
 import React, { useState, useTransition, useEffect } from "react";
 import { Globe, Check } from "lucide-react";
 import { toast } from "sonner";
-import { Switch } from "../../Switch";
+import { Switch } from "../../../../../components/Switch";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,7 +16,7 @@ import {
   DropdownMenuSubMenuContent,
   DropdownMenuSubMenuTrigger,
   DropdownMenuTrigger,
-} from "../../Dropdown";
+} from "../../../../../components/Dropdown";
 
 
 export default function Header() {

@@ -48,7 +48,7 @@ export async function resetPassword(prevState, queryData) {
 
   if (!validatedFields.success) {
     return {
-      message: validatedFields.error.errors[0].message,
+      message: validatedFields.error[0].message,
       errors: validatedFields.error.flatten().fieldErrors,
       values: {
         password: getPassword,

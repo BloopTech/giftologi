@@ -33,13 +33,8 @@ export default function LoginPageLayout() {
     }
 
     if (state?.message && state?.status_code === 200) {
-      // if (state?.data?.requiresOTP) {
-      //   toast.success(state?.message);
-      // } else {
-      //   toast.success(state?.message);
-      //   redirect("/dashboard");
-      // }
       toast.success(state?.message);
+      redirect("/");
     }
   }, [state?.message, state?.errors, state.data, state?.status_code]);
 

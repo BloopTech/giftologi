@@ -2,7 +2,7 @@
 import React from "react";
 import { createClient } from "../../utils/supabase/server";
 
-export default async function HostDashboard() {
+export default async function VendorDashboard() {
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
