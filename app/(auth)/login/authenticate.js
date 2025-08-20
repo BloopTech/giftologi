@@ -44,7 +44,7 @@ export async function login(prevState, queryData) {
 
   if (!validatedFields.success) {
     return {
-      message: validatedFields.error[0].message,
+      message: validatedFields?.error?.issues[0]?.message,
       errors: validatedFields.error.flatten().fieldErrors,
       values: {
         email: getBusinessEmail,
@@ -124,7 +124,7 @@ export async function otpVerification(prevState, queryData) {
 
   if (!validatedFields.success) {
     return {
-      message: validatedFields.error.errors[0].message,
+      message: validatedFields?.error?.issues[0]?.message,
       errors: validatedFields.error.flatten().fieldErrors,
       values: {
         otp: getOTP,
@@ -209,7 +209,7 @@ export async function otp2FAVerification(prevState, queryData) {
 
   if (!validatedFields.success) {
     return {
-      message: validatedFields.error.errors[0].message,
+      message: validatedFields?.error?.issues[0]?.message,
       errors: validatedFields.error.flatten().fieldErrors,
       values: {
         otp: getOTP,

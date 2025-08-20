@@ -10,7 +10,7 @@ export default async function VendorProfile() {
     .single();
 
   return (
-    <div className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 lg:pl-10 pl-5 pr-5 lg:pr-0">
+    <div className="dark:text-white bg-[#F9FAFB] dark:bg-gray-950 lg:pl-10 pl-5 pr-5 lg:pr-0">
       <p className="capitalize">
         {profile?.role} Dashboard {profile?.firstname}
       </p>

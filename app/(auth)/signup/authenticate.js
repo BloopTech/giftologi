@@ -89,10 +89,10 @@ export async function signup(prevState, queryData) {
     password: getPassword,
     confirm_password: getConfirmPassword,
   });
-  console.log("validatedFields.......................", validatedFields);
-  if (!validatedFields.success) {
+  console.log("validatedFields.......................", validatedFields?.error?.issues);
+  if (!validatedFields?.success) {
     return {
-      message: validatedFields.error[0].message,
+      message: validatedFields?.error?.issues[0]?.message,
       errors: validatedFields.error.flatten().fieldErrors,
       values: {
         firstname: getFirstName,

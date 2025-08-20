@@ -50,7 +50,7 @@ export default function VendorSidebar() {
           {navigation?.map(({ label, items, id }) => {
             return (
               <div key={id} className="flex flex-col space-y-1">
-                <span className="text-xs text-[#1C1C1C] dark:text-white pl-[4rem]">
+                <span className="text-xs text-[#111827] dark:text-white pl-[4rem]">
                   {label}
                 </span>
 
@@ -67,9 +67,9 @@ export default function VendorSidebar() {
                               onClick={() => toggleDropdown(name)}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#800020] dark:text-white border border-[#800020] hover:text-[#C0A062] hover:!bg-white hover:dark:text-[#C0A062]"
-                                  : "text-[#1C1C1C] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center justify-between text-xs py-1.5 transition hover:bg-[#C0A062] hover:dark:bg-gray-900 font-medium group w-full",
+                                  ? "text-white bg-[#2C3E50] dark:text-white border border-[#2C3E50] hover:text-[#2C3E50] hover:!bg-white hover:dark:text-[#2C3E50]"
+                                  : "text-[#111827] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                "flex items-center justify-between text-xs py-1.5 transition hover:bg-[#2C3E50] hover:dark:bg-gray-900 font-medium group w-full",
                                 focusRing
                               )}
                             >
@@ -79,9 +79,9 @@ export default function VendorSidebar() {
                                     aria-hidden="true"
                                     className={cx(
                                       isActive(href)
-                                        ? " dark:text-white group-hover:text-[#C0A062] dark:group-hover:text-white"
-                                        : "text-[#1C1C1C] group-hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "size-4 shrink-0 text-[#1C1C1C] flex items-center justify-center",
+                                        ? " dark:text-white group-hover:text-[#2C3E50] dark:group-hover:text-white"
+                                        : "text-[#111827] group-hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      "size-4 shrink-0 text-[#111827] flex items-center justify-center",
                                       focusRing
                                     )}
                                   />
@@ -100,9 +100,9 @@ export default function VendorSidebar() {
                               href={href}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#800020] dark:text-white border border-[#C0A062] hover:text-[#C0A062] hover:!bg-white hover:dark:text-[#C0A062]"
-                                  : "text-[#1C1C1C] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center gap-x-8 text-xs py-1.5 transition hover:bg-[#C0A062] hover:dark:bg-gray-900 font-medium group",
+                                  ? "text-white bg-[#2C3E50] dark:text-white border border-[#2C3E50] hover:text-[#2C3E50] hover:!bg-white hover:dark:text-[#2C3E50]"
+                                  : "text-[#111827] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                "flex items-center gap-x-8 text-xs py-1.5 transition hover:bg-[#2C3E50] hover:dark:bg-gray-900 font-medium group",
                                 focusRing
                               )}
                             >
@@ -111,8 +111,8 @@ export default function VendorSidebar() {
                                   aria-hidden="true"
                                   className={cx(
                                     isActive(href)
-                                      ? " dark:text-white text-white group-hover:text-[#C0A062] dark:group-hover:text-[#C0A062]"
-                                      : "text-[#1C1C1C] group-hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      ? " dark:text-white text-white group-hover:text-[#2C3E50] dark:group-hover:text-[#2C3E50]"
+                                      : "text-[#111827] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                     "size-4 shrink-0 flex items-center justify-center",
                                     focusRing
                                   )}
@@ -130,9 +130,9 @@ export default function VendorSidebar() {
                                     href={subItem.href}
                                     className={cx(
                                       isActive(subItem.href)
-                                        ? "text-white bg-[#800020] dark:text-white border border-[#C0A062] hover:text-[#C0A062] hover:!bg-white hover:dark:text-[#C0A062]"
-                                        : "text-[#1C1C1C] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "flex items-center text-xs py-1.5 transition hover:bg-[#C0A062] hover:dark:bg-gray-900 font-medium group pl-4",
+                                        ? "text-white bg-[#2C3E50] dark:text-white border border-[#2C3E50] hover:text-[#2C3E50] hover:!bg-white hover:dark:text-[#2C3E50]"
+                                        : "text-[#111827] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      "flex items-center text-xs py-1.5 transition hover:bg-[#2C3E50] hover:dark:bg-gray-900 font-medium group pl-4",
                                       focusRing
                                     )}
                                   >

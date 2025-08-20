@@ -67,9 +67,9 @@ export default function HostSidebar() {
                               onClick={() => toggleDropdown(name)}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#800020] dark:text-white border border-[#800020] hover:text-[#C0A062] hover:!bg-white hover:dark:text-[#C0A062]"
+                                  ? "text-white bg-[#800020] dark:text-white border border-[#800020] hover:text-[#800020] hover:!bg-white hover:dark:text-[#800020]"
                                   : "text-[#1C1C1C] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center justify-between text-xs py-1.5 transition hover:bg-[#C0A062] hover:dark:bg-gray-900 font-medium group w-full",
+                                "flex items-center justify-between text-xs py-1.5 transition hover:bg-[#800020] hover:dark:bg-gray-900 font-medium group w-full",
                                 focusRing
                               )}
                             >
@@ -79,7 +79,7 @@ export default function HostSidebar() {
                                     aria-hidden="true"
                                     className={cx(
                                       isActive(href)
-                                        ? " dark:text-white group-hover:text-[#C0A062] dark:group-hover:text-white"
+                                        ? " dark:text-white group-hover:text-[#800020] dark:group-hover:text-white"
                                         : "text-[#1C1C1C] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                       "size-4 shrink-0 text-[#1C1C1C] flex items-center justify-center",
                                       focusRing
@@ -100,9 +100,9 @@ export default function HostSidebar() {
                               href={href}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#800020] dark:text-white border border-[#C0A062] hover:text-[#C0A062] hover:!bg-white hover:dark:text-[#C0A062]"
+                                  ? "text-white bg-[#800020] dark:text-white border border-[#800020] hover:text-[#800020] hover:!bg-white hover:dark:text-[#800020]"
                                   : "text-[#1C1C1C] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center gap-x-8 text-xs py-1.5 transition hover:bg-[#C0A062] hover:dark:bg-gray-900 font-medium group",
+                                "flex items-center gap-x-8 text-xs py-1.5 transition hover:bg-[#800020] hover:dark:bg-gray-900 font-medium group",
                                 focusRing
                               )}
                             >
@@ -111,7 +111,7 @@ export default function HostSidebar() {
                                   aria-hidden="true"
                                   className={cx(
                                     isActive(href)
-                                      ? " dark:text-white text-white group-hover:text-[#C0A062] dark:group-hover:text-[#C0A062]"
+                                      ? " dark:text-white text-white group-hover:text-[#800020] dark:group-hover:text-[#800020]"
                                       : "text-[#1C1C1C] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                     "size-4 shrink-0 flex items-center justify-center",
                                     focusRing
@@ -130,9 +130,9 @@ export default function HostSidebar() {
                                     href={subItem.href}
                                     className={cx(
                                       isActive(subItem.href)
-                                        ? "text-white bg-[#800020] dark:text-white border border-[#C0A062] hover:text-[#C0A062] hover:!bg-white hover:dark:text-[#C0A062]"
+                                        ? "text-white bg-[#800020] dark:text-white border border-[#800020] hover:text-[#800020] hover:!bg-white hover:dark:text-[##800020]"
                                         : "text-[#1C1C1C] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "flex items-center text-xs py-1.5 transition hover:bg-[#C0A062] hover:dark:bg-gray-900 font-medium group pl-4",
+                                      "flex items-center text-xs py-1.5 transition hover:bg-[#800020] hover:dark:bg-gray-900 font-medium group pl-4",
                                       focusRing
                                     )}
                                   >

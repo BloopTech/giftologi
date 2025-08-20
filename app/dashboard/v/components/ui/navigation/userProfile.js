@@ -61,7 +61,7 @@ export const UserProfileDesktop = (props) => {
           </span>
           <span className="flex flex-col items-start justify-start dark:text-white">
             <span>{userData?.firstname} {userData?.lastname}</span>
-            <span className="text-[#800020] capitalize">{userData?.role}</span>
+            <span className="text-[#2C3E50] capitalize">{userData?.role}</span>
           </span>
         </span>
         <LogOut
