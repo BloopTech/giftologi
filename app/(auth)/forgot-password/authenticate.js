@@ -1,27 +1,24 @@
 "use server";
 import { z } from "zod";
-
+import { createClient } from "../../utils/supabase/server";
 
 const defaultValues = {
-  business_email: [],
+  email: [],
 };
 
 export async function forgotPassword(prevState, queryData) {
-
-
   const defaultForgotSchema = z.object({
-
-    business_email: z
+    email: z
       .string()
       .trim()
       .min(1, { message: "Email is required" })
       .email({ message: "Email is invalid" }),
   });
 
-  const getBusinessEmail = queryData.get("business_email");
+  const getEmail = queryData.get("email");
 
   const validatedFields = defaultForgotSchema.safeParse({
-    business_email: getBusinessEmail,
+    email: getEmail,
   });
 
   if (!validatedFields.success) {
@@ -29,48 +26,51 @@ export async function forgotPassword(prevState, queryData) {
       message: validatedFields?.error?.issues[0]?.message,
       errors: validatedFields.error.flatten().fieldErrors,
       values: {
-        business_email: getBusinessEmail,
+        email: getEmail,
       },
       data: {},
     };
   }
 
-  const { business_email } = validatedFields.data;
+  const { email } = validatedFields.data;
 
-  const payload = {
-    email: business_email,
-  };
+  try {
+    const supabase = await createClient();
+    const siteUrl =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (process.env.NEXT_PUBLIC_VERCEL_URL
+        ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+        : "http://localhost:3000");
+    // Point the recovery link to our reset page. The middleware will exchange the code for a session.
+    // Use a constant dynamic segment so it matches `/password-reset/[token]`
+    const redirectTo = `${siteUrl}/password-reset/a`;
 
-  const response = await fetch(
-    `https://auth-ms.test.vmt-pay.com/api/v1/auth/password-reset/`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
+    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo,
+    });
+
+    if (error) {
+      return {
+        message: error.message,
+        errors: { ...defaultValues, credentials: { email: error.message } },
+        values: { email },
+        data: {},
+      };
     }
-  );
-  const res = await response.json();
-  console.log("res..........", res);
-  if (res?.status === "error") {
+
     return {
-      message: res?.message,
-      errors: {
-        ...defaultValues,
-        credentials: res?.message,
-      },
-      values: {
-        business_email: getBusinessEmail,
-      },
+      message:
+        "If an account exists for this email, a password reset link has been sent.",
+      errors: {},
+      values: {},
+      data: { email },
+    };
+  } catch (e) {
+    return {
+      message: "Something went wrong. Please try again.",
+      errors: { ...defaultValues, credentials: { email: "Unexpected error" } },
+      values: { email },
       data: {},
     };
   }
-
-  return {
-    message: res?.message,
-    errors: {},
-    data: res?.data,
-    values: {},
-  };
 }

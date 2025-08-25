@@ -6,11 +6,10 @@ import Link from "next/link";
 import { forgotPassword } from "./authenticate";
 import { toast } from "sonner";
 
-
 const initialState = {
   message: "",
   errors: {
-    business_email: [],
+    email: [],
     credentials: {},
     unknown: "",
   },
@@ -23,7 +22,6 @@ export default function ForgotPasswordPageLayout() {
     forgotPassword,
     initialState
   );
-
 
   useEffect(() => {
     if (
@@ -43,7 +41,7 @@ export default function ForgotPasswordPageLayout() {
     <div className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem]">
       <div className="flex">
         <Link href="/">
-<p className="text-2xl font-bold">Giftologi</p>
+          <p className="text-2xl font-bold">Giftologi</p>
         </Link>
       </div>
       <div className="w-full md:max-w-xl">

@@ -1,6 +1,6 @@
 "use server";
 import { z } from "zod";
-
+import { createClient } from "../../../utils/supabase/server";
 
 const defaultResetValues = {
   password: [],
@@ -39,7 +39,6 @@ export async function resetPassword(prevState, queryData) {
 
   const getPassword = queryData.get("password");
   const getConfirmPassword = queryData.get("confirm_password");
-  const getEmail = queryData.get("email");
 
   const validatedFields = defaultResetSchema.safeParse({
     password: getPassword,
@@ -58,47 +57,34 @@ export async function resetPassword(prevState, queryData) {
     };
   }
 
-  const { password, confirm_password } = validatedFields.data;
+  const { password } = validatedFields.data;
 
-  const payload = {
-    password,
-    email: getEmail,
-  };
+  // Update password using Supabase recovery session
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.updateUser({ password });
 
-  const response = await fetch(
-    `https://auth-ms.test.vmt-pay.com/api/v1/auth/password-reset/complete/`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-  const res = await response.json();
-  console.log("res reset", res);
-  if (res?.status === "error") {
+  if (error) {
     return {
-      message: res?.message,
+      message: error.message,
       errors: {
         ...defaultResetValues,
-        credentials: res?.message,
+        credentials: { global: error.message },
       },
       values: {
         password: getPassword,
         confirm_password: getConfirmPassword,
       },
       data: {},
-      status_code: res?.status_code,
+      status_code: 400,
     };
   }
 
   return {
-    message: res?.message,
-    status: res?.status,
+    message: "Password updated successfully.",
+    status: "success",
     errors: {},
-    data: res?.data,
+    data: data?.user || {},
     values: {},
-    status_code: res?.status_code,
+    status_code: 200,
   };
 }

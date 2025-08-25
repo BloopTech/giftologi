@@ -5,7 +5,12 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="bg-white text-black flex flex-col items-center justify-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
+    <div className="bg-white text-black flex flex-col min-h-screen gap-16 pt-5 px-10">
+      <div className="flex justify-end space-x-2">
+        <Link href="/login">Login</Link>
+        <span>|</span>
+        <Link href="/signup">Signup</Link>
+        </div>
       <main className="flex flex-col items-center justify-center">
         <h1 className="text-6xl font-bold flex flex-col md:flex-row items-baseline font-cormorant-garamond space-x-2">
           <span>COMING</span>

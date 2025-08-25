@@ -4,18 +4,18 @@ import { ArrowRight, LoaderCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
-
 export default function FormInput(props) {
   const { formAction, state, isPending } = props;
 
-
   return (
     <div className="flex flex-col space-y-4 w-full px-5 lg:px-[5rem] items-center justify-center font-poppins">
-      
       <div className="flex flex-col w-full items-center justify-center">
-        <h3 className="font-medium text-2xl text-text dark:text-white">Forgot Password</h3>
+        <h3 className="font-medium text-2xl text-text dark:text-white">
+          Forgot Password
+        </h3>
         <p className="text-sm text-[#949ca9] font-light">
-          Enter your email address and we&apos;ll send you a link to reset your password.
+          Enter your email address and we&apos;ll send you a link to reset your
+          password.
         </p>
       </div>
       <form
@@ -28,14 +28,14 @@ export default function FormInput(props) {
             <div className="flex flex-col w-full">
               <input
                 type="email"
-                name="business_email"
-                defaultValue={state?.values?.business_email || ""}
+                name="email"
+                defaultValue={state?.values?.email || ""}
                 className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
                   Object.keys(state?.errors).length !== 0 &&
-                  (state?.errors?.business_email?.length ||
+                  (state?.errors?.email?.length ||
                     (Object.keys(state?.errors?.credentials || {}).length !==
                       0 &&
-                      state?.errors?.credentials?.business_email))
+                      state?.errors?.credentials?.email))
                     ? "border-red-500 focus:ring-red-500"
                     : "focus:ring-primary"
                 }`}
@@ -45,11 +45,11 @@ export default function FormInput(props) {
               />
               <span className="text-xs text-red-500">
                 {Object.keys(state?.errors).length !== 0
-                  ? state?.errors?.business_email?.length
-                    ? state.errors.business_email[0]
+                  ? state?.errors?.email?.length
+                    ? state.errors.email[0]
                     : Object.keys(state?.errors?.credentials || {}).length !==
-                        0 && state?.errors?.credentials?.business_email
-                    ? state.errors.credentials.business_email
+                        0 && state?.errors?.credentials?.email
+                    ? state.errors.credentials.email
                     : null
                   : null}
               </span>

@@ -39,6 +39,8 @@ export async function middlewareClient(request) {
   const hasOAuthOrVerifyCode = url.searchParams.has("code");
   const code = url.searchParams.get("code");
   const type = url.searchParams.get("type");
+  const isPasswordResetRoute = url.pathname.startsWith("/password-reset");
+  const isForgotRoute = url.pathname === "/forgot-password";
 
   // Helper: role dashboard by profile role
   const redirectToRoleDashboard = (role) => {
@@ -99,6 +101,13 @@ export async function middlewareClient(request) {
 
   // If user is logged in now, handle redirects (role-based/auth route protection)
   if (user && user?.id) {
+    // Block auth pages for logged-in users, except allow password reset during recovery flow
+    if (isForgotRoute || isPasswordResetRoute) {
+      if (isPasswordResetRoute && hasOAuthOrVerifyCode && type === "recovery") {
+        return supabaseResponse;
+      }
+      return NextResponse.redirect(new URL(loginRedirect, request.url));
+    }
     let { data: profile } = await supabase
       .from("profiles")
       .select("firstname, role")
@@ -168,6 +177,10 @@ export async function middlewareClient(request) {
   }
   // If user is not logged in
   else {
+    // Only allow password reset route when arriving with a valid recovery code
+    if (isPasswordResetRoute && !(hasOAuthOrVerifyCode && type === "recovery")) {
+      return NextResponse.redirect(new URL("/forgot-password", request.url));
+    }
     // Redirect to login for protected routes (treat as prefixes)
     const isProtected = protectedRoutes.some((p) => url.pathname.startsWith(p));
     if (isProtected) {
