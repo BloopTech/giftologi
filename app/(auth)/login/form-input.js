@@ -9,11 +9,8 @@ export default function FormInput(props) {
 
 
   return (
-    <div className="flex flex-col space-y-4 w-full px-5 lg:px-[5rem] items-center justify-center md:my-0 font-poppins">
-      <div className="flex flex-col w-full items-center justify-center">
-        <h3 className="font-medium text-2xl text-text dark:text-white">Login</h3>
-        <p className="text-sm text-[#949ca9] font-light">Login to get started</p>
-      </div>
+    <div className="flex flex-col space-y-4 w-full px-5 items-center justify-center md:my-0 font-poppins">
+
       <form
         action={formAction}
         className="flex flex-col w-full space-y-8 items-center justify-center"
@@ -93,7 +90,7 @@ export default function FormInput(props) {
         </div>
         <div className="w-full flex flex-col space-y-2">
           <button
-            className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-md text-sm bg-black hover:bg-white hover:text-black border border-black text-white cursor-pointer"
+            className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-md text-sm bg-[#BBA96C] hover:bg-white hover:text-black border border-[#BBA96C] text-white cursor-pointer"
             type="submit"
             disabled={isPending}
           >
@@ -108,7 +105,7 @@ export default function FormInput(props) {
           <div className="text-sm text-center flex justify-end">
             <Link
               href="/forgot-password"
-              className="text-primary hover:text-secondary cursor-pointer"
+              className="text-[#BBA96C] hover:text-secondary cursor-pointer"
             >
               Forgot Password
             </Link>
@@ -119,7 +116,7 @@ export default function FormInput(props) {
             {"Not a user?"}{" "}
             <Link
               href="/signup"
-              className="text-primary hover:text-secondary cursor-pointer"
+              className="text-[#BBA96C] hover:text-secondary cursor-pointer"
             >
               {"Sign Up"}
             </Link>
