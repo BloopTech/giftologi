@@ -2,28 +2,51 @@
 import React, { useState } from "react";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
+import { createClient as createSupabaseClient } from "../../utils/supabase/client";
 
 export default function FormInput(props) {
   const [showPassword, setShowPassword] = useState(false);
   const { state, formAction, isPending } = props;
 
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsGoogleLoading(true);
+      const supabase = createSupabaseClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (error) {
+        console.error("Google sign-in error:", error.message);
+      }
+      // Supabase will handle the redirect automatically
+    } catch (e) {
+      console.error("Google sign-in unexpected error:", e);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col space-y-4 w-full px-5 items-center justify-center md:my-0 font-poppins">
-
+    <div className="flex flex-col space-y-4 w-full items-center justify-center font-poppins">
       <form
         action={formAction}
         className="flex flex-col w-full space-y-8 items-center justify-center"
       >
         <div className="flex flex-col w-full space-y-4 items-center justify-center">
-          <div className="flex flex-col w-full space-y-2 text-sm">
-            <label>Email</label>
-            <div className="flex flex-col w-full">
+          <div className="flex flex-col w-full space-y-4 items-center justify-center">
+            <div className="flex flex-col w-full text-sm">
               <input
                 type="email"
                 name="email"
                 defaultValue={state?.values?.email || ""}
-                className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
+                className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
                   Object.keys(state?.errors).length !== 0 &&
                   (state?.errors?.email?.length ||
                     (Object.keys(state?.errors?.credentials || {}).length !==
@@ -32,7 +55,7 @@ export default function FormInput(props) {
                     ? "border-red-500 focus:ring-red-500"
                     : "focus:ring-primary"
                 }`}
-                placeholder="johndoe@yahoo.com"
+                placeholder="email"
                 disabled={isPending}
                 required
               />
@@ -47,23 +70,19 @@ export default function FormInput(props) {
                   : null}
               </span>
             </div>
-          </div>
 
-          <div className="flex flex-col w-full space-y-2 text-sm">
-            <label>Password</label>
-
-            <div className="flex flex-col w-full">
+            <div className="flex flex-col w-full text-sm">
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   name="password"
-                  className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2 pr-10 ${
+                  className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2 pr-10 ${
                     Object.keys(state?.errors).length !== 0 &&
                     state?.errors?.password?.length
                       ? "border-red-500 focus:ring-red-500"
                       : "focus:ring-primary"
                   }`}
-                  placeholder="********"
+                  placeholder="password"
                   disabled={isPending}
                   required
                 />
@@ -87,38 +106,78 @@ export default function FormInput(props) {
               </span>
             </div>
           </div>
-        </div>
-        <div className="w-full flex flex-col space-y-2">
-          <button
-            className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-md text-sm bg-[#BBA96C] hover:bg-white hover:text-black border border-[#BBA96C] text-white cursor-pointer"
-            type="submit"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <span className="flex justify-center items-center">
-                <LoaderCircle className="animate-spin h-5 w-5 mr-3 text-white" />
-              </span>
-            ) : (
-              "Login"
-            )}
-          </button>
-          <div className="text-sm text-center flex justify-end">
-            <Link
-              href="/forgot-password"
-              className="text-[#BBA96C] hover:text-secondary cursor-pointer"
+          <div className="w-full flex flex-col space-y-2">
+            <button
+              className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-md text-sm bg-[#BBA96C] hover:bg-white hover:text-primary border border-primary text-white cursor-pointer"
+              type="submit"
+              disabled={isPending}
             >
-              Forgot Password
-            </Link>
+              {isPending ? (
+                <span className="flex justify-center items-center">
+                  <LoaderCircle className="animate-spin h-5 w-5 mr-3 text-white" />
+                </span>
+              ) : (
+                "Login"
+              )}
+            </button>
+            <div className="text-sm text-center flex justify-end">
+              <Link
+                href="/forgot-password"
+                className="text-primary cursor-pointer"
+              >
+                Forgot Password
+              </Link>
+            </div>
+          </div>
+          <h2 className="text-primary w-full text-sm text-center border-b leading-[0.1em] mt-[10px] mx-0 mb-[20px] ">
+            <span className="bg-[#FFFCEF] text-primary px-5 py-0 mt-1">OR</span>
+          </h2>
+          <div className="flex lg:justify-center lg:flex-row  lg:items-center flex-col gap-4 w-full">
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={isPending || isGoogleLoading}
+              className="w-full disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer flex items-center font-semibold justify-center px-6 mt-4 text-xl transition-colors duration-300 bg-white border text-gray-700 dark:text-black rounded-2xl py-2 focus:shadow-outline hover:bg-slate-200 border-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-700"
+            >
+              {isGoogleLoading ? (
+                <span className="flex items-center">
+                  <LoaderCircle className="animate-spin h-5 w-5 mr-3" />
+                  <span className="text-base font-medium">Signing in…</span>
+                </span>
+              ) : (
+                <>
+                  <Image
+                    width={20}
+                    height={20}
+                    src="/google.svg"
+                    alt="google logo"
+                    priority
+                  />
+                  <span className="text-base font-medium ml-4">
+                    Sign in with Google
+                  </span>
+                </>
+              )}
+            </button>
           </div>
         </div>
-        <div className="w-full">
-          <p className="text-sm text-center">
-            {"Not a user?"}{" "}
-            <Link
-              href="/signup"
-              className="text-[#BBA96C] hover:text-secondary cursor-pointer"
-            >
+        <div className="w-full flex items-center justify-center">
+          <p className="text-sm">
+            {"Don't have an account?"}{" "}
+            <Link href="/signup" className="text-primary cursor-pointer">
               {"Sign Up"}
+            </Link>
+          </p>
+        </div>
+        <div className="flex w-full text-xs">
+          <p>
+            By using Giftologi, you are agreeing to our{" "}
+            <Link href="/terms" className="text-primary underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-primary underline">
+              Privacy Policy.
             </Link>
           </p>
         </div>

@@ -2,47 +2,61 @@
 import React, { useState } from "react";
 import { PhoneInput } from "react-simple-phone-input";
 import "react-simple-phone-input/dist/style.css";
-import { Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
+import { createClient as createSupabaseClient } from "../../utils/supabase/client";
 
 export default function FormInput(props) {
   const { state, formAction, isPending } = props;
-  const [phone, setPhone] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  const handleGoogleSignUp = async () => {
+    try {
+      setIsGoogleLoading(true);
+      const supabase = createSupabaseClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/`,
+          queryParams: { prompt: "select_account" },
+        },
+      });
+      if (error) {
+        console.error("Google sign-up error:", error.message);
+      }
+      // Supabase will handle the redirect automatically
+    } catch (e) {
+      console.error("Google sign-up unexpected error:", e);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   return (
-    <div className="flex flex-col space-y-4 w-full px-5 lg:px-[5rem] items-center justify-center font-poppins">
-      <div className="flex flex-col w-full items-center justify-center">
-        <h3 className="font-medium text-2xl text-text dark:text-white">Sign Up</h3>
-        <p className="text-sm text-[#949ca9] font-light">Create an account to get started</p>
-      </div>
+    <div className="flex flex-col space-y-4 w-full items-center justify-center font-poppins">
       <form
         action={formAction}
         className="flex flex-col w-full space-y-8 items-center justify-center"
       >
         <div className="flex flex-col w-full space-y-4 items-center justify-center">
-          <div className="flex flex-col w-full space-y-2 text-sm">
-            <label>
-              First Name
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-col w-full">
+          <div className="flex flex-col w-full space-y-4 items-center justify-center">
+            <div className="flex flex-col w-full text-sm">
               <input
                 type="text"
                 name="firstname"
+                placeholder="First Name"
                 defaultValue={state?.values?.firstname || ""}
-                className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
+                className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
                   Object.keys(state?.errors).length !== 0 &&
                   state?.errors?.firstname?.length
                     ? "border-red-500 focus:ring-red-500"
                     : "focus:ring-primary"
                 }`}
-                placeholder="John"
                 disabled={isPending}
                 required
               />
@@ -53,24 +67,19 @@ export default function FormInput(props) {
                   : null}
               </span>
             </div>
-          </div>
-          <div className="flex flex-col w-full space-y-2 text-sm">
-            <label>
-              Last Name
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-col w-full">
+
+            <div className="flex flex-col w-full text-sm">
               <input
                 type="text"
                 name="lastname"
                 defaultValue={state?.values?.lastname || ""}
-                className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
+                className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
                   Object.keys(state?.errors).length !== 0 &&
                   state?.errors?.lastname?.length
                     ? "border-red-500 focus:ring-red-500"
                     : "focus:ring-primary"
                 }`}
-                placeholder="Doe"
+                placeholder="Last Name"
                 disabled={isPending}
                 required
               />
@@ -81,19 +90,13 @@ export default function FormInput(props) {
                   : null}
               </span>
             </div>
-          </div>
 
-          <div className="flex flex-col w-full space-y-2 text-sm">
-            <label>
-              Email
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-col w-full">
+            <div className="flex flex-col w-full text-sm">
               <input
                 type="email"
                 name="email"
                 defaultValue={state?.values?.email || ""}
-                className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
+                className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
                   Object.keys(state?.errors).length !== 0 &&
                   (state?.errors?.email?.length ||
                     (Object.keys(state?.errors?.credentials || {}).length !==
@@ -102,129 +105,38 @@ export default function FormInput(props) {
                     ? "border-red-500 focus:ring-red-500"
                     : "focus:ring-primary"
                 }`}
-                placeholder="john@example.com"
+                placeholder="Email"
                 disabled={isPending}
                 required
               />
-              <span className="text-xs text-red-500">
-                {Object.keys(state?.errors).length !== 0
-                  ? state?.errors?.email?.length
-                    ? state.errors.email[0]
-                    : Object.keys(state?.errors?.credentials || {}).length !==
-                        0 && state?.errors?.credentials?.email
-                    ? state.errors.credentials.email
-                    : null
-                  : null}
+              <span className="text-xs ">
+                {Object.keys(state?.errors).length !== 0 ? (
+                  state?.errors?.email?.length ? (
+                    state.errors.email[0]
+                  ) : Object.keys(state?.errors?.credentials || {}).length !==
+                      0 && state?.errors?.credentials?.email ? (
+                    <span className="flex items-center space-x-2 text-red-500 bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-4 text-red-500" />
+                      {state.errors.credentials.email}
+                    </span>
+                  ) : null
+                ) : null}
               </span>
             </div>
-          </div>
 
-          <div className="flex flex-col w-full space-y-2 text-sm">
-            <label>
-              Phone
-              <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-col w-full">
-              <PhoneInput
-                country="GH"
-                value={phone}
-                onChange={(data) => {
-                  // Safety guard — trims if needed
-                  if (data?.valueWithoutPlus?.length > 15) {
-                    setPhone({
-                      ...data,
-                      value: "+" + data.valueWithoutPlus.slice(0, 15),
-                      valueWithoutPlus: data.valueWithoutPlus.slice(0, 15)
-                    });
-                    return;
-                  }
-                  setPhone(data);
-                }}
-                inputProps={{
-                  onKeyDown: (e) => {
-                    const digitsOnly = phone?.valueWithoutPlus || "";
-                    const isNumberKey = /^[0-9]$/.test(e.key);
-              
-                    if (isNumberKey && digitsOnly.length >= 15) {
-                      e.preventDefault(); // Block typing
-                    }
-                  },
-                  onPaste: (e) => {
-                    const pasted = e.clipboardData.getData("text").replace(/\D/g, "");
-                    const current = phone?.valueWithoutPlus || "";
-              
-                    if (current.length + pasted.length > 15) {
-                      e.preventDefault(); // Block pasting too many digits
-                    }
-                  }
-                }}
-                containerStyle={{
-                  width: "100%",
-                  borderRadius: "4px",
-                  backgroundColor: isDark ? "#0a0a0a" : "#fff",
-                  border: isDark ? "1px solid #374151" : "1px solid #e5e7eb",
-                }}
-                inputStyle={{
-                  width: "100%",
-                  backgroundColor: isDark ? "#0a0a0a" : "#fff",
-                  color: isDark ? "#fff" : "#111827",
-                }}
-                buttonStyle={{
-                  backgroundColor: "#fff",
-                }}
-                dropdownStyle={{
-                  top: "auto",
-                  bottom: "100%",
-                  backgroundColor: isDark ? "#111827" : "#fff",
-                  color: isDark ? "#fff" : "#111827",
-                  border: isDark ? "1px solid #374151" : "1px solid #e5e7eb",
-                }}
-                placeholder="xxx xxx xxxx"
-              />
-              <span className="text-xs text-red-500">
-                {Object.keys(state?.errors).length !== 0
-                  ? state?.errors?.phone?.length
-                    ? state.errors.phone[0]
-                    : Object.keys(state?.errors?.credentials || {}).length !==
-                        0 && state?.errors?.credentials?.phone
-                    ? state.errors.credentials.phone
-                    : null
-                  : null}
-              </span>
-            </div>
-            <input
-              hidden
-              name="phone"
-              value={
-                phone?.value && phone.dialCode
-                  ? phone.value.startsWith(phone.dialCode + "0")
-                    ? phone.value.replace(phone.dialCode + "0", phone.dialCode)
-                    : phone.value
-                  : ""
-              }
-              onChange={(data) => setPhone(data)}
-            />
-          </div>
-
-          <div className="flex items-center w-full space-x-4 text-sm">
-            <div className="flex flex-col w-full space-y-2 text-sm h-[4.5rem]">
-              <label>
-                Password
-                <span className="text-red-500">*</span>
-              </label>
-
+            <div className="flex flex-col w-full text-sm h-[4.5rem]">
               <div className="flex flex-col w-full">
                 <div className="relative">
                   <input
                     type={showPassword ? "text" : "password"}
                     name="password"
-                    className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2 pr-10 ${
+                    className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2 pr-10 ${
                       Object.keys(state?.errors).length !== 0 &&
                       state?.errors?.password?.length
                         ? "border-red-500 focus:ring-red-500"
                         : "focus:ring-primary"
                     }`}
-                    placeholder="********"
+                    placeholder="Password"
                     disabled={isPending}
                     required
                   />
@@ -248,72 +160,71 @@ export default function FormInput(props) {
                 </span>
               </div>
             </div>
-            <div className="flex flex-col w-full space-y-2 text-sm h-[4.5rem]">
-              <label>
-                Confirm Password
-                <span className="text-red-500">*</span>
-              </label>
-
-              <div className="flex flex-col w-full">
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    name="confirm_password"
-                    className={`w-full border border-gray-200 rounded-md p-2 form-input focus:outline-none focus:ring-2 pr-10 ${
-                      Object.keys(state?.errors).length !== 0 &&
-                      state?.errors?.confirm_password?.length
-                        ? "border-red-500 focus:ring-red-500"
-                        : "focus:ring-primary"
-                    }`}
-                    placeholder="********"
-                    disabled={isPending}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute inset-y-0 right-3 flex items-center cursor-pointer"
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="w-5 h-5" />
-                    ) : (
-                      <Eye className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-                <span className="text-xs text-red-500">
-                  {Object.keys(state?.errors).length !== 0 &&
-                  state?.errors?.confirm_password?.length
-                    ? state?.errors?.confirm_password[0]
-                    : null}
-                </span>
-              </div>
-            </div>
           </div>
-        </div>
-        <div className="w-full">
-          <button
-            className="disabled:cursor-not-allowed border border-black flex items-center justify-center py-2 w-full rounded-md text-sm bg-black hover:bg-white text-white hover:text-black cursor-pointer"
-            type="submit"
-            disabled={isPending}
-          >
-            {isPending ? (
-              <span className="flex justify-center items-center">
-                <LoaderCircle className="animate-spin h-5 w-5 mr-3 text-white" />
-              </span>
-            ) : (
-              "Sign Up"
-            )}
-          </button>
+          <div className="w-full">
+            <button
+              className="disabled:cursor-not-allowed border border-primary flex items-center justify-center py-2 w-full rounded-md text-sm bg-primary hover:bg-white text-white hover:text-primary cursor-pointer"
+              type="submit"
+              disabled={isPending}
+            >
+              {isPending ? (
+                <span className="flex justify-center items-center">
+                  <LoaderCircle className="animate-spin h-5 w-5 mr-3 text-white" />
+                </span>
+              ) : (
+                "Sign Up"
+              )}
+            </button>
+          </div>
+          <h2 className="text-primary w-full text-sm text-center border-b leading-[0.1em] mt-[10px] mx-0 mb-[20px] ">
+            <span className="bg-[#FFFCEF] text-primary px-5 py-0 mt-1">OR</span>
+          </h2>
+          <div className="flex lg:justify-center lg:flex-row  lg:items-center flex-col gap-4 w-full">
+            <button
+              type="button"
+              onClick={handleGoogleSignUp}
+              disabled={isPending || isGoogleLoading}
+              className="w-full disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer flex items-center font-semibold justify-center px-6 mt-4 text-xl transition-colors duration-300 bg-white border text-gray-700 dark:text-black rounded-2xl py-2 focus:shadow-outline hover:bg-slate-200 border-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-gray-700"
+            >
+              {isGoogleLoading ? (
+                <span className="flex items-center">
+                  <LoaderCircle className="animate-spin h-5 w-5 mr-3" />
+                  <span className="text-base font-medium">Redirecting…</span>
+                </span>
+              ) : (
+                <>
+                  <Image
+                    width={20}
+                    height={20}
+                    src="/google.svg"
+                    alt="google logo"
+                    priority
+                  />
+                  <span className="text-base font-medium ml-4">
+                    Sign up with Google
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
         <div className="w-full">
           <p className="text-sm text-center">
             Already have an account?{" "}
-            <Link
-              href="/login"
-              className="text-primary cursor-pointer hover:text-secondary"
-            >
+            <Link href="/login" className="text-primary cursor-pointer">
               Login
+            </Link>
+          </p>
+        </div>
+        <div className="flex w-full text-xs">
+          <p>
+            By using Giftologi, you are agreeing to our{" "}
+            <Link href="/terms" className="text-primary underline">
+              Terms of Service
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-primary underline">
+              Privacy Policy.
             </Link>
           </p>
         </div>

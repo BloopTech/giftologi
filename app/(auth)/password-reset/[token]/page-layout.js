@@ -6,6 +6,7 @@ import Link from "next/link";
 import { resetPassword } from "./authenticate";
 import { toast } from "sonner";
 import { redirect } from "next/navigation";
+import Logo from "../../../../public/logo-gold.png";
 
 const resetPasswordInitialState = {
   message: "",
@@ -40,22 +41,28 @@ export default function PasswordResetPageLayout(props) {
 
   return (
     <>
-      <div className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem]">
-        <div className="flex flex-col items-center text-center">
-          <Link href="/">
-          <p className="text-2xl font-bold">Giftologi</p>
-          </Link>
-        </div>
-        <div className="w-full md:max-w-xl">
-          <FormInput
-            state={state}
-            formAction={formAction}
-            isPending={isPending}
-            email={email}
-          />
+      <div className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem] bg-white min-h-screen">
+        <div className="px-5 lg:px-[2rem] w-full flex max-w-auto max-w-md items-center justify-center flex-col space-y-12 py-[2rem] bg-[#fffcef] rounded-2xl">
+          <div className="flex items-center justify-between w-full">
+            <div className="flex flex-col space-y-1">
+              <h3 className="text-primary font-bold text-xl">Reset Password</h3>
+              <p className="text-sm text-primary">Reset your password</p>
+            </div>
+            <Link href="/">
+              {" "}
+              <Image src={Logo} alt="Logo" width={50} height={50} />
+            </Link>
+          </div>
+          <div className="w-full">
+            <FormInput
+              state={state}
+              formAction={formAction}
+              isPending={isPending}
+              email={email}
+            />
+          </div>
         </div>
       </div>
-
     </>
   );
 }

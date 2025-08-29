@@ -41,22 +41,24 @@ export default function LoginPageLayout() {
 
   return (
     <>
-<div className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem] bg-white min-h-screen">
-<div className="px-5 lg:px-[2rem] w-full flex max-w-auto max-w-md items-center justify-center flex-col space-y-16 py-[2rem] bg-[#fffcef] rounded-2xl">
-        <div className="flex space-x-2 items-center justify-start w-full">
-          <Link href="/">     <Image src={Logo} alt="Logo" width={50} height={50} />
-          </Link>
-          <p className="text-[#BBA96C] font-medium text-xl">Sign in</p>
-        </div>
-        <div className="w-full">
-          <FormInput
-            state={state}
-            formAction={formAction}
-            isPending={isPending}
-          />
+      <div className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem] bg-white min-h-screen">
+        <div className="px-5 lg:px-[2rem] w-full flex max-w-auto max-w-md items-center justify-center flex-col space-y-12 py-[2rem] bg-[#fffcef] rounded-2xl">
+          <div className="flex space-x-2 items-center justify-start w-full">
+            <Link href="/">
+              {" "}
+              <Image src={Logo} alt="Logo" width={50} height={50} />
+            </Link>
+            <p className="text-[#BBA96C] font-medium text-xl">Sign in</p>
+          </div>
+          <div className="w-full">
+            <FormInput
+              state={state}
+              formAction={formAction}
+              isPending={isPending}
+            />
+          </div>
         </div>
       </div>
-</div>
     </>
   );
 }

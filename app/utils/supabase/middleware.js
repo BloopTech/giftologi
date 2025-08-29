@@ -127,14 +127,13 @@ export async function middlewareClient(request) {
           .upsert([
             {
               id: user?.id,
-              email: signup_profile.email,
-              firstname: signup_profile.firstname,
-              lastname: signup_profile.lastname,
-              phone: signup_profile.phone,
-              color: signup_profile.color,
-              role: signup_profile.role,
-              created_at: signup_profile.created_at,
-              updated_at: signup_profile.updated_at,
+              email: signup_profile?.email,
+              firstname: signup_profile?.firstname,
+              lastname: signup_profile?.lastname,
+              color: signup_profile?.color,
+              role: signup_profile?.role,
+              created_at: signup_profile?.created_at,
+              updated_at: signup_profile?.updated_at,
             },
           ])
           .select("*")
