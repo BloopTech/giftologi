@@ -1,6 +1,6 @@
 "use client";
 import React, { useActionState, useEffect } from "react";
-import { ArrowRight, LoaderCircle } from "lucide-react";
+import { ArrowRight, LoaderCircle, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -34,21 +34,27 @@ export default function FormInput(props) {
               disabled={isPending}
               required
             />
-            <span className="text-xs text-red-500">
-              {Object.keys(state?.errors).length !== 0
-                ? state?.errors?.email?.length
-                  ? state.errors.email[0]
-                  : Object.keys(state?.errors?.credentials || {}).length !==
-                      0 && state?.errors?.credentials?.email
-                  ? state.errors.credentials.email
-                  : null
-                : null}
+            <span className="text-xs">
+              {Object.keys(state?.errors).length !== 0 ? (
+                state?.errors?.email?.length ? (
+                  <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                    <OctagonAlert className="size-5 text-red-500 pr-1" />
+                    {state.errors.email[0]}
+                  </span>
+                ) : Object.keys(state?.errors?.credentials || {}).length !==
+                    0 && state?.errors?.credentials?.email ? (
+                  <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                    <OctagonAlert className="size-5 text-red-500 pr-1" />
+                    {state.errors.credentials.email}
+                  </span>
+                ) : null
+              ) : null}
             </span>
           </div>
         </div>
         <div className="w-full flex flex-col space-y-4">
           <button
-            className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-lg text-sm bg-primary hover:bg-white hover:text-primary border border-primary text-white cursor-pointer"
+            className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-4xl text-sm bg-primary hover:bg-white hover:text-primary border border-primary text-white cursor-pointer"
             type="submit"
             disabled={isPending}
           >

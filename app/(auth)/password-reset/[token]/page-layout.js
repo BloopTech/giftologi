@@ -1,5 +1,5 @@
 "use client";
-import React, { useActionState, useEffect } from "react";
+import React, { useActionState, useEffect, useState } from "react";
 import Image from "next/image";
 import FormInput from "./form-input";
 import Link from "next/link";
@@ -7,6 +7,7 @@ import { resetPassword } from "./authenticate";
 import { toast } from "sonner";
 import { redirect } from "next/navigation";
 import Logo from "../../../../public/logo-gold.png";
+import ResetPasswordSuccess from "./success";
 
 const resetPasswordInitialState = {
   message: "",
@@ -24,6 +25,7 @@ export default function PasswordResetPageLayout(props) {
     resetPassword,
     resetPasswordInitialState
   );
+  const [passwordSuccess, setPasswordSuccess] = useState(false);
 
   useEffect(() => {
     if (
@@ -36,6 +38,7 @@ export default function PasswordResetPageLayout(props) {
 
     if (state?.message && state.status_code === 200) {
       toast.success(state?.message);
+      setPasswordSuccess(true);
     }
   }, [state?.message, state?.errors, state?.status_code]);
 
@@ -51,24 +54,32 @@ export default function PasswordResetPageLayout(props) {
         }}
       >
         <div className="px-5 lg:px-[2rem] w-full flex max-w-auto max-w-md items-center justify-center flex-col space-y-12 py-[2rem] bg-[#fffcef] rounded-2xl">
-          <div className="flex items-center justify-between w-full">
-            <div className="flex flex-col space-y-1">
-              <h3 className="text-primary font-bold text-xl">Reset Password</h3>
-              <p className="text-sm text-primary">Reset your password</p>
-            </div>
-            <Link href="/">
-              {" "}
-              <Image src={Logo} alt="Logo" width={50} height={50} />
-            </Link>
-          </div>
-          <div className="w-full">
-            <FormInput
-              state={state}
-              formAction={formAction}
-              isPending={isPending}
-              email={email}
-            />
-          </div>
+          {passwordSuccess ? (
+            <ResetPasswordSuccess />
+          ) : (
+            <>
+              <div className="flex items-center justify-between w-full">
+                <div className="flex flex-col space-y-1">
+                  <h3 className="text-primary font-bold text-xl">
+                    Reset Password
+                  </h3>
+                  <p className="text-sm text-primary">Reset your password</p>
+                </div>
+                <Link href="/">
+                  {" "}
+                  <Image src={Logo} alt="Logo" width={50} height={50} />
+                </Link>
+              </div>
+              <div className="w-full">
+                <FormInput
+                  state={state}
+                  formAction={formAction}
+                  isPending={isPending}
+                  email={email}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </>
