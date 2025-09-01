@@ -1,6 +1,12 @@
 "use client";
 import React, { useState } from "react";
-import { ArrowRight, Eye, EyeOff, LoaderCircle } from "lucide-react";
+import {
+  ArrowRight,
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  OctagonAlert,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function FormInput(props) {
@@ -42,11 +48,21 @@ export default function FormInput(props) {
                 )}
               </button>
             </div>
-            <span className="text-xs text-red-500">
-              {Object.keys(state?.errors).length !== 0 &&
-              state?.errors?.password?.length
-                ? state?.errors?.password[0]
-                : null}
+            <span className="text-xs">
+              {Object.keys(state?.errors).length !== 0 ? (
+                state?.errors?.password?.length ? (
+                  <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                    <OctagonAlert className="size-5 text-red-500 pr-1" />
+                    {state.errors.password[0]}
+                  </span>
+                ) : Object.keys(state?.errors?.credentials || {}).length !==
+                    0 && state?.errors?.credentials?.password ? (
+                  <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                    <OctagonAlert className="size-5 text-red-500 pr-1" />
+                    {state.errors.credentials.password}
+                  s</span>
+                ) : null
+              ) : null}
             </span>
           </div>
 
@@ -77,11 +93,21 @@ export default function FormInput(props) {
                 )}
               </button>
             </div>
-            <span className="text-xs text-red-500">
-              {Object.keys(state?.errors).length !== 0 &&
-              state?.errors?.confirm_password?.length
-                ? state?.errors?.confirm_password[0]
-                : null}
+            <span className="text-xs">
+              {Object.keys(state?.errors).length !== 0 ? (
+                state?.errors?.confirm_password?.length ? (
+                  <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                    <OctagonAlert className="size-5 text-red-500 pr-1" />
+                    {state.errors.confirm_password[0]}
+                  </span>
+                ) : Object.keys(state?.errors?.credentials || {}).length !==
+                    0 && state?.errors?.credentials?.confirm_password ? (
+                  <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                    <OctagonAlert className="size-5 text-red-500 pr-1" />
+                    {state.errors.credentials.confirm_password}
+                  </span>
+                ) : null
+              ) : null}
             </span>
           </div>
         </div>
