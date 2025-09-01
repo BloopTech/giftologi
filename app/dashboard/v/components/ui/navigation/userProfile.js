@@ -5,7 +5,11 @@ import { cx, focusRing } from "../../../../../components/utils";
 
 import { DropdownUserProfile } from "./dropdownUserProfile";
 import { Ellipsis, LogOut } from "lucide-react";
-
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "../../../../../components/Avatar";
 
 export const UserProfileDesktop = (props) => {
   const supabase = createClient();
@@ -40,7 +44,6 @@ export const UserProfileDesktop = (props) => {
     };
   }, [supabase]);
 
-
   return (
     <DropdownUserProfile userData={userData}>
       <button
@@ -52,15 +55,26 @@ export const UserProfileDesktop = (props) => {
         )}
       >
         <span className="flex items-center gap-3 text-xs">
-          <span
-            className={`flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white`}
-            aria-hidden="true"
-            style={{ backgroundColor: userData?.color }}
-          >
-            {userData?.firstname[0]}{userData?.lastname[0]}
+          <span className="relative">
+            <Avatar className="w-8 h-8 ring-4 ring-white shadow-xl">
+              <AvatarImage
+                src={userData?.image}
+                alt={userData?.firstname}
+                className="object-cover"
+              />
+              <AvatarFallback
+                style={{ backgroundColor: userData?.color }}
+                className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+              >
+                {userData?.firstname?.charAt(0)}
+                {userData?.lastname?.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
           </span>
           <span className="flex flex-col items-start justify-start dark:text-white">
-            <span>{userData?.firstname} {userData?.lastname}</span>
+            <span className="line-clamp-1">
+              {userData?.firstname} {userData?.lastname}
+            </span>
             <span className="text-[#2C3E50] capitalize">{userData?.role}</span>
           </span>
         </span>
@@ -105,7 +119,7 @@ export const UserProfileMobile = () => {
       ignore = true;
     };
   }, [supabase]);
-  
+
   return (
     <DropdownUserProfile align="end" userData={userData}>
       <button
@@ -115,12 +129,21 @@ export const UserProfileMobile = () => {
           "group flex items-center rounded-md p-1 text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 data-[state=open]:bg-gray-100 hover:dark:bg-gray-400/10"
         )}
       >
-        <span
-          className="flex size-7 shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-xs text-gray-700 dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-          aria-hidden="true"
-          style={{ backgroundColor: userData?.color }}
-        >
-          {userData?.firstname[0]}{userData?.lastname[0]}
+        <span className="relative">
+          <Avatar className="w-8 h-8 ring-4 ring-white shadow-xl">
+            <AvatarImage
+              src={userData?.image}
+              alt={userData?.firstname}
+              className="object-cover"
+            />
+            <AvatarFallback
+              style={{ backgroundColor: userData?.color }}
+              className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+            >
+              {userData?.firstname?.charAt(0)}
+              {userData?.lastname?.charAt(0)}
+            </AvatarFallback>
+          </Avatar>
         </span>
       </button>
     </DropdownUserProfile>

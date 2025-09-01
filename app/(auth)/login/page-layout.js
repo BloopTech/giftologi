@@ -41,7 +41,15 @@ export default function LoginPageLayout() {
 
   return (
     <>
-      <div className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem] bg-white min-h-screen">
+      <div
+        className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem] bg-[#16150FB2] min-h-screen"
+        style={{
+          backgroundImage: "url('/auth_layer.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
         <div className="px-5 lg:px-[2rem] w-full flex max-w-auto max-w-md items-center justify-center flex-col space-y-12 py-[2rem] bg-[#fffcef] rounded-2xl">
           <div className="flex space-x-2 items-center justify-start w-full">
             <Link href="/">

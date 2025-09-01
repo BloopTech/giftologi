@@ -22,7 +22,7 @@ export default function FormInput(props) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: { prompt: "select_account" },
         },
       });
@@ -60,11 +60,21 @@ export default function FormInput(props) {
                 disabled={isPending}
                 required
               />
-              <span className="text-xs text-red-500">
-                {Object.keys(state?.errors).length !== 0 &&
-                state?.errors?.firstname?.length
-                  ? state?.errors?.firstname[0]
-                  : null}
+              <span className="text-xs">
+                {Object.keys(state?.errors).length !== 0 ? (
+                  state?.errors?.firstname?.length ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.firstname[0]}
+                    </span>
+                  ) : Object.keys(state?.errors?.credentials || {}).length !==
+                      0 && state?.errors?.credentials?.firstname ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.credentials.firstname}
+                    </span>
+                  ) : null
+                ) : null}
               </span>
             </div>
 
@@ -83,11 +93,21 @@ export default function FormInput(props) {
                 disabled={isPending}
                 required
               />
-              <span className="text-xs text-red-500">
-                {Object.keys(state?.errors).length !== 0 &&
-                state?.errors?.lastname?.length
-                  ? state?.errors?.lastname[0]
-                  : null}
+              <span className="text-xs">
+                {Object.keys(state?.errors).length !== 0 ? (
+                  state?.errors?.lastname?.length ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.lastname[0]}
+                    </span>
+                  ) : Object.keys(state?.errors?.credentials || {}).length !==
+                      0 && state?.errors?.credentials?.lastname ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.credentials.lastname}
+                    </span>
+                  ) : null
+                ) : null}
               </span>
             </div>
 
@@ -109,14 +129,17 @@ export default function FormInput(props) {
                 disabled={isPending}
                 required
               />
-              <span className="text-xs ">
+              <span className="text-xs">
                 {Object.keys(state?.errors).length !== 0 ? (
                   state?.errors?.email?.length ? (
-                    state.errors.email[0]
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.email[0]}
+                    </span>
                   ) : Object.keys(state?.errors?.credentials || {}).length !==
                       0 && state?.errors?.credentials?.email ? (
-                    <span className="flex items-center space-x-2 text-red-500 bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
-                      <OctagonAlert className="size-4 text-red-500" />
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
                       {state.errors.credentials.email}
                     </span>
                   ) : null
@@ -152,11 +175,21 @@ export default function FormInput(props) {
                     )}
                   </button>
                 </div>
-                <span className="text-xs text-red-500">
-                  {Object.keys(state?.errors).length !== 0 &&
-                  state?.errors?.password?.length
-                    ? state?.errors?.password[0]
-                    : null}
+                <span className="text-xs">
+                  {Object.keys(state?.errors).length !== 0 ? (
+                    state?.errors?.password?.length ? (
+                      <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                        <OctagonAlert className="size-5 text-red-500 pr-1" />
+                        {state.errors.password[0]}
+                      </span>
+                    ) : Object.keys(state?.errors?.credentials || {}).length !==
+                        0 && state?.errors?.credentials?.password ? (
+                      <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                        <OctagonAlert className="size-5 text-red-500 pr-1" />
+                        {state.errors.credentials.password}
+                      </span>
+                    ) : null
+                  ) : null}
                 </span>
               </div>
             </div>

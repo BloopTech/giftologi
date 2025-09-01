@@ -19,6 +19,12 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "../../../../../utils/supabase/client";
+import logo from "../../../../../../public/logo-gold.png";
+import {
+  AvatarFallback,
+  Avatar,
+  AvatarImage,
+} from "../../../../../components/Avatar";
 
 const workspaces = [
   {
@@ -98,13 +104,12 @@ export const WorkspacesDropdownDesktop = () => {
         <DropdownMenuTrigger asChild>
           <button
             className={cx(
-              "cursor-pointer flex w-full items-center gap-x-1 bg-gray-200 px-2 text-sm shadow-sm transition-all hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 hover:dark:bg-gray-900",
+              "cursor-pointer py-2 flex w-full items-center gap-x-1 bg-gray-200 px-2 text-sm shadow-sm transition-all hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 hover:dark:bg-gray-900",
               focusInput
             )}
           >
             <div className="flex aspect-square items-center justify-center px-2 -my-3">
-              {/* <Image src={logo} alt="logo" width={80} height={80} priority /> */}
-              LOGO
+              <Image src={logo} alt="logo" width={40} height={40} priority />
             </div>
             <div className="flex w-full items-center justify-between gap-x-4 truncate">
               <div className="truncate">
@@ -133,32 +138,37 @@ export const WorkspacesDropdownDesktop = () => {
             <DropdownMenuLabel>
               Workspaces ({workspaces.length})
             </DropdownMenuLabel>
-            
-              <DropdownMenuItem key={userData?.role}>
-                <div className="flex w-full items-center gap-x-2.5">
-                  <span
-                    className={cx(
-                      "bg-primary dark:bg-primary",
-                      "flex aspect-square size-8 items-center justify-center rounded p-2 text-xs font-medium text-white"
-                    )}
-                    aria-hidden="true"
-                  >
+
+            <DropdownMenuItem key={userData?.role}>
+              <div className="flex w-full items-center gap-x-2.5">
+                <span className="relative">
+                  <Avatar className="w-8 h-8 ring-4 ring-white shadow-xl">
+                    <AvatarImage
+                      src={userData?.image}
+                      alt={userData?.firstname}
+                      className="object-cover"
+                    />
+                    <AvatarFallback
+                      style={{ backgroundColor: userData?.color }}
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                    >
+                      {userData?.firstname?.charAt(0)}
+                      {userData?.lastname?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </span>
+                <div className="w-[90%]">
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-50 line-clamp-1 w-full">
+                    {userData?.firstname} {userData?.lastname}
+                  </p>
+                  <p className="text-xs text-gray-700 dark:text-white">
                     {userData?.role}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
-                    {userData?.role}
-                    </p>
-                    <p className="text-xs text-gray-700 dark:text-white">
-                    {userData?.role}
-                    </p>
-                  </div>
+                  </p>
                 </div>
-              </DropdownMenuItem>
-    
+              </div>
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-
         </DropdownMenuContent>
       </DropdownMenu>
     </>
@@ -262,32 +272,30 @@ export const WorkspacesDropdownMobile = () => {
             <DropdownMenuLabel>
               Workspaces ({workspaces.length})
             </DropdownMenuLabel>
-            
-              <DropdownMenuItem key={userData?.role}>
-                <div className="flex w-full items-center gap-x-2.5">
-                  <span
-                    className={cx(
-                      "bg-primary dark:bg-primary",
-                      "flex size-8 items-center justify-center rounded p-2 text-xs font-medium text-white"
-                    )}
-                    aria-hidden="true"
-                  >
-                   {userData?.role}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
-                      {userData?.role}
-                    </p>
-                    <p className="text-xs text-gray-700 dark:text-gray-300">
+
+            <DropdownMenuItem key={userData?.role}>
+              <div className="flex w-full items-center gap-x-2.5">
+                <span
+                  className={cx(
+                    "bg-primary dark:bg-primary",
+                    "flex size-8 items-center justify-center rounded p-2 text-xs font-medium text-white"
+                  )}
+                  aria-hidden="true"
+                >
+                  {userData?.role}
+                </span>
+                <div>
+                  <p className="text-sm font-medium text-gray-900 dark:text-gray-50">
                     {userData?.role}
-                    </p>
-                  </div>
+                  </p>
+                  <p className="text-xs text-gray-700 dark:text-gray-300">
+                    {userData?.role}
+                  </p>
                 </div>
-              </DropdownMenuItem>
-            
+              </div>
+            </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-
         </DropdownMenuContent>
       </DropdownMenu>
     </>

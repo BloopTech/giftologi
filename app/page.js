@@ -1,68 +1,57 @@
-import { Gift } from "lucide-react";
+"use client";
+import React from "react";
+import { Mail } from "lucide-react";
 import Image from "next/image";
-import { EmailSignup } from "./email";
+import Logo from "../public/logo-gold.png";
 import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="bg-white text-black flex flex-col min-h-screen gap-16 pt-5 px-10">
-      <div className="flex justify-end space-x-2">
-        <Link href="/login">Login</Link>
-        <span>|</span>
-        <Link href="/signup">Signup</Link>
+    <div className="bg-[#16150FB2] text-black flex flex-col min-h-screen gap-16 pt-5 px-10 w-full items-center justify-center"
+    style={{
+      backgroundImage: "url('/coming_soon_layer.png')",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+    }}
+    >
+      <main className="flex flex-col items-center justify-center w-full">
+        <div className="gift-card rounded-2xl relative overflow-hidden p-8 max-w-md mx-auto bg-white flex items-center space-x-8 justify-center fade-in-up delay-3 border border-slate-400 font-poppins">
+          <div className="pointer-events-none absolute top-0 right-0 w-[113px] h-[115px] overflow-hidden z-0" aria-hidden="true">
+            <div className="absolute top-0 right-0 w-[260px] h-[14px] bg-[#D2BF7C] origin-top-right -translate-y-1/2 rotate-45" />
+          </div>
+          <div className="relative z-10">
+            <Image src={Logo} alt="Logo" width={120} height={120} />
+          </div>
+          <div className="relative z-10 flex flex-col space-y-4 w-full">
+            <p className="text-[#85753C] font-semibold">
+              Hold the ribbon,
+              <br />
+              we&apos;re tying the knot on our site.
+            </p>
+            <p className="text-xs text-[#85753C]">
+              We&apos;re handpicking every detail, just for you. Sit
+              tight—we&apos;ll be live soon.
+            </p>
+            <div className="flex space-x-4 w-full">
+              <Link
+                href="mailto:devs@mygiftologi.com"
+                className="rounded-xl flex items-center justify-center px-4 py-2 bg-[#A5914B] text-xs text-white"
+                aria-label="Send us an email"
+              >
+                Send us an Email
+              </Link>
+              <Link
+                href="tel:+233244151619"
+                className="rounded-xl flex items-center justify-center px-8 py-2 bg-[#85753C] text-xs text-white"
+                aria-label="Call us at +233244151619"
+              >
+                Call Us
+              </Link>
+            </div>
+          </div>
         </div>
-      <main className="flex flex-col items-center justify-center">
-        <h1 className="text-6xl font-bold flex flex-col md:flex-row items-baseline font-cormorant-garamond space-x-2">
-          <span>COMING</span>
-          <span className="flex items-baseline">
-            <span>SOON</span>
-            <Gift className="size-4 animate-pulse" />
-            <Gift className="size-4 animate-pulse" />
-            <Gift className="size-4 animate-pulse" />
-          </span>
-        </h1>
-        {/* Add social media icons */}
-        {/* <div className="flex gap-4">
-          <Link
-            href="https://www.instagram.com/giftologi/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="lucide lucide-instagram-icon lucide-instagram"
-            >
-              <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
-              <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
-              <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
-            </svg>
-          </Link>
-          <Link
-            href="https://www.tiktok.com/@giftologi"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <svg
-              xmlns="[http://www.w3.org/2000/svg](http://www.w3.org/2000/svg)"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-            >
-              <path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 1.4-.54 2.79-1.35 3.94-1.31 1.92-3.58 3.17-5.91 3.21-1.43.08-2.86-.31-4.08-1.03-2.02-1.19-3.44-3.37-3.65-5.71-.02-.5-.03-1-.01-1.49.18-1.9 1.12-3.72 2.58-4.96 1.66-1.44 3.98-2.13 6.15-1.72.02 1.48-.04 2.96-.04 4.44-.99-.32-2.15-.23-2.99.37-.83.6-1.31 1.6-1.36 2.62-.06 1.1.32 2.19 1.03 2.98 1.01 1.14 2.8 1.43 4.16.81.68-.32 1.22-.88 1.5-1.58.11-.28.19-.58.2-.88.03-.98.01-1.96.01-2.94.01-4.51.01-9.02.01-13.54v-.01z" />
-            </svg>
-          </Link>
-        </div> */}
       </main>
-      <EmailSignup />
     </div>
   );
 }

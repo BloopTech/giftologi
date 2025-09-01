@@ -18,16 +18,16 @@ const loginSchema = z.object({
   password: z
     .string()
     .trim()
-    .min(1, { message: "Password is required" })
-    .min(8, { message: "Password must be at least 8 characters long" })
+    .min(1, { message: "Enter Password" })
+    .min(8, { message: "Invalid email or password" })
     .regex(/[A-Z]/, {
-      message: "Password must contain at least one uppercase letter",
+      message: "Invalid email or password",
     })
     .regex(/[a-z]/, {
-      message: "Password must contain at least one lowercase letter",
+      message: "Invalid email or password",
     })
     .regex(/[^A-Za-z0-9]/, {
-      message: "Password must contain at least one special character",
+      message: "Invalid email or password",
     }),
 });
 

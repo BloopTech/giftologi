@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient as createSupabaseClient } from "../../utils/supabase/client";
@@ -18,7 +18,7 @@ export default function FormInput(props) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/auth/callback`,
           queryParams: { prompt: "select_account" },
         },
       });
@@ -59,15 +59,21 @@ export default function FormInput(props) {
                 disabled={isPending}
                 required
               />
-              <span className="text-xs text-red-500">
-                {Object.keys(state?.errors).length !== 0
-                  ? state?.errors?.email?.length
-                    ? state.errors.email[0]
-                    : Object.keys(state?.errors?.credentials || {}).length !==
-                        0 && state?.errors?.credentials?.email
-                    ? state.errors.credentials.email
-                    : null
-                  : null}
+              <span className="text-xs ">
+                {Object.keys(state?.errors).length !== 0 ? (
+                  state?.errors?.email?.length ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.email[0]}
+                    </span>
+                  ) : Object.keys(state?.errors?.credentials || {}).length !==
+                      0 && state?.errors?.credentials?.email ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.credentials.email}
+                    </span>
+                  ) : null
+                ) : null}
               </span>
             </div>
 
@@ -98,11 +104,21 @@ export default function FormInput(props) {
                   )}
                 </button>
               </div>
-              <span className="text-xs text-red-500">
-                {Object.keys(state?.errors).length !== 0 &&
-                state?.errors?.password?.length
-                  ? state?.errors?.password[0]
-                  : null}
+              <span className="text-xs">
+                {Object.keys(state?.errors).length !== 0 ? (
+                  state?.errors?.password?.length ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.password[0]}
+                    </span>
+                  ) : Object.keys(state?.errors?.credentials || {}).length !==
+                      0 && state?.errors?.credentials?.password ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.errors.credentials.password}
+                    </span>
+                  ) : null
+                ) : null}
               </span>
             </div>
           </div>

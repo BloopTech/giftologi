@@ -1,0 +1,48 @@
+"use client";
+
+import React, {forwardRef} from "react";
+import * as AvatarPrimitive from "@radix-ui/react-avatar";
+
+import { cx } from "./utils";
+
+const AvatarImage = forwardRef(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Image
+    ref={ref}
+    className={cx("aspect-square h-full w-full", className)}
+    {...props}
+  />
+))
+AvatarImage.displayName = AvatarPrimitive.Image.displayName
+
+const Avatar = forwardRef(({ className, color, imageUrl, children, initials, ...props }, ref) => (
+  <AvatarPrimitive.Root
+    ref={ref}
+    className={cx(
+      "relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full text-white",
+      className
+    )}
+    style={{ backgroundColor: color }}
+    {...props}
+  >
+    {imageUrl && <AvatarImage src={imageUrl} alt="Avatar" className="object-cover" />}
+    {!imageUrl && children}
+    {!imageUrl && !children && initials && (
+      <AvatarFallback>{initials}</AvatarFallback>
+    )}
+  </AvatarPrimitive.Root>
+))
+Avatar.displayName = AvatarPrimitive.Root.displayName
+
+const AvatarFallback = forwardRef(({ className, ...props }, ref) => (
+  <AvatarPrimitive.Fallback
+    ref={ref}
+    className={cx(
+      "flex h-full w-full items-center justify-center rounded-full bg-muted",
+      className
+    )}
+    {...props}
+  />
+))
+AvatarFallback.displayName = AvatarPrimitive.Fallback.displayName
+
+export { Avatar, AvatarImage, AvatarFallback }
