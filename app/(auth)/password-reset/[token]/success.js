@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import Image from "next/image";
-import Logo from "../../../public/logo-gold.png";
+import Logo from "../../../../public/logo-gold.png";
 import Link from "next/link";
 
 export default function ResetPasswordSuccess() {
