@@ -57,7 +57,7 @@ export default function RootLayout({ children }) {
       >
         <ThemeProvider attribute="class">
           <Toaster
-            position="top-right"
+            position="top-center"
             expand={true}
             richColors
             closeButton

@@ -142,7 +142,7 @@ export async function middlewareClient(request) {
   if (user && user?.id) {
     // Block auth pages for logged-in users, except allow password reset during recovery flow
     if (isForgotRoute || isPasswordResetRoute) {
-      if (isPasswordResetRoute && hasOAuthOrVerifyCode && type === "recovery") {
+      if (isPasswordResetRoute && hasOAuthOrVerifyCode) {
         return supabaseResponse;
       }
       return withCookiesRedirect(new URL(loginRedirect, request.url));
@@ -314,7 +314,7 @@ export async function middlewareClient(request) {
     // Only allow password reset route when arriving with a valid recovery code
     if (
       isPasswordResetRoute &&
-      !(hasOAuthOrVerifyCode && type === "recovery")
+      !hasOAuthOrVerifyCode
     ) {
       return withCookiesRedirect(new URL("/forgot-password", request.url));
     }

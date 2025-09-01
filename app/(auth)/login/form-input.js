@@ -72,6 +72,14 @@ export default function FormInput(props) {
                       <OctagonAlert className="size-5 text-red-500 pr-1" />
                       {state.errors.credentials.email}
                     </span>
+                  ) : !(
+                      state?.errors.password?.length ||
+                      state?.errors?.credentials?.password
+                    ) && Object.keys(state?.errors).length !== 0 && state?.message ? (
+                    <span className="flex items-center space-x-2 text-red-500 font-medium bg-red-100 mt-2 p-2 border border-red-500 rounded-md">
+                      <OctagonAlert className="size-5 text-red-500 pr-1" />
+                      {state.message}
+                    </span>
                   ) : null
                 ) : null}
               </span>
@@ -124,7 +132,7 @@ export default function FormInput(props) {
           </div>
           <div className="w-full flex flex-col space-y-2">
             <button
-              className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-md text-sm bg-[#BBA96C] hover:bg-white hover:text-primary border border-primary text-white cursor-pointer"
+              className="disabled:cursor-not-allowed flex items-center justify-center py-2 w-full rounded-4xl text-sm bg-[#BBA96C] hover:bg-white hover:text-primary border border-primary text-white cursor-pointer"
               type="submit"
               disabled={isPending}
             >

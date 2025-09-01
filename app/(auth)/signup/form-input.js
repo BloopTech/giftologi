@@ -196,7 +196,7 @@ export default function FormInput(props) {
           </div>
           <div className="w-full">
             <button
-              className="disabled:cursor-not-allowed border border-primary flex items-center justify-center py-2 w-full rounded-md text-sm bg-primary hover:bg-white text-white hover:text-primary cursor-pointer"
+              className="disabled:cursor-not-allowed border border-primary flex items-center justify-center py-2 w-full rounded-4xl text-sm bg-primary hover:bg-white text-white hover:text-primary cursor-pointer"
               type="submit"
               disabled={isPending}
             >
