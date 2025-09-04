@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { cx, focusRing } from "../../../../../components/utils";
 import { ChevronRight, OctagonAlert, Sun, ChevronDown } from "lucide-react";
 import NextLink from "next/link";
@@ -14,12 +14,44 @@ import { useNavigationData } from "./utils";
 import { DropdownTheme, DropdownUserProfile } from "./dropdownUserProfile";
 
 import { useRouter } from "next/navigation";
+import { createClient } from "../../../../../utils/supabase/client";
 
 export default function HostSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [openDropdowns, setOpenDropdowns] = useState({});
   const navigation = useNavigationData();
+  const supabase = createClient();
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      const { data: { user } = {} } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (!ignore) {
+        if (error) {
+          console.error("profiles select error", error);
+          setError(error);
+        }
+        setUserData(data || null);
+        setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [supabase]);
 
   const isActive = (itemHref) => {
     if (itemHref === "/") {
@@ -153,15 +185,15 @@ export default function HostSidebar() {
         </nav>
 
         <div className="w-full inline-flex gap-x-5 items-end">
-          <UserProfileDesktop />
+          <UserProfileDesktop userData={userData} />
         </div>
       </nav>
       {/* top navbar (xs-lg) */}
       <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-2 shadow-sm sm:gap-x-6 sm:px-4 lg:hidden dark:border-gray-800 dark:bg-gray-950">
         <WorkspacesDropdownMobile />
         <div className="flex items-center gap-1 sm:gap-2">
-          <UserProfileMobile />
-          <MobileSidebar />
+          <UserProfileMobile userData={userData} />
+          <MobileSidebar userData={userData} />
         </div>
       </div>
     </>
