@@ -1,14 +1,14 @@
 "use client";
 import React from "react";
 import Image from "next/image";
-import Logo from "../../../../public/logo-gold.png";
+import Logo from "../../../../public/giftologi-logo.png";
 import Link from "next/link";
 
 export default function ResetPasswordSuccess() {
   return (
     <div className="flex flex-col space-y-8 w-full items-center justify-center">
       <div>
-        <Image src={Logo} alt="Logo" width={80} height={80} />
+        <Image src={Logo} alt="Logo" width={80} height={80} priority />
       </div>
 
       <div className="flex flex-col items-center justify-center w-full space-y-2">

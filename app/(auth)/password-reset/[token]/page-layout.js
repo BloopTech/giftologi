@@ -6,7 +6,7 @@ import Link from "next/link";
 import { resetPassword } from "./authenticate";
 import { toast } from "sonner";
 import { redirect } from "next/navigation";
-import Logo from "../../../../public/logo-gold.png";
+import Logo from "../../../../public/giftologi-logo.png";
 import ResetPasswordSuccess from "./success";
 
 const resetPasswordInitialState = {
@@ -67,7 +67,13 @@ export default function PasswordResetPageLayout(props) {
                 </div>
                 <Link href="/">
                   {" "}
-                  <Image src={Logo} alt="Logo" width={50} height={50} />
+                  <Image
+                    src={Logo}
+                    alt="Logo"
+                    width={50}
+                    height={50}
+                    priority
+                  />
                 </Link>
               </div>
               <div className="w-full">

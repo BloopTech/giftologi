@@ -5,7 +5,7 @@ import FormInput from "./form-input";
 import Link from "next/link";
 import { forgotPassword } from "./authenticate";
 import { toast } from "sonner";
-import Logo from "../../../public/logo-gold.png";
+import Logo from "../../../public/giftologi-logo.png";
 import ForgotPasswordSuccess from "./success";
 
 const initialState = {
@@ -31,7 +31,8 @@ export default function ForgotPasswordPageLayout() {
       state?.message &&
       Object.keys(state?.errors || {}).length > 0 &&
       Object.keys(state?.errors?.credentials || {}).length > 0
-    ) {s
+    ) {
+      s;
       toast.error(state?.message);
     }
 
@@ -65,7 +66,7 @@ export default function ForgotPasswordPageLayout() {
               </div>
               <Link href="/">
                 {" "}
-                <Image src={Logo} alt="Logo" width={50} height={50} />
+                <Image src={Logo} alt="Logo" width={50} height={50} priority />
               </Link>
             </div>
             <div className="w-full">

@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { createClient } from "../../../../../utils/supabase/client";
-import logo from "../../../../../../public/logo-gold.png";
+import logo from "../../../../../../public/giftologi-logo.png";
 import {
   AvatarFallback,
   Avatar,

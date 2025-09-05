@@ -18,18 +18,17 @@ import { Switch } from "../../../../../components/Switch";
 
 import { toast } from "sonner";
 
-export default function MobileSidebar() {
+export default function MobileSidebar(props) {
+  const { userData } = props;
 
   const pathname = usePathname();
   const [openDropdowns, setOpenDropdowns] = useState({});
 
   const navigation = useNavigationData();
 
-
   // Add state to control the switch
   const [isLiveMode, setIsLiveMode] = useState(false);
 
- 
   const isActive = (itemHref) => {
     if (itemHref === "/") {
       return pathname.startsWith("/settings");
@@ -58,11 +57,12 @@ export default function MobileSidebar() {
         </DrawerTrigger>
         <DrawerContent className="sm:max-w-lg">
           <DrawerHeader>
-            <DrawerTitle>Giftologi</DrawerTitle>
+            <DrawerTitle>
+              {userData?.firstname?.charAt(0)}
+              {userData?.lastname?.charAt(0)}
+            </DrawerTitle>
           </DrawerHeader>
           <DrawerBody>
-            
-
             <nav
               aria-label="core navigation links"
               className="flex flex-1 flex-col space-y-5 px-4"

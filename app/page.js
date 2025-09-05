@@ -2,7 +2,7 @@
 import React from "react";
 import { Mail } from "lucide-react";
 import Image from "next/image";
-import Logo from "../public/logo-gold.png";
+import Logo from "../public/giftologi-logo.png";
 import Link from "next/link";
 
 export default function Home() {
@@ -17,19 +17,22 @@ export default function Home() {
       }}
     >
       <main className="flex flex-col items-center justify-center w-full">
-        <div className="rounded-2xl relative overflow-hidden max-w-md mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-poppins">
+        <div className="rounded-2xl relative overflow-hidden max-w-lg mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-poppins">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute top-[55px] -right-2 w-[100%] h-[10px] bg-[#D2BF7C] origin-top-right rotate-40 z-1"
           />
           <div className="relative z-10 p-8 flex flex-col md:flex-row space-x-0 space-y-4 md:space-y-0 items-center md:space-x-8 justify-center w-full">
-            <div className="relative z-10">
+            <div className="relative z-10 h-[80px] md:h-[100px] w-[30%]">
+              <div className="h-full w-full">
               <Image
                 src={Logo}
                 alt="Logo"
-                className="w-20 h-20 md:w-30 md:h-30"
+                fill
                 priority
+                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               />
+              </div>
             </div>
             <div className="relative z-10 flex flex-col space-y-4 w-full">
               <p className="text-[#85753C] font-semibold">

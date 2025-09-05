@@ -6,7 +6,7 @@ import Link from "next/link";
 import { login } from "./authenticate";
 import { toast } from "sonner";
 import { redirect } from "next/navigation";
-import Logo from "../../../public/logo-gold.png";
+import Logo from "../../../public/giftologi-logo.png";
 
 const loginInitialState = {
   message: "",
@@ -54,7 +54,7 @@ export default function LoginPageLayout() {
           <div className="flex space-x-2 items-center justify-start w-full">
             <Link href="/">
               {" "}
-              <Image src={Logo} alt="Logo" width={50} height={50} />
+              <Image src={Logo} alt="Logo" width={50} height={50} priority />
             </Link>
             <p className="text-[#BBA96C] font-medium text-xl">Sign in</p>
           </div>

@@ -12,37 +12,7 @@ import {
 } from "../../../../../components/Avatar";
 
 export const UserProfileDesktop = (props) => {
-  const supabase = createClient();
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  useEffect(() => {
-    let ignore = false;
-    const load = async () => {
-      const { data: { user } = {} } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      if (!ignore) {
-        if (error) {
-          console.error("profiles select error", error);
-          setError(error);
-        }
-        setUserData(data || null);
-        setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      ignore = true;
-    };
-  }, [supabase]);
+  const { userData } = props;
 
   return (
     <DropdownUserProfile userData={userData}>
@@ -87,38 +57,8 @@ export const UserProfileDesktop = (props) => {
   );
 };
 
-export const UserProfileMobile = () => {
-  const supabase = createClient();
-  const [userData, setUserData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  useEffect(() => {
-    let ignore = false;
-    const load = async () => {
-      const { data: { user } = {} } = await supabase.auth.getUser();
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-      if (!ignore) {
-        if (error) {
-          console.error("profiles select error", error);
-          setError(error);
-        }
-        setUserData(data || null);
-        setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      ignore = true;
-    };
-  }, [supabase]);
+export const UserProfileMobile = (props) => {
+  const { userData } = props;
 
   return (
     <DropdownUserProfile align="end" userData={userData}>
