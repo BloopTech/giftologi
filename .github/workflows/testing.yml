@@ -35,6 +35,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
+      - name: List Vercel teams
+        run: vercel teams ls --token "$VERCEL_TOKEN"
+      - name: List projects under Giftologi
+        run: vercel projects ls --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Verify Vercel auth/scope
         run: vercel whoami --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Pull Vercel Environment Information
