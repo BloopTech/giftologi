@@ -46,4 +46,4 @@ jobs:
       - name: Build Project Artifacts
         run: NODE_OPTIONS="--max-old-space-size=39096" vercel build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --prod --yes --confirm --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+        run: vercel deploy --prebuilt --prod --yes --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
