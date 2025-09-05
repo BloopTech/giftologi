@@ -35,9 +35,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
+      - name: Verify Vercel auth/scope
+        run: vercel whoami --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production --scope "$VERCEL_ORG_ID"
+        run: vercel pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Build Project Artifacts
-        run: NODE_OPTIONS="--max-old-space-size=39096" vercel build --prod --scope "$VERCEL_ORG_ID"
+        run: NODE_OPTIONS="--max-old-space-size=39096" vercel build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --prod --yes --confirm --scope "$VERCEL_ORG_ID"
+        run: vercel deploy --prebuilt --prod --yes --confirm --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
