@@ -17,7 +17,7 @@ export default function Home() {
       }}
     >
       <main className="flex flex-col items-center justify-center w-full">
-        <div className="rounded-2xl relative overflow-hidden max-w-lg mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-poppins">
+        <div className="rounded-2xl relative overflow-hidden max-w-6xl mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-poppins">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute top-[55px] -right-2 w-[100%] h-[10px] bg-[#D2BF7C] origin-top-right rotate-40 z-1"
