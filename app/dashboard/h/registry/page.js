@@ -27,7 +27,7 @@ export default async function HostDashboardRegistry() {
     image: "/host/toaster.png",
     price: "GHS 300.20",
     desired: 1,
-    purchased: 0,
+    purchased: 0
   }));
 
   return (
