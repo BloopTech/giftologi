@@ -1,16 +1,16 @@
 "use server";
 import React from "react";
-import { createClient } from "../../utils/supabase/server";
+import { createClient } from "../../../utils/supabase/server";
 import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
-import Footer from "./components/footer";
-import Advertisement from "./components/advertisement";
-import CarouselHero from "./components/CarouselHero";
-import wedding from "../../../public/host/wedding.png";
-import birthday from "../../../public/host/birthday.png";
-import babyshower from "../../../public/host/babyshower.png";
-import fundraiser from "../../../public/host/fundraiser.png";
+import Footer from "../components/footer";
+import Advertisement from "../components/advertisement";
+import CarouselHero from "../components/CarouselHero";
+import wedding from "../../../../public/host/wedding.png";
+import birthday from "../../../../public/host/birthday.png";
+import babyshower from "../../../../public/host/babyshower.png";
+import fundraiser from "../../../../public/host/fundraiser.png";
 
 
 const customStyles = [
@@ -75,7 +75,7 @@ export default async function HostDashboard() {
           </p>
         </div>
 
-        <div className="flex items-center justify-center mx-auto max-w-md w-full rounded-4xl border border-[#A9C4FC] px-4 py-8 bg-white flex-col space-y-4">
+        {/* <div className="flex items-center justify-center mx-auto max-w-md w-full rounded-4xl border border-[#A9C4FC] px-4 py-8 bg-white flex-col space-y-4">
           <div className="inline-block">
             <Image
               src="/host/giftologi-gift-box.svg"
@@ -93,7 +93,7 @@ export default async function HostDashboard() {
           <button className="text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center">
             Create Registry
           </button>
-        </div>
+        </div> */}
 
         <Advertisement />
 

@@ -5,13 +5,13 @@ import {
   PiFileImageLight,
   PiGiftDuotone,
   PiGiftFill,
-  PiShareBold,
 } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
 import Footer from "../components/footer";
 import Advertisement from "../components/advertisement";
 import { CircleChevronDown, ShoppingCart } from "lucide-react";
+import ShareRegistryDialog from "../components/ShareRegistryDialog";
 
 export default async function HostDashboardRegistry() {
   const supabase = await createClient();
@@ -21,13 +21,13 @@ export default async function HostDashboardRegistry() {
     .single();
 
   // Mock 20 products to render in the Shop section
-  const products = Array.from({ length: 20 }, (_, i) => ({
+  const products = Array.from({ length: 8 }, (_, i) => ({
     id: i + 1,
     title: `MOMCOZY KleanPal Pro Baby Bottle Washer #${i + 1}`,
     image: "/host/toaster.png",
     price: "GHS 300.20",
     desired: 1,
-    purchased: 0
+    purchased: 0,
   }));
 
   return (
@@ -71,11 +71,9 @@ export default async function HostDashboardRegistry() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center flex-col justify-center space-y-2 border border-[#8DC76C] rounded-md py-4 px-8 bg-[#EBF9E3]">
-              <PiShareBold className="size-10 text-[#5CAE2D] font-semibold" />
 
-              <p className="text-xs text-[#5CAE2D]">Share Registry</p>
-            </div>
+            <ShareRegistryDialog />
+
             <div className="flex items-center flex-col justify-center space-y-2 border border-[#B1C6F2] rounded-md py-4 px-8 bg-[#D3E4F5]">
               <PiGiftFill className="size-10 text-[#247ACB] font-semibold" />
 
@@ -86,8 +84,8 @@ export default async function HostDashboardRegistry() {
 
         <div className="w-full flex flex-col space-y-4">
           <p className="text-[#394B71] font-semibold">View Products</p>
-          <div className="flex bg-white rounded-lg flex-col space-y-4 p-4 w-[200px]">
-            <div className="flex items-center justify-center">
+          <div className="flex bg-white rounded-lg flex-col space-y-4 py-4 w-[200px]">
+            <div className="flex items-center justify-center px-4">
               <Image
                 src="/host/toaster.png"
                 alt="toaster"
@@ -98,14 +96,14 @@ export default async function HostDashboardRegistry() {
               />
             </div>
             <div className="flex flex-col space-y-2 w-full">
-              <p className="text-sm font-semibold text-black line-clamp-2 w-full">
+              <p className="text-sm font-semibold text-black line-clamp-2 w-full px-4">
                 MOMCOZY KleanPal Pro Baby Bottle Washer
               </p>
-              <div className="flex items-center w-full justify-between">
+              <div className="flex items-center w-full justify-between px-4">
                 <p className="text-xs text-[#939393]">Desired 1</p>
                 <p className="text-xs text-[#939393]">Purchased 0</p>
               </div>
-              <div className="flex items-center w-full justify-between">
+              <div className="flex items-center w-full justify-between pl-4">
                 <p className="text-xs text-[#939393]">GHS 300.20</p>
                 <button className="text-xs text-white cursor-pointer bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-l-xl px-2 py-1 flex items-center">
                   View Product
@@ -129,9 +127,12 @@ export default async function HostDashboardRegistry() {
               </button>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {products.map((p) => (
-              <div key={p.id} className="flex bg-white rounded-lg flex-col space-y-4 p-4 w-full">
+              <div
+                key={p.id}
+                className="flex bg-white rounded-lg flex-col space-y-4 p-4 w-full"
+              >
                 <div className="flex items-center justify-center">
                   <Image
                     src={p.image}
@@ -143,15 +144,21 @@ export default async function HostDashboardRegistry() {
                   />
                 </div>
                 <div className="flex flex-col space-y-2 w-full">
-                  <p className="text-sm font-semibold text-black line-clamp-2 w-full">{p.title}</p>
+                  <p className="text-sm font-semibold text-black line-clamp-2 w-full">
+                    {p.title}
+                  </p>
+                  <p className="text-xs text-[#939393]">{p.price}</p>
                   <div className="flex items-center w-full justify-between">
-                    <p className="text-xs text-[#939393]">Desired {p.desired}</p>
-                    <p className="text-xs text-[#939393]">Purchased {p.purchased}</p>
+                    <button className="text-xs text-white cursor-pointer bg-[#5CAE2D] border border-[#5CAE2D] hover:bg-white hover:text-[#5CAE2D] rounded-xl px-4 py-1 flex items-center">
+                      Buy
+                    </button>
+                    <button className="text-xs text-[#A5914B] cursor-pointer bg-white border border-[#A5914B] hover:bg-[#A5914B] hover:text-white rounded-xl px-4 py-1 flex items-center">
+                      Add to Cart
+                    </button>
                   </div>
-                  <div className="flex items-center w-full justify-between">
-                    <p className="text-xs text-[#939393]">{p.price}</p>
-                    <button className="text-xs text-white cursor-pointer bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-l-xl px-2 py-1 flex items-center">
-                      View Product
+                  <div className="w-full">
+                    <button className="text-xs w-full text-white cursor-pointer bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-xl px-2 py-1 flex items-center justify-center">
+                      Add to Registry
                     </button>
                   </div>
                 </div>
