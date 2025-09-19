@@ -25,10 +25,16 @@ import {
 } from "../../../../../components/Avatar";
 import { cx } from "../../../../../components/utils";
 import { DropdownUserProfile } from "./dropdownUserProfile";
+import Image from "next/image";
+import logo from "../../../../../../public/giftologi-logo.png";
+import Link from "next/link";
 
 export default function Header() {
   // Add state to control the switch
   const [isLiveMode, setIsLiveMode] = useState(false);
+
+  // Track scroll to toggle white background for header
+  const [scrolled, setScrolled] = useState(false);
 
   const supabase = createClient();
   const [userData, setUserData] = useState(null);
@@ -63,49 +69,92 @@ export default function Header() {
     };
   }, [supabase]);
 
+  // Listen to scroll and set white background when scrolled
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 0);
+    };
+    onScroll(); // initialize on mount
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <nav className="fixed left-0 top-0 z-10 w-full hidden lg:inline-block">
-      <div className="flex justify-end w-full space-x-4 p-4">
-        <button className="rounded-full cursor-pointer hover:bg-white hover:text-[#7EC335] flex items-center justify-center px-4 bg-[#7EC335] border border-[#5CAE2D] text-xs text-white">
-          Create New Registry
-        </button>
-        <div className="text-sm text-[#A2845E] cursor-pointer flex items-center space-x-1">
-          <ShoppingCart size={20} />
-          <p>Shop</p>
+    <nav
+      className={cx(
+        "fixed left-0 top-0 z-10 w-full transition-colors duration-200",
+        scrolled ? "bg-white shadow-sm" : "bg-transparent"
+      )}
+    >
+      <div className="flex justify-between w-full items-center max-w-5xl mx-auto">
+        <div>
+          <Link href="/dashboard/h" className="cursor-pointer">
+          <div className="flex items-center space-x-2">
+          <div className="flex aspect-square items-center justify-center">
+            <Image src={logo} alt="logo" width={60} height={60} priority />
+          </div>
+          <p className="text-lg font-semibold text-[#85753C]">Giftologi</p>
+        </div></Link>
         </div>
-        <div className="text-sm text-[#A2845E] flex items-center space-x-2">
-          <button
-            aria-label="User settings"
-            //variant="ghost"
+        <div className="flex justify-end w-full space-x-4 p-4 items-center">
+          <div>
+            <button className="rounded-full cursor-pointer hover:bg-white hover:text-[#7EC335] flex items-center justify-center py-3 px-4 bg-[#7EC335] border border-[#5CAE2D] text-xs/tight text-white">
+              Create New Registry
+            </button>
+          </div>
+
+          <div
             className={cx(
-              "group flex items-center cursor-pointer rounded-md text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 data-[state=open]:bg-gray-100 hover:dark:bg-gray-400/10"
+              "flex items-center space-x-4 py-3 px-6",
+              scrolled ? "" : "border-[#DCDCDE] bg-white border rounded-4xl"
             )}
           >
-            <span className="relative">
-              <Avatar className="w-8 h-8 shadow-xl">
-                <AvatarImage
-                  src={userData?.image}
-                  alt={userData?.firstname}
-                  className="object-cover"
-                />
-                <AvatarFallback
-                  style={{ backgroundColor: userData?.color }}
-                  className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                >
-                  {userData?.firstname?.charAt(0)}
-                  {userData?.lastname?.charAt(0)}
-                </AvatarFallback>
-              </Avatar>
-            </span>
-          </button>
-          <p className="text-sm text-[#A2845E]">
-            Hello <span className="font-semibold">{userData?.firstname}</span>
-          </p>
-          <DropdownUserProfile align="end" userData={userData}>
-            <button className="flex items-center cursor-pointer">
-              <CircleChevronDown size={28} className="fill-[#A2845E] text-white font-bold" />
+            <button className="text-xs text-[#A2845E] cursor-pointer font-semibold">
+              My Registry Lists
             </button>
-          </DropdownUserProfile>
+            <button className="text-xs text-[#A2845E] cursor-pointer">
+              Shop
+            </button>
+
+            <div className="text-sm text-[#A2845E] flex items-center space-x-2">
+              <button
+                aria-label="User settings"
+                //variant="ghost"
+                className={cx(
+                  "group flex items-center cursor-pointer rounded-md text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 data-[state=open]:bg-gray-100 hover:dark:bg-gray-400/10"
+                )}
+              >
+                <span className="relative">
+                  <Avatar className="w-8 h-8 shadow-xl">
+                    <AvatarImage
+                      src={userData?.image}
+                      alt={userData?.firstname}
+                      className="object-cover"
+                    />
+                    <AvatarFallback
+                      style={{ backgroundColor: userData?.color }}
+                      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                    >
+                      {userData?.firstname?.charAt(0)}
+                      {userData?.lastname?.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </span>
+              </button>
+              <p className="text-sm text-[#A2845E]">
+                Hello{" "}
+                <span className="font-semibold">{userData?.firstname}</span>
+              </p>
+              <DropdownUserProfile align="end" userData={userData}>
+                <button className="flex items-center cursor-pointer">
+                  <CircleChevronDown
+                    size={28}
+                    className="fill-[#247ACB] text-white font-bold"
+                  />
+                </button>
+              </DropdownUserProfile>
+            </div>
+          </div>
         </div>
       </div>
     </nav>
