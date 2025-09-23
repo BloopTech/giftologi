@@ -86,7 +86,7 @@ export async function createRegistryAction(prevState, queryData) {
   if (eventError) {
     return {
       message: eventError.message,
-      errors: {},
+      errors: eventError,
       values: payload,
       data: {},
     };
@@ -105,7 +105,7 @@ export async function createRegistryAction(prevState, queryData) {
   if (registryError) {
     return {
       message: registryError.message,
-      errors: {},
+      errors: registryError,
       values: payload,
       data: {},
     };
