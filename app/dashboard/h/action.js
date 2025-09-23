@@ -80,6 +80,8 @@ export async function createRegistryAction(prevState, queryData) {
         date,
         privacy,
         host_id: profile.id,
+        created_at: new Date(),
+        updated_at: new Date(),
       },
     ]);
 
@@ -99,6 +101,8 @@ export async function createRegistryAction(prevState, queryData) {
         title,
         deadline,
         event_id: event.id,
+        created_at: new Date(),
+        updated_at: new Date(),
       },
     ]);
 
