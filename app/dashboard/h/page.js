@@ -59,7 +59,7 @@ export default async function HostDashboard() {
         <div className="flex items-center gap-4 w-full md:flex-wrap lg:flex-nowrap">
           {customStyles.map((style) => (
             <div key={style} className="flex flex-col space-y-4">
-              <div className="w-[200px] h-[200px] bg-[#E9E9ED]" />
+              <div className="w-[200px] h-[200px] bg-[#E9E9ED] border border-[#DCDCDE] rounded-md" />
               <button className="text-sm text-[#A2845E] cursor-pointer font-semibold">
                 {style}
               </button>

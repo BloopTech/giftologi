@@ -32,7 +32,6 @@ export default function ForgotPasswordPageLayout() {
       Object.keys(state?.errors || {}).length > 0 &&
       Object.keys(state?.errors?.credentials || {}).length > 0
     ) {
-      s;
       toast.error(state?.message);
     }
 

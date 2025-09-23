@@ -147,7 +147,7 @@ export async function middlewareClient(request) {
       }
       return withCookiesRedirect(new URL(loginRedirect, request.url));
     }
-    console.log("user", user);
+    //console.log("user", user);
     let { data: profile } = await supabase
       .from("profiles")
       .select("firstname, role")
@@ -266,18 +266,18 @@ export async function middlewareClient(request) {
           if (createdProfile && !profileErr) {
             profile = createdProfile;
           } else {
-            console.log(
-              "Failed to create profile for user",
-              user?.id,
-              profileErr
-            );
+            // console.log(
+            //   "Failed to create profile for user",
+            //   user?.id,
+            //   profileErr
+            // );
           }
         } catch (e) {
-          console.log(
-            "Error creating OAuth profile for user",
-            user?.id,
-            e?.message || e
-          );
+          // console.log(
+          //   "Error creating OAuth profile for user",
+          //   user?.id,
+          //   e?.message || e
+          // );
         }
       }
     }

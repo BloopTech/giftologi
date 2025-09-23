@@ -1,11 +1,7 @@
 "use server";
 import React from "react";
 import { createClient } from "../../../utils/supabase/server";
-import {
-  PiFileImageLight,
-  PiGiftDuotone,
-  PiGiftFill,
-} from "react-icons/pi";
+import { PiFileImageLight, PiGiftDuotone, PiGiftFill } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
 import Footer from "../components/footer";
@@ -103,13 +99,13 @@ export default async function HostDashboardRegistry() {
               </p>
               <div className="flex items-center w-full justify-between px-4">
                 <p className="text-xs text-[#939393]">Desired 1</p>
-                <p className="text-xs text-[#939393]">Purchased 0</p>
+                <p className="text-xs text-[#939393]">Purchased 1</p>
               </div>
               <div className="flex items-center w-full justify-between pl-4">
                 <p className="text-xs text-[#939393]">GHS 300.20</p>
-                <button className="text-xs text-white cursor-pointer bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-l-xl px-2 py-1 flex items-center">
-                  View Product
-                </button>
+                <p className="text-xs text-white bg-[#8DC76C] border border-[#8DC76C] rounded-l-xl px-2 py-1 flex items-center">
+                  Purchased
+                </p>
               </div>
             </div>
           </div>

@@ -84,6 +84,22 @@ export function DropdownUserProfile({ children, align = "start", userData }) {
             </Link>
           </DropdownMenuGroup>
           <DropdownMenuGroup>
+            <Link
+              href="/dashboard/h/purchased"
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              Purchased
+            </Link>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+            <Link
+              href="/dashboard/h/public-registry"
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              Public Registry
+            </Link>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
             <DropdownMenuSubMenu>
               <DropdownMenuSubMenuTrigger>Theme</DropdownMenuSubMenuTrigger>
               <DropdownMenuSubMenuContent>

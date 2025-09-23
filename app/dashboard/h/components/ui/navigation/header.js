@@ -28,6 +28,13 @@ import { DropdownUserProfile } from "./dropdownUserProfile";
 import Image from "next/image";
 import logo from "../../../../../../public/giftologi-logo.png";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../../../components/Dialog";
+import CreateRegistryDialog from "../../createRegistryDialog";
 
 export default function Header() {
   // Add state to control the switch
@@ -35,6 +42,11 @@ export default function Header() {
 
   // Track scroll to toggle white background for header
   const [scrolled, setScrolled] = useState(false);
+
+  // Control Create Registry dialog open state
+  const [createRegistryOpen, setCreateRegistryOpen] = useState(false);
+  const openCreateRegistry = () => setCreateRegistryOpen(true);
+  const closeCreateRegistry = () => setCreateRegistryOpen(false);
 
   const supabase = createClient();
   const [userData, setUserData] = useState(null);
@@ -89,18 +101,30 @@ export default function Header() {
       <div className="flex justify-between w-full items-center max-w-5xl mx-auto">
         <div>
           <Link href="/dashboard/h" className="cursor-pointer">
-          <div className="flex items-center space-x-2">
-          <div className="flex aspect-square items-center justify-center">
-            <Image src={logo} alt="logo" width={60} height={60} priority />
-          </div>
-          <p className="text-lg font-semibold text-[#85753C]">Giftologi</p>
-        </div></Link>
+            <div className="flex items-center space-x-2">
+              <div className="flex aspect-square items-center justify-center">
+                <Image src={logo} alt="logo" width={60} height={60} priority />
+              </div>
+              <p className="text-lg font-semibold text-[#85753C]">Giftologi</p>
+            </div>
+          </Link>
         </div>
         <div className="flex justify-end w-full space-x-4 p-4 items-center">
           <div>
-            <button className="rounded-full cursor-pointer hover:bg-white hover:text-[#7EC335] flex items-center justify-center py-3 px-4 bg-[#7EC335] border border-[#5CAE2D] text-xs/tight text-white">
+            <button
+              onClick={openCreateRegistry}
+              className="rounded-full cursor-pointer hover:bg-white hover:text-[#7EC335] flex items-center justify-center py-3 px-4 bg-[#7EC335] border border-[#5CAE2D] text-xs/tight text-white"
+            >
               Create New Registry
             </button>
+            <Dialog open={createRegistryOpen} onOpenChange={setCreateRegistryOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Create New Registry</DialogTitle>
+                </DialogHeader>
+                <CreateRegistryDialog onClose={closeCreateRegistry} />
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div
@@ -109,11 +133,17 @@ export default function Header() {
               scrolled ? "" : "border-[#DCDCDE] bg-white border rounded-4xl"
             )}
           >
-            <button className="text-xs text-[#A2845E] cursor-pointer font-semibold">
-              My Registry Lists
-            </button>
-            <button className="text-xs text-[#A2845E] cursor-pointer">
-              Shop
+            <div>
+              <Link
+                href="/dashboard/h/lists"
+                className="text-xs text-[#A2845E] cursor-pointer font-semibold"
+              >
+                My Registry Lists
+              </Link>
+            </div>
+            <button className="text-xs text-[#A2845E] cursor-pointer flex items-center space-x-2">
+              <ShoppingCart className="size-5" />
+              <span>Shop</span>
             </button>
 
             <div className="text-sm text-[#A2845E] flex items-center space-x-2">
@@ -149,7 +179,7 @@ export default function Header() {
                 <button className="flex items-center cursor-pointer">
                   <CircleChevronDown
                     size={28}
-                    className="fill-[#247ACB] text-white font-bold"
+                    className="fill-[#A2845E] text-white font-bold"
                   />
                 </button>
               </DropdownUserProfile>
