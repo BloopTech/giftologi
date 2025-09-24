@@ -1,17 +1,20 @@
 "use server";
 import React from "react";
-import { createClient } from "../../utils/supabase/server";
+import { createClient } from "../../../../utils/supabase/server";
 import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
-import Footer from "../../components/footer";
-import Advertisement from "../../components/advertisement";
-import CarouselHero from "./components/CarouselHero";
-import wedding from "../../../public/host/wedding.png";
-import birthday from "../../../public/host/birthday.png";
-import babyshower from "../../../public/host/babyshower.png";
-import fundraiser from "../../../public/host/fundraiser.png";
-import HostDashboardContent from "./content";
+import Footer from "../../../../components/footer";
+import Advertisement from "../../../../components/advertisement";
+import CarouselHero from "../../components/CarouselHero";
+import wedding from "../../../../../public/host/wedding.png";
+import birthday from "../../../../../public/host/birthday.png";
+import babyshower from "../../../../../public/host/babyshower.png";
+import fundraiser from "../../../../../public/host/fundraiser.png";
+import giftbox from "../../../../../public/host/lists-gift-box.png";
+import Samantha from "../../../../../public/host/Samantha.png";
+import { Plus } from "lucide-react";
+import HostDashboardRegistryListsContent from "./content";
 
 const customStyles = [
   "Wedding",
@@ -58,7 +61,7 @@ export default async function HostDashboard() {
 
   return (
     <>
-      <HostDashboardContent registry={registry} />
+      <HostDashboardRegistryListsContent registry={registry} />
     </>
   );
 }

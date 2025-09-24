@@ -117,7 +117,10 @@ export default function Header() {
             >
               Create New Registry
             </button>
-            <Dialog open={createRegistryOpen} onOpenChange={setCreateRegistryOpen}>
+            <Dialog
+              open={createRegistryOpen}
+              onOpenChange={setCreateRegistryOpen}
+            >
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Create New Registry</DialogTitle>
@@ -135,7 +138,7 @@ export default function Header() {
           >
             <div>
               <Link
-                href="/dashboard/h/lists"
+                href="/dashboard/h/registry/lists"
                 className="text-xs text-[#A2845E] cursor-pointer font-semibold"
               >
                 My Registry Lists
@@ -155,20 +158,24 @@ export default function Header() {
                 )}
               >
                 <span className="relative">
-                  <Avatar className="w-8 h-8 shadow-xl">
-                    <AvatarImage
-                      src={userData?.image}
-                      alt={userData?.firstname}
-                      className="object-cover"
-                    />
-                    <AvatarFallback
-                      style={{ backgroundColor: userData?.color }}
-                      className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
-                    >
-                      {userData?.firstname?.charAt(0)}
-                      {userData?.lastname?.charAt(0)}
-                    </AvatarFallback>
-                  </Avatar>
+                  {userData ? (
+                    <Avatar className="w-8 h-8 shadow-xl">
+                      <AvatarImage
+                        src={userData?.image}
+                        alt={userData?.firstname}
+                        className="object-cover"
+                      />
+                      <AvatarFallback
+                        style={{ backgroundColor: userData?.color }}
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                      >
+                        {userData?.firstname?.charAt(0)}
+                        {userData?.lastname?.charAt(0)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <span className="w-8 h-8 shadow-xl rounded-full bg-[#A2845E] flex items-center justify-center" />
+                  )}
                 </span>
               </button>
               <p className="text-sm text-[#A2845E]">
