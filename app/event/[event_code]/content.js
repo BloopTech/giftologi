@@ -1,21 +1,15 @@
-"use server";
+"use client";
 import React from "react";
-import { createClient } from "../../../utils/supabase/server";
 import { PiFileImageLight, PiGiftDuotone, PiGiftFill } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
-import Footer from "../../../components/footer";
-import Advertisement from "../../../components/advertisement";
+import Footer from "../../components/footer";
+import Advertisement from "../../components/advertisement";
 import { CircleChevronDown, ShoppingCart } from "lucide-react";
-import ShareRegistryDialog from "../components/ShareRegistryDialog";
-import { ProgressBar } from "../../../components/ProgressBar";
 
-export default async function HostDashboardRegistry() {
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .single();
+
+export default function EventPageContent(props) {
+
 
   // Mock 20 products to render in the Shop section
   const products = Array.from({ length: 8 }, (_, i) => ({

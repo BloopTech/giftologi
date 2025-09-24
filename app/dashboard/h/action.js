@@ -1,5 +1,6 @@
 "use server";
-import { createClient } from "@/app/utils/supabase/server";
+import { randomBytes } from "crypto";
+import { createClient } from "../../utils/supabase/server";
 import { redirect } from "next/navigation";
 import z from "zod";
 
@@ -26,6 +27,53 @@ const defaultRegistrySchema = z.object({
   deadline: z.string().min(1, { message: "Deadline is required" }),
   privacy: z.string().min(1, { message: "Privacy is required" }),
 });
+
+const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+function generateCode(length = 10) {
+  const bytes = randomBytes(length);
+  let code = "";
+
+  for (let i = 0; i < length; i += 1) {
+    code += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
+  }
+
+  return code;
+}
+
+async function insertWithUniqueCode({
+  supabase,
+  table,
+  payload,
+  codeKey,
+  length = 10,
+  maxRetries = 5,
+}) {
+  for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+    const code = generateCode(length);
+    const { data, error } = await supabase
+      .from(table)
+      .insert([{ ...payload, [codeKey]: code }])
+      .select("*")
+      .single();
+
+    if (!error) {
+      return { data: Array.isArray(data) ? data[0] : data, error: null };
+    }
+
+    if (error.code !== "23505") {
+      return { data: null, error };
+    }
+  }
+
+  return {
+    data: null,
+    error: {
+      message:
+        "We couldn't generate a unique code right now. Please try again.",
+    },
+  };
+}
 
 export async function createRegistryAction(prevState, queryData) {
   const supabase = await createClient();
@@ -69,21 +117,23 @@ export async function createRegistryAction(prevState, queryData) {
   const { title, type, location, description, date, deadline, privacy } =
     validatedFields.data;
 
-  const { data: event, error: eventError } = await supabase
-    .from("events")
-    .insert([
-      {
-        title,
-        type,
-        location,
-        description,
-        date,
-        privacy,
-        host_id: profile.id,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    ]);
+  const { data: event, error: eventError } = await insertWithUniqueCode({
+    supabase,
+    table: "events",
+    payload: {
+      title,
+      type,
+      location,
+      description,
+      date,
+      privacy,
+      host_id: profile.id,
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+    codeKey: "event_code",
+    length: 10,
+  });
 
   if (eventError) {
     return {
@@ -94,17 +144,19 @@ export async function createRegistryAction(prevState, queryData) {
     };
   }
 
-  const { data: registry, error: registryError } = await supabase
-    .from("registries")
-    .insert([
-      {
-        title,
-        deadline,
-        event_id: event.id,
-        created_at: new Date(),
-        updated_at: new Date(),
-      },
-    ]);
+  const { data: registry, error: registryError } = await insertWithUniqueCode({
+    supabase,
+    table: "registries",
+    payload: {
+      title,
+      deadline,
+      event_id: event.id,
+      created_at: new Date(),
+      updated_at: new Date(),
+    },
+    codeKey: "registry_code",
+    length: 10,
+  });
 
   if (registryError) {
     return {
@@ -120,6 +172,6 @@ export async function createRegistryAction(prevState, queryData) {
     message: "Registry created successfully",
     errors: {},
     values: payload,
-    data: { registry },
+    data: registry,
   };
 }

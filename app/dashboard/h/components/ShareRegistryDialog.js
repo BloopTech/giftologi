@@ -12,15 +12,16 @@ import {
 import { PiShareBold } from "react-icons/pi";
 import { Mail, Share2, QrCode, Send, Share, Link } from "lucide-react";
 
-export default function ShareRegistryDialog() {
+export default function ShareRegistryDialog(props) {
+  const { event } = props;
   const [url, setUrl] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy Registry Link");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setUrl(window.location.href);
+      setUrl(window.location.origin + "/event/" + event?.event_code);
     }
-  }, []);
+  }, [event]);
 
   const handleCopy = async () => {
     try {
@@ -50,7 +51,6 @@ export default function ShareRegistryDialog() {
         <div className="mt-4 space-y-6">
           {/* First section: URL input with copy button */}
           <div>
-            
             <div className="relative">
               <input
                 type="text"
@@ -71,15 +71,21 @@ export default function ShareRegistryDialog() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="flex flex-col items-center justify-center space-y-4 border border-[#BBA96C] rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
               <Send className="size-12 text-[#9B9B9B]" />
-              <p className="text-xs text-[#394B71] font-semibold">Share via e-mail</p>
+              <p className="text-xs text-[#394B71] font-semibold">
+                Share via e-mail
+              </p>
             </div>
             <div className="flex flex-col items-center justify-center space-y-4 border border-[#BBA96C] rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
               <Link className="size-12 text-[#9B9B9B]" />
-              <p className="text-xs text-[#394B71] font-semibold">Share on Social</p>
+              <p className="text-xs text-[#394B71] font-semibold">
+                Share on Social
+              </p>
             </div>
             <div className="flex flex-col items-center justify-center space-y-4 border border-[#BBA96C] rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
               <QrCode className="size-12 text-[#9B9B9B]" />
-              <p className="text-xs text-[#394B71] font-semibold">Share on QR</p>
+              <p className="text-xs text-[#394B71] font-semibold">
+                Share on QR
+              </p>
             </div>
           </div>
         </div>

@@ -1,15 +1,46 @@
 "use server";
-import React from "react";
-
-
-
+import { createClient } from "../../../../utils/supabase/server";
+import { notFound } from "next/navigation";
+import HostDashboardRegistryContent from "./content";
 
 export default async function RegistryPage({ params }) {
-    const getParams = await params;
-    console.log("getParams", getParams);
-    return (
-        <div>
-            <h1>Registry Page</h1>
-        </div>
-    );
+  const getParams = await params;
+  if (!getParams?.registry_code) {
+    return notFound();
+  }
+
+  const supabase = await createClient();
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .single();
+
+  if (profileError) {
+    return notFound();
+  }
+
+  const { data: registry, error: registryError } = await supabase
+    .from("registries")
+    .select("*, events!inner(*)")
+    .eq("registry_code", getParams.registry_code)
+    .eq("events.host_id", profile.id)
+    .maybeSingle();
+
+  if (registryError || !registry) {
+    return notFound();
+  }
+
+  const event = Array.isArray(registry.events)
+    ? registry.events[0]
+    : registry.events;
+
+  if (!event) {
+    return notFound();
+  }
+
+  return (
+    <>
+      <HostDashboardRegistryContent registry={registry} event={event} />
+    </>
+  );
 }

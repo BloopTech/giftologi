@@ -1,18 +1,15 @@
-"use server";
+"use client";
 import React from "react";
-import { createClient } from "../../../utils/supabase/server";
 import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
-import Footer from "../../../components/footer";
-import Advertisement from "../../../components/advertisement";
+import Footer from "../../../../components/footer";
+import Advertisement from "../../../../components/advertisement";
+import { format } from "date-fns";
+import ShareRegistryDialog from "../../components/ShareRegistryDialog";
 
-export default async function HostDashboardRegistry() {
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .single();
+export default function HostDashboardRegistryContent(props) {
+  const { registry, event } = props;
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
@@ -35,9 +32,11 @@ export default async function HostDashboardRegistry() {
             <div className="w-[250px] flex flex-col space-y-2 border border-[#DCDCDE] rounded-md p-4 bg-white">
               <p className="text-xs text-[#394B71]">Event Name</p>
               <p className="text-sm text-[#247ACB] font-semibold line-clamp-1 w-full">
-                Kwame & Fey&apos;s Baby Shower
+                {registry.title}
               </p>
-              <p className="text-xs text-[#B3B3B3]">Sep 30, 2025</p>
+              <p className="text-xs text-[#B3B3B3]">
+                {format(event.date, "MMMM dd, yyyy")}
+              </p>
             </div>
             <div className="flex items-start justify-center space-x-2 border border-[#DCDCDE] rounded-md p-4 bg-white">
               <PiGiftDuotone className="size-18 text-[#247ACB]" />
@@ -46,11 +45,7 @@ export default async function HostDashboardRegistry() {
                 <p className="text-xs text-[#939393]">items</p>
               </div>
             </div>
-            <div className="flex items-center flex-col justify-center space-y-2 border border-[#8DC76C] rounded-md py-4 px-8 bg-[#EBF9E3]">
-              <PiShareBold className="size-10 text-[#5CAE2D] font-semibold" />
-
-              <p className="text-xs text-[#5CAE2D]">Share Registry</p>
-            </div>
+           <ShareRegistryDialog event={event} />
           </div>
         </div>
 

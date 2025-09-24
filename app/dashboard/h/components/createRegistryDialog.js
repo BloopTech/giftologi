@@ -12,6 +12,7 @@ import {
 } from "../../../components/Select";
 import { cx, focusInput, hasErrorInput } from "../../../components/utils";
 import { DialogClose } from "../../../components/Dialog";
+import { LoaderCircle } from "lucide-react";
 
 const initialState = {
   message: "",
@@ -72,8 +73,8 @@ export default function CreateRegistryDialog({ onClose }) {
     <form action={formAction} className="space-y-6">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1 sm:col-span-2">
-          <label htmlFor="title" className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Title
+          <label htmlFor="title" className="text-sm font-medium text-black dark:text-gray-200">
+            Title <span className="text-red-500">*</span>
           </label>
           <input
             id="title"
@@ -104,11 +105,11 @@ export default function CreateRegistryDialog({ onClose }) {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="type" className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Type
+          <label htmlFor="type" className="text-sm font-medium text-black dark:text-gray-200">
+            Type <span className="text-red-500">*</span>
           </label>
           <input type="hidden" name="type" value={typeValue} />
-          <Select value={typeValue} onValueChange={setTypeValue} disabled={isPending}>
+          <Select value={typeValue} onValueChange={setTypeValue} disabled={isPending} required>
             <SelectTrigger className={cx(hasError("type") ? hasErrorInput : "")}>
               <SelectValue placeholder="Select registry type" />
             </SelectTrigger>
@@ -130,8 +131,8 @@ export default function CreateRegistryDialog({ onClose }) {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="location" className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Location
+          <label htmlFor="location" className="text-sm font-medium text-black dark:text-gray-200">
+            Location <span className="text-red-500">*</span>
           </label>
           <input
             id="location"
@@ -162,7 +163,7 @@ export default function CreateRegistryDialog({ onClose }) {
         </div>
 
         <div className="space-y-1 sm:col-span-2">
-          <label htmlFor="description" className="text-sm font-medium text-gray-700 dark:text-gray-200">
+          <label htmlFor="description" className="text-sm font-medium text-black dark:text-gray-200">
             Description
           </label>
           <textarea
@@ -193,8 +194,8 @@ export default function CreateRegistryDialog({ onClose }) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Event Date
+          <label className="text-sm font-medium text-black dark:text-gray-200">
+            Event Date <span className="text-red-500">*</span>
           </label>
           <input type="hidden" name="date" value={eventDate ? eventDate.toISOString() : ""} />
           <DatePicker
@@ -213,8 +214,8 @@ export default function CreateRegistryDialog({ onClose }) {
         </div>
 
         <div className="space-y-1">
-          <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Deadline
+          <label className="text-sm font-medium text-black dark:text-gray-200">
+            Deadline <span className="text-red-500">*</span>
           </label>
           <input
             type="hidden"
@@ -237,11 +238,11 @@ export default function CreateRegistryDialog({ onClose }) {
         </div>
 
         <div className="space-y-1">
-          <label htmlFor="privacy" className="text-sm font-medium text-gray-700 dark:text-gray-200">
-            Privacy
+          <label htmlFor="privacy" className="text-sm font-medium text-black dark:text-gray-200">
+            Privacy <span className="text-red-500">*</span>
           </label>
           <input type="hidden" name="privacy" value={privacyValue} />
-          <Select value={privacyValue} onValueChange={setPrivacyValue} disabled={isPending}>
+          <Select value={privacyValue} onValueChange={setPrivacyValue} disabled={isPending} required>
             <SelectTrigger className={cx(hasError("privacy") ? hasErrorInput : "")}>
               <SelectValue placeholder="Select privacy" />
             </SelectTrigger>
@@ -276,7 +277,7 @@ export default function CreateRegistryDialog({ onClose }) {
           disabled={isPending}
           className="rounded-md border border-[#A5914B] bg-[#A5914B] px-5 py-2 text-sm font-medium text-white hover:bg-white hover:text-[#A5914B] cursor-pointer"
         >
-          {isPending ? "Creating..." : "Create Registry"}
+          {isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : "Create Registry"}
         </button>
       </div>
     </form>

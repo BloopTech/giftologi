@@ -1,5 +1,7 @@
 export const publicRoutes = [`/`];
 
+export const eventPublicRoutes = [`/event/:event_code`];
+
 export const authRoutes = [
   `/login`,
   `/signup`,
