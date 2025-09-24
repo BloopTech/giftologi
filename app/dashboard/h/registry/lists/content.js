@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
@@ -13,6 +13,13 @@ import fundraiser from "../../../../../public/host/fundraiser.png";
 import giftbox from "../../../../../public/host/lists-gift-box.png";
 import Samantha from "../../../../../public/host/Samantha.png";
 import { Plus } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../../components/Dialog";
+import CreateRegistryDialog from "../../components/createRegistryDialog";
 
 const customStyles = [
   "Wedding",
@@ -48,10 +55,24 @@ const carouselItems = [
 export default function HostDashboardRegistryListsContent(props) {
   const { registry } = props;
 
+  const [createRegistryOpen, setCreateRegistryOpen] = useState(false);
+
+  const openCreateRegistry = () => setCreateRegistryOpen(true);
+  const closeCreateRegistry = () => setCreateRegistryOpen(false);
+
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
       <main className="flex flex-col space-y-16 w-full">
         <CarouselHero items={carouselItems} />
+
+        <Dialog open={createRegistryOpen} onOpenChange={setCreateRegistryOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Create New Registry</DialogTitle>
+            </DialogHeader>
+            <CreateRegistryDialog onClose={closeCreateRegistry} />
+          </DialogContent>
+        </Dialog>
 
         <div className="flex items-center gap-4 w-full md:flex-wrap lg:flex-nowrap">
           {customStyles.map((style) => (
@@ -108,7 +129,11 @@ export default function HostDashboardRegistryListsContent(props) {
               : null}
 
             <div className="flex flex-col gap-4">
-              <button className="cursor-pointer flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]">
+              <button
+                type="button"
+                onClick={openCreateRegistry}
+                className="cursor-pointer flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]"
+              >
                 <Plus className="size-8" />
                 <span className="w-full flex items-center justify-center relative h-[100px] -my-[1rem]">
                   <span className="w-full h-full">
@@ -122,7 +147,11 @@ export default function HostDashboardRegistryListsContent(props) {
                   </span>
                 </span>
               </button>
-              <button className="text-[#A2845E] cursor-pointer text-xs/tight flex items-center justify-center">
+              <button
+                type="button"
+                onClick={openCreateRegistry}
+                className="text-[#A2845E] cursor-pointer text-xs/tight flex items-center justify-center"
+              >
                 Add to Registry
               </button>
             </div>
