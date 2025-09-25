@@ -100,14 +100,14 @@ export default function HostDashboardContent(props) {
                     key={id}
                     className="flex flex-col rounded-2xl border border-[#DCDCDE] overflow-hidden w-[230px]"
                   >
-                    <div className="bg-[#FFFCF3] p-4 w-full flex items-center justify-center relative h-[200px]">
+                    <div className="bg-[#FFFCF3] p-4 w-full flex items-center justify-center relative h-[200px] overflow-hidden">
                       <div className="w-full h-full">
                         <Image
                           src={cover_photo ? cover_photo : giftbox}
                           alt="gift box"
                           fill
                           priority
-                          className="object-contain"
+                          className="object-cover"
                         />
                       </div>
                     </div>
