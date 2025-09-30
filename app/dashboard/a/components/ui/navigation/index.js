@@ -77,12 +77,12 @@ export default function AdminSidebar() {
 
         <nav
           aria-label="core navigation links"
-          className="flex flex-1 flex-col space-y-3"
+          className="flex flex-1 flex-col space-y-3 pt-10"
         >
           {navigation?.map(({ label, items, id }) => {
             return (
               <div key={id} className="flex flex-col space-y-1">
-                <span className="text-xs text-[#2D3436] dark:text-white pl-[4rem]">
+                <span className="text-xs text-[#2D3436] dark:text-white pl-[4rem] font-medium">
                   {label}
                 </span>
 
@@ -99,9 +99,9 @@ export default function AdminSidebar() {
                               onClick={() => toggleDropdown(name)}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#FF6F61] dark:text-white border border-[#FF6F61] hover:text-[#FF6F61] hover:!bg-white hover:dark:text-[#FF6F61]"
+                                  ? "text-white bg-[#BBA96C] dark:text-white border border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
                                   : "text-[#2D3436] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center justify-between text-xs py-1.5 transition hover:bg-[#FF6F61] hover:dark:bg-gray-900 font-medium group w-full",
+                                "flex items-center justify-between text-xs py-1.5 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group w-full",
                                 focusRing
                               )}
                             >
@@ -111,7 +111,7 @@ export default function AdminSidebar() {
                                     aria-hidden="true"
                                     className={cx(
                                       isActive(href)
-                                        ? " dark:text-white group-hover:text-[#FF6F61] dark:group-hover:text-white"
+                                        ? " dark:text-white group-hover:text-[#BBA96C] dark:group-hover:text-white"
                                         : "text-[#2D3436] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                       "size-4 shrink-0 text-[#2D3436] flex items-center justify-center",
                                       focusRing
@@ -132,9 +132,9 @@ export default function AdminSidebar() {
                               href={href}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#FF6F61] dark:text-white border border-[#FF6F61] hover:text-[#FF6F61] hover:!bg-white hover:dark:text-[#FF6F61]"
+                                  ? "text-white bg-[#BBA96C] dark:text-white border border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
                                   : "text-[#2D3436] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center gap-x-8 text-xs py-1.5 transition hover:bg-[#FF6F61] hover:dark:bg-gray-900 font-medium group",
+                                "flex items-center gap-x-8 text-xs py-1.5 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group",
                                 focusRing
                               )}
                             >
@@ -143,7 +143,7 @@ export default function AdminSidebar() {
                                   aria-hidden="true"
                                   className={cx(
                                     isActive(href)
-                                      ? " dark:text-white text-white group-hover:text-[#FF6F61] dark:group-hover:text-[#FF6F61]"
+                                      ? " dark:text-white text-white group-hover:text-[#BBA96C] dark:group-hover:text-[#BBA96C]"
                                       : "text-[#2D3436] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                     "size-4 shrink-0 flex items-center justify-center",
                                     focusRing
@@ -162,9 +162,9 @@ export default function AdminSidebar() {
                                     href={subItem.href}
                                     className={cx(
                                       isActive(subItem.href)
-                                        ? "text-white bg-[#FF6F61] dark:text-white border border-[#FF6F61] hover:text-[#FF6F61] hover:!bg-white hover:dark:text-[#FF6F61]"
+                                        ? "text-white bg-[#BBA96C] dark:text-white border border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
                                         : "text-[#2D3436] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "flex items-center text-xs py-1.5 transition hover:bg-[#FF6F61] hover:dark:bg-gray-900 font-medium group pl-4",
+                                      "flex items-center text-xs py-1.5 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group pl-4",
                                       focusRing
                                     )}
                                   >

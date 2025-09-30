@@ -19,14 +19,8 @@ import {
   DialogTitle,
 } from "../../components/Dialog";
 import CreateRegistryDialog from "./components/createRegistryDialog";
+import RegistryType from "./components/registryType";
 
-const customStyles = [
-  "Wedding",
-  "Baby Shower",
-  "Birthday",
-  "Fundraiser",
-  "Custom",
-];
 
 const carouselItems = [
   {
@@ -61,7 +55,10 @@ export default function HostDashboardContent(props) {
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
       <main className="flex flex-col space-y-16 w-full">
-        <CarouselHero items={carouselItems} />
+        <CarouselHero
+          items={carouselItems}
+          openCreateRegistry={openCreateRegistry}
+        />
 
         <Dialog open={createRegistryOpen} onOpenChange={setCreateRegistryOpen}>
           <DialogContent className="max-w-2xl">
@@ -72,16 +69,7 @@ export default function HostDashboardContent(props) {
           </DialogContent>
         </Dialog>
 
-        <div className="flex items-center gap-4 w-full md:flex-wrap lg:flex-nowrap">
-          {customStyles.map((style) => (
-            <div key={style} className="flex flex-col space-y-4">
-              <div className="w-[200px] h-[200px] bg-[#E9E9ED] border border-[#DCDCDE] rounded-md" />
-              <button className="text-sm text-[#A2845E] cursor-pointer font-semibold">
-                {style}
-              </button>
-            </div>
-          ))}
-        </div>
+        <RegistryType openCreateRegistry={openCreateRegistry} />
 
         <div className="w-full flex flex-col space-y-8">
           <div className="w-full flex flex-col space-y-4">
@@ -112,7 +100,10 @@ export default function HostDashboardContent(props) {
                       </div>
                     </div>
                     <div>
-                      <Link href={`/dashboard/h/registry/${registry_code}`} className="cursor-pointer hover:underline">
+                      <Link
+                        href={`/dashboard/h/registry/${registry_code}`}
+                        className="cursor-pointer hover:underline"
+                      >
                         <p className="text-sm text-[#A2845E] bg-[#FFFFFF] p-4 w-full h-[70px] line-clamp-2">
                           {title}
                         </p>

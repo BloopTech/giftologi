@@ -19,7 +19,7 @@ export default function RootLayout({ children }) {
       >
         <div className="mx-auto w-full">
           <AdminSidebar />
-          <main className="lg:pl-72 flex flex-col bg-[#FFFFFF] dark:bg-gray-950">
+          <main className="lg:pl-72 flex flex-col bg-[#FFFFFF] dark:bg-gray-950 lg:pr-10">
             <div className="flex flex-col min-h-screen ">
               <div className="lg:mx-10 mx-5">
                 <Header />

@@ -20,14 +20,7 @@ import {
   DialogTitle,
 } from "../../../../components/Dialog";
 import CreateRegistryDialog from "../../components/createRegistryDialog";
-
-const customStyles = [
-  "Wedding",
-  "Baby Shower",
-  "Birthday",
-  "Fundraiser",
-  "Custom",
-];
+import RegistryType from "../../components/registryType";
 
 const carouselItems = [
   {
@@ -63,7 +56,10 @@ export default function HostDashboardRegistryListsContent(props) {
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
       <main className="flex flex-col space-y-16 w-full">
-        <CarouselHero items={carouselItems} />
+        <CarouselHero
+          items={carouselItems}
+          openCreateRegistry={openCreateRegistry}
+        />
 
         <Dialog open={createRegistryOpen} onOpenChange={setCreateRegistryOpen}>
           <DialogContent className="max-w-2xl">
@@ -74,16 +70,7 @@ export default function HostDashboardRegistryListsContent(props) {
           </DialogContent>
         </Dialog>
 
-        <div className="flex items-center gap-4 w-full md:flex-wrap lg:flex-nowrap">
-          {customStyles.map((style) => (
-            <div key={style} className="flex flex-col space-y-4">
-              <div className="w-[200px] h-[200px] bg-[#E9E9ED] border border-[#DCDCDE] rounded-md" />
-              <button className="text-sm text-[#A2845E] cursor-pointer font-semibold">
-                {style}
-              </button>
-            </div>
-          ))}
-        </div>
+        <RegistryType openCreateRegistry={openCreateRegistry} />
 
         <div className="w-full flex flex-col space-y-8">
           <div className="w-full flex flex-col space-y-4">
@@ -95,8 +82,9 @@ export default function HostDashboardRegistryListsContent(props) {
           </div>
 
           <div className="flex w-full flex-wrap gap-8 items-center">
-            {registry?.length
-              ? registry?.map(({ id, title, cover_photo, registry_code }) => {
+            {registry?.length ? (
+              <div className="flex w-full flex-wrap gap-8 items-center">
+                {registry?.map(({ id, cover_photo, title, registry_code }) => {
                   return (
                     <div
                       key={id}
@@ -125,36 +113,60 @@ export default function HostDashboardRegistryListsContent(props) {
                       </div>
                     </div>
                   );
-                })
-              : null}
-
-            <div className="flex flex-col gap-4">
-              <button
-                type="button"
-                onClick={openCreateRegistry}
-                className="cursor-pointer flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]"
-              >
-                <Plus className="size-8" />
-                <span className="w-full flex items-center justify-center relative h-[100px] -my-[1rem]">
-                  <span className="w-full h-full">
-                    <Image
-                      src={giftbox}
-                      alt="gift box"
-                      fill
-                      priority
-                      className="object-contain"
-                    />
-                  </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={openCreateRegistry}
-                className="text-[#A2845E] cursor-pointer text-xs/tight flex items-center justify-center"
-              >
-                Add to Registry
-              </button>
-            </div>
+                })}
+                <div className="flex flex-col gap-4">
+                  <button
+                    type="button"
+                    onClick={openCreateRegistry}
+                    className="cursor-pointer flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]"
+                  >
+                    <Plus className="size-8" />
+                    <span className="w-full flex items-center justify-center relative h-[100px] -my-[1rem]">
+                      <span className="w-full h-full">
+                        <Image
+                          src={giftbox}
+                          alt="gift box"
+                          fill
+                          priority
+                          className="object-contain"
+                        />
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openCreateRegistry}
+                    className="text-[#A2845E] cursor-pointer text-xs/tight flex items-center justify-center"
+                  >
+                    Add to Registry
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center mx-auto max-w-md w-full rounded-4xl border border-[#A9C4FC] px-4 py-8 bg-white flex-col space-y-4">
+                <div className="inline-block">
+                  <Image
+                    src="/host/giftologi-gift-box.svg"
+                    alt="open gift"
+                    width={100}
+                    height={100}
+                    className="object-contain"
+                    priority
+                  />
+                </div>
+                <p className="text-[#394B71] font-semibold text-center text-sm">
+                  Ready to make your first registry? <br /> Click below to
+                  create and share.
+                </p>
+                <button
+                  type="button"
+                  onClick={openCreateRegistry}
+                  className="text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center"
+                >
+                  Create Registry
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

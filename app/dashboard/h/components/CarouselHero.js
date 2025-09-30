@@ -1,10 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
 
-export default function CarouselHero({ items = [] }) {
-  const [index, setIndex] = React.useState(0);
+export default function CarouselHero({ items = [], openCreateRegistry }) {
+  const [index, setIndex] = useState(0);
 
   const goTo = (i) => {
     if (!items?.length) return;
@@ -51,10 +51,17 @@ export default function CarouselHero({ items = [] }) {
                 {/* Text content */}
                 <div className="flex flex-col space-y-12 flex-1">
                   <div className="flex flex-col space-y-2 w-full">
-                    <h1 className="text-[#85753C] text-xl">Create a gift registry for your</h1>
-                    <p className="text-[#85753C] font-semibold text-4xl">{item.title}</p>
+                    <h1 className="text-[#85753C] text-xl">
+                      Create a gift registry for your
+                    </h1>
+                    <p className="text-[#85753C] font-semibold text-4xl">
+                      {item.title}
+                    </p>
                   </div>
-                  <button className="w-fit text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center">
+                  <button
+                    onClick={openCreateRegistry}
+                    className="w-fit text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center"
+                  >
                     Create a Registry
                   </button>
                 </div>
