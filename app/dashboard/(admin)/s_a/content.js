@@ -295,7 +295,7 @@ export default function SuperAdminDashboardContent() {
           <h2 className="text-[#717182] text-xs/4 font-poppins">
             Active Registries
           </h2>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
               1,248
             </p>
@@ -311,7 +311,7 @@ export default function SuperAdminDashboardContent() {
           <h2 className="text-[#717182] text-xs/4 font-poppins">
             Pending Vendor Requests
           </h2>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
               23
             </p>
@@ -327,7 +327,7 @@ export default function SuperAdminDashboardContent() {
           <h2 className="text-[#717182] text-xs/4 font-poppins">
             Total Orders
           </h2>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
               23
             </p>
@@ -343,7 +343,7 @@ export default function SuperAdminDashboardContent() {
           <h2 className="text-[#717182] text-xs/4 font-poppins">
             Open Tickets
           </h2>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <p className="text-[#0A0A0A] font-medium font-poppins text-sm">4</p>
             <PiTicket className="size-4 text-[#AA1BC6]" />
           </div>
@@ -357,7 +357,7 @@ export default function SuperAdminDashboardContent() {
           <h2 className="text-[#717182] text-xs/4 font-poppins">
             Pending Escalations
           </h2>
-          <div className="flex justify-between">
+          <div className="flex justify-between items-center">
             <p className="text-[#0A0A0A] font-medium font-poppins text-sm">7</p>
             <PiWarning className="size-4 text-[#C52721]" />
           </div>
