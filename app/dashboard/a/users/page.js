@@ -9,7 +9,16 @@ export default async function AdminUsersPage({ searchParams }) {
 
   // Parse filters
   const rawRole = (params?.role || "all").toString().toLowerCase();
-  const allowedRoles = ["all", "host", "vendor", "admin", "guest"];
+  const allowedRoles = [
+    "all",
+    "host",
+    "vendor",
+    "super_admin",
+    "finance_admin",
+    "operations_manager_admin",
+    "customer_support_admin",
+    "guest",
+  ];
   const role = allowedRoles.includes(rawRole) ? rawRole : "all";
   const q = (params?.q || "").toString();
   const limitParam = parseInt(params?.limit, 10);
@@ -26,7 +35,8 @@ export default async function AdminUsersPage({ searchParams }) {
   const dir = allowedDirs.includes(rawDir) ? rawDir : "desc";
 
   // Build query
-  let selectFields = "id, firstname, lastname, email, role, color, created_at, status, image";
+  let selectFields =
+    "id, firstname, lastname, email, role, color, created_at, status, image";
   let query = supabase
     .from("profiles")
     .select(selectFields, { count: "exact" });
@@ -47,7 +57,9 @@ export default async function AdminUsersPage({ searchParams }) {
     query = query.order("role", { ascending: dir === "asc" });
   } else if (sort === "name") {
     // Sort by firstname then lastname
-    query = query.order("firstname", { ascending: dir === "asc" }).order("lastname", { ascending: dir === "asc" });
+    query = query
+      .order("firstname", { ascending: dir === "asc" })
+      .order("lastname", { ascending: dir === "asc" });
   }
   query = query.range(from, to);
 
@@ -63,7 +75,10 @@ export default async function AdminUsersPage({ searchParams }) {
     // Fallback if status column doesn't exist
     let fallback = supabase
       .from("profiles")
-      .select("id, firstname, lastname, email, role, color, created_at, image", { count: "exact" });
+      .select(
+        "id, firstname, lastname, email, role, color, created_at, image",
+        { count: "exact" }
+      );
     if (role !== "all") fallback = fallback.eq("role", role);
     if (q) {
       const pattern = `%${q}%`;
@@ -76,7 +91,9 @@ export default async function AdminUsersPage({ searchParams }) {
     } else if (sort === "role") {
       fallback = fallback.order("role", { ascending: dir === "asc" });
     } else if (sort === "name") {
-      fallback = fallback.order("firstname", { ascending: dir === "asc" }).order("lastname", { ascending: dir === "asc" });
+      fallback = fallback
+        .order("firstname", { ascending: dir === "asc" })
+        .order("lastname", { ascending: dir === "asc" });
     }
     fallback = fallback.range(from, to);
     const { data, error, count } = await fallback;
@@ -95,15 +112,19 @@ export default async function AdminUsersPage({ searchParams }) {
     color: u.color,
     created_at: u.created_at,
     status: u.status ?? "active",
-    image: u.image
+    image: u.image,
   }));
 
   return (
     <div className="dark:text-white bg-[#FFFFFF] dark:bg-gray-950 lg:pl-10 pl-5 pr-5 lg:pr-0">
       <div className="flex flex-col gap-4">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-[#2D3436] dark:text-white">Users</h1>
-          <p className="text-sm text-[#6B7280] dark:text-gray-300">Manage and moderate users.</p>
+          <h1 className="text-xl md:text-2xl font-semibold text-[#2D3436] dark:text-white">
+            Users
+          </h1>
+          <p className="text-sm text-[#6B7280] dark:text-gray-300">
+            Manage and moderate users.
+          </p>
         </div>
         <UsersContent
           key={`${role}-${q}-${page}-${pageSize}-${sort}-${dir}`}

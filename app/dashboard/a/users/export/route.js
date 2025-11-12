@@ -17,7 +17,16 @@ export async function GET(req) {
     const params = url.searchParams;
 
     const rawRole = (params.get("role") || "all").toLowerCase();
-    const allowedRoles = ["all", "host", "vendor", "admin", "guest"];
+    const allowedRoles = [
+      "all",
+      "host",
+      "vendor",
+      "super_admin",
+      "finance_admin",
+      "operations_manager_admin",
+      "customer_support_admin",
+      "guest",
+    ];
     const role = allowedRoles.includes(rawRole) ? rawRole : "all";
     const q = (params.get("q") || "").toString();
     const rawSort = (params.get("sort") || "created_at").toString();
@@ -27,8 +36,11 @@ export async function GET(req) {
     const sort = allowedSorts.includes(rawSort) ? rawSort : "created_at";
     const dir = allowedDirs.includes(rawDir) ? rawDir : "desc";
 
-    let selectFields = "id, firstname, lastname, email, role, created_at, status";
-    let query = supabase.from("profiles").select(selectFields, { count: "exact" });
+    let selectFields =
+      "id, firstname, lastname, email, role, created_at, status";
+    let query = supabase
+      .from("profiles")
+      .select(selectFields, { count: "exact" });
 
     if (role !== "all") query = query.eq("role", role);
     if (q) {
@@ -43,7 +55,9 @@ export async function GET(req) {
     } else if (sort === "role") {
       query = query.order("role", { ascending: dir === "asc" });
     } else if (sort === "name") {
-      query = query.order("firstname", { ascending: dir === "asc" }).order("lastname", { ascending: dir === "asc" });
+      query = query
+        .order("firstname", { ascending: dir === "asc" })
+        .order("lastname", { ascending: dir === "asc" });
     }
 
     // Cap export size
@@ -58,7 +72,9 @@ export async function GET(req) {
       // Fallback without status column
       let fb = supabase
         .from("profiles")
-        .select("id, firstname, lastname, email, role, created_at", { count: "exact" });
+        .select("id, firstname, lastname, email, role, created_at", {
+          count: "exact",
+        });
       if (role !== "all") fb = fb.eq("role", role);
       if (q) {
         const pattern = `%${q}%`;
@@ -66,15 +82,28 @@ export async function GET(req) {
           `firstname.ilike.${pattern},lastname.ilike.${pattern},email.ilike.${pattern}`
         );
       }
-      if (sort === "created_at") fb = fb.order("created_at", { ascending: dir === "asc" });
-      else if (sort === "role") fb = fb.order("role", { ascending: dir === "asc" });
-      else if (sort === "name") fb = fb.order("firstname", { ascending: dir === "asc" }).order("lastname", { ascending: dir === "asc" });
+      if (sort === "created_at")
+        fb = fb.order("created_at", { ascending: dir === "asc" });
+      else if (sort === "role")
+        fb = fb.order("role", { ascending: dir === "asc" });
+      else if (sort === "name")
+        fb = fb
+          .order("firstname", { ascending: dir === "asc" })
+          .order("lastname", { ascending: dir === "asc" });
       fb = fb.limit(5000);
       const { data: rows2 } = await fb;
       data = (rows2 || []).map((u) => ({ ...u, status: "active" }));
     }
 
-    const header = ["id", "firstname", "lastname", "email", "role", "status", "created_at"];
+    const header = [
+      "id",
+      "firstname",
+      "lastname",
+      "email",
+      "role",
+      "status",
+      "created_at",
+    ];
     const lines = [header.join(",")];
     for (const u of data) {
       const row = [
@@ -92,7 +121,9 @@ export async function GET(req) {
 
     const now = new Date();
     const pad = (n) => String(n).padStart(2, "0");
-    const fileName = `users_export_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.csv`;
+    const fileName = `users_export_${now.getFullYear()}${pad(
+      now.getMonth() + 1
+    )}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.csv`;
 
     return new Response(csv, {
       headers: {
@@ -102,6 +133,9 @@ export async function GET(req) {
       },
     });
   } catch (e) {
-    return NextResponse.json({ ok: false, message: e?.message || "Export failed" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, message: e?.message || "Export failed" },
+      { status: 500 }
+    );
   }
 }

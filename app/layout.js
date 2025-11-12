@@ -5,6 +5,7 @@ import {
   Playfair_Display,
   Cormorant_Garamond,
   Bodoni_Moda,
+  Inter
 } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
@@ -44,6 +45,12 @@ const bodoniModa = Bodoni_Moda({
   subsets: ["latin"],
 });
 
+const inter = Inter({
+  variable: "--font-inter",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  subsets: ["latin"],
+});
+
 export const metadata = {
   title: "Giftologi",
   description: "Giftologi",
@@ -53,7 +60,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} antialiased`}
       >
         <ThemeProvider attribute="class">
           <Toaster
