@@ -193,6 +193,7 @@ export async function middlewareClient(request) {
               lastname: signup_profile?.lastname,
               color: signup_profile?.color,
               role: signup_profile?.role,
+              created_by: signup_profile?.created_by,
               created_at: signup_profile?.created_at,
               updated_at: signup_profile?.updated_at,
             },

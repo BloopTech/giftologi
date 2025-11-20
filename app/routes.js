@@ -15,12 +15,23 @@ export const apiAuthPath = `/api/auth`;
 
 export const loginRedirect = `/`;
 
-export const protectedRoutes = ["/dashboard/h", "/dashboard/a", "/dashboard/v", "/g"];
+export const protectedRoutes = [
+  "/dashboard/h",
+  "/dashboard/s_a",
+  "/dashboard/f_a",
+  "/dashboard/o_m_a",
+  "/dashboard/c_s_a",
+  "/dashboard/v",
+  "/g",
+];
 
 // Map user roles in `profiles.role` to their dashboard paths
 export const roleRedirects = {
   host: "/dashboard/h",
-  admin: "/dashboard/a",
+  super_admin: "/dashboard/s_a",
+  finance_admin: "/dashboard/f_a",
+  operations_manager_admin: "/dashboard/o_m_a",
+  customer_support_admin: "/dashboard/c_s_a",
   vendor: "/dashboard/v",
   guest: "/g",
 };
