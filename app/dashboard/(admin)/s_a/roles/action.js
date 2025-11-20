@@ -41,6 +41,48 @@ const manageRolesSchema = z.object({
     .or(z.literal("")),
 });
 
+const defaultUpdateStaffValues = {
+  staffId: [],
+  fullName: [],
+  role: [],
+  phone: [],
+};
+
+const updateStaffDetailsSchema = z.object({
+  staffId: z
+    .string()
+    .uuid({ message: "Invalid staff member" }),
+  fullName: z
+    .string()
+    .trim()
+    .min(1, { message: "Full name is required" }),
+  role: z.string().trim().min(1, { message: "Role is required" }),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal("")),
+});
+
+const defaultUpdateStaffStatusValues = {
+  staffId: [],
+  mode: [],
+  confirmText: [],
+};
+
+const updateStaffStatusSchema = z.object({
+  staffId: z
+    .string()
+    .uuid({ message: "Invalid staff member" }),
+  mode: z.enum(["suspend", "delete"], {
+    errorMap: () => ({ message: "Select an action" }),
+  }),
+  confirmText: z
+    .string()
+    .trim()
+    .min(1, { message: "Type the confirmation text to continue" }),
+});
+
 export async function manageRoles(prevState, queryData) {
   const supabase = await createClient();
 
@@ -209,5 +251,185 @@ export async function manageRoles(prevState, queryData) {
     status_code: 200,
     email: getBusinessEmail,
     values: {},
+  };
+}
+
+export async function updateStaffDetails(prevState, formData) {
+  const supabase = await createClient();
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .single();
+
+  if (!currentProfile || currentProfile.role !== "super_admin") {
+    return {
+      message: "You are not authorized to update staff members.",
+      errors: {
+        ...defaultUpdateStaffValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    staffId: formData.get("staffId"),
+    fullName: formData.get("fullName"),
+    role: formData.get("role"),
+    phone: formData.get("phone"),
+  };
+
+  const validated = updateStaffDetailsSchema.safeParse(raw);
+
+  if (!validated.success) {
+    return {
+      message: validated.error.issues?.[0]?.message || "Validation failed",
+      errors: validated.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { staffId, fullName, role, phone } = validated.data;
+
+  const nameParts = fullName.trim().split(" ");
+  const firstname = nameParts[0] || "";
+  const lastname = nameParts.slice(1).join(" ") || "";
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({
+      firstname,
+      lastname,
+      phone: phone || null,
+      role,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", staffId)
+    .select("id, firstname, lastname, email, role, phone, status")
+    .single();
+
+  if (error) {
+    return {
+      message: error.message,
+      errors: {
+        ...defaultUpdateStaffValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  return {
+    message: "Staff details updated successfully.",
+    errors: {},
+    values: {},
+    data: {
+      profile: data,
+    },
+  };
+}
+
+export async function updateStaffStatus(prevState, formData) {
+  const supabase = await createClient();
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .single();
+
+  if (!currentProfile || currentProfile.role !== "super_admin") {
+    return {
+      message: "You are not authorized to change staff status.",
+      errors: {
+        ...defaultUpdateStaffStatusValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    staffId: formData.get("staffId"),
+    mode: formData.get("mode"),
+    confirmText: formData.get("confirmText"),
+  };
+
+  const validated = updateStaffStatusSchema.safeParse(raw);
+
+  if (!validated.success) {
+    return {
+      message: validated.error.issues?.[0]?.message || "Validation failed",
+      errors: validated.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { staffId, mode, confirmText } = validated.data;
+
+  const expectedConfirm =
+    mode === "suspend" ? "SUSPEND" : "DELETE STAFF";
+
+  if (confirmText.trim().toUpperCase() !== expectedConfirm) {
+    return {
+      message: "Confirmation text does not match.",
+      errors: {
+        ...defaultUpdateStaffStatusValues,
+        confirmText: [
+          mode === "suspend"
+            ? "Type SUSPEND to confirm."
+            : "Type DELETE STAFF to confirm.",
+        ],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const updates = {
+    updated_at: new Date().toISOString(),
+  };
+
+  if (mode === "suspend") {
+    updates.status = "Suspended";
+  } else {
+    updates.status = "Deleted";
+    updates.role = null;
+    updates.firstname = null;
+    updates.lastname = null;
+    updates.phone = null;
+    updates.address = null;
+    updates.image = null;
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update(updates)
+    .eq("id", staffId);
+
+  if (error) {
+    return {
+      message: error.message,
+      errors: {
+        ...defaultUpdateStaffStatusValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  return {
+    message:
+      mode === "suspend"
+        ? "Staff member has been suspended."
+        : "Staff member has been deleted.",
+    errors: {},
+    values: {},
+    data: {
+      staffId,
+      mode,
+    },
   };
 }

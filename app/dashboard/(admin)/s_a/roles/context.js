@@ -141,14 +141,31 @@ export const RolesProvider = ({ children }) => {
     const fetchCurrentAdmin = async () => {
       try {
         const supabase = createSupabaseClient();
+        const {
+          data: userResult,
+          error: userError,
+        } = await supabase.auth.getUser();
+
+        if (userError || !userResult?.user) {
+          if (!ignore) {
+            setCurrentAdmin(null);
+          }
+          return;
+        }
+
+        const userId = userResult.user.id;
+
         const { data, error } = await supabase
           .from("profiles")
           .select("id, role, firstname, lastname, email")
+          .eq("id", userId)
           .single();
 
         if (!ignore) {
           if (!error) {
             setCurrentAdmin(data || null);
+          } else {
+            setCurrentAdmin(null);
           }
         }
       } catch (_) {

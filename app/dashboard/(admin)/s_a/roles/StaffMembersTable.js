@@ -1,4 +1,5 @@
-import React, { useMemo, useState } from "react";
+"use client";
+import React, { useEffect, useMemo, useState, useActionState } from "react";
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -18,9 +19,26 @@ import {
   createColumnHelper,
 } from "@tanstack/react-table";
 import { tv } from "tailwind-variants";
-import { cx } from "@/app/components/utils";
+import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { Badge } from "@/app/components/Badge";
 import { useRolesContext } from "./context";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogClose,
+} from "@/app/components/Dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
+import { updateStaffDetails, updateStaffStatus } from "./action";
 
 const tableStyles = tv({
   slots: {
@@ -45,6 +63,36 @@ const statusVariantMap = {
   Active: "success",
   Suspended: "error",
   Inactive: "neutral",
+};
+
+const ROLE_OPTIONS = [
+  { label: "Super Admin", value: "super_admin" },
+  { label: "Operations Manager", value: "operations_manager_admin" },
+  { label: "Finance", value: "finance_admin" },
+  { label: "Customer Support", value: "customer_support_admin" },
+];
+
+const initialEditState = {
+  message: "",
+  errors: {
+    staffId: [],
+    fullName: [],
+    role: [],
+    phone: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialStatusState = {
+  message: "",
+  errors: {
+    staffId: [],
+    mode: [],
+    confirmText: [],
+  },
+  values: {},
+  data: {},
 };
 
 function SortableHeader({ column, title }) {
@@ -82,7 +130,61 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
     staffTotal,
     loadingStaff,
     setStaffPage,
+    refreshStaff,
+    currentAdmin,
   } = useRolesContext() || {};
+
+  const isSuperAdmin = currentAdmin?.role === "super_admin";
+
+  const [viewOpen, setViewOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState(null);
+  const [statusMode, setStatusMode] = useState("suspend");
+  const [confirmText, setConfirmText] = useState("");
+
+  const [editState, editAction, editPending] = useActionState(
+    updateStaffDetails,
+    initialEditState
+  );
+  const [statusState, statusAction, statusPending] = useActionState(
+    updateStaffStatus,
+    initialStatusState
+  );
+
+  useEffect(() => {
+    if (!editState) return;
+    if (editState.message && editState.data && Object.keys(editState.data).length) {
+      toast.success(editState.message);
+      refreshStaff?.();
+      setEditOpen(false);
+    } else if (
+      editState.message &&
+      editState.errors &&
+      Object.keys(editState.errors).length
+    ) {
+      toast.error(editState.message);
+    }
+  }, [editState, refreshStaff]);
+
+  useEffect(() => {
+    if (!statusState) return;
+    if (
+      statusState.message &&
+      statusState.data &&
+      Object.keys(statusState.data).length
+    ) {
+      toast.success(statusState.message);
+      refreshStaff?.();
+      setStatusOpen(false);
+    } else if (
+      statusState.message &&
+      statusState.errors &&
+      Object.keys(statusState.errors).length
+    ) {
+      toast.error(statusState.message);
+    }
+  }, [statusState, refreshStaff]);
 
   const tableRows = useMemo(() => {
     if (!staff || !staff.length) return [];
@@ -110,6 +212,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
         status,
         lastLogin,
         createdBy: row.created_by_label || "—",
+        __raw: row,
       };
     });
   }, [staff]);
@@ -172,34 +275,65 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
       columnHelper.display({
         id: "actions",
         header: "Actions",
-        cell: () => (
-          <div className="flex justify-end items-center gap-2">
-            <button
-              type="button"
-              aria-label="View"
-              className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-            >
-              <Eye className="size-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Edit"
-              className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-            >
-              <Pencil className="size-4" />
-            </button>
-            <button
-              type="button"
-              aria-label="Delete"
-              className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
-            >
-              <Trash2 className="size-4" />
-            </button>
-          </div>
-        ),
+        cell: ({ row }) => {
+          const original = row.original;
+          const raw = original.__raw;
+
+          const handleView = () => {
+            setSelectedStaff(raw);
+            setViewOpen(true);
+          };
+
+          const handleEdit = () => {
+            if (!isSuperAdmin) return;
+            setSelectedStaff(raw);
+            setEditOpen(true);
+          };
+
+          const handleStatus = () => {
+            if (!isSuperAdmin) return;
+            setSelectedStaff(raw);
+            setStatusMode(raw.status === "Suspended" ? "delete" : "suspend");
+            setConfirmText("");
+            setStatusOpen(true);
+          };
+
+          return (
+            <div className="flex justify-end items-center gap-2">
+              <button
+                type="button"
+                onClick={handleView}
+                aria-label="View"
+                className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+              >
+                <Eye className="size-4" />
+              </button>
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={handleEdit}
+                  aria-label="Edit"
+                  className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                >
+                  <Pencil className="size-4" />
+                </button>
+              )}
+              {isSuperAdmin && (
+                <button
+                  type="button"
+                  onClick={handleStatus}
+                  aria-label="Delete or suspend"
+                  className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              )}
+            </div>
+          );
+        },
       }),
     ],
-    []
+    [isSuperAdmin]
   );
 
   const tableInstance = useReactTable({
@@ -221,6 +355,23 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
     totalRows === 0 ? 0 : Math.min(totalRows, (pageIndex + 1) * pageSize);
   const canPrevious = pageIndex > 0;
   const canNext = pageIndex + 1 < pageCount;
+
+  const selectedFullName = selectedStaff
+    ? [selectedStaff.firstname, selectedStaff.lastname].filter(Boolean).join(" ") ||
+      selectedStaff.email ||
+      "—"
+    : "";
+
+  const expectedConfirm =
+    statusMode === "suspend" ? "SUSPEND" : "DELETE STAFF";
+  const canSubmitStatus =
+    confirmText.trim().toUpperCase() === expectedConfirm && !!selectedStaff;
+
+  const editErrorFor = (key) => editState?.errors?.[key] ?? [];
+  const hasEditError = (key) => (editErrorFor(key)?.length ?? 0) > 0;
+
+  const statusErrorFor = (key) => statusState?.errors?.[key] ?? [];
+  const hasStatusError = (key) => (statusErrorFor(key)?.length ?? 0) > 0;
 
   return (
     <div className={cx(wrapper())}>
@@ -276,6 +427,337 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
           )}
         </tbody>
       </table>
+
+      {/* View staff dialog */}
+      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Staff Details
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              View staff member information.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStaff && (
+            <div className="mt-3 space-y-3 text-xs text-[#0A0A0A]">
+              <div>
+                <p className="font-medium">Full Name</p>
+                <p className="text-[#6A7282]">{selectedFullName}</p>
+              </div>
+              <div>
+                <p className="font-medium">Email</p>
+                <p className="text-[#6A7282]">{selectedStaff.email}</p>
+              </div>
+              <div>
+                <p className="font-medium">Phone</p>
+                <p className="text-[#6A7282]">{selectedStaff.phone || "—"}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="font-medium">Role</p>
+                  <p className="text-[#6A7282]">{selectedStaff.role}</p>
+                </div>
+                <div>
+                  <p className="font-medium">Status</p>
+                  <p className="text-[#6A7282]">{selectedStaff.status || "Active"}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="font-medium">Created At</p>
+                  <p className="text-[#6A7282]">
+                    {selectedStaff.created_at
+                      ? new Date(selectedStaff.created_at).toLocaleString()
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium">Created By</p>
+                  <p className="text-[#6A7282]">
+                    {selectedStaff.created_by_label || "—"}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          <div className="mt-4 flex justify-end">
+            <DialogClose asChild>
+              <button className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer">
+                Close
+              </button>
+            </DialogClose>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit staff dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Edit Staff Member
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Update basic details for this staff member.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStaff && (
+            <form action={editAction} className="mt-3 space-y-4">
+              <input type="hidden" name="staffId" value={selectedStaff.id} />
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="edit-fullName"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Full Name
+                </label>
+                <input
+                  id="edit-fullName"
+                  name="fullName"
+                  type="text"
+                  defaultValue={
+                    editState?.values?.fullName ?? selectedFullName
+                  }
+                  className={cx(
+                    "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasEditError("fullName") ? hasErrorInput : ""
+                  )}
+                  disabled={editPending}
+                />
+                {hasEditError("fullName") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {editErrorFor("fullName").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="edit-phone"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Phone Number
+                </label>
+                <input
+                  id="edit-phone"
+                  name="phone"
+                  type="tel"
+                  defaultValue={
+                    editState?.values?.phone ?? selectedStaff.phone ?? ""
+                  }
+                  className={cx(
+                    "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasEditError("phone") ? hasErrorInput : ""
+                  )}
+                  disabled={editPending}
+                />
+                {hasEditError("phone") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {editErrorFor("phone").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[#0A0A0A]">
+                  Assign Role
+                </label>
+                <input
+                  type="hidden"
+                  name="role"
+                  defaultValue={
+                    editState?.values?.role ?? selectedStaff.role ?? ""
+                  }
+                />
+                <Select
+                  defaultValue={
+                    editState?.values?.role ?? selectedStaff.role ?? ""
+                  }
+                  onValueChange={(value) => {
+                    // keep hidden input in sync via formData, no extra state needed
+                    const hidden = document.querySelector(
+                      "input[name='role']"
+                    );
+                    if (hidden) hidden.value = value;
+                  }}
+                  disabled={editPending}
+                >
+                  <SelectTrigger
+                    className={cx(
+                      "bg-white",
+                      hasEditError("role") ? hasErrorInput : ""
+                    )}
+                  >
+                    <SelectValue placeholder="Select a role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {ROLE_OPTIONS.map((role) => (
+                      <SelectItem key={role.value} value={role.value}>
+                        {role.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {hasEditError("role") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {editErrorFor("role").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={editPending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={editPending}
+                  className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Suspend/Delete staff dialog */}
+      <Dialog open={statusOpen} onOpenChange={setStatusOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Suspend or Delete Staff
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Only Super Admins can perform these actions.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedStaff && (
+            <form action={statusAction} className="mt-3 space-y-4">
+              <input type="hidden" name="staffId" value={selectedStaff.id} />
+              <input type="hidden" name="mode" value={statusMode} />
+
+              <div className="space-y-2 text-xs text-[#0A0A0A]">
+                <p>
+                  Choose whether to <span className="font-semibold">suspend</span> or
+                  <span className="font-semibold"> permanently delete</span> this
+                  staff member.
+                </p>
+                <div className="inline-flex rounded-full bg-[#F1F2F6] p-1 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setStatusMode("suspend")}
+                    className={cx(
+                      "px-4 py-1.5 text-[11px] font-medium rounded-full cursor-pointer",
+                      statusMode === "suspend"
+                        ? "bg-white text-[#0A0A0A] shadow-sm"
+                        : "text-[#717182]"
+                    )}
+                  >
+                    Suspend
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStatusMode("delete")}
+                    className={cx(
+                      "px-4 py-1.5 text-[11px] font-medium rounded-full cursor-pointer",
+                      statusMode === "delete"
+                        ? "bg-white text-red-600 shadow-sm"
+                        : "text-[#717182]"
+                    )}
+                  >
+                    Delete
+                  </button>
+                </div>
+                <p className="text-[11px] text-[#717182]">
+                  {statusMode === "suspend"
+                    ? "Suspended staff keep their record but lose access until reactivated."
+                    : "Deleted staff will lose their role and identifying details in this dashboard."}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="confirmText"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Type
+                  {" "}
+                  <span className="font-semibold">
+                    {expectedConfirm}
+                  </span>{" "}
+                  to confirm
+                </label>
+                <input
+                  id="confirmText"
+                  name="confirmText"
+                  type="text"
+                  value={confirmText}
+                  onChange={(e) => setConfirmText(e.target.value)}
+                  className={cx(
+                    "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasStatusError("confirmText") ? hasErrorInput : ""
+                  )}
+                  placeholder={expectedConfirm}
+                  disabled={statusPending}
+                />
+                {hasStatusError("confirmText") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {statusErrorFor("confirmText").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={statusPending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={statusPending || !canSubmitStatus}
+                  className={cx(
+                    "inline-flex items-center justify-center rounded-full border px-6 py-2 text-xs font-medium cursor-pointer",
+                    statusMode === "delete"
+                      ? "border-red-500 bg-red-500 text-white hover:bg-white hover:text-red-600"
+                      : "border-[#3979D2] bg-[#3979D2] text-white hover:bg-white hover:text-[#3979D2]"
+                  )}
+                >
+                  {statusMode === "delete" ? "Delete Staff" : "Suspend Staff"}
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-[11px] text-[#6A7282] bg-white">
         <span>
