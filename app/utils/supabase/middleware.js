@@ -95,6 +95,12 @@ export async function middlewareClient(request) {
   } = await supabase.auth.getUser();
 
   if (!user && hasOAuthOrVerifyCode && code) {
+    if (type === "signup") {
+      const dest = new URL("/login", request.url);
+      dest.searchParams.set("verified", "1");
+      return withCookiesRedirect(dest);
+    }
+
     try {
       const { error: exchangeError } =
         await supabase.auth.exchangeCodeForSession(code);
