@@ -94,8 +94,12 @@ export async function middlewareClient(request) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  const isAuthCallbackRoute = url.pathname === "/auth/callback";
+
   if (!user && hasOAuthOrVerifyCode && code) {
-    if (type === "signup") {
+    // For email/password confirmation links (e.g. /?code=...), do NOT run PKCE exchange on the server.
+    // Instead, treat them as plain verification and send user to login with a verified flag.
+    if (!isAuthCallbackRoute) {
       const dest = new URL("/login", request.url);
       dest.searchParams.set("verified", "1");
       return withCookiesRedirect(dest);
