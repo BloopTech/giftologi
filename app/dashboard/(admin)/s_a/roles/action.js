@@ -86,10 +86,36 @@ const updateStaffStatusSchema = z.object({
 export async function manageRoles(prevState, queryData) {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to create staff members.",
+      errors: {
+        ...defaultManageRolesValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("id, role, firstname, lastname")
+    .eq("id", user.id)
     .single();
+  if (!currentProfile || currentProfile.role !== "super_admin") {
+    return {
+      message: "You are not authorized to create staff members.",
+      errors: {
+        ...defaultManageRolesValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
 
   const getBusinessEmail = queryData.get("email");
   const getPassword = queryData.get("password");

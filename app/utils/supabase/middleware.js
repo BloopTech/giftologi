@@ -98,6 +98,7 @@ export async function middlewareClient(request) {
     try {
       const { error: exchangeError } =
         await supabase.auth.exchangeCodeForSession(code);
+        console.log("exchangeError.....................", exchangeError);
       if (!exchangeError) {
         // Recreate client with updated cookies so DB calls include Authorization
         supabase = createServerClient(
