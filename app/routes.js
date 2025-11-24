@@ -17,10 +17,7 @@ export const loginRedirect = `/`;
 
 export const protectedRoutes = [
   "/dashboard/h",
-  "/dashboard/s_a",
-  "/dashboard/f_a",
-  "/dashboard/o_m_a",
-  "/dashboard/c_s_a",
+  "/dashboard/admin",
   "/dashboard/v",
   "/g",
 ];
@@ -28,10 +25,10 @@ export const protectedRoutes = [
 // Map user roles in `profiles.role` to their dashboard paths
 export const roleRedirects = {
   host: "/dashboard/h",
-  super_admin: "/dashboard/s_a",
-  finance_admin: "/dashboard/f_a",
-  operations_manager_admin: "/dashboard/o_m_a",
-  customer_support_admin: "/dashboard/c_s_a",
+  super_admin: "/dashboard/admin",
+  finance_admin: "/dashboard/admin",
+  operations_manager_admin: "/dashboard/admin",
+  customer_support_admin: "/dashboard/admin",
   vendor: "/dashboard/v",
   guest: "/g",
 };
