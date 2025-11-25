@@ -10,8 +10,45 @@ import {
   PiWarning,
   PiXCircle,
 } from "react-icons/pi";
+import { useRegistryListContext } from "./context";
+import RegistryListTable from "./RegistryListTable";
 
 export default function RegistryListContent() {
+  const {
+    metrics,
+    loadingMetrics,
+    searchTerm,
+    setSearchTerm,
+    setRegistryPage,
+  } = useRegistryListContext() || {};
+
+  const [search, setSearch] = React.useState(searchTerm || "");
+  const isLoadingMetrics = !!loadingMetrics;
+
+  const formatCount = (value) => {
+    if (value === null || typeof value === "undefined") return "—";
+    const num = Number(value);
+    if (Number.isNaN(num)) return "—";
+    return num.toLocaleString();
+  };
+
+  const renderMetricCount = (value) => {
+    if (isLoadingMetrics) {
+      return <div className="h-4 w-10 rounded bg-[#E5E7EB] animate-pulse" />;
+    }
+    return (
+      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+        {formatCount(value)}
+      </p>
+    );
+  };
+
+  const handleSearch = () => {
+    if (!setSearchTerm || !setRegistryPage) return;
+    setSearchTerm(search);
+    setRegistryPage(0);
+  };
+
   return (
     <div className="flex flex-col space-y-4 w-full">
       <div className="flex items-center justify-between">
@@ -34,7 +71,7 @@ export default function RegistryListContent() {
             Active Registries
           </h2>
           <div className="flex justify-between items-center">
-            {/* {renderMetricCount(metrics?.totalRegistries)} */} 2
+            {renderMetricCount(metrics?.activeRegistries)}
             <PiShoppingBagOpen className="size-4 text-[#6EA30B]" />
           </div>
           <div className="border-t-[2px] border-[#6EA30B]" />
@@ -46,8 +83,7 @@ export default function RegistryListContent() {
             Expired
           </h2>
           <div className="flex justify-between items-center">
-            1
-            {/* {renderMetricCount(metrics?.pendingVendorRequests)} */}
+            {renderMetricCount(metrics?.expiredRegistries)}
             <PiXCircle className="size-4 text-[#CB7428]" />
           </div>
           <div className="border-t-[2px] border-[#FFCA57]" />
@@ -58,7 +94,7 @@ export default function RegistryListContent() {
             Flagged
           </h2>
           <div className="flex justify-between items-center">
-            {/* {renderMetricCount(metrics?.totalOrders ?? 0)} */}1
+            {renderMetricCount(metrics?.flaggedRegistries)}
             <PiFlag className="size-4 text-[#C52721]" />
           </div>
           <div className="border-t-[2px] border-[#FF908B]" />
@@ -69,7 +105,7 @@ export default function RegistryListContent() {
             Total Registries
           </h2>
           <div className="flex justify-between items-center">
-            {/* {renderMetricCount(metrics?.openTickets)} */} 4
+            {renderMetricCount(metrics?.totalRegistries)}
             <PiTicket className="size-4 text-[#286AD4]" />
           </div>
           <div className="border-t-[2px] border-[#5797FF]" />
@@ -84,8 +120,8 @@ export default function RegistryListContent() {
             <Search className="size-4 text-[#717182]" />
             <input
               type="text"
-            //   value={search}
-            //   onChange={(event) => setSearch(event.target.value)}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
               placeholder={
                 "Search by host name, registry name or code"
               }
@@ -95,14 +131,13 @@ export default function RegistryListContent() {
         </div>
         <button
           type="button"
-          onClick={() => {
-            
-          }}
+          onClick={handleSearch}
           className="px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-[#3979D2] text-white text-xs font-medium border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2]"
         >
           Search
         </button>
       </div>
+      <RegistryListTable />
     </div>
   );
 }

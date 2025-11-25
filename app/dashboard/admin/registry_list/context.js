@@ -1,0 +1,431 @@
+"use client";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
+
+const RegistryListContext = createContext();
+
+export const RegistryListProvider = ({ children }) => {
+  const value = useRegistryListProviderValue();
+
+  return (
+    <RegistryListContext.Provider value={value}>
+      {children}
+    </RegistryListContext.Provider>
+  );
+};
+
+function useRegistryListProviderValue() {
+  const [registries, setRegistries] = useState([]);
+  const [registryPage, setRegistryPage] = useState(0);
+  const [pageSize] = useState(10);
+  const [registriesTotal, setRegistriesTotal] = useState(0);
+  const [loadingRegistries, setLoadingRegistries] = useState(false);
+  const [errorRegistries, setErrorRegistries] = useState(null);
+
+  const [metrics, setMetrics] = useState({
+    activeRegistries: null,
+    expiredRegistries: null,
+    flaggedRegistries: null,
+    totalRegistries: null,
+  });
+  const [loadingMetrics, setLoadingMetrics] = useState(true);
+  const [metricsError, setMetricsError] = useState(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchMetrics = async () => {
+      setMetricsError(null);
+      setLoadingMetrics(true);
+
+      try {
+        const supabase = createSupabaseClient();
+        const nowIso = new Date().toISOString();
+
+        const [
+          { count: totalCount, error: totalError },
+          { count: activeCount, error: activeError },
+          { count: expiredCount, error: expiredError },
+          { data: flaggedTickets, error: flaggedError },
+        ] = await Promise.all([
+          supabase.from("registries").select("id", { count: "exact" }),
+          supabase
+            .from("registries")
+            .select("id", { count: "exact" })
+            .gte("deadline", nowIso),
+          supabase
+            .from("registries")
+            .select("id", { count: "exact" })
+            .lt("deadline", nowIso),
+          supabase
+            .from("support_tickets")
+            .select("registry_id, status")
+            .eq("status", "escalated"),
+        ]);
+
+        if (ignore) return;
+
+        if (totalError || activeError || expiredError || flaggedError) {
+          const message =
+            totalError?.message ||
+            activeError?.message ||
+            expiredError?.message ||
+            flaggedError?.message ||
+            "Failed to load registry metrics";
+          setMetricsError(message);
+        }
+
+        let flaggedCount = null;
+        if (Array.isArray(flaggedTickets)) {
+          const ids = new Set();
+          for (const row of flaggedTickets) {
+            if (row?.registry_id) ids.add(row.registry_id);
+          }
+          flaggedCount = ids.size;
+        }
+
+        setMetrics({
+          activeRegistries:
+            typeof activeCount === "number" ? activeCount : null,
+          expiredRegistries:
+            typeof expiredCount === "number" ? expiredCount : null,
+          flaggedRegistries: flaggedCount,
+          totalRegistries: typeof totalCount === "number" ? totalCount : null,
+        });
+      } catch (error) {
+        if (!ignore) {
+          setMetricsError(error?.message || "Failed to load registry metrics");
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingMetrics(false);
+        }
+      }
+    };
+
+    fetchMetrics();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchRegistries = async () => {
+      setLoadingRegistries(true);
+      setErrorRegistries(null);
+
+      try {
+        const supabase = createSupabaseClient();
+        const from = registryPage * pageSize;
+        const to = from + pageSize - 1;
+
+        let query = supabase
+          .from("registries")
+          .select(
+            "id, title, deadline, event_id, registry_code, created_at, updated_at",
+            { count: "exact" }
+          );
+
+        if (searchTerm && searchTerm.trim()) {
+          const term = searchTerm.trim();
+          const pattern = `%${term}%`;
+          query = query.or(
+            `title.ilike.${pattern},registry_code.ilike.${pattern}`
+          );
+        }
+
+        const {
+          data: registryRows,
+          error: registryError,
+          count,
+        } = await query.order("created_at", { ascending: false }).range(from, to);
+
+        if (registryError) {
+          if (!ignore) {
+            setErrorRegistries(registryError.message);
+            setRegistries([]);
+            setRegistriesTotal(0);
+          }
+          return;
+        }
+
+        if (!registryRows || !registryRows.length) {
+          if (!ignore) {
+            setRegistries([]);
+            setRegistriesTotal(count ?? 0);
+          }
+          return;
+        }
+
+        const baseRegistries = registryRows;
+        const registryIds = baseRegistries.map((r) => r.id).filter(Boolean);
+        const eventIds = baseRegistries.map((r) => r.event_id).filter(Boolean);
+
+        const eventsPromise = eventIds.length
+          ? supabase
+              .from("events")
+              .select("id, host_id, type, date")
+              .in("id", eventIds)
+          : Promise.resolve({ data: [], error: null });
+
+        const registryItemsPromise = registryIds.length
+          ? supabase
+              .from("registry_items")
+              .select("id, registry_id, quantity_needed, purchased_qty")
+              .in("registry_id", registryIds)
+          : Promise.resolve({ data: [], error: null });
+
+        const ticketsPromise = registryIds.length
+          ? supabase
+              .from("support_tickets")
+              .select("registry_id, status")
+              .in("registry_id", registryIds)
+              .eq("status", "escalated")
+          : Promise.resolve({ data: [], error: null });
+
+        const [
+          { data: eventsData, error: eventsError },
+          { data: registryItemsData, error: registryItemsError },
+          { data: flaggedTickets, error: ticketsError },
+        ] = await Promise.all([
+          eventsPromise,
+          registryItemsPromise,
+          ticketsPromise,
+        ]);
+
+        if (eventsError || registryItemsError || ticketsError) {
+          const message =
+            eventsError?.message ||
+            registryItemsError?.message ||
+            ticketsError?.message ||
+            "Failed to enrich registries";
+          if (!ignore) {
+            setErrorRegistries(message);
+          }
+        }
+
+        const registryItemIds = Array.isArray(registryItemsData)
+          ? registryItemsData.map((row) => row.id).filter(Boolean)
+          : [];
+
+        const {
+          data: orderItemsData,
+          error: orderItemsError,
+        } = registryItemIds.length
+          ? await supabase
+              .from("order_items")
+              .select("registry_item_id, quantity, price")
+              .in("registry_item_id", registryItemIds)
+          : { data: [], error: null };
+
+        if (orderItemsError && !ignore) {
+          setErrorRegistries(orderItemsError.message);
+        }
+
+        const hostIds = Array.isArray(eventsData)
+          ? Array.from(
+              new Set(eventsData.map((ev) => ev.host_id).filter(Boolean))
+            )
+          : [];
+
+        const {
+          data: hostProfilesData,
+          error: profilesError,
+        } = hostIds.length
+          ? await supabase
+              .from("profiles")
+              .select("id, firstname, lastname, email")
+              .in("id", hostIds)
+          : { data: [], error: null };
+
+        if (profilesError && !ignore) {
+          setErrorRegistries(profilesError.message);
+        }
+
+        if (ignore) return;
+
+        const eventsById = new Map();
+        if (Array.isArray(eventsData)) {
+          for (const ev of eventsData) {
+            if (ev?.id) eventsById.set(ev.id, ev);
+          }
+        }
+
+        const hostsById = new Map();
+        if (Array.isArray(hostProfilesData)) {
+          for (const profile of hostProfilesData) {
+            if (profile?.id) hostsById.set(profile.id, profile);
+          }
+        }
+
+        const flaggedRegistryIds = new Set();
+        if (Array.isArray(flaggedTickets)) {
+          for (const row of flaggedTickets) {
+            if (row?.registry_id) flaggedRegistryIds.add(row.registry_id);
+          }
+        }
+
+        const itemsByRegistryId = {};
+        const registryIdByItemId = new Map();
+        if (Array.isArray(registryItemsData)) {
+          for (const item of registryItemsData) {
+            if (!item?.registry_id) continue;
+            if (!itemsByRegistryId[item.registry_id]) {
+              itemsByRegistryId[item.registry_id] = [];
+            }
+            itemsByRegistryId[item.registry_id].push(item);
+            if (item.id) {
+              registryIdByItemId.set(item.id, item.registry_id);
+            }
+          }
+        }
+
+        const valueByRegistryId = {};
+        if (Array.isArray(orderItemsData)) {
+          for (const row of orderItemsData) {
+            const registryItemId = row?.registry_item_id;
+            if (!registryItemId) continue;
+            const registryId = registryIdByItemId.get(registryItemId);
+            if (!registryId) continue;
+            const qty = Number(row.quantity || 0);
+            const price = Number(row.price || 0);
+            const amount = qty * price;
+            if (!Number.isFinite(amount)) continue;
+            valueByRegistryId[registryId] =
+              (valueByRegistryId[registryId] || 0) + amount;
+          }
+        }
+
+        const now = new Date();
+
+        let enriched = baseRegistries.map((reg) => {
+          const event = reg.event_id ? eventsById.get(reg.event_id) : null;
+          const host = event?.host_id ? hostsById.get(event.host_id) : null;
+
+          const items = itemsByRegistryId[reg.id] || [];
+          let totalItems = 0;
+          let purchasedItems = 0;
+          for (const item of items) {
+            totalItems += Number(item.quantity_needed || 0);
+            purchasedItems += Number(item.purchased_qty || 0);
+          }
+
+          let status = "Active";
+          if (reg.deadline) {
+            const deadlineDate = new Date(reg.deadline);
+            if (!Number.isNaN(deadlineDate.getTime()) && deadlineDate < now) {
+              status = "Expired";
+            }
+          }
+          if (flaggedRegistryIds.has(reg.id)) {
+            status = "Flagged";
+          }
+
+          const nameParts = [];
+          if (host?.firstname) nameParts.push(host.firstname);
+          if (host?.lastname) nameParts.push(host.lastname);
+          const hostName = nameParts.join(" ") || host?.email || "—";
+
+          const eventDate = event?.date || reg.deadline || null;
+
+          return {
+            id: reg.id,
+            registryName: reg.title || "",
+            hostName,
+            hostEmail: host?.email || "",
+            eventType: event?.type || "",
+            status,
+            eventDate,
+            totalItems,
+            purchasedItems,
+            totalValue: valueByRegistryId[reg.id] || 0,
+            __raw: {
+              registry: reg,
+              event,
+              host,
+            },
+          };
+        });
+
+        if (searchTerm && searchTerm.trim()) {
+          const term = searchTerm.trim().toLowerCase();
+          enriched = enriched.filter((row) => {
+            const name = row.hostName?.toLowerCase() || "";
+            const email = row.hostEmail?.toLowerCase() || "";
+            const registry = row.registryName?.toLowerCase() || "";
+            const code = row.__raw?.registry?.registry_code
+              ? String(row.__raw.registry.registry_code).toLowerCase()
+              : "";
+            return (
+              name.includes(term) ||
+              email.includes(term) ||
+              registry.includes(term) ||
+              code.includes(term)
+            );
+          });
+        }
+
+        setRegistries(enriched);
+        setRegistriesTotal(count ?? (enriched ? enriched.length : 0));
+      } catch (error) {
+        if (!ignore) {
+          setErrorRegistries(error?.message || "Failed to load registries");
+          setRegistries([]);
+          setRegistriesTotal(0);
+        }
+      } finally {
+        if (!ignore) {
+          setLoadingRegistries(false);
+        }
+      }
+    };
+
+    fetchRegistries();
+    return () => {
+      ignore = true;
+    };
+  }, [registryPage, pageSize, searchTerm, refreshKey]);
+
+  return useMemo(
+    () => ({
+      registries,
+      registryPage,
+      pageSize,
+      registriesTotal,
+      loadingRegistries,
+      errorRegistries,
+      setRegistryPage,
+      refreshRegistries: () => setRefreshKey((prev) => prev + 1),
+      metrics,
+      loadingMetrics,
+      metricsError,
+      searchTerm,
+      setSearchTerm,
+    }),
+    [
+      registries,
+      registryPage,
+      pageSize,
+      registriesTotal,
+      loadingRegistries,
+      errorRegistries,
+      metrics,
+      loadingMetrics,
+      metricsError,
+      searchTerm,
+    ]
+  );
+}
+
+export const useRegistryListContext = () => useContext(RegistryListContext);
