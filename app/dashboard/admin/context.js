@@ -13,6 +13,7 @@ const DashboardContext = createContext();
 export const DashboardProvider = ({ children }) => {
   const [currentAdmin, setCurrentAdmin] = useState(null);
   const [loadingCurrentAdmin, setLoadingCurrentAdmin] = useState(true);
+  const [addStaffOpen, setAddStaffOpen] = useState(false);
 
   const [metrics, setMetrics] = useState({
     totalRegistries: null,
@@ -34,10 +35,8 @@ export const DashboardProvider = ({ children }) => {
     const fetchCurrentAdmin = async () => {
       try {
         const supabase = createSupabaseClient();
-        const {
-          data: userResult,
-          error: userError,
-        } = await supabase.auth.getUser();
+        const { data: userResult, error: userError } =
+          await supabase.auth.getUser();
 
         if (userError || !userResult?.user) {
           if (!ignore) {
@@ -89,7 +88,11 @@ export const DashboardProvider = ({ children }) => {
         const supabase = createSupabaseClient();
 
         const [
-          { data: registriesData, error: registriesError, count: registriesCount },
+          {
+            data: registriesData,
+            error: registriesError,
+            count: registriesCount,
+          },
           {
             data: vendorApplicationsData,
             error: vendorApplicationsError,
@@ -117,7 +120,8 @@ export const DashboardProvider = ({ children }) => {
             .eq("status", "pending"),
           supabase
             .from("orders")
-            .select("id, registry_id, total_amount", { count: "exact" }),
+            .select("id, registry_id, total_amount", { count: "exact" })
+            .in("status", ["paid", "shipped", "delivered"]),
           supabase.from("order_payments").select("amount, status"),
           supabase
             .from("support_tickets")
@@ -182,7 +186,9 @@ export const DashboardProvider = ({ children }) => {
             : vendorApplicationsData?.length ?? null;
 
         const totalOrders =
-          typeof ordersCount === "number" ? ordersCount : ordersData?.length ?? null;
+          typeof ordersCount === "number"
+            ? ordersCount
+            : ordersData?.length ?? null;
 
         let totalPurchases = null;
         if (Array.isArray(ordersData)) {
@@ -194,8 +200,8 @@ export const DashboardProvider = ({ children }) => {
 
         let vendorPayouts = null;
         if (Array.isArray(orderPaymentsData)) {
-          const successful = orderPaymentsData.filter((row) =>
-            (row.status || "").toLowerCase() === "success"
+          const successful = orderPaymentsData.filter(
+            (row) => (row.status || "").toLowerCase() === "success"
           );
           vendorPayouts = successful.reduce(
             (sum, row) => sum + Number(row.amount || 0),
@@ -330,12 +336,24 @@ export const DashboardProvider = ({ children }) => {
       metrics,
       loadingMetrics,
       metricsError,
+      addStaffOpen,
+      setAddStaffOpen,
     }),
-    [currentAdmin, loadingCurrentAdmin, metrics, loadingMetrics, metricsError]
+    [
+      currentAdmin,
+      loadingCurrentAdmin,
+      metrics,
+      loadingMetrics,
+      metricsError,
+      addStaffOpen,
+      setAddStaffOpen,
+    ]
   );
 
   return (
-    <DashboardContext.Provider value={value}>{children}</DashboardContext.Provider>
+    <DashboardContext.Provider value={value}>
+      {children}
+    </DashboardContext.Provider>
   );
 };
 

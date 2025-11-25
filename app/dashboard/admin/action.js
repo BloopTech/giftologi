@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "../../../utils/supabase/server";
+import { createClient } from "../../utils/supabase/server";
 
 const defaultManageRolesValues = {
   email: [],
@@ -457,5 +457,354 @@ export async function updateStaffStatus(prevState, formData) {
       staffId,
       mode,
     },
+  };
+}
+
+const defaultSearchErrors = {
+  query: [],
+  type: [],
+  status: [],
+};
+
+const searchSchema = z.object({
+  query: z
+    .string()
+    .trim()
+    .min(1, { message: "Enter a search term" }),
+  type: z
+    .string()
+    .trim()
+    .optional()
+    .transform((value) => value || "vendor"),
+  status: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal("")),
+});
+
+export async function adminGlobalSearch(prevState, formData) {
+  const supabase = await createClient();
+
+  const raw = {
+    query: formData.get("query") || "",
+    type: formData.get("type") || "vendor",
+    status: formData.get("status") || "",
+  };
+
+  const parsed = searchSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+    return {
+      message:
+        parsed.error.issues?.[0]?.message || "Invalid search parameters",
+      errors: {
+        ...defaultSearchErrors,
+        ...fieldErrors,
+      },
+      values: raw,
+      results: [],
+    };
+  }
+
+  const { query, type, status } = parsed.data;
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to search.",
+      errors: {
+        ...defaultSearchErrors,
+      },
+      values: parsed.data,
+      results: [],
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = [
+    "super_admin",
+    "finance_admin",
+    "operations_manager_admin",
+    "customer_support_admin",
+  ];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to use admin search.",
+      errors: {
+        ...defaultSearchErrors,
+      },
+      values: parsed.data,
+      results: [],
+    };
+  }
+
+  const term = query.trim();
+
+  const results = [];
+
+  if (!term) {
+    return {
+      message: "Enter a search term",
+      errors: {
+        ...defaultSearchErrors,
+        query: ["Enter a search term"],
+      },
+      values: parsed.data,
+      results: [],
+    };
+  }
+
+  if (type === "vendor" || type === "all" || !type) {
+    let vendorQuery = supabase
+      .from("vendors")
+      .select(
+        `
+        id,
+        business_name,
+        description,
+        verified,
+        profiles!Vendors_profiles_id_fkey (
+          id,
+          firstname,
+          lastname,
+          email,
+          phone,
+          status
+        )
+      `
+      )
+      .limit(20);
+
+    if (status === "Active") {
+      vendorQuery = vendorQuery.eq("verified", true);
+    } else if (status === "Inactive") {
+      vendorQuery = vendorQuery.or("verified.is.false,verified.is.null");
+    }
+
+    vendorQuery = vendorQuery.textSearch("search_vector", term, {
+      type: "websearch",
+      config: "simple",
+    });
+
+    const { data: vendorRows, error: vendorError } = await vendorQuery;
+
+    if (vendorError) {
+      return {
+        message: vendorError.message,
+        errors: {
+          ...defaultSearchErrors,
+        },
+        values: parsed.data,
+        results: [],
+      };
+    }
+
+    if (Array.isArray(vendorRows)) {
+      for (const row of vendorRows) {
+        const profile = row.profiles || null;
+        const nameParts = [];
+        if (profile?.firstname) {
+          nameParts.push(profile.firstname);
+        }
+        if (profile?.lastname) {
+          nameParts.push(profile.lastname);
+        }
+        const fullName = nameParts.join(" ");
+
+        const title =
+          row.business_name || fullName || profile?.email || "Vendor";
+        const subtitle = fullName || profile?.email || profile?.phone || "";
+        const statusLabel =
+          profile?.status || (row.verified ? "Verified" : "Unverified");
+
+        results.push({
+          id: row.id,
+          entityType: "vendor",
+          title,
+          subtitle,
+          status: statusLabel,
+          navigate: {
+            path: "/dashboard/admin/vendor_requests",
+            query: {
+              q: term,
+              type: "vendor",
+              focusId: row.id,
+              page: "1",
+            },
+          },
+        });
+      }
+    }
+  }
+  if (type === "host" || type === "all") {
+    let hostQuery = supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        firstname,
+        lastname,
+        email,
+        phone,
+        status,
+        role
+      `
+      )
+      .eq("role", "host")
+      .limit(20);
+
+    if (status === "Active") {
+      hostQuery = hostQuery.eq("status", "Active");
+    } else if (status === "Inactive") {
+      hostQuery = hostQuery.neq("status", "Active");
+    }
+
+    hostQuery = hostQuery.textSearch("search_vector", term, {
+      type: "websearch",
+      config: "simple",
+    });
+
+    const { data: hostRows, error: hostError } = await hostQuery;
+
+    if (hostError) {
+      return {
+        message: hostError.message,
+        errors: {
+          ...defaultSearchErrors,
+        },
+        values: parsed.data,
+        results: [],
+      };
+    }
+
+    if (Array.isArray(hostRows)) {
+      for (const row of hostRows) {
+        const nameParts = [];
+        if (row.firstname) {
+          nameParts.push(row.firstname);
+        }
+        if (row.lastname) {
+          nameParts.push(row.lastname);
+        }
+        const fullName = nameParts.join(" ");
+
+        const title = fullName || row.email || "Host";
+        const subtitle = row.email || row.phone || "";
+        const statusLabel = row.status || "";
+
+        results.push({
+          id: row.id,
+          entityType: "host",
+          title,
+          subtitle,
+          status: statusLabel,
+          navigate: {
+            path: "/dashboard/admin/registry_list",
+            query: {
+              q: term,
+              type: "host",
+              focusId: row.id,
+              page: "1",
+            },
+          },
+        });
+      }
+    }
+  }
+
+  if (type === "guest" || type === "all") {
+    let guestQuery = supabase
+      .from("profiles")
+      .select(
+        `
+        id,
+        firstname,
+        lastname,
+        email,
+        phone,
+        status,
+        role
+      `
+      )
+      .eq("role", "guest")
+      .limit(20);
+
+    if (status === "Active") {
+      guestQuery = guestQuery.eq("status", "Active");
+    } else if (status === "Inactive") {
+      guestQuery = guestQuery.neq("status", "Active");
+    }
+
+    guestQuery = guestQuery.textSearch("search_vector", term, {
+      type: "websearch",
+      config: "simple",
+    });
+
+    const { data: guestRows, error: guestError } = await guestQuery;
+
+    if (guestError) {
+      return {
+        message: guestError.message,
+        errors: {
+          ...defaultSearchErrors,
+        },
+        values: parsed.data,
+        results: [],
+      };
+    }
+
+    if (Array.isArray(guestRows)) {
+      for (const row of guestRows) {
+        const nameParts = [];
+        if (row.firstname) {
+          nameParts.push(row.firstname);
+        }
+        if (row.lastname) {
+          nameParts.push(row.lastname);
+        }
+        const fullName = nameParts.join(" ");
+
+        const title = fullName || row.email || "Guest";
+        const subtitle = row.email || row.phone || "";
+        const statusLabel = row.status || "";
+
+        results.push({
+          id: row.id,
+          entityType: "guest",
+          title,
+          subtitle,
+          status: statusLabel,
+          navigate: {
+            path: "/dashboard/admin/registry_list",
+            query: {
+              q: term,
+              type: "guest",
+              focusId: row.id,
+              page: "1",
+            },
+          },
+        });
+      }
+    }
+  }
+console.log("results se,,,,,,,................", results)
+  return {
+    message: results.length ? "" : "No results found",
+    errors: {
+      ...defaultSearchErrors,
+    },
+    values: parsed.data,
+    results,
   };
 }

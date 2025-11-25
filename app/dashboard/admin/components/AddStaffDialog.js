@@ -1,6 +1,6 @@
 "use client";
 import React, { useActionState, useEffect, useMemo, useState } from "react";
-import { manageRoles } from "./action";
+import { manageRoles } from "../action";
 import { toast } from "sonner";
 import { Eye, EyeOff, LoaderCircle } from "lucide-react";
 import {
@@ -12,7 +12,7 @@ import {
 } from "@/app/components/Select";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { DialogClose } from "@/app/components/Dialog";
-import { useRolesContext } from "./context";
+import { useRolesContext } from "../roles/context";
 
 const initialState = {
   message: "",

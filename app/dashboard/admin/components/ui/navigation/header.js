@@ -40,8 +40,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../../../../components/Dialog";
+import AddStaffDialog from "../../AddStaffDialog";
+import { useDashboardContext } from "../../../context";
 
 export default function Header() {
+  const { addStaffOpen, setAddStaffOpen } = useDashboardContext();
   // Add state to control the switch
   const [isLiveMode, setIsLiveMode] = useState(false);
 
@@ -57,6 +60,23 @@ export default function Header() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+    } catch (e) {
+      console.error("signOut error", e);
+      toast.error("Failed to log out");
+    } finally {
+      // Force a server navigation so middleware reads cleared cookies
+      window.location.href = "/login";
+      // Alternatively: router.replace('/login')
+    }
+  };
 
   const roleDisplayName = useMemo(() => {
     if (!userData?.role) return null;
@@ -147,18 +167,36 @@ export default function Header() {
             </Link>
           </div>
           <div className="flex justify-end space-x-4 py-4 items-center">
-            <div>
-              <button className="px-4 py-2 flex items-center justify-center border border-[#427ED3] text-[#427ED3] bg-white text-xs rounded-full cursor-pointer hover:text-white hover:bg-[#427ED3]">
-                <Plus className="size-4" />
-                Add Staff
-              </button>
-            </div>
-            <div>
-              <button className="py-2 px-4 flex items-center justify-center border border-[#427ED3] text-white bg-[#427ED3] text-xs rounded-full cursor-pointer hover:text-[#427ED3] hover:bg-white">
-                <Plus className="size-4" />
-                Add Vendor
-              </button>
-            </div>
+            {userData && userData?.role === "super_admin" ? (
+              <>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setAddStaffOpen(true)}
+                    className="px-4 py-2 flex items-center justify-center border border-[#427ED3] text-[#427ED3] bg-white text-xs rounded-full cursor-pointer hover:text-white hover:bg-[#427ED3]"
+                  >
+                    <Plus className="size-4" />
+                    Add Staff
+                  </button>
+                  <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-base font-semibold text-[#0A0A0A]">
+                          Add New Staff Member
+                        </DialogTitle>
+                      </DialogHeader>
+                      <AddStaffDialog onClose={() => setAddStaffOpen(false)} />
+                    </DialogContent>
+                  </Dialog>
+                </div>
+                <div>
+                  <button className="py-2 px-4 flex items-center justify-center border border-[#427ED3] text-white bg-[#427ED3] text-xs rounded-full cursor-pointer hover:text-[#427ED3] hover:bg-white">
+                    <Plus className="size-4" />
+                    Add Vendor
+                  </button>
+                </div>
+              </>
+            ) : null}
             <div
               className={cx(
                 "flex items-center space-x-4 py-3 px-6 mx-auto w-xs",
@@ -209,7 +247,11 @@ export default function Header() {
                     )}
                   </div>
                 </div>
-                <button className="text-xs text-red-500 hover:text-white hover:bg-red-500 transition-colors cursor-pointer flex items-center border border-red-500 rounded-full px-4 py-1">
+                <button
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="text-xs text-red-500 hover:text-white hover:bg-red-500 transition-colors cursor-pointer flex items-center border border-red-500 rounded-full px-4 py-1"
+                >
                   Log Out
                 </button>
               </div>

@@ -38,7 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/Select";
-import { updateStaffDetails, updateStaffStatus } from "./action";
+import { updateStaffDetails, updateStaffStatus } from "../action";
 
 const tableStyles = tv({
   slots: {

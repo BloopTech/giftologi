@@ -1,14 +1,17 @@
 "use client";
 
 import {
-  House,
-  Settings,
-  CreditCard,
-  User,
-  UserCheck,
-  ReceiptText,
-  Link2,
-} from "lucide-react";
+  PiCardholder,
+  PiChartBar,
+  PiFiles,
+  PiFolders,
+  PiLog,
+  PiPackage,
+  PiReceipt,
+  PiShoppingBagOpen,
+  PiStorefront,
+  PiUsers,
+} from "react-icons/pi";
 
 export const useNavigationData = () => {
   return [
@@ -19,7 +22,7 @@ export const useNavigationData = () => {
         {
           name: "Manage Roles",
           href: "/dashboard/admin/roles",
-          icon: House,
+          icon: PiUsers,
           other_items: [],
         },
       ],
@@ -31,7 +34,7 @@ export const useNavigationData = () => {
         {
           name: "Open Registry List",
           href: "/dashboard/admin/registry_list",
-          icon: House,
+          icon: PiShoppingBagOpen,
           other_items: [],
         },
       ],
@@ -43,7 +46,7 @@ export const useNavigationData = () => {
         {
           name: "Vendor Requests",
           href: "/dashboard/admin/vendor_requests",
-          icon: House,
+          icon: PiStorefront,
           other_items: [],
         },
       ],
@@ -55,7 +58,7 @@ export const useNavigationData = () => {
         {
           name: "Manage Products",
           href: "/dashboard/admin/products",
-          icon: House,
+          icon: PiPackage,
           other_items: [],
         },
       ],
@@ -67,7 +70,7 @@ export const useNavigationData = () => {
         {
           name: "View Transactions",
           href: "/dashboard/admin/transactions",
-          icon: House,
+          icon: PiShoppingBagOpen,
           other_items: [],
         },
       ],
@@ -77,9 +80,9 @@ export const useNavigationData = () => {
       id: 6,
       items: [
         {
-          name: "View Payouts",
+          name: "Payouts",
           href: "/dashboard/admin/payouts",
-          icon: House,
+          icon: PiCardholder,
           other_items: [],
         },
       ],
@@ -91,7 +94,7 @@ export const useNavigationData = () => {
         {
           name: "Generate Reports",
           href: "/dashboard/admin/reports",
-          icon: House,
+          icon: PiReceipt,
           other_items: [],
         },
       ],
@@ -103,7 +106,7 @@ export const useNavigationData = () => {
         {
           name: "View Activity Log",
           href: "/dashboard/admin/activity_log",
-          icon: House,
+          icon: PiLog,
           other_items: [],
         },
       ],
@@ -115,7 +118,7 @@ export const useNavigationData = () => {
         {
           name: "API Documentation",
           href: "/dashboard/admin/api_documentation",
-          icon: House,
+          icon: PiFiles,
           other_items: [],
         },
       ],
@@ -127,7 +130,7 @@ export const useNavigationData = () => {
         {
           name: "Analytics & Reporting",
           href: "/dashboard/admin/analytics_reporting",
-          icon: House,
+          icon: PiChartBar,
           other_items: [],
         },
       ],
@@ -139,7 +142,7 @@ export const useNavigationData = () => {
         {
           name: "Content & Policy Pages",
           href: "/dashboard/admin/content_policy_pages",
-          icon: House,
+          icon: PiFolders,
           other_items: [],
         },
       ],
@@ -153,7 +156,12 @@ export const navigation = [
     label: "",
     id: 1,
     items: [
-      { name: "Home", href: "/dashboard/admin", icon: House, other_items: [] },
+      {
+        name: "Home",
+        href: "/dashboard/admin",
+        icon: PiUsers,
+        other_items: [],
+      },
     ],
   },
   {
@@ -163,7 +171,7 @@ export const navigation = [
       {
         name: "Profile",
         href: "/dashboard/admin/profile",
-        icon: User,
+        icon: PiUsers,
         other_items: [],
       },
     ],

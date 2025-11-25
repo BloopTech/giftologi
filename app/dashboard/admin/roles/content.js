@@ -12,15 +12,16 @@ import {
 import StaffMembersTable from "./StaffMembersTable";
 import SystemRolesTable from "./SystemRolesTable";
 import PermissionsTable from "./PermissionsTable";
-import AddStaffDialog from "./AddStaffDialog";
+import AddStaffDialog from "../components/AddStaffDialog";
 import { useRolesContext } from "./context";
+import { useDashboardContext } from "../context";
 
 export default function RolesContent() {
   const rolesContext = useRolesContext() || {};
+  const {addStaffOpen, setAddStaffOpen} = useDashboardContext();
   const { staffSearchTerm, setStaffSearchTerm, setStaffPage } = rolesContext;
   const [activeSegment, setActiveSegment] = useState("staff-members");
   const [search, setSearch] = useState(staffSearchTerm || "");
-  const [addStaffOpen, setAddStaffOpen] = useState(false);
 
   let TableComponent = StaffMembersTable;
   if (activeSegment === "system-roles") {

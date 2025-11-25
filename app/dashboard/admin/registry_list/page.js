@@ -1,12 +1,12 @@
-"use client";
+"use server";
 import React from "react";
 
+import RegistryListContent from "./content";
 
-
-export default function RegistryList() {
-    return (
-        <div className="lg:pl-10 lg:pr-0 pl-5 pr-5 pb-[5rem]">
-            <h1>Registry List</h1>
-        </div>
-    )
+export default async function RegistryList() {
+  return (
+    <>
+      <RegistryListContent />
+    </>
+  );
 }
