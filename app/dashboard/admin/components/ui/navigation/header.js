@@ -42,6 +42,7 @@ import {
 } from "../../../../../components/Dialog";
 import AddStaffDialog from "../../AddStaffDialog";
 import { useDashboardContext } from "../../../context";
+import MobileSidebar from "./mobileSidebar";
 
 export default function Header() {
   const { addStaffOpen, setAddStaffOpen } = useDashboardContext();
@@ -136,10 +137,10 @@ export default function Header() {
         scrolled ? "bg-white shadow-sm" : "bg-transparent"
       )}
     >
-      <div className="mx-auto max-w-7xl w-full">
+      <div className="px-5 lg:px-10 w-full">
         <div className="flex justify-between w-full items-center">
-          <div>
-            <Link href="/dashboard/s_a" className="cursor-pointer">
+          <div className="py-4">
+            <Link href="/dashboard/admin" className="cursor-pointer">
               <div className="flex items-center space-x-2">
                 <div className="flex aspect-square items-center justify-center">
                   <Image
@@ -150,7 +151,7 @@ export default function Header() {
                     priority
                   />
                 </div>
-                <div className="flex flex-col items-start">
+                <div className="md:flex flex-col items-start hidden">
                   <div className="flex items-center space-x-1">
                     <p className="text-lg font-medium text-[#686868]">
                       Giftologi
@@ -166,7 +167,17 @@ export default function Header() {
               </div>
             </Link>
           </div>
-          <div className="flex justify-end space-x-4 py-4 items-center">
+          <div className="flex items-center space-x-3 lg:hidden">
+            <MobileSidebar
+              userData={userData}
+              roleDisplayName={roleDisplayName}
+              onLogout={handleLogout}
+              loggingOut={loggingOut}
+              onOpenAddStaff={() => setAddStaffOpen(true)}
+              showStaffVendorButtons={userData?.role === "super_admin"}
+            />
+          </div>
+          <div className="hidden lg:flex justify-end space-x-4 py-4 items-center">
             {userData && userData?.role === "super_admin" ? (
               <>
                 <div>

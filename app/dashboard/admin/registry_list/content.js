@@ -75,7 +75,7 @@ export default function RegistryListContent() {
 
       {/* Card Overview */}
 
-      <div className="flex space-x-8 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         {/* Active Registries */}
         <div className="flex flex-col space-y-2 w-full">
           <h2 className="text-[#717182] text-xs/4 font-poppins">
@@ -119,7 +119,7 @@ export default function RegistryListContent() {
       </div>
 
       {/* SEARCH */}
-      <div className="flex items-center gap-4 mt-2">
+      <div className="flex flex-col gap-3 mt-2 md:flex-row md:items-center">
         <div className="flex-1">
           <div className="flex items-center gap-2 rounded-full border border-[#D6D6D6] bg-white px-4 py-2.5">
             <Search className="size-4 text-[#717182]" />
@@ -132,7 +132,7 @@ export default function RegistryListContent() {
             />
           </div>
         </div>
-        <div className="w-[20%]">
+        <div className="w-full md:w-[20%]">
           <Select
             value={typeFilter || "all"}
             onValueChange={(value) => {
@@ -153,7 +153,7 @@ export default function RegistryListContent() {
             </SelectContent>
           </Select>
         </div>
-        <div className="w-[20%]">
+        <div className="w-full md:w-[20%]">
           <Select
             value={statusFilter || "all"}
             onValueChange={(value) => {
@@ -176,7 +176,7 @@ export default function RegistryListContent() {
         <button
           type="button"
           onClick={handleSearch}
-          className="px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-[#3979D2] text-white text-xs font-medium border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2]"
+          className="w-full md:w-auto px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-[#3979D2] text-white text-xs font-medium border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2]"
         >
           Search
         </button>

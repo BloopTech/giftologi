@@ -87,7 +87,7 @@ export default function SuperAdminDashboardContent() {
       <h1 className="text-[#0A0A0A] font-medium font-inter">Overview</h1>
       {/* Card Overview */}
       {role === "super_admin" || role === "operations_manager_admin" ? (
-        <div className="flex space-x-8 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
           {/* Active Registries */}
           <div className="flex flex-col space-y-2 w-full">
             <h2 className="text-[#717182] text-xs/4 font-poppins">
@@ -163,7 +163,7 @@ export default function SuperAdminDashboardContent() {
 
       {/* Quick Access */}
       {role === "operations_manager_admin" ? null : (
-        <div className="flex flex-col space-y-2 w-full rounded-xl border border-[#AAE43E] p-4 bg-[#EAF9D4]">
+        <div className="flex flex-col space-y-4 w-full rounded-xl border border-[#AAE43E] p-4 bg-[#EAF9D4]">
           <div className="flex flex-col">
             <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
               Quick Access
@@ -173,7 +173,7 @@ export default function SuperAdminDashboardContent() {
             </span>
           </div>
           {/* Cards */}
-          <div className="flex space-x-4">
+          <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
             {/* Full Access */}
             {role === "customer_support_admin" ? (
               <div className="border border-[#AAE43E] flex flex-col space-y-2 rounded-md bg-white p-2">
@@ -321,7 +321,7 @@ export default function SuperAdminDashboardContent() {
 
       {/* Performance Snapshot */}
       <div className="flex flex-col rounded-xl w-full space-y-4">
-        <div className="flex w-full justify-between">
+        <div className="flex flex-col gap-3 w-full md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col">
             <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
               Performance Snapshot
@@ -330,7 +330,7 @@ export default function SuperAdminDashboardContent() {
               Quickly locate registries, users, vendors, or orders
             </span>
           </div>
-          <div className="flex justify-end w-[15%]">
+          <div className="flex justify-end w-full md:w-[15%]">
             <Select
               value="This Week"
               onValueChange={(value) => console.log(value)}
@@ -349,7 +349,7 @@ export default function SuperAdminDashboardContent() {
           </div>
         </div>
         {/* Cards */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Total Purchases */}
           <div className="border border-[#8BB9FB] rounded-xl bg-[#EDF4FF] py-4 px-2 flex flex-col space-y-2">
             <div className="flex justify-between items-center px-2">
@@ -442,7 +442,7 @@ export default function SuperAdminDashboardContent() {
         </div>
 
         {/* Cards */}
-        <div className="grid grid-cols-3 gap-4 w-full">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
           {overviewModules?.length
             ? (role === "super_admin"
                 ? overviewModules
@@ -471,9 +471,9 @@ export default function SuperAdminDashboardContent() {
                 return (
                   <div
                     key={id}
-                    className="flex border bg-[#FCF2CB] border-[#F1C29A] rounded-xl overflow-hidden"
+                    className="flex flex-col sm:flex-row border bg-[#FCF2CB] border-[#F1C29A] rounded-xl overflow-hidden"
                   >
-                    <div className="flex flex-col space-y-2 border-r w-[90%] border-[#F1C29A] px-2 py-4 rounded-r-md bg-white">
+                    <div className="flex flex-col space-y-2 border-b sm:border-b-0 sm:border-r w-full sm:w-[90%] border-[#F1C29A] px-2 py-4 rounded-r-md bg-white">
                       <h1 className="font-inter text-[#0A0A0A] text-sm font-medium">
                         {name}
                       </h1>

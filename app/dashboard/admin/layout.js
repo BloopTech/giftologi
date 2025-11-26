@@ -7,6 +7,7 @@ import {
   Bodoni_Moda,
 } from "next/font/google";
 import "../../globals.css";
+import { Suspense } from "react";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import Header from "./components/ui/navigation/header";
 import AdminSidebar from "./components/ui/navigation";
@@ -41,8 +42,10 @@ export default function RootLayout({ children }) {
                     <Header />
                   </div>
 
-                  <main className="flex-grow lg:mt-[7rem] mt-[2rem] lg:px-10">
-                    <NuqsAdapter>{children}</NuqsAdapter>
+                  <main className="flex-grow mt-[7rem] lg:px-10 px-5">
+                    <Suspense fallback={null}>
+                      <NuqsAdapter>{children}</NuqsAdapter>
+                    </Suspense>
                   </main>
                 </div>
               </main>
