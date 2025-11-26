@@ -1,7 +1,8 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Search, Plus } from "lucide-react";
 import { cx } from "@/app/components/utils";
+import { useQueryState, parseAsString } from "nuqs";
 
 import {
   Dialog,
@@ -18,10 +19,25 @@ import { useDashboardContext } from "../context";
 
 export default function RolesContent() {
   const rolesContext = useRolesContext() || {};
-  const {addStaffOpen, setAddStaffOpen} = useDashboardContext();
+  const { addStaffOpen, setAddStaffOpen } = useDashboardContext();
   const { staffSearchTerm, setStaffSearchTerm, setStaffPage } = rolesContext;
-  const [activeSegment, setActiveSegment] = useState("staff-members");
+  const [segmentParam, setSegmentParam] = useQueryState(
+    "segment",
+    parseAsString.withDefault("staff-members")
+  );
+  const [activeSegment, setActiveSegment] = useState(
+    segmentParam || "staff-members"
+  );
   const [search, setSearch] = useState(staffSearchTerm || "");
+
+  useEffect(() => {
+    setSearch(staffSearchTerm || "");
+  }, [staffSearchTerm]);
+
+  useEffect(() => {
+    if (!segmentParam) return;
+    setActiveSegment(segmentParam);
+  }, [segmentParam]);
 
   let TableComponent = StaffMembersTable;
   if (activeSegment === "system-roles") {
@@ -75,7 +91,10 @@ export default function RolesContent() {
               <button
                 key={value}
                 type="button"
-                onClick={() => setActiveSegment(value)}
+                onClick={() => {
+                  setActiveSegment(value);
+                  setSegmentParam?.(value);
+                }}
                 className={cx(
                   "px-4 py-2 text-xs font-medium rounded-full cursor-pointer transition-colors",
                   isActive

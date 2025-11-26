@@ -1,6 +1,7 @@
 "use server";
 import React from "react";
 import { createClient } from "../../../utils/supabase/server";
+import RegistryPageViewTracker from "./RegistryPageViewTracker";
 import { PiFileImageLight, PiGiftDuotone, PiGiftFill } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
@@ -17,6 +18,19 @@ export default async function HostDashboardRegistry() {
     .select("*")
     .single();
 
+  let registry = null;
+  if (profile?.id) {
+    const { data: latestRegistry } = await supabase
+      .from("registries")
+      .select("id, events!inner(host_id)")
+      .eq("events.host_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    registry = latestRegistry || null;
+  }
+
   // Mock 20 products to render in the Shop section
   const products = Array.from({ length: 8 }, (_, i) => ({
     id: i + 1,
@@ -29,6 +43,7 @@ export default async function HostDashboardRegistry() {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
+      <RegistryPageViewTracker registryId={registry?.id} />
       <main className="flex flex-col space-y-16 w-full">
         <div className="w-full bg-[#B1D1FC] border border-[#D4D4D4] rounded-md py-8 px-4 h-[250px] flex items-center justify-center">
           {/* <div className="flex items-center space-y-8 flex-col justify-center">

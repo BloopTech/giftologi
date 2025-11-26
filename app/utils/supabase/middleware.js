@@ -70,6 +70,7 @@ export async function middlewareClient(request) {
   const isEventPublicRoute = eventPublicRoutes?.some((pattern) =>
     matchesRoutePattern(url.pathname, pattern)
   );
+  const isApiRoute = url.pathname.startsWith("/api/");
 
   // Helper: create redirect with auth cookies applied (use function declaration for hoisting)
   function withCookiesRedirect(urlObj) {
@@ -170,6 +171,9 @@ export async function middlewareClient(request) {
   // If user is logged in now, handle redirects (role-based/auth route protection)
   if (user && user?.id) {
     if (isEventPublicRoute) {
+      return supabaseResponse;
+    }
+    if (isApiRoute) {
       return supabaseResponse;
     }
     // Block auth pages for logged-in users, except allow password reset during recovery flow

@@ -7,6 +7,7 @@ import React, {
   useState,
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
+import { useQueryState, parseAsString } from "nuqs";
 
 const RegistryListContext = createContext();
 
@@ -37,7 +38,31 @@ function useRegistryListProviderValue() {
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [metricsError, setMetricsError] = useState(null);
 
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchParam, setSearchParam] = useQueryState(
+    "q",
+    parseAsString.withDefault("")
+  );
+  const [typeFilter, setTypeFilter] = useQueryState(
+    "by",
+    parseAsString.withDefault("all")
+  );
+  const [statusFilter, setStatusFilter] = useQueryState(
+    "status",
+    parseAsString.withDefault("all")
+  );
+  const [externalTypeParam] = useQueryState(
+    "type",
+    parseAsString.withDefault("all")
+  );
+  const [focusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault("")
+  );
+  const searchTerm = searchParam || "";
+  const externalType = (externalTypeParam || "all").toLowerCase();
+  const isExternalHostOrGuest =
+    externalType === "host" || externalType === "guest";
+  const focusId = focusIdParam || "";
   const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -137,19 +162,36 @@ function useRegistryListProviderValue() {
             { count: "exact" }
           );
 
-        if (searchTerm && searchTerm.trim()) {
-          const term = searchTerm.trim();
-          const pattern = `%${term}%`;
-          query = query.or(
-            `title.ilike.${pattern},registry_code.ilike.${pattern}`
-          );
+        // Only apply FTS on registries when not coming from an external host/guest search,
+        // so that host-based global searches don't drop registries prematurely.
+        // Also avoid FTS for very short queries (e.g. 1-2 characters) so that
+        // in-memory filtering on fields like hostEmail can still work.
+        const trimmedSearch = searchTerm ? searchTerm.trim() : "";
+        if (
+          trimmedSearch &&
+          trimmedSearch.length >= 3 &&
+          !isExternalHostOrGuest &&
+          (!typeFilter ||
+            typeFilter === "registry_name" ||
+            typeFilter === "registry_code")
+        ) {
+          query = query.textSearch("search_vector", trimmedSearch, {
+            type: "websearch",
+            config: "simple",
+          });
         }
+
+        const hasSearch = !!trimmedSearch;
+
+        const registryQuery = hasSearch
+          ? query.order("created_at", { ascending: false })
+          : query.order("created_at", { ascending: false }).range(from, to);
 
         const {
           data: registryRows,
           error: registryError,
           count,
-        } = await query.order("created_at", { ascending: false }).range(from, to);
+        } = await registryQuery;
 
         if (registryError) {
           if (!ignore) {
@@ -225,7 +267,7 @@ function useRegistryListProviderValue() {
         } = registryItemIds.length
           ? await supabase
               .from("order_items")
-              .select("registry_item_id, quantity, price")
+              .select("registry_item_id, quantity, price, order_id")
               .in("registry_item_id", registryItemIds)
           : { data: [], error: null };
 
@@ -291,10 +333,51 @@ function useRegistryListProviderValue() {
           }
         }
 
+        // Determine which orders are actually paid
+        const orderIdsForValue = Array.isArray(orderItemsData)
+          ? Array.from(
+              new Set(
+                orderItemsData
+                  .map((row) => row.order_id)
+                  .filter(Boolean)
+              )
+            )
+          : [];
+
+        const {
+          data: orderPaymentsData,
+          error: orderPaymentsError,
+        } = orderIdsForValue.length
+          ? await supabase
+              .from("order_payments")
+              .select("order_id, status")
+              .in("order_id", orderIdsForValue)
+          : { data: [], error: null };
+
+        if (orderPaymentsError && !ignore) {
+          setErrorRegistries(orderPaymentsError.message);
+        }
+
+        const isPaidStatus = (status) => {
+          if (!status) return false;
+          const value = String(status).toLowerCase();
+          return value === "paid" || value === "success";
+        };
+
+        const paidOrderIds = new Set();
+        if (Array.isArray(orderPaymentsData)) {
+          for (const payment of orderPaymentsData) {
+            if (!payment?.order_id) continue;
+            if (!isPaidStatus(payment.status)) continue;
+            paidOrderIds.add(payment.order_id);
+          }
+        }
+
         const valueByRegistryId = {};
-        if (Array.isArray(orderItemsData)) {
+        if (Array.isArray(orderItemsData) && paidOrderIds.size) {
           for (const row of orderItemsData) {
-            const registryItemId = row?.registry_item_id;
+            if (!row?.order_id || !paidOrderIds.has(row.order_id)) continue;
+            const registryItemId = row.registry_item_id;
             if (!registryItemId) continue;
             const registryId = registryIdByItemId.get(registryItemId);
             if (!registryId) continue;
@@ -360,24 +443,69 @@ function useRegistryListProviderValue() {
 
         if (searchTerm && searchTerm.trim()) {
           const term = searchTerm.trim().toLowerCase();
+          const type = (typeFilter || "all").toLowerCase();
           enriched = enriched.filter((row) => {
             const name = row.hostName?.toLowerCase() || "";
             const email = row.hostEmail?.toLowerCase() || "";
             const registry = row.registryName?.toLowerCase() || "";
+            const eventType = row.eventType?.toLowerCase() || "";
             const code = row.__raw?.registry?.registry_code
               ? String(row.__raw.registry.registry_code).toLowerCase()
               : "";
-            return (
-              name.includes(term) ||
-              email.includes(term) ||
-              registry.includes(term) ||
-              code.includes(term)
-            );
+
+            let matchesSearch = true;
+            if (term) {
+              switch (type) {
+                case "registry_name":
+                  matchesSearch = registry.includes(term);
+                  break;
+                case "registry_code":
+                  matchesSearch = code.includes(term);
+                  break;
+                case "host_name":
+                  matchesSearch = name.includes(term);
+                  break;
+                case "host_email":
+                  matchesSearch = email.includes(term);
+                  break;
+                case "event_type":
+                  matchesSearch = eventType.includes(term);
+                  break;
+                default:
+                  matchesSearch =
+                    name.includes(term) ||
+                    email.includes(term) ||
+                    registry.includes(term) ||
+                    eventType.includes(term) ||
+                    code.includes(term);
+                  break;
+              }
+            }
+
+            return matchesSearch;
           });
         }
 
-        setRegistries(enriched);
-        setRegistriesTotal(count ?? (enriched ? enriched.length : 0));
+        if (statusFilter && statusFilter !== "all") {
+          const desired = statusFilter.toLowerCase();
+          enriched = enriched.filter((row) => {
+            const rowStatus = (row.status || "").toLowerCase();
+            return rowStatus === desired;
+          });
+        }
+
+        if (hasSearch) {
+          const total = enriched ? enriched.length : 0;
+          const startIdx = registryPage * pageSize;
+          const endIdx = startIdx + pageSize;
+          const pageRegistries = enriched.slice(startIdx, endIdx);
+
+          setRegistries(pageRegistries);
+          setRegistriesTotal(total);
+        } else {
+          setRegistries(enriched);
+          setRegistriesTotal(count ?? (enriched ? enriched.length : 0));
+        }
       } catch (error) {
         if (!ignore) {
           setErrorRegistries(error?.message || "Failed to load registries");
@@ -395,7 +523,16 @@ function useRegistryListProviderValue() {
     return () => {
       ignore = true;
     };
-  }, [registryPage, pageSize, searchTerm, refreshKey]);
+  }, [
+    registryPage,
+    pageSize,
+    searchTerm,
+    typeFilter,
+    statusFilter,
+    refreshKey,
+    externalType,
+    isExternalHostOrGuest,
+  ]);
 
   return useMemo(
     () => ({
@@ -411,7 +548,11 @@ function useRegistryListProviderValue() {
       loadingMetrics,
       metricsError,
       searchTerm,
-      setSearchTerm,
+      setSearchTerm: setSearchParam,
+      typeFilter,
+      setTypeFilter,
+      statusFilter,
+      setStatusFilter,
     }),
     [
       registries,
@@ -424,6 +565,11 @@ function useRegistryListProviderValue() {
       loadingMetrics,
       metricsError,
       searchTerm,
+      typeFilter,
+      statusFilter,
+      setSearchParam,
+      setTypeFilter,
+      setStatusFilter,
     ]
   );
 }

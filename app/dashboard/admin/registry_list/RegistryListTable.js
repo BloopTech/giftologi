@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useActionState } from "react";
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -8,6 +8,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  Pencil,
+  Trash2,
+  Flag,
 } from "lucide-react";
 import {
   useReactTable,
@@ -18,9 +21,21 @@ import {
   createColumnHelper,
 } from "@tanstack/react-table";
 import { tv } from "tailwind-variants";
-import { cx } from "@/app/components/utils";
+import { toast } from "sonner";
+import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { Badge } from "@/app/components/Badge";
 import { useRegistryListContext } from "./context";
+import RegistryDetailsDialog from "./RegistryDetailsDialog";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/Dialog";
+import { useDashboardContext } from "../context";
+import { updateRegistryEvent, flagRegistry, deleteRegistry } from "./action";
 
 const tableStyles = tv({
   slots: {
@@ -44,6 +59,45 @@ const statusVariantMap = {
   Active: "success",
   Expired: "warning",
   Flagged: "error",
+};
+
+const initialUpdateRegistryEventState = {
+  message: "",
+  errors: {
+    registryId: [],
+    eventId: [],
+    eventType: [],
+    eventDate: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialFlagRegistryState = {
+  message: "",
+  errors: {
+    registryId: [],
+    reason: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialDeleteRegistryState = {
+  message: "",
+  errors: {
+    registryId: [],
+    confirmText: [],
+  },
+  values: {},
+  data: {},
+};
+
+const toDateInputValue = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toISOString().slice(0, 10);
 };
 
 function SortableHeader({ column, title }) {
@@ -74,6 +128,14 @@ function SortableHeader({ column, title }) {
 
 export default function RegistryListTable() {
   const [sorting, setSorting] = useState([]);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [viewRow, setViewRow] = useState(null);
+  const [editOpen, setEditOpen] = useState(false);
+  const [flagOpen, setFlagOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [selectedRegistry, setSelectedRegistry] = useState(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+
   const {
     registries,
     registryPage,
@@ -81,7 +143,88 @@ export default function RegistryListTable() {
     registriesTotal,
     loadingRegistries,
     setRegistryPage,
+    refreshRegistries,
   } = useRegistryListContext() || {};
+
+  const { currentAdmin } = useDashboardContext() || {};
+  const isSuperAdmin = currentAdmin?.role === "super_admin";
+
+  const [updateState, updateAction, updatePending] = useActionState(
+    updateRegistryEvent,
+    initialUpdateRegistryEventState
+  );
+  const [flagState, flagAction, flagPending] = useActionState(
+    flagRegistry,
+    initialFlagRegistryState
+  );
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    deleteRegistry,
+    initialDeleteRegistryState
+  );
+
+  const updateErrorFor = (key) => updateState?.errors?.[key] ?? [];
+  const hasUpdateError = (key) => (updateErrorFor(key)?.length ?? 0) > 0;
+
+  const flagErrorFor = (key) => flagState?.errors?.[key] ?? [];
+  const hasFlagError = (key) => (flagErrorFor(key)?.length ?? 0) > 0;
+
+  const deleteErrorFor = (key) => deleteState?.errors?.[key] ?? [];
+  const hasDeleteError = (key) => (deleteErrorFor(key)?.length ?? 0) > 0;
+
+  useEffect(() => {
+    if (!updateState) return;
+    if (
+      updateState.message &&
+      updateState.data &&
+      Object.keys(updateState.data).length
+    ) {
+      toast.success(updateState.message);
+      refreshRegistries?.();
+      setEditOpen(false);
+    } else if (
+      updateState.message &&
+      updateState.errors &&
+      Object.keys(updateState.errors).length
+    ) {
+      toast.error(updateState.message);
+    }
+  }, [updateState, refreshRegistries]);
+
+  useEffect(() => {
+    if (!flagState) return;
+    if (flagState.message && flagState.data && Object.keys(flagState.data).length) {
+      toast.success(flagState.message);
+      refreshRegistries?.();
+      setFlagOpen(false);
+    } else if (
+      flagState.message &&
+      flagState.errors &&
+      Object.keys(flagState.errors).length
+    ) {
+      toast.error(flagState.message);
+    }
+  }, [flagState, refreshRegistries]);
+
+  useEffect(() => {
+    if (!deleteState) return;
+    if (
+      deleteState.message &&
+      deleteState.data &&
+      Object.keys(deleteState.data).length
+    ) {
+      toast.success(deleteState.message);
+      refreshRegistries?.();
+      setDeleteOpen(false);
+      setSelectedRegistry(null);
+      setDeleteConfirmText("");
+    } else if (
+      deleteState.message &&
+      deleteState.errors &&
+      Object.keys(deleteState.errors).length
+    ) {
+      toast.error(deleteState.message);
+    }
+  }, [deleteState, refreshRegistries]);
 
   const tableRows = useMemo(() => {
     if (!registries || !registries.length) return [];
@@ -110,9 +253,14 @@ export default function RegistryListTable() {
           <SortableHeader column={column} title="Registry Name" />
         ),
         cell: (info) => (
-          <span className="text-xs font-medium text-[#0A0A0A]">
-            {info.getValue()}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-[#0A0A0A]">
+              {info.getValue()}
+            </span>
+            <span className="text-[10px] text-[#286AD4]">
+              {info.row.original.__raw?.registry?.registry_code ?? ""}
+            </span>
+          </div>
         ),
       }),
       columnHelper.accessor("hostName", {
@@ -120,15 +268,12 @@ export default function RegistryListTable() {
           <SortableHeader column={column} title="Host Name" />
         ),
         cell: (info) => (
-          <span className="text-xs text-[#0A0A0A]">{info.getValue()}</span>
-        ),
-      }),
-      columnHelper.accessor("hostEmail", {
-        header: ({ column }) => (
-          <SortableHeader column={column} title="Host Email" />
-        ),
-        cell: (info) => (
-          <span className="text-xs text-[#6A7282]">{info.getValue()}</span>
+          <div className="flex flex-col">
+            <span className="text-xs text-[#0A0A0A]">{info.getValue()}</span>
+            <span className="text-[10px] text-[#286AD4]">
+              {info.row.original.hostEmail}
+            </span>
+          </div>
         ),
       }),
       columnHelper.accessor("eventType", {
@@ -190,9 +335,8 @@ export default function RegistryListTable() {
           const raw = original.__raw;
 
           const handleView = () => {
-            if (!raw?.registry?.registry_code) return;
-            const code = raw.registry.registry_code;
-            window.open(`/dashboard/h/registry/${code}`, "_blank");
+            setViewRow(original);
+            setViewOpen(true);
           };
 
           return (
@@ -205,12 +349,53 @@ export default function RegistryListTable() {
               >
                 <Eye className="size-4" />
               </button>
+              {isSuperAdmin && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!raw?.registry?.id) return;
+                      setSelectedRegistry(raw);
+                      setEditOpen(true);
+                    }}
+                    aria-label="Edit registry"
+                    className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!raw?.registry?.id) return;
+                      setSelectedRegistry(raw);
+                      setFlagOpen(true);
+                    }}
+                    aria-label="Flag registry"
+                    className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
+                  >
+                    <Flag className="size-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!raw?.registry?.id) return;
+                      setSelectedRegistry(raw);
+                      setDeleteConfirmText("");
+                      setDeleteOpen(true);
+                    }}
+                    aria-label="Delete registry"
+                    className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                </>
+              )}
             </div>
           );
         },
       }),
     ],
-    []
+    [isSuperAdmin]
   );
 
   const tableInstance = useReactTable({
@@ -232,6 +417,10 @@ export default function RegistryListTable() {
     totalRows === 0 ? 0 : Math.min(totalRows, (pageIndex + 1) * pageSize);
   const canPrevious = pageIndex > 0;
   const canNext = pageIndex + 1 < pageCount;
+
+  const canSubmitDelete =
+    deleteConfirmText.trim().toUpperCase() === "DELETE REGISTRY" &&
+    !!selectedRegistry;
 
   return (
     <div className={cx(wrapper())}>
@@ -297,6 +486,319 @@ export default function RegistryListTable() {
           )}
         </tbody>
       </table>
+
+      <RegistryDetailsDialog
+        open={viewOpen}
+        onOpenChange={(open) => {
+          setViewOpen(open);
+          if (!open) {
+            setViewRow(null);
+          }
+        }}
+        registryRow={viewRow}
+      />
+
+      {/* Edit registry dialog */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Edit Event Details
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Update the event type and date for this registry. Only Super Admins
+              can perform this action.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRegistry && (
+            <form action={updateAction} className="mt-3 space-y-4">
+              <input
+                type="hidden"
+                name="registryId"
+                value={selectedRegistry.registry?.id || ""}
+              />
+              <input
+                type="hidden"
+                name="eventId"
+                value={selectedRegistry.event?.id || ""}
+              />
+
+              <div className="space-y-1 text-xs text-[#0A0A0A]">
+                <p className="font-medium">Registry</p>
+                <p className="text-[#6A7282]">
+                  {selectedRegistry.registry?.title || "Untitled"}
+                  {selectedRegistry.registry?.registry_code ? (
+                    <span className="ml-1 text-[11px] text-[#3979D2]">
+                      (Code: {selectedRegistry.registry.registry_code})
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="edit-eventType"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Event Type
+                </label>
+                <input
+                  id="edit-eventType"
+                  name="eventType"
+                  type="text"
+                  defaultValue={
+                    updateState?.values?.eventType ??
+                    selectedRegistry.event?.type ??
+                    ""
+                  }
+                  className={cx(
+                    "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasUpdateError("eventType") ? hasErrorInput : ""
+                  )}
+                  disabled={updatePending}
+                />
+                {hasUpdateError("eventType") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {updateErrorFor("eventType").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="edit-eventDate"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Event Date
+                </label>
+                <input
+                  id="edit-eventDate"
+                  name="eventDate"
+                  type="date"
+                  defaultValue={
+                    updateState?.values?.eventDate ??
+                    toDateInputValue(
+                      selectedRegistry.event?.date ||
+                        selectedRegistry.registry?.deadline
+                    )
+                  }
+                  className={cx(
+                    "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasUpdateError("eventDate") ? hasErrorInput : ""
+                  )}
+                  disabled={updatePending}
+                />
+                {hasUpdateError("eventDate") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {updateErrorFor("eventDate").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={updatePending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={updatePending}
+                  className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Flag registry dialog */}
+      <Dialog open={flagOpen} onOpenChange={setFlagOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Flag Registry
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Create an escalated support ticket for this registry. Only Super
+              Admins can perform this action.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRegistry && (
+            <form action={flagAction} className="mt-3 space-y-4">
+              <input
+                type="hidden"
+                name="registryId"
+                value={selectedRegistry.registry?.id || ""}
+              />
+
+              <div className="space-y-1 text-xs text-[#0A0A0A]">
+                <p className="font-medium">Registry</p>
+                <p className="text-[#6A7282]">
+                  {selectedRegistry.registry?.title || "Untitled"}
+                  {selectedRegistry.registry?.registry_code ? (
+                    <span className="ml-1 text-[11px] text-[#3979D2]">
+                      (Code: {selectedRegistry.registry.registry_code})
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="flag-reason"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Reason (optional)
+                </label>
+                <textarea
+                  id="flag-reason"
+                  name="reason"
+                  defaultValue={flagState?.values?.reason ?? ""}
+                  rows={3}
+                  className={cx(
+                    "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasFlagError("reason") ? hasErrorInput : ""
+                  )}
+                  placeholder="Describe why this registry needs attention"
+                  disabled={flagPending}
+                />
+                {hasFlagError("reason") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {flagErrorFor("reason").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={flagPending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={flagPending}
+                  className="inline-flex items-center justify-center rounded-full border border-yellow-500 bg-yellow-500 px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-yellow-600 cursor-pointer"
+                >
+                  Flag Registry
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete registry dialog */}
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Delete Registry
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              This will permanently delete the registry and its configuration.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRegistry && (
+            <form action={deleteAction} className="mt-3 space-y-4">
+              <input
+                type="hidden"
+                name="registryId"
+                value={selectedRegistry.registry?.id || ""}
+              />
+
+              <div className="space-y-1 text-xs text-[#0A0A0A]">
+                <p className="font-medium">Registry</p>
+                <p className="text-[#6A7282]">
+                  {selectedRegistry.registry?.title || "Untitled"}
+                  {selectedRegistry.registry?.registry_code ? (
+                    <span className="ml-1 text-[11px] text-[#3979D2]">
+                      (Code: {selectedRegistry.registry.registry_code})
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="delete-confirmText"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Type
+                  {" "}
+                  <span className="font-semibold">DELETE REGISTRY</span>{" "}
+                  to confirm
+                </label>
+                <input
+                  id="delete-confirmText"
+                  name="confirmText"
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className={cx(
+                    "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasDeleteError("confirmText") ? hasErrorInput : ""
+                  )}
+                  placeholder="DELETE REGISTRY"
+                  disabled={deletePending}
+                />
+                {hasDeleteError("confirmText") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {deleteErrorFor("confirmText").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={deletePending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={deletePending || !canSubmitDelete}
+                  className="inline-flex items-center justify-center rounded-full border border-red-500 bg-red-500 px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-red-600 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  Delete Registry
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-[11px] text-[#6A7282] bg-white">
         <span>

@@ -1,11 +1,5 @@
 "use client";
-import React, {
-  useActionState,
-  useEffect,
-  useState,
-  useMemo,
-  useCallback,
-} from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Select,
@@ -20,72 +14,104 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
-import { Search } from "lucide-react";
-import { adminGlobalSearch } from "../action";
-
-const initialState = {
-  message: "",
-  errors: {
-    query: [],
-    type: [],
-    status: [],
-  },
-  values: {},
-  results: [],
-};
+import { Search, X } from "lucide-react";
+import { useDebounce } from "use-debounce";
 
 export default function SearchEngine() {
   const router = useRouter();
-  const [state, formAction, isPending] = useActionState(
-    adminGlobalSearch,
-    initialState
-  );
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [typeValue, setTypeValue] = useState("all");
   const [statusValue, setStatusValue] = useState("all");
-  const [open, setOpen] = useState(false);
-  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [results, setResults] = useState([]);
+  const [message, setMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [debouncedQuery] = useDebounce(query, 300);
 
   useEffect(() => {
-    if (state?.values?.type) {
-      setTypeValue(state.values.type);
-    }
-    if (state?.values?.status) {
-      setStatusValue(state.values.status || "all");
-    }
-  }, [state?.values?.type, state?.values?.status]);
+    if (!open) return;
+    const term = debouncedQuery.trim();
 
-  const errors = useMemo(() => state?.errors || {}, [state?.errors]);
-  const hasError = useCallback(
-    (key) => (errors?.[key]?.length ?? 0) > 0,
-    [errors]
-  );
-
-  useEffect(() => {
-    if (!hasSubmitted) return;
-    if (isPending) return;
-    if (!hasError("query")) {
-      setOpen(true);
+    if (!term) {
+      setResults([]);
+      setMessage("");
+      return;
     }
-  }, [hasSubmitted, isPending, state?.results, state?.message, errors, hasError]);
+
+    setIsLoading(true);
+    let isCancelled = false;
+
+    (async () => {
+      try {
+        const params = new URLSearchParams();
+        params.set("q", term);
+        params.set("type", typeValue);
+        params.set("status", statusValue);
+
+        const res = await fetch(`/api/admin/search?${params.toString()}`, {
+          method: "GET",
+        });
+
+        let data = null;
+        try {
+          data = await res.json();
+        } catch (e) {
+          // ignore JSON parse errors
+        }
+
+        if (!res.ok) {
+          if (!isCancelled) {
+            setMessage(data?.message || "Unable to fetch results");
+            setResults([]);
+          }
+          return;
+        }
+
+        if (!isCancelled) {
+          setResults(data?.results || []);
+          setMessage(
+            data?.message || (data?.results?.length ? "" : "No results found")
+          );
+        }
+      } catch (error) {
+        if (!isCancelled) {
+          setMessage("Unable to fetch results");
+          setResults([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open, debouncedQuery, typeValue, statusValue]);
 
   const handleResultClick = (result) => {
     if (!result?.navigate?.path) return;
 
     const searchParams = new URLSearchParams();
-    const query = state?.values?.query || "";
 
-    if (query) {
-      searchParams.set("q", query);
+    if (result.navigate?.query) {
+      Object.entries(result.navigate.query).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.set(key, String(value));
+        }
+      });
+    } else {
+      if (query) {
+        searchParams.set("q", query);
+      }
+      const entityType = result.entityType || "vendor";
+      searchParams.set("type", entityType);
+      if (result.id) {
+        searchParams.set("focusId", result.id);
+      }
+      searchParams.set("page", "1");
     }
-
-    const entityType = result.entityType || "vendor";
-    searchParams.set("type", entityType);
-
-    if (result.id) {
-      searchParams.set("focusId", result.id);
-    }
-
-    searchParams.set("page", "1");
 
     router.push(`${result.navigate.path}?${searchParams.toString()}`);
     setOpen(false);
@@ -101,85 +127,83 @@ export default function SearchEngine() {
           Get a quick overview of registry and vendor performance at a glance.
         </span>
       </div>
-      <form
-        action={formAction}
-        onSubmit={() => setHasSubmitted(true)}
-        className="flex space-x-4 items-center"
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="mt-2 flex items-center w-full border border-[#D6D6D6] rounded-full py-3 px-4 text-xs bg-white text-left cursor-text hover:border-[#3979D2]"
       >
-        <div className="w-[50%]">
-          <input
-            type="text"
-            name="query"
-            defaultValue={state?.values?.query || ""}
-            placeholder="Search all users here"
-            className={`border border-[#D6D6D6] rounded-full py-3 px-4 text-xs bg-white w-full ${
-              hasError("query") ? "border-red-500" : ""
-            }`}
-          />
-        </div>
-        <div className="w-[20%]">
-          <input type="hidden" name="type" value={typeValue} />
-          <Select
-            value={typeValue}
-            onValueChange={setTypeValue}
-            disabled={isPending}
-            required
-          >
-            <SelectTrigger className={``}>
-              <SelectValue placeholder="All Types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="vendor">Vendor</SelectItem>
-              <SelectItem value="host">Host</SelectItem>
-              <SelectItem value="guest">Guest</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="w-[20%]">
-          <input type="hidden" name="status" value={statusValue} />
-          <Select
-            value={statusValue}
-            onValueChange={setStatusValue}
-            disabled={isPending}
-            required
-          >
-            <SelectTrigger className={``}>
-              <SelectValue placeholder="All Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="w-[10%]">
-          <button
-            type="submit"
-            disabled={isPending}
-            className="text-[10px] space-x-2 bg-[#3979D2] text-white border border-[#3979D2] hover:bg-white hover:text-[#3979D2] rounded-full cursor-pointer px-4 py-1 flex items-center justify-center font-poppins font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Search className="size-4" />
-            <span>{isPending ? "Searching..." : "Search"}</span>
-          </button>
-        </div>
-      </form>
+        <Search className="size-4 text-[#717182] mr-2" />
+        <span className="text-[#717182]">
+          {query ? query : "Search all users here"}
+        </span>
+      </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl w-full">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
               Search results
             </DialogTitle>
           </DialogHeader>
-          <div className="mt-2 space-y-2 max-h-80 overflow-y-auto">
-            {state?.message && !state.results?.length ? (
-              <p className="text-xs text-[#717182]">{state.message}</p>
+          <div className="flex items-center space-x-2 mb-3">
+            <div className="flex items-center flex-1 border border-[#D6D6D6] rounded-full px-3 py-2 bg-white">
+              <Search className="size-4 text-[#717182] mr-2" />
+              <input
+                autoFocus
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search all users here"
+                className="flex-1 bg-transparent text-xs outline-none text-[#0A0A0A]"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="p-1 rounded-full border border-[#D6D6D6] hover:bg-[#F3F6FF]"
+            >
+              <X className="size-4 text-[#717182]" />
+            </button>
+          </div>
+
+          <div className="flex space-x-2 mb-3">
+            <div className="w-1/2">
+              <Select value={typeValue} onValueChange={setTypeValue}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="vendor">Vendor</SelectItem>
+                  <SelectItem value="host">Host</SelectItem>
+                  <SelectItem value="guest">Guest</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="w-1/2">
+              <Select value={statusValue} onValueChange={setStatusValue}>
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="All Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Status</SelectItem>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="mt-[2rem] space-y-2 max-h-80 overflow-y-auto">
+            {isLoading ? (
+              <p className="text-xs text-[#717182]">Searching...</p>
             ) : null}
-            {state?.results?.length ? (
+            {!isLoading && message && !results.length ? (
+              <p className="text-xs text-[#717182]">{message}</p>
+            ) : null}
+            {results.length ? (
               <ul className="space-y-1">
-                {state.results.map((result) => (
+                {results.map((result) => (
                   <li key={`${result.entityType}-${result.id}`}>
                     <button
                       type="button"

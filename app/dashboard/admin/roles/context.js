@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { useQueryState, parseAsString } from "nuqs";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 
 const RolesContext = createContext();
@@ -18,7 +19,11 @@ export const RolesProvider = ({ children }) => {
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [errorStaff, setErrorStaff] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [staffSearchTerm, setStaffSearchTerm] = useState("");
+  const [searchParam, setSearchParam] = useQueryState(
+    "q",
+    parseAsString.withDefault("")
+  );
+  const staffSearchTerm = searchParam || "";
   const [currentAdmin, setCurrentAdmin] = useState(null);
   const [loadingCurrentAdmin, setLoadingCurrentAdmin] = useState(true);
 
@@ -49,10 +54,10 @@ export const RolesProvider = ({ children }) => {
 
         if (staffSearchTerm && staffSearchTerm.trim()) {
           const term = staffSearchTerm.trim();
-          const pattern = `%${term}%`;
-          query = query.or(
-            `firstname.ilike.${pattern},lastname.ilike.${pattern},email.ilike.${pattern}`
-          );
+          query = query.textSearch("search_vector", term, {
+            type: "websearch",
+            config: "simple",
+          });
         }
 
         const { data, error, count } = await query
@@ -196,7 +201,7 @@ export const RolesProvider = ({ children }) => {
       setStaffPage,
       refreshStaff: () => setRefreshKey((prev) => prev + 1),
       staffSearchTerm,
-      setStaffSearchTerm,
+      setStaffSearchTerm: setSearchParam,
       currentAdmin,
       loadingCurrentAdmin,
     }),
@@ -210,6 +215,7 @@ export const RolesProvider = ({ children }) => {
       staffSearchTerm,
       currentAdmin,
       loadingCurrentAdmin,
+      setSearchParam,
     ]
   );
 

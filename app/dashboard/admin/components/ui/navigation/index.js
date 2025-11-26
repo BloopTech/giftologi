@@ -98,7 +98,7 @@ export default function AdminSidebar() {
           {navigation?.map(({ label, items, id }) => {
             return (
               <div key={id} className="flex flex-col space-y-1">
-                <span className="text-xs text-[#2D3436] dark:text-white pl-[4rem] font-medium">
+                <span className="text-xs text-[#686868] dark:text-white pl-[4rem] font-medium">
                   {label}
                 </span>
 
@@ -116,7 +116,7 @@ export default function AdminSidebar() {
                               className={cx(
                                 isActive(href)
                                   ? "text-white bg-[#BBA96C] dark:text-white border border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
-                                  : "text-[#2D3436] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                  : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
                                 "flex items-center justify-between text-xs py-1 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group w-full",
                                 focusRing
                               )}
@@ -128,8 +128,8 @@ export default function AdminSidebar() {
                                     className={cx(
                                       isActive(href)
                                         ? " dark:text-white group-hover:text-[#BBA96C] dark:group-hover:text-white"
-                                        : "text-[#2D3436] group-hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "size-4 shrink-0 text-[#2D3436] flex items-center justify-center",
+                                        : "text-[#686868] group-hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      "size-4 shrink-0 text-[#686868] flex items-center justify-center",
                                       focusRing
                                     )}
                                   />
@@ -149,7 +149,7 @@ export default function AdminSidebar() {
                               className={cx(
                                 isActive(href)
                                   ? "text-[#BBA96C] dark:text-white border border-white hover:border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
-                                  : "text-[#2D3436] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                  : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
                                 "flex items-center gap-x-8 text-xs py-1 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group",
                                 focusRing
                               )}
@@ -160,7 +160,7 @@ export default function AdminSidebar() {
                                   className={cx(
                                     isActive(href)
                                       ? "dark:text-white text-[#BBA96C] group-hover:text-[#BBA96C] dark:group-hover:text-[#BBA96C]"
-                                      : "text-[#2D3436] group-hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      : "text-[#686868] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                     "size-4 shrink-0 flex items-center justify-center",
                                     focusRing
                                   )}
@@ -179,7 +179,7 @@ export default function AdminSidebar() {
                                     className={cx(
                                       isActive(subItem.href)
                                         ? "text-white bg-[#BBA96C] dark:text-white border border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
-                                        : "text-[#2D3436] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                        : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
                                       "flex items-center text-xs py-0.5 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group pl-4",
                                       focusRing
                                     )}

@@ -2,7 +2,7 @@
 import { Search } from "lucide-react";
 import React from "react";
 import {
-    PiFlag,
+  PiFlag,
   PiShoppingBagOpen,
   PiShoppingCart,
   PiStorefront,
@@ -12,6 +12,13 @@ import {
 } from "react-icons/pi";
 import { useRegistryListContext } from "./context";
 import RegistryListTable from "./RegistryListTable";
+import {
+  SelectTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from "../../../components/Select";
 
 export default function RegistryListContent() {
   const {
@@ -20,6 +27,10 @@ export default function RegistryListContent() {
     searchTerm,
     setSearchTerm,
     setRegistryPage,
+    typeFilter,
+    setTypeFilter,
+    statusFilter,
+    setStatusFilter,
   } = useRegistryListContext() || {};
 
   const [search, setSearch] = React.useState(searchTerm || "");
@@ -75,13 +86,10 @@ export default function RegistryListContent() {
             <PiShoppingBagOpen className="size-4 text-[#6EA30B]" />
           </div>
           <div className="border-t-[2px] border-[#6EA30B]" />
-          
         </div>
         {/* Expired */}
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
-            Expired
-          </h2>
+          <h2 className="text-[#717182] text-xs/4 font-poppins">Expired</h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.expiredRegistries)}
             <PiXCircle className="size-4 text-[#CB7428]" />
@@ -90,9 +98,7 @@ export default function RegistryListContent() {
         </div>
         {/* Flagged */}
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
-            Flagged
-          </h2>
+          <h2 className="text-[#717182] text-xs/4 font-poppins">Flagged</h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.flaggedRegistries)}
             <PiFlag className="size-4 text-[#C52721]" />
@@ -109,7 +115,6 @@ export default function RegistryListContent() {
             <PiTicket className="size-4 text-[#286AD4]" />
           </div>
           <div className="border-t-[2px] border-[#5797FF]" />
-
         </div>
       </div>
 
@@ -122,12 +127,51 @@ export default function RegistryListContent() {
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder={
-                "Search by host name, registry name or code"
-              }
+              placeholder={"Search by host name, registry name or code"}
               className="w-full bg-transparent outline-none text-xs text-[#0A0A0A] placeholder:text-[#B0B7C3]"
             />
           </div>
+        </div>
+        <div className="w-[20%]">
+          <Select
+            value={typeFilter || "all"}
+            onValueChange={(value) => {
+              setTypeFilter?.(value);
+              setRegistryPage?.(0);
+            }}
+          >
+            <SelectTrigger className={``}>
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="registry_name">Registry Name</SelectItem>
+              <SelectItem value="registry_code">Registry Code</SelectItem>
+              <SelectItem value="host_name">Host Name</SelectItem>
+              <SelectItem value="host_email">Host Email</SelectItem>
+              <SelectItem value="event_type">Event Type</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-[20%]">
+          <Select
+            value={statusFilter || "all"}
+            onValueChange={(value) => {
+              setStatusFilter?.(value);
+              setRegistryPage?.(0);
+            }}
+          >
+            <SelectTrigger className={``}>
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="flagged">Flagged</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="expired">Expired</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <button
           type="button"

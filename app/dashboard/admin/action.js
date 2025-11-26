@@ -268,11 +268,15 @@ export async function manageRoles(prevState, queryData) {
   }
 
   return {
-    message: "Staff created successfully. A confirmation link has been sent to their email.",
+    message: "Staff member created.",
     errors: {},
     data: {
       user: authData.user,
       signup_profile: signupProfile,
+      credentials: {
+        email,
+        password,
+      },
     },
     status_code: 200,
     email: getBusinessEmail,

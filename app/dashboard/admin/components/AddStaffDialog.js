@@ -2,7 +2,7 @@
 import React, { useActionState, useEffect, useMemo, useState } from "react";
 import { manageRoles } from "../action";
 import { toast } from "sonner";
-import { Eye, EyeOff, LoaderCircle } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -101,15 +101,63 @@ export default function AddStaffDialog({ onClose }) {
   }, [state?.values]);
 
   useEffect(() => {
-    if (state?.message && state?.errors && Object.keys(state.errors).length) {
-      toast.error(state.message);
+    const hasErrors =
+      state?.message &&
+      state?.errors &&
+      Object.keys(state.errors || {}).length > 0;
+
+    const hasData =
+      state?.message &&
+      state?.data &&
+      Object.keys(state.data || {}).length > 0;
+
+    const errorMessage = (state?.message || "").trim();
+
+    if (hasErrors) {
+      toast.custom(() => (
+        <div className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl border border-[#B91C1C] bg-[#450A0A] px-4 py-3 text-white shadow-lg">
+          <div className="mt-0.5">
+            <XCircle className="size-6 text-[#FCA5A5]" />
+          </div>
+          <div className="flex-1 text-xs">
+            <p className="text-sm font-semibold">Something went wrong</p>
+            <p className="mt-1 text-[11px] text-[#FECACA]">
+              {errorMessage ||
+                "The user account was not created. Please try again."}
+            </p>
+          </div>
+        </div>
+      ));
     }
-    if (state?.message && state?.data && Object.keys(state.data).length) {
-      toast.success(state.message);
+
+    if (hasData) {
+      const credentials = state?.data?.credentials || {};
+      toast.custom(() => (
+        <div className="pointer-events-auto flex w-full max-w-sm items-start gap-3 rounded-2xl border border-[#15803D] bg-[#14532D] px-4 py-3 text-white shadow-lg">
+          <div className="mt-0.5">
+            <CheckCircle2 className="size-6 text-[#22C55E]" />
+          </div>
+          <div className="flex-1 text-xs">
+            <p className="text-sm font-semibold">Staff Member Created</p>
+            {credentials?.password ? (
+              <p className="mt-1">
+                Password:{" "}
+                <span className="font-mono font-semibold">
+                  {credentials.password}
+                </span>
+              </p>
+            ) : null}
+            <p className="mt-1 text-[11px] text-[#BBF7D0]">
+              Email sent to {credentials?.email || state?.email || "the staff member"} with
+              login credentials.
+            </p>
+          </div>
+        </div>
+      ));
       refreshStaff?.();
       onClose?.();
     }
-  }, [state?.message, state?.errors, state?.data, onClose, refreshStaff]);
+  }, [state?.message, state?.errors, state?.data, state?.email, onClose, refreshStaff]);
 
   const errorFor = (key) => state?.errors?.[key] ?? [];
   const hasError = (key) => (errorFor(key)?.length ?? 0) > 0;
