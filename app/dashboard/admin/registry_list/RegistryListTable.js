@@ -44,7 +44,7 @@ const tableStyles = tv({
     table: "min-w-full divide-y divide-gray-200",
     headRow: "bg-[#F9FAFB]",
     headCell:
-      "px-4 py-3 text-left text-[11px] font-medium text-[#6A7282] uppercase tracking-wide",
+      "px-4 py-3 text-left text-[11px] font-medium text-[#6A7282] tracking-wide",
     bodyRow: "border-b last:border-b-0 hover:bg-gray-50/60",
     bodyCell:
       "px-4 py-3 text-xs text-[#0A0A0A] align-middle whitespace-nowrap",

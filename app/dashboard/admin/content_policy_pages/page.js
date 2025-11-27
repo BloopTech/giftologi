@@ -1,12 +1,14 @@
-"use client";
+"use server";
 import React from "react";
+import { ContentsPolicyProvider } from "./context";
+import ContentPolicyContent from "./content";
 
-
-
-export default function ContentPolicyPages() {
-    return (
-        <div className="lg:pl-10 lg:pr-0 pl-5 pr-5 pb-[5rem]">
-            <h1>Content Policy Pages</h1>
-        </div>
-    )
+export default async function ContentPolicyPages() {
+  return (
+    <>
+      <ContentsPolicyProvider>
+        <ContentPolicyContent />
+      </ContentsPolicyProvider>
+    </>
+  );
 }

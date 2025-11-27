@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useMemo, useState, useActionState } from "react";
 import {
   ChevronsUpDown,
@@ -9,7 +10,6 @@ import {
   Eye,
   Flag,
 } from "lucide-react";
-
 import {
   useReactTable,
   getCoreRowModel,
@@ -19,6 +19,7 @@ import {
   createColumnHelper,
 } from "@tanstack/react-table";
 import { tv } from "tailwind-variants";
+import { toast } from "sonner";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { Badge } from "@/app/components/Badge";
 import {
@@ -29,27 +30,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
-import { toast } from "sonner";
-
-import { useVendorRequestsContext } from "./context";
+import { useManageProductsContext } from "./context";
 import { useDashboardContext } from "../context";
-import {
-  approveVendorRequest,
-  rejectVendorRequest,
-  flagVendorRequest,
-} from "./action";
+import { approveProduct, rejectProduct, flagProduct } from "./action";
 
 const tableStyles = tv({
   slots: {
-    wrapper:
-      "mt-4 overflow-x-auto border border-[#D6D6D6] rounded-xl bg-white",
+    wrapper: "mt-4 overflow-x-auto border border-[#D6D6D6] rounded-xl bg-white",
     table: "min-w-full divide-y divide-gray-200",
     headRow: "bg-[#F9FAFB]",
     headCell:
       "px-4 py-3 text-left text-[11px] font-medium text-[#6A7282] tracking-wide",
     bodyRow: "border-b last:border-b-0 hover:bg-gray-50/60",
-    bodyCell:
-      "px-4 py-3 text-xs text-[#0A0A0A] align-middle whitespace-nowrap",
+    bodyCell: "px-4 py-3 text-xs text-[#0A0A0A] align-middle whitespace-nowrap",
   },
 });
 
@@ -61,12 +54,13 @@ const statusVariantMap = {
   pending: "neutral",
   approved: "success",
   rejected: "error",
+  flagged: "error",
 };
 
 const initialApproveState = {
   message: "",
   errors: {
-    applicationId: [],
+    productId: [],
   },
   values: {},
   data: {},
@@ -75,7 +69,7 @@ const initialApproveState = {
 const initialRejectState = {
   message: "",
   errors: {
-    applicationId: [],
+    productId: [],
   },
   values: {},
   data: {},
@@ -84,7 +78,7 @@ const initialRejectState = {
 const initialFlagState = {
   message: "",
   errors: {
-    applicationId: [],
+    productId: [],
     reason: [],
   },
   values: {},
@@ -117,41 +111,38 @@ function SortableHeader({ column, title }) {
   );
 }
 
-export default function VendorRequestsTable() {
+export default function ProductsTable() {
   const [sorting, setSorting] = useState([]);
   const [viewOpen, setViewOpen] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState(null);
   const [flagOpen, setFlagOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
   const {
-    requests,
-    requestsPage,
+    products,
+    productsPage,
     pageSize,
-    requestsTotal,
-    loadingRequests,
-    setRequestsPage,
-    refreshRequests,
-  } = useVendorRequestsContext() || {};
+    productsTotal,
+    loadingProducts,
+    setProductsPage,
+    refreshProducts,
+  } = useManageProductsContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
-  const allowedActionRoles = [
-    "super_admin",
-    "operations_manager_admin",
-  ];
+  const allowedActionRoles = ["super_admin", "operations_manager_admin"];
   const canModerate =
     !!currentAdmin && allowedActionRoles.includes(currentAdmin.role);
 
   const [approveState, approveAction, approvePending] = useActionState(
-    approveVendorRequest,
+    approveProduct,
     initialApproveState
   );
   const [rejectState, rejectAction, rejectPending] = useActionState(
-    rejectVendorRequest,
+    rejectProduct,
     initialRejectState
   );
 
   const [flagState, flagAction, flagPending] = useActionState(
-    flagVendorRequest,
+    flagProduct,
     initialFlagState
   );
 
@@ -166,7 +157,7 @@ export default function VendorRequestsTable() {
       Object.keys(approveState.data).length
     ) {
       toast.success(approveState.message);
-      refreshRequests?.();
+      refreshProducts?.();
     } else if (
       approveState.message &&
       approveState.errors &&
@@ -174,7 +165,7 @@ export default function VendorRequestsTable() {
     ) {
       toast.error(approveState.message);
     }
-  }, [approveState, refreshRequests]);
+  }, [approveState, refreshProducts]);
 
   useEffect(() => {
     if (!rejectState) return;
@@ -184,7 +175,7 @@ export default function VendorRequestsTable() {
       Object.keys(rejectState.data).length
     ) {
       toast.success(rejectState.message);
-      refreshRequests?.();
+      refreshProducts?.();
     } else if (
       rejectState.message &&
       rejectState.errors &&
@@ -192,7 +183,7 @@ export default function VendorRequestsTable() {
     ) {
       toast.error(rejectState.message);
     }
-  }, [rejectState, refreshRequests]);
+  }, [rejectState, refreshProducts]);
 
   useEffect(() => {
     if (!flagState) return;
@@ -202,9 +193,9 @@ export default function VendorRequestsTable() {
       Object.keys(flagState.data).length
     ) {
       toast.success(flagState.message);
-      refreshRequests?.();
+      refreshProducts?.();
       setFlagOpen(false);
-      setSelectedRequest(null);
+      setSelectedProduct(null);
     } else if (
       flagState.message &&
       flagState.errors &&
@@ -212,48 +203,56 @@ export default function VendorRequestsTable() {
     ) {
       toast.error(flagState.message);
     }
-  }, [flagState, refreshRequests]);
+  }, [flagState, refreshProducts]);
 
   const tableRows = useMemo(() => {
-    if (!requests || !requests.length) return [];
-    return requests.map((row) => {
-      const appliedDateLabel = row.appliedDate
-        ? new Date(row.appliedDate).toLocaleDateString()
+    if (!products || !products.length) return [];
+    return products.map((row) => {
+      const createdAtLabel = row.createdAt
+        ? new Date(row.createdAt).toLocaleDateString()
         : "—";
       const normalizedStatus = (row.status || "pending").toLowerCase();
       const statusLabel =
-        normalizedStatus.charAt(0).toUpperCase() +
-        normalizedStatus.slice(1);
+        normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
       return {
         ...row,
-        appliedDateLabel,
-        statusLabel,
+        product_code: row.product_code || null,
+        createdAtLabel,
         normalizedStatus,
+        statusLabel,
       };
     });
-  }, [requests]);
+  }, [products]);
 
   const columns = useMemo(
     () => [
-      columnHelper.accessor("vendorId", {
+      columnHelper.accessor("product_code", {
         header: ({ column }) => (
-          <SortableHeader column={column} title="Vendor ID" />
+          <SortableHeader column={column} title="Product ID" />
         ),
         cell: (info) => (
-          <span className="text-xs font-medium text-[#0A0A0A]">
-            {info.getValue()}
-          </span>
+          <span className="text-xs text-[#6A7282]">{info.getValue()}</span>
         ),
       }),
-      columnHelper.accessor("businessName", {
+      columnHelper.accessor("name", {
+        header: ({ column }) => <SortableHeader column={column} title="Name" />,
+        cell: (info) => (
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-[#0A0A0A]">
+              {info.getValue()}
+            </span>
+          </div>
+        ),
+      }),
+      columnHelper.accessor("vendorName", {
         header: ({ column }) => (
-          <SortableHeader column={column} title="Business Name" />
+          <SortableHeader column={column} title="Vendor" />
         ),
         cell: (info) => (
           <span className="text-xs text-[#0A0A0A]">{info.getValue()}</span>
         ),
       }),
-      columnHelper.accessor("category", {
+      columnHelper.accessor("categoryName", {
         header: ({ column }) => (
           <SortableHeader column={column} title="Category" />
         ),
@@ -263,20 +262,36 @@ export default function VendorRequestsTable() {
           </span>
         ),
       }),
-      columnHelper.accessor("appliedDateLabel", {
+      columnHelper.accessor("price", {
         header: ({ column }) => (
-          <SortableHeader column={column} title="Applied Date" />
+          <SortableHeader column={column} title="Price (GHS)" />
+        ),
+        cell: (info) => {
+          const value = Number(info.getValue() || 0);
+          const label = Number.isNaN(value)
+            ? "—"
+            : value.toLocaleString("en-GH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+          return <span className="text-xs text-[#0A0A0A]">{label}</span>;
+        },
+      }),
+      columnHelper.accessor("stockQty", {
+        header: ({ column }) => (
+          <SortableHeader column={column} title="Stock" />
         ),
         cell: (info) => (
-          <span className="text-xs text-[#6A7282]">{info.getValue()}</span>
+          <span className="text-xs text-[#0A0A0A]">
+            {info.getValue() ?? "—"}
+          </span>
         ),
       }),
       columnHelper.accessor("statusLabel", {
         header: "Status",
         cell: (info) => {
           const row = info.row.original;
-          const variant =
-            statusVariantMap[row.normalizedStatus] || "neutral";
+          const variant = statusVariantMap[row.normalizedStatus] || "neutral";
           return (
             <Badge variant={variant} className="text-[11px]">
               {info.getValue()}
@@ -300,12 +315,12 @@ export default function VendorRequestsTable() {
           }
 
           const handleView = () => {
-            setSelectedRequest(original);
+            setSelectedProduct(original);
             setViewOpen(true);
           };
 
           const handleFlag = () => {
-            setSelectedRequest(original);
+            setSelectedProduct(original);
             setFlagOpen(true);
           };
 
@@ -314,7 +329,7 @@ export default function VendorRequestsTable() {
               <button
                 type="button"
                 onClick={handleView}
-                aria-label="View vendor request"
+                aria-label="View product"
                 className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
               >
                 <Eye className="size-4" />
@@ -322,17 +337,13 @@ export default function VendorRequestsTable() {
               <button
                 type="button"
                 onClick={handleFlag}
-                aria-label="Flag vendor request"
+                aria-label="Flag product"
                 className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
               >
                 <Flag className="size-4" />
               </button>
               <form action={approveAction}>
-                <input
-                  type="hidden"
-                  name="applicationId"
-                  value={original.id}
-                />
+                <input type="hidden" name="productId" value={original.id} />
                 <button
                   type="submit"
                   disabled={!isPending || approvePending || rejectPending}
@@ -347,11 +358,7 @@ export default function VendorRequestsTable() {
                 </button>
               </form>
               <form action={rejectAction}>
-                <input
-                  type="hidden"
-                  name="applicationId"
-                  value={original.id}
-                />
+                <input type="hidden" name="productId" value={original.id} />
                 <button
                   type="submit"
                   disabled={!isPending || approvePending || rejectPending}
@@ -385,8 +392,8 @@ export default function VendorRequestsTable() {
     getPaginationRowModel: getPaginationRowModel(),
   });
 
-  const totalRows = requestsTotal ?? tableRows.length;
-  const pageIndex = requestsPage ?? 0;
+  const totalRows = productsTotal ?? tableRows.length;
+  const pageIndex = productsPage ?? 0;
   const pageCount = totalRows > 0 ? Math.ceil(totalRows / pageSize) : 1;
   const pageStart = totalRows === 0 ? 0 : pageIndex * pageSize + 1;
   const pageEnd =
@@ -398,11 +405,9 @@ export default function VendorRequestsTable() {
     <div className={cx(wrapper())}>
       <div className="px-4 pt-4 pb-2 border-b border-gray-100 flex items-center justify-between">
         <div className="flex flex-col">
-          <h2 className="text-xs font-medium text-[#0A0A0A]">
-            Pending Vendor Applications
-          </h2>
+          <h2 className="text-xs font-medium text-[#0A0A0A]">All Products</h2>
           <p className="text-[11px] text-[#717182]">
-            Review and approve new vendor requests.
+            Review and moderate products submitted by vendors.
           </p>
         </div>
       </div>
@@ -424,13 +429,13 @@ export default function VendorRequestsTable() {
           ))}
         </thead>
         <tbody>
-          {loadingRequests ? (
+          {loadingProducts ? (
             <tr>
               <td
                 colSpan={columns.length}
                 className="px-4 py-8 text-center text-xs text-[#717182]"
               >
-                Loading vendor requests...
+                Loading products...
               </td>
             </tr>
           ) : tableInstance.getRowModel().rows.length ? (
@@ -438,10 +443,7 @@ export default function VendorRequestsTable() {
               <tr key={row.id} className={cx(bodyRow())}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
@@ -452,7 +454,7 @@ export default function VendorRequestsTable() {
                 colSpan={columns.length}
                 className="px-4 py-8 text-center text-xs text-[#717182]"
               >
-                No vendor requests found.
+                No products found.
               </td>
             </tr>
           )}
@@ -463,69 +465,74 @@ export default function VendorRequestsTable() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
-              Vendor Request Details
+              Product Details
             </DialogTitle>
             <DialogDescription className="text-xs text-[#717182]">
-              View vendor application information.
+              View product information and context.
             </DialogDescription>
           </DialogHeader>
-          {selectedRequest && (
+          {selectedProduct && (
             <div className="mt-3 space-y-3 text-xs text-[#0A0A0A]">
               <div>
-                <p className="font-medium">Business Name</p>
+                <p className="font-medium">Name</p>
                 <p className="text-[#6A7282]">
-                  {selectedRequest.businessName || "—"}
+                  {selectedProduct.name || "Untitled product"}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="font-medium">Vendor ID</p>
+                  <p className="font-medium">Vendor</p>
                   <p className="text-[#6A7282]">
-                    {selectedRequest.vendorId || "—"}
+                    {selectedProduct.vendorName || "—"}
                   </p>
                 </div>
                 <div>
                   <p className="font-medium">Category</p>
                   <p className="text-[#6A7282]">
-                    {selectedRequest.category || "—"}
+                    {selectedProduct.categoryName || "—"}
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="font-medium">Contact Name</p>
+                  <p className="font-medium">Price (GHS)</p>
                   <p className="text-[#6A7282]">
-                    {selectedRequest.contactName || "—"}
+                    {selectedProduct.price != null
+                      ? Number(selectedProduct.price).toLocaleString("en-GH", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })
+                      : "—"}
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium">Contact Email</p>
+                  <p className="font-medium">Stock</p>
                   <p className="text-[#6A7282]">
-                    {selectedRequest.contactEmail || "—"}
+                    {selectedProduct.stockQty ?? "—"}
                   </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <p className="font-medium">Applied Date</p>
+                  <p className="font-medium">Created</p>
                   <p className="text-[#6A7282]">
-                    {selectedRequest.appliedDate
-                      ? new Date(selectedRequest.appliedDate).toLocaleString()
+                    {selectedProduct.createdAt
+                      ? new Date(selectedProduct.createdAt).toLocaleString()
                       : "—"}
                   </p>
                 </div>
                 <div>
                   <p className="font-medium">Status</p>
                   <p className="text-[#6A7282]">
-                    {selectedRequest.statusLabel ||
-                      selectedRequest.status ||
-                      "Pending"}
+                    {selectedProduct.statusLabel || selectedProduct.status}
                   </p>
                 </div>
               </div>
               <div>
-                <p className="font-medium">Application ID</p>
-                <p className="text-[#6A7282] break-all">{selectedRequest.id}</p>
+                <p className="font-medium">Product ID</p>
+                <p className="text-[#6A7282] break-all">
+                  {selectedProduct.product_code || selectedProduct.id}
+                </p>
               </div>
             </div>
           )}
@@ -543,24 +550,24 @@ export default function VendorRequestsTable() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
-              Flag Vendor Request
+              Flag Product
             </DialogTitle>
             <DialogDescription className="text-xs text-[#717182]">
-              Create an escalated support ticket for this vendor request.
+              Create an escalated support ticket for this product.
             </DialogDescription>
           </DialogHeader>
-          {selectedRequest && (
+          {selectedProduct && (
             <form action={flagAction} className="mt-3 space-y-4">
               <input
                 type="hidden"
-                name="applicationId"
-                value={selectedRequest.id || ""}
+                name="productId"
+                value={selectedProduct.id || ""}
               />
 
               <div className="space-y-1 text-xs text-[#0A0A0A]">
-                <p className="font-medium">Vendor</p>
+                <p className="font-medium">Product</p>
                 <p className="text-[#6A7282]">
-                  {selectedRequest.businessName || "Untitled"}
+                  {selectedProduct.name || "Untitled product"}
                 </p>
               </div>
 
@@ -582,7 +589,7 @@ export default function VendorRequestsTable() {
                     focusInput,
                     hasFlagError("reason") ? hasErrorInput : ""
                   )}
-                  placeholder="Describe why this vendor request needs attention"
+                  placeholder="Describe why this product needs attention"
                   disabled={flagPending}
                 />
                 {hasFlagError("reason") && (
@@ -609,7 +616,7 @@ export default function VendorRequestsTable() {
                   disabled={flagPending}
                   className="inline-flex items-center justify-center rounded-full border border-yellow-500 bg-yellow-500 px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-yellow-600 cursor-pointer"
                 >
-                  Flag Request
+                  Flag Product
                 </button>
               </div>
             </form>
@@ -620,14 +627,14 @@ export default function VendorRequestsTable() {
       <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-[11px] text-[#6A7282] bg-white">
         <span>
           {totalRows === 0
-            ? "No vendor requests to display"
+            ? "No products to display"
             : `${pageStart} - ${pageEnd} of ${totalRows}`}
         </span>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() =>
-              setRequestsPage?.((prev) => (prev > 0 ? prev - 1 : 0))
+              setProductsPage?.((prev) => (prev > 0 ? prev - 1 : 0))
             }
             disabled={!canPrevious}
             className={cx(
@@ -645,7 +652,7 @@ export default function VendorRequestsTable() {
           <button
             type="button"
             onClick={() =>
-              setRequestsPage?.((prev) => (canNext ? prev + 1 : prev))
+              setProductsPage?.((prev) => (canNext ? prev + 1 : prev))
             }
             disabled={!canNext}
             className={cx(

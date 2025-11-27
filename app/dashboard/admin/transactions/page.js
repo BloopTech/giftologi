@@ -1,12 +1,14 @@
-"use client";
+"use server";
 import React from "react";
+import { ViewTransactionsProvider } from "./context";
+import ViewTransactionsContent from "./content";
 
-
-
-export default function Transactions() {
-    return (
-        <div className="lg:pl-10 lg:pr-0 pl-5 pr-5 pb-[5rem]">
-            <h1>Transactions</h1>
-        </div>
-    )
+export default async function Transactions() {
+  return (
+    <>
+      <ViewTransactionsProvider>
+        <ViewTransactionsContent />
+      </ViewTransactionsProvider>
+    </>
+  );
 }
