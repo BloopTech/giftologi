@@ -81,10 +81,9 @@ function useAnalyticsReportingValue() {
 
       try {
         const supabase = createSupabaseClient();
-        const { from, to } = resolveDateRange(dateRange);
 
         const [
-          { count: usersCount },
+          { data: profilesData, count: usersCount },
           { data: registriesData },
           { data: orderItemsData },
           { data: paymentsData },
@@ -102,7 +101,9 @@ function useAnalyticsReportingValue() {
           { data: eventsData },
           { data: registryItemsData },
         ] = await Promise.all([
-          supabase.from("profiles").select("id", { count: "exact" }),
+          supabase
+            .from("profiles")
+            .select("id, created_at", { count: "exact" }),
           supabase
             .from("registries")
             .select("id, event_id, deadline, created_at"),
@@ -155,9 +156,12 @@ function useAnalyticsReportingValue() {
 
         if (ignore) return;
 
-        const filterByRange = (rows, field) => {
+        const currentWindow = resolveDateRange(dateRange);
+
+        const filterByWindow = (rows, field, window) => {
           if (!Array.isArray(rows)) return [];
-          const { from, to } = resolveDateRange(dateRange);
+          const from = window?.from || null;
+          const to = window?.to || null;
           if (!from && !to) return rows;
           return rows.filter((row) => {
             const value = row[field];
@@ -170,15 +174,54 @@ function useAnalyticsReportingValue() {
           });
         };
 
-        const registriesInRange = filterByRange(registriesData, "created_at");
-        const orderItemsInRange = filterByRange(orderItemsData, "created_at");
-        const paymentsInRange = filterByRange(paymentsData, "created_at");
-        const pageViewsInRange = filterByRange(pageViewsData, "created_at");
-        const productPageViewsInRange = filterByRange(
-          productPageViewsData,
-          "created_at"
+        const computePreviousWindow = (window) => {
+          if (!window || !window.from || !window.to) return null;
+          const diffMs = window.to.getTime() - window.from.getTime();
+          if (!(diffMs > 0)) return null;
+          const prevTo = new Date(window.from);
+          const prevFrom = new Date(window.from.getTime() - diffMs);
+          return { from: prevFrom, to: prevTo };
+        };
+
+        const previousWindow = computePreviousWindow(currentWindow);
+        const shouldComputeGrowth =
+          dateRange === "last_30_days" && !!previousWindow;
+
+        const registriesInRange = filterByWindow(
+          registriesData,
+          "created_at",
+          currentWindow
         );
-        const ordersInRange = filterByRange(ordersData, "created_at");
+        const orderItemsInRange = filterByWindow(
+          orderItemsData,
+          "created_at",
+          currentWindow
+        );
+        const paymentsInRange = filterByWindow(
+          paymentsData,
+          "created_at",
+          currentWindow
+        );
+        const pageViewsInRange = filterByWindow(
+          pageViewsData,
+          "created_at",
+          currentWindow
+        );
+        const productPageViewsInRange = filterByWindow(
+          productPageViewsData,
+          "created_at",
+          currentWindow
+        );
+        const ordersInRange = filterByWindow(
+          ordersData,
+          "created_at",
+          currentWindow
+        );
+
+        const orderItemsPreviousRange =
+          shouldComputeGrowth && previousWindow
+            ? filterByWindow(orderItemsData, "created_at", previousWindow)
+            : [];
 
         const now = new Date();
         let activeRegistries = 0;
@@ -223,7 +266,11 @@ function useAnalyticsReportingValue() {
         // Aggregate vendor payouts (pending vs completed) using total_net_amount
         let pendingPayoutAmount = 0;
         let completedPayoutAmount = 0;
-        const payoutsInRange = filterByRange(vendorPayoutsData, "created_at");
+        const payoutsInRange = filterByWindow(
+          vendorPayoutsData,
+          "created_at",
+          currentWindow
+        );
         if (Array.isArray(payoutsInRange)) {
           for (const row of payoutsInRange) {
             const status = (row.status || "").toLowerCase();
@@ -288,6 +335,7 @@ function useAnalyticsReportingValue() {
 
         const productPurchaseMap = new Map();
         const vendorSalesMap = new Map();
+        const vendorSalesPreviousMap = new Map();
         const vendorOrdersMap = new Map();
         if (Array.isArray(orderItemsInRange)) {
           for (const row of orderItemsInRange) {
@@ -315,6 +363,27 @@ function useAnalyticsReportingValue() {
                 vendorOrdersMap.set(vid, ordersSet);
               }
               ordersSet.add(orderId);
+            }
+          }
+        }
+
+        if (Array.isArray(orderItemsPreviousRange)) {
+          for (const row of orderItemsPreviousRange) {
+            const vidPrev = row.vendor_id;
+            const quantityPrev = Number(row.quantity || 0);
+            const pricePrev = Number(row.price || 0);
+            if (
+              vidPrev &&
+              Number.isFinite(quantityPrev) &&
+              Number.isFinite(pricePrev)
+            ) {
+              const amountPrev = quantityPrev * pricePrev;
+              if (Number.isFinite(amountPrev) && amountPrev > 0) {
+                vendorSalesPreviousMap.set(
+                  vidPrev,
+                  (vendorSalesPreviousMap.get(vidPrev) || 0) + amountPrev
+                );
+              }
             }
           }
         }
@@ -366,7 +435,15 @@ function useAnalyticsReportingValue() {
           const vendor = vendorById.get(vendorId);
           const ordersSet = vendorOrdersMap.get(vendorId);
           const orders = ordersSet ? ordersSet.size : 0;
-          const growthRate = null; // placeholder; can be computed as MoM growth later
+          let growthRate = null;
+          if (shouldComputeGrowth) {
+            const prevSales = vendorSalesPreviousMap.get(vendorId);
+            if (typeof prevSales === "number" && prevSales > 0) {
+              growthRate = (totalSales - prevSales) / prevSales;
+            } else {
+              growthRate = null;
+            }
+          }
           topVendorsArray.push({
             vendorId,
             vendorName: vendor?.business_name || "Unknown vendor",
@@ -451,8 +528,7 @@ function useAnalyticsReportingValue() {
           for (const row of pageViewsInRange) {
             const key =
               row.profile_id ||
-              (row.session_id ? `session:${row.session_id}` : null) ||
-              (row.ip_hash ? `ip:${row.ip_hash}` : null);
+              (row.session_id ? `session:${row.session_id}` : null);
             if (!key) continue;
             visitorCounts.set(key, (visitorCounts.get(key) || 0) + 1);
           }
@@ -522,9 +598,10 @@ function useAnalyticsReportingValue() {
 
         let totalItemsNeeded = 0;
         let totalItemsPurchased = 0;
-        const registryItemsInRange = filterByRange(
+        const registryItemsInRange = filterByWindow(
           registryItemsData || [],
-          "created_at"
+          "created_at",
+          currentWindow
         );
         if (Array.isArray(registryItemsInRange)) {
           for (const item of registryItemsInRange) {
@@ -544,6 +621,45 @@ function useAnalyticsReportingValue() {
             ? totalItemsPurchased / totalItemsNeeded
             : 0;
 
+        // Month-over-month user growth based on profile signups
+        let userGrowthRate = null;
+        if (Array.isArray(profilesData)) {
+          const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          const prevMonthStart = new Date(
+            now.getFullYear(),
+            now.getMonth() - 1,
+            1
+          );
+          const prevPrevMonthStart = new Date(
+            now.getFullYear(),
+            now.getMonth() - 2,
+            1
+          );
+
+          let currentMonthSignups = 0;
+          let prevMonthSignups = 0;
+
+          for (const profile of profilesData) {
+            const created = profile?.created_at;
+            if (!created) continue;
+            const d = new Date(created);
+            if (Number.isNaN(d.getTime())) continue;
+
+            if (d >= currentMonthStart && d < now) {
+              currentMonthSignups += 1;
+            } else if (d >= prevMonthStart && d < currentMonthStart) {
+              prevMonthSignups += 1;
+            }
+          }
+
+          if (prevMonthSignups > 0 && Number.isFinite(currentMonthSignups)) {
+            userGrowthRate =
+              (currentMonthSignups - prevMonthSignups) / prevMonthSignups;
+          } else {
+            userGrowthRate = null;
+          }
+        }
+
         const registryUserMetrics = {
           registriesCreated: registriesInRange.length || 0,
           activeRegistries,
@@ -556,7 +672,7 @@ function useAnalyticsReportingValue() {
           returningVisitors,
           giftFulfillmentRate,
           // Placeholder for now; can be computed as MoM or YoY growth later
-          userGrowthRate: null,
+          userGrowthRate,
           popularRegistryTypes: popularRegistryTypesLimited,
         };
 

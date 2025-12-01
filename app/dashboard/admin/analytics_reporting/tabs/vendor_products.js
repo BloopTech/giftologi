@@ -1,11 +1,16 @@
 "use client";
 import React from "react";
 
-function MetricCard({ title, value }) {
+function MetricCard({ title, value, description }) {
   return (
     <div className="flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-      <h2 className="text-[#717182] text-xs/4 font-poppins">{title}</h2>
-      <div className="flex justify-between items-center">{value}</div>
+      <h2 className="text-[#4A5565] text-xs/4 font-inter">{title}</h2>
+      <div className="flex justify-between items-center font-inter text-[#101828]">
+        {value}
+      </div>
+      <span className="font-inter text-[#6A7282] text-[10px]">
+        {description}
+      </span>
     </div>
   );
 }
@@ -38,18 +43,18 @@ export default function AnalyticsReportVendorProducts(props) {
     <div className="flex flex-col gap-4 w-full mt-2">
       {/* Top Performing Vendors table */}
       <div className="w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-        <div className="flex flex-col mb-2">
-          <h2 className="text-[#0A0A0A] text-xs font-medium font-poppins">
+        <div className="flex flex-col mb-2 font-inter">
+          <h2 className="text-[#0A0A0A] text-sm font-medium">
             Top Performing Vendors
           </h2>
-          <p className="text-[#9CA3AF] text-[11px] mt-1">
+          <p className="text-[#717182] text-[11px] mt-1">
             Based on completed sales volume.
           </p>
         </div>
-        <div className="mt-1 overflow-x-auto">
-          <table className="min-w-full text-[11px] text-left">
+        <div className="mt-[1rem] overflow-x-auto">
+          <table className="min-w-full text-[11px] text-left font-inter">
             <thead>
-              <tr className="text-[#9CA3AF]">
+              <tr className="text-[#0A0A0A] font-medium">
                 <th className="pb-1 pr-4 font-medium">Vendor Name</th>
                 <th className="pb-1 pr-4 font-medium text-right">
                   Total Sales (GHS)
@@ -104,17 +109,17 @@ export default function AnalyticsReportVendorProducts(props) {
       {/* Top Selling Products table */}
       <div className="w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col mb-2">
-          <h2 className="text-[#0A0A0A] text-xs font-medium font-poppins">
+          <h2 className="text-[#0A0A0A] text-sm font-medium font-inter">
             Top Selling Products
           </h2>
-          <p className="text-[#9CA3AF] text-[11px] mt-1">
+          <p className="text-[#717182] text-[11px] mt-1">
             Highest number of purchases and page views.
           </p>
         </div>
-        <div className="mt-1 overflow-x-auto">
-          <table className="min-w-full text-[11px] text-left">
+        <div className="mt-[1rem] overflow-x-auto">
+          <table className="min-w-full text-[11px] text-left font-inter">
             <thead>
-              <tr className="text-[#9CA3AF]">
+              <tr className="text-[#0A0A0A] font-medium">
                 <th className="pb-1 pr-3 font-medium">Product Name</th>
                 <th className="pb-1 pr-2 font-medium">Vendor</th>
                 <th className="pb-1 pr-2 font-medium text-right">Views</th>
@@ -173,14 +178,17 @@ export default function AnalyticsReportVendorProducts(props) {
         <MetricCard
           title="Product Approval Queue"
           value={renderCountValue("productApprovalQueue")}
+          description="Pending vendor submissions"
         />
         <MetricCard
           title="Low Inventory Alerts"
           value={renderCountValue("lowInventoryCount")}
+          description="Products nearing out-of-stock"
         />
         <MetricCard
           title="Inactive Vendors"
           value={renderCountValue("inactiveVendorsCount")}
+          description="No sales in 30+ days"
         />
       </div>
     </div>

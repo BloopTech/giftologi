@@ -1,16 +1,16 @@
 "use client";
 import React from "react";
-import { PiFile, PiUsers } from "react-icons/pi";
+import { PiClock, PiCurrencyDollar, PiFile, PiPackage, PiShoppingCart, PiUsers, PiWarning } from "react-icons/pi";
 
 function MetricCard({ title, value, description, Icon }) {
   return (
-    <div className="flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+    <div className="font-inter flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
       <div className="flex items-center justify-between w-full">
-        <h2 className="text-[#717182] text-xs/4 font-poppins">{title}</h2>
+        <h2 className="text-[#4A5565] text-xs/4">{title}</h2>
         {Icon}
       </div>
-      <div className="flex justify-between items-center">{value}</div>
-      <span className="text-[10px] text-[#717182] font-poppins">{description}</span>
+      <div className="flex justify-between items-center text-[#101828]">{value}</div>
+      <span className="text-[10px] text-[#6A7282]">{description}</span>
     </div>
   );
 }
@@ -53,37 +53,37 @@ export default function AnalyticsReportOverview(props) {
         title="Gifts Purchased"
         value={renderValue("giftsPurchased")}
         description="Completed purchases"
-        Icon={<PiUsers className="size-4 text-[#3979D2]" />}
+        Icon={<PiShoppingCart className="size-4 text-[#9810FA]" />}
       />
       <MetricCard
         title="Revenue Generated"
         value={renderValue("revenue")}
         description="Total transactions (minus refunds)"
-        Icon={<PiUsers className="size-4 text-[#3979D2]" />}
+        Icon={<PiCurrencyDollar className="size-4 text-[#F54900]" />}
       />
       <MetricCard
         title="Service Charges"
         value={renderValue("serviceCharges")}
         description="Platform fees earned (5%)"
-        Icon={<PiUsers className="size-4 text-[#3979D2]" />}
+        Icon={<PiCurrencyDollar className="size-4 text-[#00A63E]" />}
       />
       <MetricCard
         title="Vendor Count"
         value={renderValue("vendorCount")}
         description="Active, pending, and suspended"
-        Icon={<PiUsers className="size-4 text-[#3979D2]" />}
+        Icon={<PiPackage className="size-4 text-[#3979D2]" />}
       />
       <MetricCard
         title="Pending Approvals"
         value={renderValue("pendingApprovals")}
         description="Products, vendors, registries"
-        Icon={<PiUsers className="size-4 text-[#3979D2]" />}
+        Icon={<PiWarning className="size-4 text-[#F54900]" />}
       />
       <MetricCard
         title="Open Tickets"
         value={renderValue("openTickets")}
         description="Unresolved support tickets"
-        Icon={<PiUsers className="size-4 text-[#3979D2]" />}
+        Icon={<PiClock className="size-4 text-[#E7000B]" />}
       />
     </div>
   );

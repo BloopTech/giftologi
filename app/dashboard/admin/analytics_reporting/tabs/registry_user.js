@@ -1,11 +1,16 @@
 "use client";
 import React from "react";
 
-function MetricCard({ title, value }) {
+function MetricCard({ title, value, description }) {
   return (
     <div className="flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-      <h2 className="text-[#717182] text-xs/4 font-poppins">{title}</h2>
-      <div className="flex justify-between items-center">{value}</div>
+      <h2 className="text-[#4A5565] text-xs/4 font-inter">{title}</h2>
+      <div className="flex justify-between items-center font-inter text-[#101828]">
+        {value}
+      </div>
+      <span className="font-inter text-[#6A7282] text-[10px]">
+        {description}
+      </span>
     </div>
   );
 }
@@ -68,57 +73,47 @@ export default function AnalyticsReportRegistryUser(props) {
     }
     const num = Number(raw);
     const label =
-      Number.isFinite(num) && num >= 0
-        ? `${(num * 100).toFixed(1)}%`
-        : "—";
+      Number.isFinite(num) && num >= 0 ? `${(num * 100).toFixed(1)}%` : "—";
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
-        {label}
-      </p>
+      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">{label}</p>
     );
   };
 
   return (
     <div className="flex flex-col gap-4 w-full mt-2">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
-        <MetricCard title="Registries Created" value={renderRegistriesCreated()} />
+        <MetricCard
+          title="Registries Created"
+          value={renderRegistriesCreated()}
+          description="Total number created by hosts"
+        />
         <MetricCard
           title="Active vs. Completed"
           value={renderActiveCompleted()}
+          description="Lifecycle stats"
         />
         <MetricCard
           title="Avg Gifts per Registry"
           value={renderAvgGifts()}
-        />
-        <MetricCard
-          title="Gift Fulfilment Rate"
-          value={renderPercentage(metrics?.giftFulfillmentRate)}
-        />
-        <MetricCard
-          title="User Growth Rate"
-          value={renderPercentage(metrics?.userGrowthRate)}
-        />
-        <MetricCard
-          title="Returning Visitors"
-          value={renderPercentage(metrics?.returningVisitors)}
+          description="Engagement gauge"
         />
       </div>
 
       <div className="w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
-            <h2 className="text-[#717182] text-xs/4 font-poppins">
+            <h2 className="text-[#0A0A0A] font-medium text-sm font-inter">
               Most Popular Registry Types
             </h2>
-            <p className="text-[11px] text-[#9CA3AF] mt-1">
+            <p className="text-xs text-[#717182] font-inter mt-1">
               Distribution by event category.
             </p>
           </div>
         </div>
-        <div className="mt-1 overflow-x-auto">
-          <table className="min-w-full text-[11px] text-left">
+        <div className="mt-[1rem] overflow-x-auto">
+          <table className="min-w-full text-xs text-left">
             <thead>
-              <tr className="text-[#9CA3AF]">
+              <tr className="text-[#0A0A0A] font-inter font-medium">
                 <th className="pb-1 pr-4 font-medium">Registry Type</th>
                 <th className="pb-1 pr-4 font-medium text-right">Count</th>
                 <th className="pb-1 font-medium text-right">Percentage</th>
@@ -158,6 +153,25 @@ export default function AnalyticsReportRegistryUser(props) {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+        {/* Gift fulfilment rate = (total registry item quantities purchased ÷ total registry item quantities needed) */}
+        <MetricCard
+          title="Gift Fulfilment Rate"
+          value={renderPercentage(metrics?.giftFulfillmentRate)}
+          description="% of registry items purchased"
+        />
+        <MetricCard
+          title="User Growth Rate"
+          value={renderPercentage(metrics?.userGrowthRate)}
+          description="Month-over-month growth"
+        />
+        <MetricCard
+          title="Returning Visitors"
+          value={renderPercentage(metrics?.returningVisitors)}
+          description="Tracked by cookies/login"
+        />
       </div>
     </div>
   );
