@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
+import { logAdminActivityWithClient } from "../activity_log/logger";
 
 const defaultUpdateRegistryEventValues = {
   registryId: [],
@@ -96,6 +97,28 @@ export async function updateRegistryEvent(prevState, formData) {
   }
 
   revalidatePath("/dashboard/admin/registry_list");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "deleted_registry",
+    entity: "registry",
+    targetId: registryId,
+    details: `Deleted registry ${registryId}`,
+  });
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "updated_registry_event",
+    entity: "registry",
+    targetId: registryId,
+    details: `Updated registry ${registryId} event to ${eventType} on ${event.date}`,
+  });
 
   return {
     message: "Event updated successfully.",
@@ -200,6 +223,17 @@ export async function flagRegistry(prevState, formData) {
   }
 
   revalidatePath("/dashboard/admin/registry_list");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "flagged_registry",
+    entity: "registry",
+    targetId: registryId,
+    details: `Flagged registry ${registryId}${reason ? `: ${reason}` : ""}`,
+  });
 
   return {
     message: "Registry flagged successfully.",

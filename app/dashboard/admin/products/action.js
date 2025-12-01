@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
+import { logAdminActivityWithClient } from "../activity_log/logger";
 
 const defaultApproveProductValues = {
   productId: [],
@@ -27,7 +28,6 @@ export async function approveProduct(prevState, formData) {
       data: {},
     };
   }
-
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("id, role")
@@ -106,6 +106,17 @@ export async function approveProduct(prevState, formData) {
 
   revalidatePath("/dashboard/admin/products");
   revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "approved_product",
+    entity: "products",
+    targetId: productId,
+    details: `Approved product ${productId}`,
+  });
 
   return {
     message: "Product approved.",
@@ -217,6 +228,17 @@ export async function rejectProduct(prevState, formData) {
 
   revalidatePath("/dashboard/admin/products");
   revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "rejected_product",
+    entity: "products",
+    targetId: productId,
+    details: `Rejected product ${productId}`,
+  });
 
   return {
     message: "Product rejected.",
@@ -351,6 +373,17 @@ export async function flagProduct(prevState, formData) {
 
   revalidatePath("/dashboard/admin/products");
   revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "flagged_product",
+    entity: "products",
+    targetId: productId,
+    details: `Flagged product ${productId}${reason ? `: ${reason}` : ""}`,
+  });
 
   return {
     message: "Product flagged successfully.",

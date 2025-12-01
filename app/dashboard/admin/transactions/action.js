@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
+import { logAdminActivityWithClient } from "../activity_log/logger";
 
 const defaultUpdateOrderStatusValues = {
   orderId: [],
@@ -132,6 +133,18 @@ export async function updateOrderStatus(prevState, formData) {
 
   revalidatePath("/dashboard/admin/transactions");
   revalidatePath("/dashboard/admin");
+
+  const previousStatus = order.status || "unknown";
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "updated_order_status",
+    entity: "orders",
+    targetId: orderId,
+    details: `Updated order status from ${previousStatus} to ${newStatus}`,
+  });
 
   return {
     message: "Order status updated.",

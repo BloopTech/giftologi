@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
+import { logAdminActivityWithClient } from "../activity_log/logger";
 
 const defaultUpdatePayoutValues = {
   vendorId: [],
@@ -247,6 +248,24 @@ export async function updateVendorPayoutApproval(prevState, formData) {
 
   revalidatePath("/dashboard/admin/payouts");
   revalidatePath("/dashboard/admin");
+
+  const actionLabel = "approved_payout";
+  const detailLabel = isFinance && isSuper
+    ? "Payout approvals updated."
+    : isFinance
+    ? "Finance approval recorded."
+    : "Super Admin approval recorded.";
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: actionLabel,
+    entity: "payouts",
+    targetId: vendorId,
+    details: `${detailLabel} (vendor: ${vendorId})`,
+  });
 
   return {
     message: isFinance && isSuper

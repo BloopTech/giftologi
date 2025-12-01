@@ -3,6 +3,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "../../utils/supabase/server";
+import { logAdminActivityWithClient } from "./activity_log/logger";
 
 const defaultManageRolesValues = {
   email: [],
@@ -267,6 +268,22 @@ export async function manageRoles(prevState, queryData) {
     };
   }
 
+  const adminNameParts = [];
+  if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
+  if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
+  const adminName = adminNameParts.join(" ") || null;
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName,
+    action: "created_staff",
+    entity: "staff",
+    targetId: userId,
+    details: `Created staff ${email} with role ${role}`,
+  });
+
   return {
     message: "Staff member created.",
     errors: {},
@@ -350,6 +367,17 @@ export async function updateStaffDetails(prevState, formData) {
       data: {},
     };
   }
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile.id,
+    adminRole: currentProfile.role,
+    adminEmail: null,
+    adminName: null,
+    action: "updated_staff",
+    entity: "staff",
+    targetId: staffId,
+    details: `Updated staff ${staffId} details (role: ${role})`,
+  });
 
   return {
     message: "Staff details updated successfully.",
@@ -449,6 +477,21 @@ export async function updateStaffStatus(prevState, formData) {
       data: {},
     };
   }
+
+  const activityAction = mode === "suspend" ? "suspended_account" : "deleted_staff";
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile.id,
+    adminRole: currentProfile.role,
+    adminEmail: null,
+    adminName: null,
+    action: activityAction,
+    entity: "staff",
+    targetId: staffId,
+    details:
+      mode === "suspend"
+        ? `Suspended staff member ${staffId}`
+        : `Deleted staff member ${staffId}`,
+  });
 
   return {
     message:

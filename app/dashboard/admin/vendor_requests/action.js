@@ -3,6 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
+import { logAdminActivityWithClient } from "../activity_log/logger";
 
 const defaultApproveVendorValues = {
   applicationId: [],
@@ -27,7 +28,6 @@ export async function approveVendorRequest(prevState, formData) {
       data: {},
     };
   }
-
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("id, role")
@@ -129,6 +129,17 @@ export async function approveVendorRequest(prevState, formData) {
 
   revalidatePath("/dashboard/admin/vendor_requests");
   revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "approved_vendor",
+    entity: "vendors",
+    targetId: applicationId,
+    details: `Approved vendor application ${applicationId} (${application.business_name || ""})`,
+  });
 
   return {
     message: "Vendor request approved.",
@@ -239,6 +250,17 @@ export async function rejectVendorRequest(prevState, formData) {
 
   revalidatePath("/dashboard/admin/vendor_requests");
   revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "rejected_vendor",
+    entity: "vendors",
+    targetId: applicationId,
+    details: `Rejected vendor application ${applicationId}`,
+  });
 
   return {
     message: "Vendor request rejected.",
@@ -356,6 +378,17 @@ export async function flagVendorRequest(prevState, formData) {
 
   revalidatePath("/dashboard/admin/vendor_requests");
   revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "flagged_vendor",
+    entity: "vendors",
+    targetId: applicationId,
+    details: `Flagged vendor application ${applicationId}${reason ? `: ${reason}` : ""}`,
+  });
 
   return {
     message: "Vendor request flagged successfully.",
