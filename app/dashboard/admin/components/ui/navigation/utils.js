@@ -147,6 +147,18 @@ export const useNavigationData = () => {
         },
       ],
     },
+    {
+      label: "",
+      id: 12,
+      items: [
+        {
+          name: "All Users",
+          href: "/dashboard/admin/all_users",
+          icon: PiUsers,
+          other_items: [],
+        },
+      ],
+    },
   ];
 };
 

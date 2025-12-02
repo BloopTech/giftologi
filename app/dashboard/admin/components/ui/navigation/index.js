@@ -79,7 +79,7 @@ export default function AdminSidebar() {
     <>
       {/* sidebar (lg+) */}
       <nav className="hidden lg:fixed lg:top-[6rem] lg:bottom-0 lg:z-40 lg:flex lg:w-64 lg:flex-col left-[2rem]">
-      <aside className={`${pathname !== "/dashboard/admin" ? "max-h-[28.5rem]" : "max-h-[27.5rem]"} h-auto py-4 w-full mx-auto border border-[#f4f4f4] bg-white rounded-xl`}>
+      <aside className={`${pathname !== "/dashboard/admin" ? "max-h-[30.5rem]" : "max-h-[27.5rem]"} h-auto py-4 w-full mx-auto border border-[#f4f4f4] bg-white rounded-xl`}>
         {pathname !== "/dashboard/admin" ? (
           <div className="px-[1rem]">
             <Link
