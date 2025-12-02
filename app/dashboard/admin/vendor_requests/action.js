@@ -95,6 +95,7 @@ export async function approveVendorRequest(prevState, formData) {
         description: null,
         commission_rate: null,
         verified: true,
+        created_by: currentProfile?.id || user.id,
         updated_at: new Date().toISOString(),
       },
     ])

@@ -14,6 +14,7 @@ export const DashboardProvider = ({ children }) => {
   const [currentAdmin, setCurrentAdmin] = useState(null);
   const [loadingCurrentAdmin, setLoadingCurrentAdmin] = useState(true);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
+  const [addVendorOpen, setAddVendorOpen] = useState(false);
 
   const [metrics, setMetrics] = useState({
     totalRegistries: null,
@@ -338,6 +339,8 @@ export const DashboardProvider = ({ children }) => {
       metricsError,
       addStaffOpen,
       setAddStaffOpen,
+      addVendorOpen,
+      setAddVendorOpen,
     }),
     [
       currentAdmin,
@@ -347,6 +350,8 @@ export const DashboardProvider = ({ children }) => {
       metricsError,
       addStaffOpen,
       setAddStaffOpen,
+      addVendorOpen,
+      setAddVendorOpen,
     ]
   );
 

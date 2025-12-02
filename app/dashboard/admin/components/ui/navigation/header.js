@@ -41,11 +41,13 @@ import {
   DialogTitle,
 } from "../../../../../components/Dialog";
 import AddStaffDialog from "../../AddStaffDialog";
+import AddVendorDialog from "../../AddVendorDialog";
 import { useDashboardContext } from "../../../context";
 import MobileSidebar from "./mobileSidebar";
 
 export default function Header() {
-  const { addStaffOpen, setAddStaffOpen } = useDashboardContext();
+  const { addStaffOpen, setAddStaffOpen, addVendorOpen, setAddVendorOpen } =
+    useDashboardContext();
   // Add state to control the switch
   const [isLiveMode, setIsLiveMode] = useState(false);
 
@@ -174,6 +176,7 @@ export default function Header() {
               onLogout={handleLogout}
               loggingOut={loggingOut}
               onOpenAddStaff={() => setAddStaffOpen(true)}
+              onOpenAddVendor={() => setAddVendorOpen(true)}
               showStaffVendorButtons={userData?.role === "super_admin"}
             />
           </div>
@@ -201,10 +204,24 @@ export default function Header() {
                   </Dialog>
                 </div>
                 <div>
-                  <button className="py-2 px-4 flex items-center justify-center border border-[#427ED3] text-white bg-[#427ED3] text-xs rounded-full cursor-pointer hover:text-[#427ED3] hover:bg-white">
+                  <button
+                    type="button"
+                    onClick={() => setAddVendorOpen(true)}
+                    className="py-2 px-4 flex items-center justify-center border border-[#427ED3] text-white bg-[#427ED3] text-xs rounded-full cursor-pointer hover:text-[#427ED3] hover:bg-white"
+                  >
                     <Plus className="size-4" />
                     Add Vendor
                   </button>
+                  <Dialog open={addVendorOpen} onOpenChange={setAddVendorOpen}>
+                    <DialogContent className="max-w-2xl">
+                      <DialogHeader>
+                        <DialogTitle className="text-base font-semibold text-[#0A0A0A]">
+                          Add New Vendor
+                        </DialogTitle>
+                      </DialogHeader>
+                      <AddVendorDialog onClose={() => setAddVendorOpen(false)} />
+                    </DialogContent>
+                  </Dialog>
                 </div>
               </>
             ) : null}

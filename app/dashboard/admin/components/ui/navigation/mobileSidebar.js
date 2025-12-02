@@ -30,6 +30,7 @@ export default function MobileSidebar(props) {
     onLogout,
     loggingOut,
     onOpenAddStaff,
+    onOpenAddVendor,
     showStaffVendorButtons,
   } = props;
   const pathname = usePathname();
@@ -240,6 +241,7 @@ export default function MobileSidebar(props) {
                   <DrawerClose asChild>
                     <button
                       type="button"
+                      onClick={onOpenAddVendor}
                       className="w-full py-2 px-4 flex items-center justify-center border border-[#427ED3] text-white bg-[#427ED3] text-xs rounded-full cursor-pointer hover:text-[#427ED3] hover:bg-white"
                     >
                       <Plus className="size-4 mr-1.5" />

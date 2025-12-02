@@ -507,6 +507,253 @@ export async function updateStaffStatus(prevState, formData) {
   };
 }
 
+const defaultCreateVendorValues = {
+  businessName: [],
+  email: [],
+  password: [],
+  fullName: [],
+  phone: [],
+};
+
+const createVendorSchema = z.object({
+  businessName: z
+    .string()
+    .trim()
+    .min(1, { message: "Business name is required" }),
+  email: z
+    .string()
+    .trim()
+    .min(1, { message: "Email is required" })
+    .email({ message: "Email is invalid" }),
+  password: z
+    .string()
+    .trim()
+    .min(1, { message: "Enter Password" })
+    .min(8, { message: "Invalid email or password" })
+    .regex(/[A-Z]/, {
+      message: "Invalid email or password",
+    })
+    .regex(/[a-z]/, {
+      message: "Invalid email or password",
+    })
+    .regex(/[^A-Za-z0-9]/, {
+      message: "Invalid email or password",
+    }),
+  fullName: z.string().trim().min(1, { message: "Full name is required" }),
+  phone: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal("")),
+});
+
+export async function createVendor(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to create vendors.",
+      errors: {
+        ...defaultCreateVendorValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role, firstname, lastname, email")
+    .eq("id", user.id)
+    .single();
+
+  if (!currentProfile || currentProfile.role !== "super_admin") {
+    return {
+      message: "You are not authorized to create vendors.",
+      errors: {
+        ...defaultCreateVendorValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    businessName: formData.get("businessName"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+    fullName: formData.get("fullName"),
+    phone: formData.get("phone"),
+  };
+
+  const parsed = createVendorSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { businessName, email, password, fullName, phone } = parsed.data;
+
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("email", email)
+    .single();
+
+  if (existingProfile) {
+    return {
+      message: "Email already exists",
+      errors: {
+        ...defaultCreateVendorValues,
+        email: ["Email already exists"],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { data: authData, error: authError } = await supabase.auth.signUp({
+    email,
+    password,
+  });
+
+  if (authError) {
+    return {
+      message: authError.message,
+      errors: {
+        ...defaultCreateVendorValues,
+        email: [authError.message],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const userId = authData?.user?.id;
+
+  if (!userId) {
+    return {
+      message: "Failed to create vendor account",
+      errors: {
+        ...defaultCreateVendorValues,
+        email: ["Unable to create vendor user. Please try again."],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const nameParts = fullName.trim().split(" ");
+  const firstname = nameParts[0] || "";
+  const lastname = nameParts.slice(1).join(" ") || "";
+
+  let colorCharacters = "0123456789ABCDEF";
+  let hashColor = "#";
+  for (let i = 0; i < 6; i++) {
+    hashColor += colorCharacters[Math.floor(Math.random() * 16)];
+  }
+
+  const { data: signupProfile, error: signupProfileError } = await supabase
+    .from("signup_profiles")
+    .upsert([
+      {
+        user_id: userId,
+        email,
+        firstname,
+        lastname,
+        phone,
+        color: hashColor,
+        role: "vendor",
+        created_by: currentProfile?.id || null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      },
+    ])
+    .select("*")
+    .single();
+
+  if (signupProfileError) {
+    return {
+      message: signupProfileError.message,
+      errors: {
+        ...defaultCreateVendorValues,
+        email: [signupProfileError.message],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { data: vendor, error: vendorError } = await supabase
+    .from("vendors")
+    .insert([
+      {
+        profiles_id: userId,
+        business_name: businessName,
+        description: null,
+        commission_rate: null,
+        verified: true,
+        created_by: currentProfile?.id || null,
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select("id, business_name")
+    .single();
+
+  if (vendorError) {
+    return {
+      message: vendorError.message,
+      errors: {
+        ...defaultCreateVendorValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const adminNameParts = [];
+  if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
+  if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
+  const adminName = adminNameParts.join(" ") || null;
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: currentProfile?.email || user.email || null,
+    adminName,
+    action: "created_vendor",
+    entity: "vendors",
+    targetId: vendor?.id || userId,
+    details: `Created vendor ${businessName} (${email})`,
+  });
+
+  return {
+    message: "Vendor created.",
+    errors: {},
+    data: {
+      user: authData.user,
+      signup_profile: signupProfile,
+      vendor,
+      credentials: {
+        email,
+        password,
+      },
+    },
+    status_code: 200,
+    email,
+    values: {},
+  };
+}
+
 const defaultSearchErrors = {
   query: [],
   type: [],
