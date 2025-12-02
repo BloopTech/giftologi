@@ -509,6 +509,7 @@ export async function updateStaffStatus(prevState, formData) {
 
 const defaultCreateVendorValues = {
   businessName: [],
+  category: [],
   email: [],
   password: [],
   fullName: [],
@@ -520,11 +521,11 @@ const createVendorSchema = z.object({
     .string()
     .trim()
     .min(1, { message: "Business name is required" }),
-  email: z
+  category: z
     .string()
     .trim()
-    .min(1, { message: "Email is required" })
-    .email({ message: "Email is invalid" }),
+    .min(1, { message: "Category is required" }),
+  email: z.email({ message: "Email is invalid" }),
   password: z
     .string()
     .trim()
@@ -584,6 +585,7 @@ export async function createVendor(prevState, formData) {
 
   const raw = {
     businessName: formData.get("businessName"),
+    category: formData.get("category"),
     email: formData.get("email"),
     password: formData.get("password"),
     fullName: formData.get("fullName"),
@@ -601,7 +603,8 @@ export async function createVendor(prevState, formData) {
     };
   }
 
-  const { businessName, email, password, fullName, phone } = parsed.data;
+  const { businessName, category, email, password, fullName, phone } =
+    parsed.data;
 
   const { data: existingProfile } = await supabase
     .from("profiles")
@@ -699,6 +702,7 @@ export async function createVendor(prevState, formData) {
       {
         profiles_id: userId,
         business_name: businessName,
+        category,
         description: null,
         commission_rate: null,
         verified: true,

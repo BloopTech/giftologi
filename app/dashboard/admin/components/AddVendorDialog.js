@@ -1,6 +1,7 @@
 "use client";
 import React, { useActionState, useEffect, useState } from "react";
 import { createVendor } from "../action";
+import { VENDOR_CATEGORIES } from "../vendorCategories";
 import { toast } from "sonner";
 import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle } from "lucide-react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
@@ -10,6 +11,7 @@ const initialState = {
   message: "",
   errors: {
     businessName: [],
+    category: [],
     email: [],
     password: [],
     fullName: [],
@@ -144,6 +146,44 @@ export default function AddVendorDialog({ onClose }) {
           {hasError("businessName") ? (
             <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
               {errorFor("businessName").map((err, index) => (
+                <li key={index}>{err}</li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+
+        <div className="space-y-1">
+          <label
+            htmlFor="category"
+            className="text-xs font-medium text-[#0A0A0A]"
+          >
+            Category <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="category"
+            name="category"
+            required
+            defaultValue={state?.values?.category ?? ""}
+            className={cx(
+              "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+              "border-[#D6D6D6] text-[#0A0A0A]",
+              focusInput,
+              hasError("category") ? hasErrorInput : ""
+            )}
+            disabled={isPending}
+          >
+            <option value="" disabled>
+              Select category
+            </option>
+            {VENDOR_CATEGORIES.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </select>
+          {hasError("category") ? (
+            <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+              {errorFor("category").map((err, index) => (
                 <li key={index}>{err}</li>
               ))}
             </ul>

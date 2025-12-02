@@ -92,6 +92,7 @@ export async function approveVendorRequest(prevState, formData) {
       {
         profiles_id: application.user_id,
         business_name: application.business_name,
+        category: application.category,
         description: null,
         commission_rate: null,
         verified: true,
@@ -115,6 +116,7 @@ export async function approveVendorRequest(prevState, formData) {
     .from("vendor_applications")
     .update({
       status: "approved",
+      approved_by: currentProfile?.id || user.id,
       updated_at: new Date().toISOString(),
     })
     .eq("id", applicationId);
