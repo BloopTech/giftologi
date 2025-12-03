@@ -9,11 +9,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { X } from "lucide-react";
 import { Switch } from "@/app/components/Switch";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import RichTextEditor from "@/app/components/RichTextEditor";
-import { saveEmailTemplate } from "../action";
+import { saveEmailTemplate, sendTestEmailTemplate } from "../action";
 import { useContentsPolicyContext } from "../context";
 import { toast } from "sonner";
 
@@ -36,10 +37,24 @@ const initialState = {
 const errorFor = (state, key) => state?.errors?.[key] ?? [];
 const hasError = (state, key) => (errorFor(state, key)?.length ?? 0) > 0;
 
+const initialSendTestState = {
+  message: "",
+  errors: {
+    templateId: [],
+    testEmail: [],
+  },
+  values: {},
+  data: {},
+};
+
 export default function EditEmailTemplateDialog({ open, onOpenChange, template }) {
   const [state, formAction, pending] = useActionState(
     saveEmailTemplate,
     initialState
+  );
+  const [testState, testAction, testPending] = useActionState(
+    sendTestEmailTemplate,
+    initialSendTestState
   );
   const isEdit = !!template?.id;
   const { refresh } = useContentsPolicyContext() || {};
@@ -51,10 +66,12 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
   const [category, setCategory] = useState("");
   const [recipientType, setRecipientType] = useState("");
   const [isActive, setIsActive] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
 
   useEffect(() => {
     if (!open) return;
     const values = state?.values || {};
+    const testValues = testState?.values || {};
     setName(values.name ?? template?.name ?? "");
     setSubject(values.subject ?? template?.subject ?? "");
     setSenderName(values.senderName ?? template?.sender_name ?? "");
@@ -63,7 +80,8 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
     setRecipientType(values.recipientType ?? template?.recipient_type ?? "");
     const rawStatus = values.status ?? template?.status ?? "inactive";
     setIsActive(String(rawStatus).toLowerCase() === "active");
-  }, [open, template, state?.values]);
+    setTestEmail(testValues.testEmail ?? "");
+  }, [open, template, state?.values, testState?.values]);
 
   useEffect(() => {
     if (!state?.message) return;
@@ -84,6 +102,26 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
       onOpenChange?.(false);
     }
   }, [state, refresh, onOpenChange]);
+
+  useEffect(() => {
+    if (!testState?.message) return;
+
+    const hasErrors =
+      testState?.errors &&
+      Object.keys(testState.errors).some(
+        (key) => (testState.errors[key] || []).length
+      );
+    const hasData = testState?.data && Object.keys(testState.data).length > 0;
+
+    if (hasErrors) {
+      toast.error(testState.message);
+      return;
+    }
+
+    if (hasData) {
+      toast.success(testState.message);
+    }
+  }, [testState]);
 
   const statusValue = isActive ? "active" : "inactive";
   const dialogTitle = isEdit ? "Edit Email Template" : "New Email Template";
@@ -304,7 +342,77 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
             </div>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
-  );
+
+      {isEdit ? (
+        <form
+          action={testAction}
+          className="mt-4 pt-4 border-t border-gray-100 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-col">
+              <p className="text-xs font-medium text-[#0A0A0A]">
+                Send Test Email
+              </p>
+              <p className="text-[11px] text-[#717182]">
+                Send this template to a single email address for testing. This
+                does not trigger any automated workflows.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-end gap-3">
+            <input type="hidden" name="templateId" value={template?.id || ""} />
+            <div className="flex-1 space-y-1">
+              <label
+                className="text-xs font-medium text-[#0A0A0A]"
+                htmlFor="test-email"
+              >
+                Test Email Address
+              </label>
+              <input
+                id="test-email"
+                name="testEmail"
+                type="email"
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="you@example.com"
+                className={cx(
+                  "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+                  "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                  focusInput,
+                  hasError(testState, "testEmail") ? hasErrorInput : ""
+                )}
+                disabled={testPending}
+              />
+              {hasError(testState, "testEmail") ? (
+                <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                  {errorFor(testState, "testEmail").map((err, index) => (
+                    <li key={index}>{err}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            <div className="flex-shrink-0 flex items-end">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="submit"
+                    disabled={testPending || !testEmail.trim()}
+                    className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-4 py-2 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    Send Test
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Send this email template as a one-off test to the address
+                  above.
+                </TooltipContent>
+              </Tooltip>
+            </div>
+          </div>
+        </form>
+      ) : null}
+    </DialogContent>
+  </Dialog>
+);
 }

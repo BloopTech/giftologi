@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { usePayoutsContext } from "./context";
 import { useDashboardContext } from "../context";
 import { updateVendorPayoutApproval } from "./action";
@@ -306,32 +307,42 @@ export default function PayoutsTable() {
 
           return (
             <div className="flex justify-end items-center gap-2">
-              <button
-                type="button"
-                onClick={handleView}
-                aria-label="View payout details"
-                className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-              >
-                <Eye className="size-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleView}
+                    aria-label="View payout details"
+                    className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <Eye className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>View payout</TooltipContent>
+              </Tooltip>
               <form action={updateAction}>
                 <input
                   type="hidden"
                   name="vendorId"
                   value={original.vendorId}
                 />
-                <button
-                  type="submit"
-                  disabled={disabled || !canSubmit}
-                  className={cx(
-                    "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
-                    "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
-                    (disabled || !canSubmit) &&
-                      "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white"
-                  )}
-                >
-                  {approvalLabel}
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="submit"
+                      disabled={disabled || !canSubmit}
+                      className={cx(
+                        "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                        "border-[#6EA30B] text:white bg-[#6EA30B] hover:bg:white hover:text-[#6EA30B]",
+                        (disabled || !canSubmit) &&
+                          "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text:white"
+                      )}
+                    >
+                      {approvalLabel}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>{approvalLabel}</TooltipContent>
+                </Tooltip>
               </form>
             </div>
           );
@@ -372,14 +383,19 @@ export default function PayoutsTable() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="inline-flex space-x-2 items-center justify-center rounded-full border border-[#3979D2] px-3 py-1 text-[11px] font-medium text-[#3979D2] hover:bg-[#3979D2] hover:text-white cursor-pointer"
-          >
-            <PiDownloadSimple className="size-4" />
-            <span>Export CSV</span>
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleExportCsv}
+                className="inline-flex space-x-2 items-center justify-center rounded-full border border-[#3979D2] px-3 py-1 text-[11px] font-medium text-[#3979D2] hover:bg-[#3979D2] hover:text:white cursor-pointer"
+              >
+                <PiDownloadSimple className="size-4" />
+                <span>Export CSV</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Export payouts to CSV</TooltipContent>
+          </Tooltip>
         </div>
       </div>
       <table className={cx(table())}>

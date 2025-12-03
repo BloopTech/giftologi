@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Eye,
   Pencil,
+  RefreshCcw,
   Trash2,
 } from "lucide-react";
 import {
@@ -38,7 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/Select";
-import { updateStaffDetails, updateStaffStatus } from "../action";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
+import { updateStaffDetails, updateStaffStatus, resendStaffInvite } from "../action";
 
 const tableStyles = tv({
   slots: {
@@ -63,6 +65,7 @@ const statusVariantMap = {
   Active: "success",
   Suspended: "error",
   Inactive: "neutral",
+  Pending: "warning",
 };
 
 const ROLE_OPTIONS = [
@@ -79,6 +82,15 @@ const initialEditState = {
     fullName: [],
     role: [],
     phone: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialResendState = {
+  message: "",
+  errors: {
+    staffId: [],
   },
   values: {},
   data: {},
@@ -151,6 +163,10 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
     updateStaffStatus,
     initialStatusState
   );
+  const [resendState, resendAction, resendPending] = useActionState(
+    resendStaffInvite,
+    initialResendState
+  );
 
   useEffect(() => {
     if (!editState) return;
@@ -185,6 +201,23 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
       toast.error(statusState.message);
     }
   }, [statusState, refreshStaff]);
+
+  useEffect(() => {
+    if (!resendState) return;
+    if (
+      resendState.message &&
+      resendState.data &&
+      Object.keys(resendState.data).length
+    ) {
+      toast.success(resendState.message);
+    } else if (
+      resendState.message &&
+      resendState.errors &&
+      Object.keys(resendState.errors).length
+    ) {
+      toast.error(resendState.message);
+    }
+  }, [resendState]);
 
   const tableRows = useMemo(() => {
     if (!staff || !staff.length) return [];
@@ -278,6 +311,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
         cell: ({ row }) => {
           const original = row.original;
           const raw = original.__raw;
+          const isPendingInvite = raw.status === "Pending";
 
           const handleView = () => {
             setSelectedStaff(raw);
@@ -300,40 +334,73 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
 
           return (
             <div className="flex justify-end items-center gap-2">
-              <button
-                type="button"
-                onClick={handleView}
-                aria-label="View"
-                className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-              >
-                <Eye className="size-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleView}
+                    aria-label="View staff details"
+                    className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <Eye className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>View details</TooltipContent>
+              </Tooltip>
               {isSuperAdmin && (
-                <button
-                  type="button"
-                  onClick={handleEdit}
-                  aria-label="Edit"
-                  className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-                >
-                  <Pencil className="size-4" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleEdit}
+                      aria-label="Edit staff"
+                      className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                    >
+                      <Pencil className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Edit staff</TooltipContent>
+                </Tooltip>
+              )}
+              {isSuperAdmin && isPendingInvite && (
+                <form action={resendAction} className="inline-flex">
+                  <input type="hidden" name="staffId" value={raw.id} />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="submit"
+                        aria-label="Resend invite email"
+                        disabled={resendPending}
+                        className="p-1 rounded-full border border-blue-200 text-[#3979D2] hover:bg-blue-50 cursor-pointer"
+                      >
+                        <RefreshCcw className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Resend invite email</TooltipContent>
+                  </Tooltip>
+                </form>
               )}
               {isSuperAdmin && (
-                <button
-                  type="button"
-                  onClick={handleStatus}
-                  aria-label="Delete or suspend"
-                  className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
-                >
-                  <Trash2 className="size-4" />
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleStatus}
+                      aria-label="Suspend or delete staff"
+                      className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Suspend or delete staff</TooltipContent>
+                </Tooltip>
               )}
             </div>
           );
         },
       }),
     ],
-    [isSuperAdmin]
+    [isSuperAdmin, resendAction, resendPending]
   );
 
   const tableInstance = useReactTable({

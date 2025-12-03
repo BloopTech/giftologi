@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { useViewTransactionsContext } from "./context";
 import { useDashboardContext } from "../context";
 import { updateOrderStatus } from "./action";
@@ -300,14 +301,19 @@ export default function TransactionsTable() {
 
           return (
             <div className="flex justify-end items-center gap-2">
-              <button
-                type="button"
-                onClick={handleView}
-                aria-label="View order"
-                className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-              >
-                <Eye className="size-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleView}
+                    aria-label="View order"
+                    className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <Eye className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>View order details</TooltipContent>
+              </Tooltip>
               {/* {canMarkPaid && (
                 <form action={updateAction}>
                   <input type="hidden" name="orderId" value={original.id} />

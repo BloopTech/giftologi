@@ -84,6 +84,16 @@ const updateStaffStatusSchema = z.object({
     .min(1, { message: "Type the confirmation text to continue" }),
 });
 
+const defaultResendInviteValues = {
+  staffId: [],
+};
+
+const resendStaffInviteSchema = z.object({
+  staffId: z
+    .string()
+    .uuid({ message: "Invalid staff member" }),
+});
+
 export async function manageRoles(prevState, queryData) {
   const supabase = await createClient();
 
@@ -150,72 +160,127 @@ export async function manageRoles(prevState, queryData) {
   const { email, password, fullName, role, phone } = validatedFields.data;
 
   // Prevent duplicate staff emails by checking existing profiles
+  const staffRoles = [
+    "super_admin",
+    "finance_admin",
+    "operations_manager_admin",
+    "customer_support_admin",
+  ];
+
   const { data: existingProfile } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, email, role, status")
     .eq("email", email)
-    .single();
+    .maybeSingle();
+
+  let userId = null;
+  let reactivatedFromDeleted = false;
 
   if (existingProfile) {
-    return {
-      message: "Email already exists",
-      errors: {
-        ...defaultManageRolesValues,
-        email: ["Email already exists"],
-      },
-      values: {
-        email: getBusinessEmail,
-        password: getPassword,
-        fullName: getFullName,
-        role: getRole,
-        phone: getPhone,
-      },
-      data: {},
-    };
+    const isStaffRole = staffRoles.includes(existingProfile.role);
+    const isDeleted = existingProfile.status === "Deleted";
+
+    if (isDeleted) {
+      // Reactivate a previously deleted staff member: reuse their account
+      userId = existingProfile.id;
+      reactivatedFromDeleted = true;
+
+      try {
+        await supabase.auth.resetPasswordForEmail(email);
+      } catch (_) {}
+    } else if (isStaffRole) {
+      return {
+        message: "Email already exists",
+        errors: {
+          ...defaultManageRolesValues,
+          email: ["Email already exists"],
+        },
+        values: {
+          email: getBusinessEmail,
+          password: getPassword,
+          fullName: getFullName,
+          role: getRole,
+          phone: getPhone,
+        },
+        data: {},
+      };
+    } else {
+      return {
+        message: "Email already belongs to another account.",
+        errors: {
+          ...defaultManageRolesValues,
+          email: ["Email already belongs to another account."],
+        },
+        values: {
+          email: getBusinessEmail,
+          password: getPassword,
+          fullName: getFullName,
+          role: getRole,
+          phone: getPhone,
+        },
+        data: {},
+      };
+    }
   }
 
-  // Sign up staff user in Supabase Auth (sends confirmation email)
-  const { data: authData, error: authError } = await supabase.auth.signUp({
-    email,
-    password,
-  });
+  if (!reactivatedFromDeleted) {
+    // Sign up staff user in Supabase Auth (sends confirmation email)
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-  if (authError) {
-    return {
-      message: authError.message,
-      errors: {
-        ...defaultManageRolesValues,
-        email: [authError.message],
-      },
-      values: {
-        email: getBusinessEmail,
-        password: getPassword,
-        fullName: getFullName,
-        role: getRole,
-        phone: getPhone,
-      },
-      data: {},
-    };
-  }
+    if (authError) {
+      const message = authError.message || "Unable to create staff user.";
 
-  const userId = authData?.user?.id;
+      if (message.toLowerCase().includes("registered")) {
+        await supabase.auth.resetPasswordForEmail(email);
 
-  if (!userId) {
-    return {
-      message: "Failed to create staff account",
-      errors: {
-        ...defaultManageRolesValues,
-        email: ["Unable to create staff user. Please try again."],
-      },
-      values: {
-        email: getBusinessEmail,
-        password: getPassword,
-        fullName: getFullName,
-        role: getRole,
-        phone: getPhone,
-      },
-      data: {},
-    };
+        return {
+          message:
+            "This email is already registered. We've sent them a new email so they can finish setting up their account.",
+          errors: {},
+          values: {},
+          data: {},
+        };
+      }
+
+      return {
+        message,
+        errors: {
+          ...defaultManageRolesValues,
+          email: [message],
+        },
+        values: {
+          email: getBusinessEmail,
+          password: getPassword,
+          fullName: getFullName,
+          role: getRole,
+          phone: getPhone,
+        },
+        data: {},
+      };
+    }
+
+    userId = authData?.user?.id;
+
+    if (!userId) {
+      return {
+        message: "Failed to create staff account",
+        errors: {
+          ...defaultManageRolesValues,
+          email: ["Unable to create staff user. Please try again."],
+        },
+        values: {
+          email: getBusinessEmail,
+          password: getPassword,
+          fullName: getFullName,
+          role: getRole,
+          phone: getPhone,
+        },
+        data: {},
+      };
+    }
   }
 
   // Split full name into first and last for signup_profiles
@@ -385,6 +450,132 @@ export async function updateStaffDetails(prevState, formData) {
     values: {},
     data: {
       profile: data,
+    },
+  };
+}
+
+export async function resendStaffInvite(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to resend invitations.",
+      errors: {
+        ...defaultResendInviteValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role, email, firstname, lastname")
+    .eq("id", user.id)
+    .single();
+
+  if (!currentProfile || currentProfile.role !== "super_admin") {
+    return {
+      message: "You are not authorized to resend staff invitations.",
+      errors: {
+        ...defaultResendInviteValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    staffId: formData.get("staffId"),
+  };
+
+  const validated = resendStaffInviteSchema.safeParse(raw);
+
+  if (!validated.success) {
+    return {
+      message: validated.error.issues?.[0]?.message || "Validation failed",
+      errors: validated.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { staffId } = validated.data;
+
+  const { data: signupProfile, error: signupError } = await supabase
+    .from("signup_profiles")
+    .select("user_id, email, firstname, lastname, role, created_by")
+    .eq("user_id", staffId)
+    .single();
+
+  if (signupError || !signupProfile) {
+    return {
+      message: "We couldn't find a pending invite for this staff member.",
+      errors: {
+        ...defaultResendInviteValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id, status")
+    .eq("id", staffId)
+    .maybeSingle();
+
+  if (existingProfile && existingProfile.status !== "Deleted") {
+    return {
+      message: "This staff member already has an active account.",
+      errors: {
+        ...defaultResendInviteValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  try {
+    await supabase.auth.resetPasswordForEmail(signupProfile.email);
+  } catch (e) {
+    return {
+      message:
+        e?.message || "Failed to resend invitation. Please try again.",
+      errors: {
+        ...defaultResendInviteValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const adminNameParts = [];
+  if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
+  if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
+  const adminName = adminNameParts.join(" ") || null;
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile.id,
+    adminRole: currentProfile.role,
+    adminEmail: currentProfile.email || user.email || null,
+    adminName,
+    action: "resent_staff_invite",
+    entity: "staff",
+    targetId: staffId,
+    details: `Resent staff invite to ${signupProfile.email} (${signupProfile.role})`,
+  });
+
+  return {
+    message: "We've sent a new invite email to this staff member.",
+    errors: {},
+    values: {},
+    data: {
+      staffId,
     },
   };
 }

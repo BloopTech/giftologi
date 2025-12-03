@@ -12,6 +12,7 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import Header from "./components/ui/navigation/header";
 import AdminSidebar from "./components/ui/navigation";
 import { DashboardProvider } from "./context";
+import { TooltipProvider } from "@/app/components/Tooltip";
 
 export default function RootLayout({ children }) {
   return (
@@ -34,7 +35,8 @@ export default function RootLayout({ children }) {
               </div>
             </div>
           </main> */}
-          <div className="mx-auto w-full">
+          <TooltipProvider>
+            <div className="mx-auto w-full">
               <AdminSidebar />
               <main className="lg:pl-72 flex flex-col bg-[#FAFAFA] dark:bg-gray-950">
                 <div className="flex flex-col min-h-screen ">
@@ -50,6 +52,7 @@ export default function RootLayout({ children }) {
                 </div>
               </main>
             </div>
+          </TooltipProvider>
         </DashboardProvider>
       </div>
     </>

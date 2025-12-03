@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState, useActionState } from "react";
+
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -21,6 +22,7 @@ import {
 import { tv } from "tailwind-variants";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { Badge } from "@/app/components/Badge";
+
 import {
   Dialog,
   DialogClose,
@@ -29,15 +31,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
+
 import { toast } from "sonner";
 
 import { useVendorRequestsContext } from "./context";
 import { useDashboardContext } from "../context";
+
 import {
   approveVendorRequest,
   rejectVendorRequest,
   flagVendorRequest,
 } from "./action";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 
 const tableStyles = tv({
   slots: {
@@ -287,6 +292,7 @@ export default function VendorRequestsTable() {
       columnHelper.display({
         id: "actions",
         header: "Actions",
+
         cell: ({ row }) => {
           const original = row.original;
           const isPending = original.normalizedStatus === "pending";
@@ -311,40 +317,55 @@ export default function VendorRequestsTable() {
 
           return (
             <div className="flex justify-end items-center gap-2">
-              <button
-                type="button"
-                onClick={handleView}
-                aria-label="View vendor request"
-                className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-              >
-                <Eye className="size-4" />
-              </button>
-              <button
-                type="button"
-                onClick={handleFlag}
-                aria-label="Flag vendor request"
-                className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
-              >
-                <Flag className="size-4" />
-              </button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleView}
+                    aria-label="View vendor request"
+                    className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                  >
+                    <Eye className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>View request</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleFlag}
+                    aria-label="Flag vendor request"
+                    className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
+                  >
+                    <Flag className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Flag vendor request</TooltipContent>
+              </Tooltip>
               <form action={approveAction}>
                 <input
                   type="hidden"
                   name="applicationId"
                   value={original.id}
                 />
-                <button
-                  type="submit"
-                  disabled={!isPending || approvePending || rejectPending}
-                  className={cx(
-                    "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
-                    "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
-                    (!isPending || approvePending || rejectPending) &&
-                      "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white"
-                  )}
-                >
-                  Approve
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="submit"
+                      disabled={!isPending || approvePending || rejectPending}
+                      className={cx(
+                        "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                        "border-[#6EA30B] text:white bg-[#6EA30B] hover:bg:white hover:text-[#6EA30B]",
+                        (!isPending || approvePending || rejectPending) &&
+                          "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text:white"
+                      )}
+                    >
+                      Approve
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Approve vendor application</TooltipContent>
+                </Tooltip>
               </form>
               <form action={rejectAction}>
                 <input
@@ -352,18 +373,23 @@ export default function VendorRequestsTable() {
                   name="applicationId"
                   value={original.id}
                 />
-                <button
-                  type="submit"
-                  disabled={!isPending || approvePending || rejectPending}
-                  className={cx(
-                    "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
-                    "border-[#DF0404] text-[#DF0404] bg-white hover:bg-[#DF0404] hover:text-white",
-                    (!isPending || approvePending || rejectPending) &&
-                      "opacity-60 cursor-not-allowed hover:bg-white hover:text-[#DF0404]"
-                  )}
-                >
-                  Reject
-                </button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="submit"
+                      disabled={!isPending || approvePending || rejectPending}
+                      className={cx(
+                        "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                        "border-[#DF0404] text-[#DF0404] bg-white hover:bg-[#DF0404] hover:text-white",
+                        (!isPending || approvePending || rejectPending) &&
+                          "opacity-60 cursor-not-allowed hover:bg:white hover:text-[#DF0404]"
+                      )}
+                    >
+                      Reject
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Reject vendor application</TooltipContent>
+                </Tooltip>
               </form>
             </div>
           );

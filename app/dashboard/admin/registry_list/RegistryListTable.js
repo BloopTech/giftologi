@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { useDashboardContext } from "../context";
 import { updateRegistryEvent, flagRegistry, deleteRegistry } from "./action";
 
@@ -341,53 +342,73 @@ export default function RegistryListTable() {
 
           return (
             <div className="flex justify-end items-center gap-2">
-              <button
-                type="button"
-                onClick={handleView}
-                aria-label="View registry"
-                className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
-              >
-                <Eye className="size-4" />
-              </button>
-              {isSuperAdmin && (
-                <>
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!raw?.registry?.id) return;
-                      setSelectedRegistry(raw);
-                      setEditOpen(true);
-                    }}
-                    aria-label="Edit registry"
+                    onClick={handleView}
+                    aria-label="View registry"
                     className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
                   >
-                    <Pencil className="size-4" />
+                    <Eye className="size-4" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!raw?.registry?.id) return;
-                      setSelectedRegistry(raw);
-                      setFlagOpen(true);
-                    }}
-                    aria-label="Flag registry"
-                    className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
-                  >
-                    <Flag className="size-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (!raw?.registry?.id) return;
-                      setSelectedRegistry(raw);
-                      setDeleteConfirmText("");
-                      setDeleteOpen(true);
-                    }}
-                    aria-label="Delete registry"
-                    className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                </TooltipTrigger>
+                <TooltipContent>View registry</TooltipContent>
+              </Tooltip>
+              {isSuperAdmin && (
+                <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!raw?.registry?.id) return;
+                          setSelectedRegistry(raw);
+                          setEditOpen(true);
+                        }}
+                        aria-label="Edit registry"
+                        className="p-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-100 cursor-pointer"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Edit registry</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!raw?.registry?.id) return;
+                          setSelectedRegistry(raw);
+                          setFlagOpen(true);
+                        }}
+                        aria-label="Flag registry"
+                        className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
+                      >
+                        <Flag className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Flag registry</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!raw?.registry?.id) return;
+                          setSelectedRegistry(raw);
+                          setDeleteConfirmText("");
+                          setDeleteOpen(true);
+                        }}
+                        aria-label="Delete registry"
+                        className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Delete registry</TooltipContent>
+                  </Tooltip>
                 </>
               )}
             </div>

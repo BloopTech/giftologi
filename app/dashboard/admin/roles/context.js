@@ -39,34 +39,44 @@ export const RolesProvider = ({ children }) => {
         const from = staffPage * pageSize;
         const to = from + pageSize - 1;
 
-        let query = supabase
+        const staffRoles = [
+          "super_admin",
+          "finance_admin",
+          "operations_manager_admin",
+          "customer_support_admin",
+        ];
+
+        let profilesQuery = supabase
           .from("profiles")
           .select(
             "id, email, firstname, lastname, phone, role, status, created_at, updated_at, created_by",
             { count: "exact" }
           )
-          .in("role", [
-            "super_admin",
-            "finance_admin",
-            "operations_manager_admin",
-            "customer_support_admin",
-          ]);
+          .in("role", staffRoles);
 
         if (staffSearchTerm && staffSearchTerm.trim()) {
           const term = staffSearchTerm.trim();
-          query = query.textSearch("search_vector", term, {
+          profilesQuery = profilesQuery.textSearch("search_vector", term, {
             type: "websearch",
             config: "simple",
           });
         }
 
-        const { data, error, count } = await query
-          .order("created_at", { ascending: false })
-          .range(from, to);
+        const [{ data: profileRows, error: profilesError, count }, { data: signupRows }] =
+          await Promise.all([
+            profilesQuery.order("created_at", { ascending: false }).range(from, to),
+            supabase
+              .from("signup_profiles")
+              .select(
+                "user_id, email, firstname, lastname, phone, role, created_at, updated_at, created_by"
+              )
+              .in("role", staffRoles)
+              .order("created_at", { ascending: false }),
+          ]);
 
-        if (error) {
+        if (profilesError) {
           if (!ignore) {
-            setErrorStaff(error.message);
+            setErrorStaff(profilesError.message);
             setStaff([]);
             setStaffTotal(0);
           }
@@ -74,7 +84,27 @@ export const RolesProvider = ({ children }) => {
         }
 
         if (!ignore) {
-          let enriched = data || [];
+          const baseRows = profileRows || [];
+          const existingIds = new Set(baseRows.map((row) => row.id));
+
+          const pendingInvites = Array.isArray(signupRows)
+            ? signupRows
+                .filter((row) => row.user_id && !existingIds.has(row.user_id))
+                .map((row) => ({
+                  id: row.user_id,
+                  email: row.email,
+                  firstname: row.firstname,
+                  lastname: row.lastname,
+                  phone: row.phone,
+                  role: row.role,
+                  status: "Pending",
+                  created_at: row.created_at,
+                  updated_at: row.updated_at,
+                  created_by: row.created_by,
+                }))
+            : [];
+
+          let enriched = [...pendingInvites, ...baseRows];
 
           try {
             const creatorIds = Array.from(
@@ -118,8 +148,11 @@ export const RolesProvider = ({ children }) => {
             // best-effort enrichment; ignore errors here
           }
 
+          // Staff array includes both real staff profiles and pending invites.
+          // Ensure the total used in the footer reflects both.
           setStaff(enriched);
-          setStaffTotal(count ?? (enriched ? enriched.length : 0));
+          const totalProfiles = count ?? (baseRows ? baseRows.length : 0);
+          setStaffTotal(totalProfiles + pendingInvites.length);
         }
       } catch (error) {
         if (!ignore) {
