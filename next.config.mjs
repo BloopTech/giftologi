@@ -1,5 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "20mb",
+    },
+  },
   env: {
     SUPABASE_URL: process.env.SUPABASE_URL,
     SUPABASE_ANON_KEY: process.env.SUPABASE_ANON_KEY,
@@ -17,7 +22,7 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "lh3.googleusercontent.com",
-      }
+      },
     ],
   },
 };

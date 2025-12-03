@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Eye,
+  RotateCcw,
 } from "lucide-react";
 import {
   useReactTable,
@@ -21,16 +22,10 @@ import { tv } from "tailwind-variants";
 import { toast } from "sonner";
 import { cx } from "@/app/components/utils";
 import { Badge } from "@/app/components/Badge";
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/app/components/Dialog";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { useViewTransactionsContext } from "./context";
+import TransactionDetailsDialog from "./TransactionDetailsDialog";
+import InitiateRefundDialog from "./InitiateRefundDialog";
 import { useDashboardContext } from "../context";
 import { updateOrderStatus } from "./action";
 
@@ -109,6 +104,8 @@ export default function TransactionsTable() {
   const [sorting, setSorting] = useState([]);
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
+  const [refundOpen, setRefundOpen] = useState(false);
+  const [refundRow, setRefundRow] = useState(null);
 
   const {
     transactions,
@@ -299,6 +296,17 @@ export default function TransactionsTable() {
             setViewOpen(true);
           };
 
+          const canRefund =
+            normalizedStatus === "paid" ||
+            normalizedStatus === "shipped" ||
+            normalizedStatus === "delivered";
+
+          const handleOpenRefund = () => {
+            if (!canRefund || !original.id) return;
+            setRefundRow(original);
+            setRefundOpen(true);
+          };
+
           return (
             <div className="flex justify-end items-center gap-2">
               <Tooltip>
@@ -313,6 +321,25 @@ export default function TransactionsTable() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>View order details</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleOpenRefund}
+                    disabled={!canRefund}
+                    aria-label="Initiate refund"
+                    className={cx(
+                      "p-1 rounded-full border text-gray-500 cursor-pointer",
+                      canRefund
+                        ? "border-[#F97373] text-[#F97373] hover:bg-[#FEE2E2] bg-white"
+                        : "border-gray-200 text-gray-300 cursor-not-allowed bg-white"
+                    )}
+                  >
+                    <RotateCcw className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Initiate refund</TooltipContent>
               </Tooltip>
               {/* {canMarkPaid && (
                 <form action={updateAction}>
@@ -399,7 +426,7 @@ export default function TransactionsTable() {
         },
       }),
     ],
-    [canModerate, updateAction, updatePending]
+    [canModerate, updatePending]
   );
 
   const tableInstance = useReactTable({
@@ -488,91 +515,27 @@ export default function TransactionsTable() {
         </tbody>
       </table>
 
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
-              Order Details
-            </DialogTitle>
-            <DialogDescription className="text-xs text-[#717182]">
-              View order information and context.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRow && (
-            <div className="mt-3 space-y-3 text-xs text-[#0A0A0A]">
-              <div>
-                <p className="font-medium">Order ID</p>
-                <p className="text-[#6A7282]">{selectedRow.orderCode}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-medium">Registry</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.registryCode || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Guest</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.guestName || "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-medium">Vendor</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.vendorName || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Payment Method</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.paymentMethodLabel || "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-medium">Amount (GHS)</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.amountLabel || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Status</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.statusLabel || selectedRow.status}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-medium">Delivery Status</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.deliveryStatus || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Order Date</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRow.createdAt
-                      ? new Date(selectedRow.createdAt).toLocaleString()
-                      : "—"}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="mt-4 flex justify-end">
-            <DialogClose asChild>
-              <button className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer">
-                Close
-              </button>
-            </DialogClose>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <TransactionDetailsDialog
+        open={viewOpen}
+        onOpenChange={(next) => {
+          setViewOpen(next);
+          if (!next) {
+            setSelectedRow(null);
+          }
+        }}
+        transaction={selectedRow}
+      />
+
+      <InitiateRefundDialog
+        open={refundOpen}
+        onOpenChange={(next) => {
+          setRefundOpen(next);
+          if (!next) {
+            setRefundRow(null);
+          }
+        }}
+        transaction={refundRow}
+      />
 
       <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 text-[11px] text-[#6A7282] bg-white">
         <span>

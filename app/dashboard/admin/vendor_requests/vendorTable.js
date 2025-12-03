@@ -35,6 +35,8 @@ import {
 import { toast } from "sonner";
 
 import { useVendorRequestsContext } from "./context";
+import VendorKycDialog from "./VendorKycDialog";
+
 import { useDashboardContext } from "../context";
 
 import {
@@ -172,6 +174,8 @@ export default function VendorRequestsTable() {
     ) {
       toast.success(approveState.message);
       refreshRequests?.();
+      setViewOpen(false);
+      setSelectedRequest(null);
     } else if (
       approveState.message &&
       approveState.errors &&
@@ -190,6 +194,8 @@ export default function VendorRequestsTable() {
     ) {
       toast.success(rejectState.message);
       refreshRequests?.();
+      setViewOpen(false);
+      setSelectedRequest(null);
     } else if (
       rejectState.message &&
       rejectState.errors &&
@@ -485,84 +491,24 @@ export default function VendorRequestsTable() {
         </tbody>
       </table>
 
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
-              Vendor Request Details
-            </DialogTitle>
-            <DialogDescription className="text-xs text-[#717182]">
-              View vendor application information.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRequest && (
-            <div className="mt-3 space-y-3 text-xs text-[#0A0A0A]">
-              <div>
-                <p className="font-medium">Business Name</p>
-                <p className="text-[#6A7282]">
-                  {selectedRequest.businessName || "—"}
-                </p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-medium">Vendor ID</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRequest.vendorId || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Category</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRequest.category || "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-medium">Contact Name</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRequest.contactName || "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Contact Email</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRequest.contactEmail || "—"}
-                  </p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <p className="font-medium">Applied Date</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRequest.appliedDate
-                      ? new Date(selectedRequest.appliedDate).toLocaleString()
-                      : "—"}
-                  </p>
-                </div>
-                <div>
-                  <p className="font-medium">Status</p>
-                  <p className="text-[#6A7282]">
-                    {selectedRequest.statusLabel ||
-                      selectedRequest.status ||
-                      "Pending"}
-                  </p>
-                </div>
-              </div>
-              <div>
-                <p className="font-medium">Application ID</p>
-                <p className="text-[#6A7282] break-all">{selectedRequest.id}</p>
-              </div>
-            </div>
-          )}
-          <div className="mt-4 flex justify-end">
-            <DialogClose asChild>
-              <button className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer">
-                Close
-              </button>
-            </DialogClose>
-          </div>
-        </DialogContent>
+      <Dialog
+        open={viewOpen}
+        onOpenChange={(open) => {
+          setViewOpen(open);
+          if (!open) {
+            setSelectedRequest(null);
+          }
+        }}
+      >
+        {selectedRequest && (
+          <VendorKycDialog
+            request={selectedRequest}
+            approveAction={approveAction}
+            rejectAction={rejectAction}
+            approvePending={approvePending}
+            rejectPending={rejectPending}
+          />
+        )}
       </Dialog>
 
       <Dialog open={flagOpen} onOpenChange={setFlagOpen}>

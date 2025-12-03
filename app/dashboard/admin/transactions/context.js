@@ -263,7 +263,9 @@ function useViewTransactionsProviderValue() {
         const orderItemsPromise = orderIds.length
           ? supabase
               .from("order_items")
-              .select("order_id, vendor_id, fulfillment_status")
+              .select(
+                "id, order_id, product_id, quantity, price, gift_message, wrapping, vendor_id, registry_item_id, tracking_number, fulfillment_status"
+              )
               .in("order_id", orderIds)
           : Promise.resolve({ data: [], error: null });
 
