@@ -13,6 +13,19 @@ const updatePayoutSchema = z.object({
   vendorId: z.string().uuid({ message: "Invalid vendor" }),
 });
 
+const defaultRejectPayoutValues = {
+  vendorId: [],
+  reason: [],
+};
+
+const rejectPayoutSchema = z.object({
+  vendorId: z.string().uuid({ message: "Invalid vendor" }),
+  reason: z
+    .string()
+    .trim()
+    .min(5, { message: "Please provide a detailed reason for rejection." }),
+});
+
 export async function updateVendorPayoutApproval(prevState, formData) {
   const supabase = await createClient();
 
@@ -273,6 +286,109 @@ export async function updateVendorPayoutApproval(prevState, formData) {
       : isFinance
       ? "Finance approval recorded."
       : "Super Admin approval recorded.",
+    errors: {},
+    values: {},
+    data: { vendorId },
+  };
+}
+
+export async function rejectVendorPayout(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to reject payouts.",
+      errors: { ...defaultRejectPayoutValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  const role = currentProfile?.role || null;
+  const isFinance = role === "finance_admin";
+  const isSuper = role === "super_admin";
+
+  if (!isFinance && !isSuper) {
+    return {
+      message: "You are not authorized to reject payouts.",
+      errors: { ...defaultRejectPayoutValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    vendorId: formData.get("vendorId"),
+    reason: formData.get("reason"),
+  };
+
+  const parsed = rejectPayoutSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message:
+        parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { vendorId, reason } = parsed.data;
+
+  const { error: insertError } = await supabase
+    .from("vendor_payouts")
+    .insert([
+      {
+        vendor_id: vendorId,
+        status: "rejected",
+        order_ids: [],
+        total_gross_amount: 0,
+        total_commission_amount: 0,
+        total_net_amount: 0,
+        total_orders: 0,
+        total_items: 0,
+        from_date: null,
+        to_date: null,
+        notes: reason,
+      },
+    ]);
+
+  if (insertError) {
+    return {
+      message: insertError.message,
+      errors: { ...defaultRejectPayoutValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  revalidatePath("/dashboard/admin/payouts");
+  revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "rejected_payout",
+    entity: "payouts",
+    targetId: vendorId,
+    details: `Rejected payout for vendor ${vendorId}`,
+  });
+
+  return {
+    message: "Payout rejected.",
     errors: {},
     values: {},
     data: { vendorId },

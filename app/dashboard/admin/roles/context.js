@@ -148,6 +148,45 @@ export const RolesProvider = ({ children }) => {
             // best-effort enrichment; ignore errors here
           }
 
+          try {
+            const profileIds = Array.from(
+              new Set(
+                (enriched || [])
+                  .map((row) => row.id)
+                  .filter(Boolean)
+              )
+            );
+
+            if (profileIds.length) {
+              const { data: lastLoginRows } = await supabase.rpc(
+                "get_last_sign_in_for_profiles",
+                { profile_ids: profileIds }
+              );
+
+              if (Array.isArray(lastLoginRows)) {
+                const lastLoginMap = lastLoginRows.reduce((acc, item) => {
+                  if (item && item.profile_id) {
+                    acc[item.profile_id] = {
+                      last_sign_in_at: item.last_sign_in_at || null,
+                      auth_created_at: item.created_at || null,
+                    };
+                  }
+                  return acc;
+                }, {});
+
+                enriched = enriched.map((row) => ({
+                  ...row,
+                  last_sign_in_at:
+                    lastLoginMap[row.id]?.last_sign_in_at ?? row.last_sign_in_at ?? null,
+                  auth_created_at:
+                    lastLoginMap[row.id]?.auth_created_at ?? row.auth_created_at ?? null,
+                }));
+              }
+            }
+          } catch (_) {
+            // ignore auth metadata enrichment failures
+          }
+
           // Staff array includes both real staff profiles and pending invites.
           // Ensure the total used in the footer reflects both.
           setStaff(enriched);

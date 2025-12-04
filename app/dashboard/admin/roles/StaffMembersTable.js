@@ -234,8 +234,11 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
       };
       const roleLabel = roleLabelMap[row.role] || row.role || "";
       const status = row.status || "Active";
-      const lastLogin = row.updated_at
-        ? new Date(row.updated_at).toLocaleString()
+      const lastLogin = row.last_sign_in_at
+        ? new Date(row.last_sign_in_at).toLocaleString()
+        : "—";
+      const authCreatedAt = row.auth_created_at
+        ? new Date(row.auth_created_at).toLocaleString()
         : "—";
       return {
         id: row.id,
@@ -244,6 +247,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
         role: roleLabel,
         status,
         lastLogin,
+        authCreatedAt,
         createdBy: row.created_by_label || "—",
         __raw: row,
       };
@@ -292,6 +296,14 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
       columnHelper.accessor("lastLogin", {
         header: ({ column }) => (
           <SortableHeader column={column} title="Last Login" />
+        ),
+        cell: (info) => (
+          <span className="text-xs text-[#6A7282]">{info.getValue()}</span>
+        ),
+      }),
+      columnHelper.accessor("authCreatedAt", {
+        header: ({ column }) => (
+          <SortableHeader column={column} title="Created At" />
         ),
         cell: (info) => (
           <span className="text-xs text-[#6A7282]">{info.getValue()}</span>
@@ -534,8 +546,18 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
                 <div>
                   <p className="font-medium">Created At</p>
                   <p className="text-[#6A7282]">
-                    {selectedStaff.created_at
+                    {selectedStaff.auth_created_at
+                      ? new Date(selectedStaff.auth_created_at).toLocaleString()
+                      : selectedStaff.created_at
                       ? new Date(selectedStaff.created_at).toLocaleString()
+                      : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium">Last Login</p>
+                  <p className="text-[#6A7282]">
+                    {selectedStaff.last_sign_in_at
+                      ? new Date(selectedStaff.last_sign_in_at).toLocaleString()
                       : "—"}
                   </p>
                 </div>

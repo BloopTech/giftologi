@@ -64,12 +64,50 @@ export async function login(prevState, queryData) {
   const { data, error } = await supabase.auth.signInWithPassword(payload);
 
   if (error) {
+    const message = error.message || "Invalid email or password";
+    const lower = message.toLowerCase();
+    const looksUnconfirmed =
+      lower.includes("not confirmed") || lower.includes("confirm your email");
+
+    if (looksUnconfirmed) {
+      try {
+        await supabase.auth.resend({
+          type: "signup",
+          email,
+        });
+      } catch (_) {}
+
+      const resendMessage =
+        "Your email is not confirmed. We've sent you a new confirmation email.";
+
+      return {
+        message: resendMessage,
+        errors: {
+          ...defaultLoginValues,
+          credentials: resendMessage,
+        },
+        values: {
+          email: getBusinessEmail,
+          password: getPassword,
+        },
+        data: {
+          email: getBusinessEmail,
+          resent: true,
+        },
+      };
+    }
+
     return {
-      message: error.message,
+      message,
       errors: {
         ...defaultLoginValues,
-        credentials: error.message,
+        credentials: message,
       },
+      values: {
+        email: getBusinessEmail,
+        password: getPassword,
+      },
+      data: {},
     };
   }
 

@@ -109,11 +109,41 @@ export async function signup(prevState, queryData) {
   });
   console.log("signup.......................................", data, error);
   if (error) {
+    const message = error.message || "Signup failed";
+    const lower = message.toLowerCase();
+    const isAlreadyRegistered =
+      lower.includes("already registered") || lower.includes("already exists");
+
+    if (isAlreadyRegistered) {
+      try {
+        await supabase.auth.resend({
+          type: "signup",
+          email,
+        });
+      } catch (_) {}
+
+      return {
+        message:
+          "Your account already exists but is not active. We've sent you a new confirmation email.",
+        errors: {},
+        values: {
+          firstname: getFirstName,
+          lastname: getLastName,
+          email: getBusinessEmail,
+          password: getPassword,
+        },
+        data: {
+          email: getBusinessEmail,
+          resent: true,
+        },
+      };
+    }
+
     return {
-      message: error.message,
+      message,
       errors: {
         ...defaultSignupValues,
-        credentials: error?.message,
+        credentials: message,
       },
       values: {
         firstname: getFirstName,

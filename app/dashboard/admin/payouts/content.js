@@ -1,5 +1,5 @@
 "use client";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import React from "react";
 import {
   PiInfo,
@@ -21,6 +21,7 @@ import {
 } from "../../../components/Select";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -234,41 +235,77 @@ export default function PayoutsContent() {
 
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
         <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
-              Payout Rules
-            </DialogTitle>
-            <DialogDescription className="text-xs text-[#717182]">
-              How vendor payouts are calculated and approved.
-            </DialogDescription>
+          <DialogHeader className="flex flex-row items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+                Payout Rules &amp; Configuration
+              </DialogTitle>
+              <DialogDescription className="text-xs text-[#717182]">
+                System rules for vendor payment processing.
+              </DialogDescription>
+            </div>
+            <DialogClose asChild>
+              <button
+                type="button"
+                aria-label="Close"
+                className="flex h-7 w-7 items-center justify-center rounded-full bg-[#F97373] text-white hover:bg-[#EF4444] cursor-pointer"
+              >
+                <X className="size-4" />
+              </button>
+            </DialogClose>
           </DialogHeader>
-          <div className="mt-3 text-xs text-[#0A0A0A]">
-            <ul className="list-disc pl-4 space-y-1">
-              <li>
-                Only orders with fulfillment status
-                {" "}
-                <span className="font-medium">Delivered</span>{" "}
-                are eligible for payouts.
-              </li>
-              <li>
-                Each payout requires dual approval from
-                {" "}
-                <span className="font-medium">Finance</span>
-                {" "}
-                and
-                {" "}
-                <span className="font-medium">Super Admin</span>.
-              </li>
-              <li>
-                Vendor payout amounts are based on order totals minus the
-                platform commission. For example, a 10% commission uses a rate
-                of 0.1.
-              </li>
-              <li>
-                Approved refunds for an order can reduce the final amount
-                payable to the vendor.
-              </li>
-            </ul>
+          <div className="mt-3 text-xs text-[#0A0A0A] space-y-4">
+            <div>
+              <p className="font-semibold mb-1">Eligibility Criteria</p>
+              <ul className="list-disc pl-4 space-y-1 text-[#4B5563]">
+                <li>
+                  Only <span className="font-semibold">Delivered</span> orders
+                  {" "}
+                  count toward payout eligibility.
+                </li>
+                <li>
+                  Service fee (5%) deducted from total sales before payout.
+                </li>
+                <li>Minimum payout threshold: GHS 100.</li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold mb-1">Processing Schedule</p>
+              <ul className="list-disc pl-4 space-y-1 text-[#4B5563]">
+                <li>
+                  Payouts processed weekly or monthly (configurable in admin
+                  settings).
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <p className="font-semibold mb-1">Payout Methods Supported</p>
+              <div className="flex flex-wrap gap-2 mt-1">
+                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
+                  Bank Transfer
+                </span>
+                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
+                  MTN MoMo
+                </span>
+                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
+                  Telecel Cash
+                </span>
+                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
+                  AirtelTigo Money
+                </span>
+              </div>
+            </div>
+
+            <div>
+              <p className="font-semibold mb-1">CSV Export</p>
+              <ul className="list-disc pl-4 space-y-1 text-[#4B5563]">
+                <li>
+                  Payout summary downloadable as CSV for accounting records.
+                </li>
+              </ul>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

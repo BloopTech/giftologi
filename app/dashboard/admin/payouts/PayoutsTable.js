@@ -29,10 +29,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/app/components/Tooltip";
 import { usePayoutsContext } from "./context";
 import { useDashboardContext } from "../context";
-import { updateVendorPayoutApproval } from "./action";
+import { updateVendorPayoutApproval, rejectVendorPayout } from "./action";
 import { PiDownloadSimple } from "react-icons/pi";
 
 const tableStyles = tv({
@@ -68,6 +72,16 @@ const initialUpdatePayoutState = {
   data: {},
 };
 
+const initialRejectPayoutState = {
+  message: "",
+  errors: {
+    vendorId: [],
+    reason: [],
+  },
+  values: {},
+  data: {},
+};
+
 function SortableHeader({ column, title }) {
   const sorted = column.getIsSorted();
 
@@ -97,7 +111,10 @@ function SortableHeader({ column, title }) {
 export default function PayoutsTable() {
   const [sorting, setSorting] = useState([]);
   const [viewOpen, setViewOpen] = useState(false);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [rejectOpen, setRejectOpen] = useState(false);
   const [selectedRow, setSelectedRow] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const {
     payouts,
@@ -121,6 +138,11 @@ export default function PayoutsTable() {
     initialUpdatePayoutState
   );
 
+  const [rejectState, rejectAction, rejectPending] = useActionState(
+    rejectVendorPayout,
+    initialRejectPayoutState
+  );
+
   useEffect(() => {
     if (!updateState) return;
     if (
@@ -130,6 +152,9 @@ export default function PayoutsTable() {
     ) {
       toast.success(updateState.message);
       refreshPayouts?.();
+      setApproveOpen(false);
+      setSelectedRow(null);
+      setRejectReason("");
     } else if (
       updateState.message &&
       updateState.errors &&
@@ -139,10 +164,51 @@ export default function PayoutsTable() {
     }
   }, [updateState, refreshPayouts]);
 
+  useEffect(() => {
+    if (!rejectState) return;
+    if (
+      rejectState.message &&
+      rejectState.data &&
+      Object.keys(rejectState.data).length
+    ) {
+      toast.success(rejectState.message);
+      refreshPayouts?.();
+      setRejectOpen(false);
+      setSelectedRow(null);
+      setRejectReason("");
+    } else if (
+      rejectState.message &&
+      rejectState.errors &&
+      Object.keys(rejectState.errors).length
+    ) {
+      toast.error(rejectState.message);
+    }
+  }, [rejectState, refreshPayouts]);
+
   const tableRows = useMemo(() => {
     if (!payouts || !payouts.length) return [];
     return payouts;
   }, [payouts]);
+
+  const selectedApprovalLabel = useMemo(() => {
+    if (!selectedRow) return "Approve";
+    if (selectedRow.normalizedStatus === "approved") return "Approved";
+    if (selectedRow.normalizedStatus === "awaiting_super_admin")
+      return "Approve as Super Admin";
+    if (selectedRow.normalizedStatus === "awaiting_finance")
+      return "Approve as Finance";
+    return "Approve";
+  }, [selectedRow]);
+
+  const canApproveSelected =
+    !!selectedRow &&
+    (isFinanceAdmin || isSuperAdmin) &&
+    selectedRow.normalizedStatus !== "approved";
+
+  const canRejectSelected =
+    !!selectedRow &&
+    (isFinanceAdmin || isSuperAdmin) &&
+    selectedRow.normalizedStatus !== "approved";
 
   const handleExportCsv = () => {
     if (!tableRows || !tableRows.length) {
@@ -164,7 +230,7 @@ export default function PayoutsTable() {
     const escapeCell = (value) => {
       if (value === null || typeof value === "undefined") return "";
       const str = String(value);
-      if (str.includes("\"") || str.includes(",") || str.includes("\n")) {
+      if (str.includes('"') || str.includes(",") || str.includes("\n")) {
         return `"${str.replace(/"/g, '""')}"`;
       }
       return str;
@@ -285,7 +351,7 @@ export default function PayoutsTable() {
             );
           }
 
-          const disabled = updatePending || !original.vendorId;
+          const disabled = updatePending || rejectPending || !original.vendorId;
 
           const handleView = () => {
             setSelectedRow(original);
@@ -305,6 +371,23 @@ export default function PayoutsTable() {
             (isFinanceAdmin || isSuperAdmin) &&
             original.normalizedStatus !== "approved";
 
+          const canReject =
+            (isFinanceAdmin || isSuperAdmin) &&
+            original.normalizedStatus !== "approved";
+
+          const handleApprove = () => {
+            if (!canSubmit || disabled) return;
+            setSelectedRow(original);
+            setApproveOpen(true);
+          };
+
+          const handleReject = () => {
+            if (!canReject || disabled) return;
+            setSelectedRow(original);
+            setRejectReason("");
+            setRejectOpen(true);
+          };
+
           return (
             <div className="flex justify-end items-center gap-2">
               <Tooltip>
@@ -320,36 +403,48 @@ export default function PayoutsTable() {
                 </TooltipTrigger>
                 <TooltipContent>View payout</TooltipContent>
               </Tooltip>
-              <form action={updateAction}>
-                <input
-                  type="hidden"
-                  name="vendorId"
-                  value={original.vendorId}
-                />
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="submit"
-                      disabled={disabled || !canSubmit}
-                      className={cx(
-                        "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
-                        "border-[#6EA30B] text:white bg-[#6EA30B] hover:bg:white hover:text-[#6EA30B]",
-                        (disabled || !canSubmit) &&
-                          "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text:white"
-                      )}
-                    >
-                      {approvalLabel}
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>{approvalLabel}</TooltipContent>
-                </Tooltip>
-              </form>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleApprove}
+                    disabled={disabled || !canSubmit}
+                    className={cx(
+                      "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                      "border-[#6EA30B] text:white bg-[#6EA30B] hover:bg:white hover:text-[#6EA30B]",
+                      (disabled || !canSubmit) &&
+                        "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text:white"
+                    )}
+                  >
+                    {approvalLabel}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>{approvalLabel}</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleReject}
+                    disabled={disabled || !canReject}
+                    className={cx(
+                      "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                      "border-red-500 text-red-600 bg-white hover:bg-red-500 hover:text-white",
+                      (disabled || !canReject) &&
+                        "opacity-60 cursor-not-allowed hover:bg-white hover:text-red-600"
+                    )}
+                  >
+                    Reject
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Reject payout</TooltipContent>
+              </Tooltip>
             </div>
           );
         },
       }),
     ],
-    [canApprove, isFinanceAdmin, isSuperAdmin, updateAction, updatePending]
+    [canApprove, isFinanceAdmin, isSuperAdmin, updatePending, rejectPending]
   );
 
   const tableInstance = useReactTable({
@@ -532,6 +627,160 @@ export default function PayoutsTable() {
               </button>
             </DialogClose>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={approveOpen} onOpenChange={setApproveOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Approve Vendor Payout
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Are you sure you want to approve this payout?
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRow && (
+            <form
+              action={updateAction}
+              className="mt-3 space-y-3 text-xs text-[#0A0A0A]"
+            >
+              <input
+                type="hidden"
+                name="vendorId"
+                value={selectedRow.vendorId}
+              />
+              <div>
+                <p className="font-medium">Vendor</p>
+                <p className="text-[#6A7282]">
+                  {selectedRow.vendorName || "—"}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="font-medium">Amount</p>
+                  <p className="text-[#6A7282]">
+                    {selectedRow.pendingPayoutLabel || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium">Method</p>
+                  <p className="text-[#6A7282]">
+                    {selectedRow.payoutMethodLabel || "Not set"}
+                  </p>
+                </div>
+              </div>
+              <p className="text-[11px] text-[#717182]">
+                The payout will be processed and the vendor will be notified via
+                email.
+              </p>
+              <div className="mt-4 flex justify-end gap-3">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={updatePending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={updatePending || !canApproveSelected}
+                  className={cx(
+                    "inline-flex items-center justify-center rounded-full border px-6 py-2 text-xs font-medium cursor-pointer",
+                    "border-[#3979D2] bg-[#3979D2] text-white hover:bg-white hover:text-[#3979D2]",
+                    (updatePending || !canApproveSelected) &&
+                      "opacity-60 cursor-not-allowed hover:bg-[#3979D2] hover:text-white"
+                  )}
+                >
+                  Approve Payout
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={rejectOpen}
+        onOpenChange={(next) => {
+          setRejectOpen(next);
+          if (!next) setRejectReason("");
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Reject Vendor Payout
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Reject this payout request?
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRow && (
+            <form
+              action={rejectAction}
+              className="mt-3 space-y-4 text-xs text-[#0A0A0A]"
+            >
+              <input
+                type="hidden"
+                name="vendorId"
+                value={selectedRow.vendorId}
+              />
+              <div>
+                <p className="font-medium">Vendor</p>
+                <p className="text-[#6A7282]">
+                  {selectedRow.vendorName || "—"}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <label
+                  htmlFor="reject-reason"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Rejection Reason <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  id="reject-reason"
+                  name="reason"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(event) => setRejectReason(event.target.value)}
+                  className="w-full rounded-xl border px-3 py-2 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3] resize-none"
+                  placeholder="Please provide a detailed reason for rejection..."
+                  disabled={rejectPending}
+                />
+              </div>
+              <div className="mt-4 flex justify-end gap-3">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={rejectPending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={
+                    rejectPending || !canRejectSelected || !rejectReason.trim()
+                  }
+                  className={cx(
+                    "inline-flex items-center justify-center rounded-full border px-6 py-2 text-xs font-medium cursor-pointer",
+                    "border-red-500 bg-red-500 text-white hover:bg-white hover:text-red-600",
+                    (rejectPending ||
+                      !canRejectSelected ||
+                      !rejectReason.trim()) &&
+                      "opacity-60 cursor-not-allowed hover:bg-red-500 hover:text-white"
+                  )}
+                >
+                  Reject Payout
+                </button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 

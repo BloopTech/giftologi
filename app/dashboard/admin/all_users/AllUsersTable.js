@@ -200,10 +200,12 @@ export default function AllUsersTable() {
 
       const roleLabel = roleLabelMap[row.role] || row.role || "—";
       const status = row.status || "Active";
-      const lastLogin = row.updated_at
-        ? new Date(row.updated_at).toLocaleString()
+      const lastLogin = row.last_sign_in_at
+        ? new Date(row.last_sign_in_at).toLocaleString()
         : "—";
-      const createdAt = row.created_at
+      const createdAt = row.auth_created_at
+        ? new Date(row.auth_created_at).toLocaleString()
+        : row.created_at
         ? new Date(row.created_at).toLocaleString()
         : "—";
       const createdBy = row.created_by_label || "—";
@@ -216,8 +218,8 @@ export default function AllUsersTable() {
         rawRole: row.role || null,
         status,
         lastLogin,
-      createdAt,
-      createdBy,
+        createdAt,
+        createdBy,
         __raw: row,
       };
     });
@@ -496,7 +498,9 @@ export default function AllUsersTable() {
                 <div>
                   <p className="font-medium">Created At</p>
                   <p className="text-[#6A7282]">
-                    {selectedUser.created_at
+                    {selectedUser.auth_created_at
+                      ? new Date(selectedUser.auth_created_at).toLocaleString()
+                      : selectedUser.created_at
                       ? new Date(selectedUser.created_at).toLocaleString()
                       : "—"}
                   </p>
@@ -504,8 +508,8 @@ export default function AllUsersTable() {
                 <div>
                   <p className="font-medium">Last Login</p>
                   <p className="text-[#6A7282]">
-                    {selectedUser.updated_at
-                      ? new Date(selectedUser.updated_at).toLocaleString()
+                    {selectedUser.last_sign_in_at
+                      ? new Date(selectedUser.last_sign_in_at).toLocaleString()
                       : "—"}
                   </p>
                 </div>

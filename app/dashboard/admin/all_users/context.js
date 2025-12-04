@@ -56,8 +56,6 @@ function useAllUsersProviderValue() {
 
       try {
         const supabase = createSupabaseClient();
-        const from = usersPage * pageSize;
-        const to = from + pageSize - 1;
 
         const staffRoles = [
           "super_admin",
@@ -135,7 +133,7 @@ function useAllUsersProviderValue() {
           { data: profileRows, error: profilesError, count },
           { data: signupRows },
         ] = await Promise.all([
-          profilesQuery.order("created_at", { ascending: false }).range(from, to),
+          profilesQuery.order("created_at", { ascending: false }),
           signupProfilesPromise,
         ]);
 
@@ -214,12 +212,50 @@ function useAllUsersProviderValue() {
             }));
           } catch (_) {}
 
-          setUsers(enriched);
-          const totalProfiles =
-            typeof count === "number" && count >= 0
-              ? count
-              : baseRows.length;
-          setUsersTotal(totalProfiles + pendingInvites.length);
+          try {
+            const profileIds = Array.from(
+              new Set(
+                enriched
+                  .map((row) => row.id)
+                  .filter(Boolean)
+              )
+            );
+
+            if (profileIds.length) {
+              const { data: lastLoginRows } = await supabase.rpc(
+                "get_last_sign_in_for_profiles",
+                { profile_ids: profileIds }
+              );
+
+              if (Array.isArray(lastLoginRows)) {
+                const authMetaMap = lastLoginRows.reduce((acc, item) => {
+                  if (item && item.profile_id) {
+                    acc[item.profile_id] = {
+                      last_sign_in_at: item.last_sign_in_at || null,
+                      auth_created_at: item.created_at || null,
+                    };
+                  }
+                  return acc;
+                }, {});
+
+                enriched = enriched.map((row) => ({
+                  ...row,
+                  last_sign_in_at:
+                    authMetaMap[row.id]?.last_sign_in_at ?? row.last_sign_in_at ?? null,
+                  auth_created_at:
+                    authMetaMap[row.id]?.auth_created_at ?? row.auth_created_at ?? null,
+                }));
+              }
+            }
+          } catch (_) {}
+
+          const totalItems = enriched.length;
+          const startIndex = usersPage * pageSize;
+          const endIndex = startIndex + pageSize;
+          const pageSlice = enriched.slice(startIndex, endIndex);
+
+          setUsers(pageSlice);
+          setUsersTotal(totalItems);
         }
       } catch (error) {
         if (!ignore) {
