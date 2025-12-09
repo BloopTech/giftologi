@@ -1,7 +1,7 @@
 import { middlewareClient } from "./app/utils/supabase/middleware";
 
 
-export async function middleware(request) {
+export async function proxy(request) {
   // Admin routes protection
   // if (request.nextUrl.pathname.startsWith("/admin")) {
   //   return adminAuthMiddleware(request);

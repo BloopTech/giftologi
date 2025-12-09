@@ -23,6 +23,13 @@ const TABS = [
   { id: "financial", label: "Financial Info" },
 ];
 
+const TAB_STEPS = {
+  business: 2,
+  owner: 2,
+  documents: 2,
+  financial: 2,
+};
+
 const MAX_VENDOR_DOC_FILE_SIZE_BYTES = 2 * 1024 * 1024;
 
 const initialState = {
@@ -43,6 +50,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
   );
 
   const [activeTab, setActiveTab] = useState("business");
+  const [subStep, setSubStep] = useState(0);
   const [vendors, setVendors] = useState([]);
   const [vendorSearch, setVendorSearch] = useState("");
   const [vendorLoading, setVendorLoading] = useState(false);
@@ -59,6 +67,10 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
   });
 
   const [debouncedSearch] = useDebounce(vendorSearch, 300);
+
+  useEffect(() => {
+    setSubStep(0);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!open) {
@@ -148,10 +160,15 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
           .limit(20);
 
         // Use text search on the vendors search_vector, consistent with adminGlobalSearch
-        query = query.textSearch("search_vector", term, {
-          type: "websearch",
-          config: "simple",
-        });
+        const tokens = term
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((t) => `${t}:*`)
+          .join(" & ");
+
+        if (tokens) {
+          query = query.filter("search_vector", "fts", tokens);
+        }
 
         const { data, error } = await query;
 
@@ -262,6 +279,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
     (message) => message && message.length > 0
   );
 
+  const currentSteps = TAB_STEPS[activeTab] ?? 1;
+  const maxSubStep = currentSteps - 1;
+
   return (
     <DialogContent className="max-w-3xl">
       <DialogHeader className="pb-3 border-b border-gray-100">
@@ -279,7 +299,6 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
 
       <form
         action={formAction}
-        encType="multipart/form-data"
         className="mt-3 space-y-4 text-xs text-[#0A0A0A]"
       >
         {!hasSelectedVendor && (
@@ -387,27 +406,69 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
             </section>
 
             <section className="space-y-3">
-              <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px]">
-                {TABS.map((tab) => (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={cx(
-                      "px-3 py-1.5 rounded-full cursor-pointer transition-colors",
-                      activeTab === tab.id
-                        ? "bg-white text-[#0A0A0A] shadow-sm"
-                        : "text-[#6A7282] hover:text-[#0A0A0A]"
-                    )}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+              <div className="flex items-center justify-between gap-3">
+                <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px]">
+                  {TABS.map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className={cx(
+                        "px-3 py-1.5 rounded-full cursor-pointer transition-colors",
+                        activeTab === tab.id
+                          ? "bg-white text-[#0A0A0A] shadow-sm"
+                          : "text-[#6A7282] hover:text-[#0A0A0A]"
+                      )}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {currentSteps > 1 && (
+                  <div className="flex items-center gap-2 text-[11px] text-[#717182]">
+                    <span>
+                      Page {subStep + 1} of {currentSteps}
+                    </span>
+                    <div className="inline-flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSubStep((prev) => Math.max(0, prev - 1))
+                        }
+                        disabled={subStep === 0}
+                        className={cx(
+                          "rounded-full border border-[#D1D5DB] bg-white px-3 py-1 text-[11px] text-[#4B5563] hover:bg-gray-50 cursor-pointer",
+                          subStep === 0 &&
+                            "opacity-50 cursor-not-allowed hover:bg-white"
+                        )}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setSubStep((prev) => Math.min(maxSubStep, prev + 1))
+                        }
+                        disabled={subStep === maxSubStep}
+                        className={cx(
+                          "rounded-full border border-[#D1D5DB] bg-white px-3 py-1 text-[11px] text-[#4B5563] hover:bg-gray-50 cursor-pointer",
+                          subStep === maxSubStep &&
+                            "opacity-50 cursor-not-allowed hover:bg-white"
+                        )}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {activeTab === "business" && (
                 <div className="space-y-4">
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 0 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Business Information
                     </p>
@@ -574,7 +635,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                     </div>
                   </section>
 
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 0 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Business Description
                     </p>
@@ -594,7 +657,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                     </div>
                   </section>
 
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 1 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Business Address
                     </p>
@@ -670,7 +735,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
 
               {activeTab === "owner" && (
                 <div className="space-y-4">
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 0 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Owner / Primary Contact
                     </p>
@@ -729,7 +796,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                     </div>
                   </section>
 
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 1 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Business References
                     </p>
@@ -801,7 +870,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
 
               {activeTab === "documents" && (
                 <div className="space-y-4">
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 0 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Submitted Documents
                     </p>
@@ -927,7 +998,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                     </p>
                   </section>
 
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 1 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Verification Checklist
                     </p>
@@ -951,7 +1024,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
 
               {activeTab === "financial" && (
                 <div className="space-y-4">
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 0 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Bank Account Details
                     </p>
@@ -1031,7 +1106,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                     </div>
                   </section>
 
-                  <section className="space-y-2">
+                  <section
+                    className={cx("space-y-2", subStep !== 1 && "hidden")}
+                  >
                     <p className="text-[11px] font-medium text-[#717182]">
                       Financial Verification Notes
                     </p>

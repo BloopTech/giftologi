@@ -92,10 +92,15 @@ function useVendorRequestsProviderValue() {
 
         if (searchTerm && searchTerm.trim()) {
           const term = searchTerm.trim();
-          query = query.textSearch("search_vector", term, {
-            type: "websearch",
-            config: "simple",
-          });
+          const tokens = term
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((t) => `${t}:*`)
+            .join(" & ");
+
+          if (tokens) {
+            query = query.filter("search_vector", "fts", tokens);
+          }
         }
 
         const { data, error, count } = await query

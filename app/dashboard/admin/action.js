@@ -887,6 +887,37 @@ export async function createVendor(prevState, formData) {
     };
   }
 
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .insert([
+      {
+        id: userId,
+        email,
+        firstname,
+        lastname,
+        phone,
+        color: hashColor,
+        role: "vendor",
+        created_by: currentProfile?.id || null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ])
+    .select("id")
+    .single();
+
+  if (profileError) {
+    return {
+      message: profileError.message,
+      errors: {
+        ...defaultCreateVendorValues,
+        email: [profileError.message],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
     .insert([
@@ -899,6 +930,7 @@ export async function createVendor(prevState, formData) {
         verified: true,
         created_by: currentProfile?.id || null,
         updated_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
       },
     ])
     .select("id, business_name")
@@ -1081,10 +1113,15 @@ export async function adminGlobalSearch(prevState, formData) {
       vendorQuery = vendorQuery.or("verified.is.false,verified.is.null");
     }
 
-    vendorQuery = vendorQuery.textSearch("search_vector", term, {
-      type: "websearch",
-      config: "simple",
-    });
+    const vendorTokens = term
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((t) => `${t}:*`)
+      .join(" & ");
+
+    if (vendorTokens) {
+      vendorQuery = vendorQuery.filter("search_vector", "fts", vendorTokens);
+    }
 
     const { data: vendorRows, error: vendorError } = await vendorQuery;
 
