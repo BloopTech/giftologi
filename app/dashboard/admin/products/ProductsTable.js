@@ -34,6 +34,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Toolti
 import { useManageProductsContext } from "./context";
 import { useDashboardContext } from "../context";
 import { approveProduct, rejectProduct, flagProduct } from "./action";
+import Image from "next/image";
 
 const tableStyles = tv({
   slots: {
@@ -494,6 +495,40 @@ export default function ProductsTable() {
           </DialogHeader>
           {selectedProduct && (
             <div className="mt-3 space-y-3 text-xs text-[#0A0A0A]">
+              {Array.isArray(selectedProduct.images) &&
+              selectedProduct.images.length ? (
+                <div>
+                  <p className="font-medium mb-1">Images</p>
+                  <div className="flex flex-wrap gap-2">
+                    {selectedProduct.images.map((url, index) => (
+                      <div
+                        key={url || index}
+                        className="relative h-16 w-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <Image
+                          src={url}
+                          alt={
+                            index === 0
+                              ? "Featured product image"
+                              : "Product image"
+                          }
+                          className="h-full w-full object-cover"
+                          fill
+                          priority
+                          sizes="64px"
+                        />
+                        {index === 0 && (
+                          <span className="absolute top-1 left-1 rounded-full bg-[#F97316] px-2 py-[2px] text-[10px] font-semibold text-white shadow-sm">
+                            Featured
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div>
                 <p className="font-medium">Name</p>
                 <p className="text-[#6A7282]">

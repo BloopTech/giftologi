@@ -483,6 +483,7 @@ const defaultCreateProductValues = {
   featuredImageIndex: [],
   bulkFile: [],
   bulkMapping: [],
+  bulkCategoryId: [],
 };
 
 const createProductsBaseSchema = z.object({
@@ -856,6 +857,8 @@ export async function createVendorProducts(prevState, formData) {
 
   const bulkFile = formData.get("bulk_file");
   const rawMappingString = formData.get("bulk_mapping") || "";
+  const rawBulkCategoryId = formData.get("bulkCategoryId") || "";
+  let bulkCategoryId = null;
 
   if (!isFileLike(bulkFile)) {
     return {
@@ -867,6 +870,53 @@ export async function createVendorProducts(prevState, formData) {
       values: rawBase,
       data: {},
     };
+  }
+
+  // Optional: validate default category for all bulk rows
+  if (typeof rawBulkCategoryId === "string" && rawBulkCategoryId.trim()) {
+    const trimmed = rawBulkCategoryId.trim();
+
+    const bulkCategorySchema = z
+      .string()
+      .trim()
+      .uuid({ message: "Select a valid default category." });
+
+    const parsedBulkCategory = bulkCategorySchema.safeParse(trimmed);
+
+    if (!parsedBulkCategory.success) {
+      return {
+        message:
+          parsedBulkCategory.error.issues?.[0]?.message ||
+          "Select a valid default category.",
+        errors: {
+          ...defaultCreateProductValues,
+          bulkCategoryId: ["Select a valid default category."],
+        },
+        values: rawBase,
+        data: {},
+      };
+    }
+
+    const { data: bulkCategory, error: bulkCategoryError } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("id", parsedBulkCategory.data)
+      .maybeSingle();
+
+    if (bulkCategoryError || !bulkCategory) {
+      return {
+        message:
+          bulkCategoryError?.message || "Select a valid default category.",
+        errors: {
+          ...defaultCreateProductValues,
+          bulkCategoryId: ["Select a valid default category."],
+        },
+        values: rawBase,
+        data: {},
+      };
+    }
+
+    bulkCategoryId = bulkCategory.id;
   }
 
   let mappingJson = null;
@@ -1038,6 +1088,7 @@ export async function createVendorProducts(prevState, formData) {
   const nowIso = new Date().toISOString();
   const payloads = rows.map((row) => ({
     vendor_id: vendorId,
+    category_id: bulkCategoryId,
     name: row.name,
     description: row.description || null,
     price: row.price,

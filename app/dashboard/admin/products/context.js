@@ -153,6 +153,7 @@ function useManageProductsProviderValue() {
             price,
             stock_qty,
             status,
+            images,
             created_at,
             vendor:vendors!Products_vendor_id_fkey (
               id,
@@ -206,6 +207,7 @@ function useManageProductsProviderValue() {
               stockQty: row.stock_qty,
               status: row.status || "pending",
               createdAt: row.created_at,
+              images: Array.isArray(row.images) ? row.images : [],
               __raw: row,
             };
           });

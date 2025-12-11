@@ -42,6 +42,7 @@ const initialCreateState = {
     featuredImageIndex: [],
     bulkFile: [],
     bulkMapping: [],
+    bulkCategoryId: [],
   },
   values: {},
   data: {},
@@ -119,6 +120,8 @@ export default function ManageProductsContent() {
   const [selectedCategoryId, setSelectedCategoryId] = useState(
     ""
   );
+
+  const [bulkCategoryId, setBulkCategoryId] = useState("");
 
   const [imageCount, setImageCount] = useState(0);
   const [featuredIndex, setFeaturedIndex] = useState("");
@@ -679,6 +682,11 @@ export default function ManageProductsContent() {
                   name="featuredImageIndex"
                   value={featuredIndex || ""}
                 />
+                <input
+                  type="hidden"
+                  name="bulkCategoryId"
+                  value={bulkCategoryId || ""}
+                />
 
                 {createMode === "single" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -930,6 +938,46 @@ export default function ManageProductsContent() {
 
                 {createMode === "bulk" && (
                   <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-[#0A0A0A]">
+                        Default Category (optional)
+                      </label>
+                      <Select
+                        value={bulkCategoryId || ""}
+                        onValueChange={(value) =>
+                          setBulkCategoryId(value || "")
+                        }
+                        disabled={categoriesLoading || createPending}
+                      >
+                        <SelectTrigger className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]">
+                          <SelectValue placeholder="Use category from each product's own settings" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name || "Untitled"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {categoriesError ? (
+                        <p className="mt-1 text-[11px] text-red-600">
+                          {categoriesError}
+                        </p>
+                      ) : null}
+                      {(createState?.errors?.bulkCategoryId || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.bulkCategoryId.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      <p className="text-[11px] text-[#717182]">
+                        When set, all products created from this CSV will use this
+                        category.
+                      </p>
+                    </div>
+
                     <div className="space-y-1">
                       <label
                         htmlFor="bulk-file"
