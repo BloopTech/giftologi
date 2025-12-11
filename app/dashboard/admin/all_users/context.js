@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useCallback,
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import { useQueryState, parseAsString } from "nuqs";
@@ -29,6 +30,9 @@ function useAllUsersProviderValue() {
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [errorUsers, setErrorUsers] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const refreshUsers = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+  }, [setRefreshKey]);
 
   const [searchParam, setSearchParam] = useQueryState(
     "q",
@@ -285,7 +289,7 @@ function useAllUsersProviderValue() {
       loadingUsers,
       errorUsers,
       setUsersPage,
-      refreshUsers: () => setRefreshKey((prev) => prev + 1),
+      refreshUsers,
       searchTerm,
       setSearchTerm: setSearchParam,
       roleFilter,
@@ -303,6 +307,7 @@ function useAllUsersProviderValue() {
       searchTerm,
       roleFilter,
       statusFilter,
+      refreshUsers,
       setSearchParam,
       setRoleParam,
       setStatusParam,

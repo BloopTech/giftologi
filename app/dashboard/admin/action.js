@@ -2,7 +2,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { createClient } from "../../utils/supabase/server";
+import { createClient, createAdminClient } from "../../utils/supabase/server";
 import { logAdminActivityWithClient } from "./activity_log/logger";
 
 const defaultManageRolesValues = {
@@ -73,7 +73,6 @@ const defaultUpdateStaffStatusValues = {
 
 const updateStaffStatusSchema = z.object({
   staffId: z
-    .string()
     .uuid({ message: "Invalid staff member" }),
   mode: z.enum(["suspend", "delete"], {
     errorMap: () => ({ message: "Select an action" }),
@@ -90,7 +89,6 @@ const defaultResendInviteValues = {
 
 const resendStaffInviteSchema = z.object({
   staffId: z
-    .string()
     .uuid({ message: "Invalid staff member" }),
 });
 
@@ -369,9 +367,25 @@ export async function manageRoles(prevState, queryData) {
 export async function updateStaffDetails(prevState, formData) {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to update staff members.",
+      errors: {
+        ...defaultUpdateStaffValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("id, role")
+    .eq("id", user.id)
     .single();
 
   if (!currentProfile || currentProfile.role !== "super_admin") {
@@ -583,9 +597,25 @@ export async function resendStaffInvite(prevState, formData) {
 export async function updateStaffStatus(prevState, formData) {
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to change staff status.",
+      errors: {
+        ...defaultUpdateStaffStatusValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("id, role")
+    .eq("id", user.id)
     .single();
 
   if (!currentProfile || currentProfile.role !== "super_admin") {
@@ -618,6 +648,23 @@ export async function updateStaffStatus(prevState, formData) {
 
   const { staffId, mode, confirmText } = validated.data;
 
+  const { data: existingProfile, error: existingProfileError } = await supabase
+    .from("profiles")
+    .select("id, status, email")
+    .eq("id", staffId)
+    .maybeSingle();
+
+  if (existingProfileError) {
+    return {
+      message: existingProfileError.message,
+      errors: {
+        ...defaultUpdateStaffStatusValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
   const expectedConfirm =
     mode === "suspend" ? "SUSPEND" : "DELETE STAFF";
 
@@ -631,6 +678,83 @@ export async function updateStaffStatus(prevState, formData) {
             ? "Type SUSPEND to confirm."
             : "Type DELETE STAFF to confirm.",
         ],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (mode === "delete" && !existingProfile) {
+    try {
+      const adminClient = createAdminClient();
+
+      const { error: signupDeleteError } = await adminClient
+        .from("signup_profiles")
+        .delete()
+        .eq("user_id", staffId);
+
+      if (signupDeleteError) {
+        return {
+          message: signupDeleteError.message,
+          errors: {
+            ...defaultUpdateStaffStatusValues,
+          },
+          values: raw,
+          data: {},
+        };
+      }
+
+      const { error: authDeleteError } =
+        await adminClient.auth.admin.deleteUser(staffId);
+
+      if (authDeleteError && authDeleteError.message !== "User not found") {
+        return {
+          message: "Failed to delete staff auth account.",
+          errors: {
+            ...defaultUpdateStaffStatusValues,
+          },
+          values: raw,
+          data: {},
+        };
+      }
+    } catch (err) {
+      return {
+        message: "Failed to delete staff member.",
+        errors: {
+          ...defaultUpdateStaffStatusValues,
+        },
+        values: raw,
+        data: {},
+      };
+    }
+
+    await logAdminActivityWithClient(supabase, {
+      adminId: currentProfile.id,
+      adminRole: currentProfile.role,
+      adminEmail: null,
+      adminName: null,
+      action: "deleted_staff",
+      entity: "staff",
+      targetId: staffId,
+      details: `Deleted pending staff invite ${staffId}`,
+    });
+
+    return {
+      message: "Staff member has been deleted.",
+      errors: {},
+      values: {},
+      data: {
+        staffId,
+        mode: "delete",
+      },
+    };
+  }
+
+  if (!existingProfile) {
+    return {
+      message: "We could not find this staff member profile.",
+      errors: {
+        ...defaultUpdateStaffStatusValues,
       },
       values: raw,
       data: {},

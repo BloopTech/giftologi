@@ -152,7 +152,8 @@ export default function AllUsersTable() {
       toast.success(statusState.message);
       refreshUsers?.();
       setStatusOpen(false);
-    } else if (
+    } 
+    if (
       statusState.message &&
       statusState.errors &&
       Object.keys(statusState.errors).length
@@ -169,7 +170,8 @@ export default function AllUsersTable() {
       Object.keys(resendState.data).length
     ) {
       toast.success(resendState.message);
-    } else if (
+    } 
+    if (
       resendState.message &&
       resendState.errors &&
       Object.keys(resendState.errors).length

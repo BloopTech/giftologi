@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import VendorRequestsTable from "./vendorTable";
 import { Dialog } from "@/app/components/Dialog";
-import CreateVendorApplicationDialog from "./CreateVendorApplicationDialog";
+import CreateVendorApplicationDialog from "./createVendorApplication";
 
 export default function VendorRequestsContent() {
   const [createOpen, setCreateOpen] = useState(false);

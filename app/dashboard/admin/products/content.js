@@ -1,6 +1,11 @@
 "use client";
-import { Search } from "lucide-react";
-import React from "react";
+import { Search, LoaderCircle } from "lucide-react";
+import React, {
+  useActionState,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   PiShoppingBagOpen,
   PiCheckCircle,
@@ -17,6 +22,57 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/Select";
+import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
+import { useDebounce } from "use-debounce";
+import { toast } from "sonner";
+import { createVendorProducts } from "./action";
+
+const initialCreateState = {
+  message: "",
+  errors: {
+    vendorId: [],
+    mode: [],
+    name: [],
+    description: [],
+    price: [],
+    stockQty: [],
+    productCode: [],
+    categoryId: [],
+    images: [],
+    featuredImageIndex: [],
+    bulkFile: [],
+    bulkMapping: [],
+  },
+  values: {},
+  data: {},
+};
+
+function parseCsvLine(line) {
+  const result = [];
+  let current = "";
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (char === "," && !inQuotes) {
+      result.push(current);
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+
+  result.push(current);
+  return result;
+}
 
 export default function ManageProductsContent() {
   const {
@@ -31,7 +87,42 @@ export default function ManageProductsContent() {
     setTypeFilter,
   } = useManageProductsContext() || {};
 
-  const [search, setSearch] = React.useState(searchTerm || "");
+  const [search, setSearch] = useState(searchTerm || "");
+  const [createState, createAction, createPending] = useActionState(
+    createVendorProducts,
+    initialCreateState
+  );
+
+  const [vendorSearch, setVendorSearch] = useState("");
+  const [debouncedVendorSearch] = useDebounce(vendorSearch, 300);
+  const [vendorResults, setVendorResults] = useState([]);
+  const [vendorLoading, setVendorLoading] = useState(false);
+  const [vendorError, setVendorError] = useState("");
+  const [selectedVendor, setSelectedVendor] = useState(null);
+
+  const [createMode, setCreateMode] = useState("single");
+
+  const [bulkColumns, setBulkColumns] = useState([]);
+  const [bulkMapping, setBulkMapping] = useState({
+    name: "",
+    price: "",
+    description: "",
+    stockQty: "",
+    imageUrl: "",
+  });
+  const [bulkHeaderError, setBulkHeaderError] = useState("");
+  const [bulkFileLabel, setBulkFileLabel] = useState("");
+
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoriesError, setCategoriesError] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState(
+    ""
+  );
+
+  const [imageCount, setImageCount] = useState(0);
+  const [featuredIndex, setFeaturedIndex] = useState("");
+
   const isLoadingMetrics = !!loadingMetrics;
 
   const formatCount = (value) => {
@@ -56,6 +147,246 @@ export default function ManageProductsContent() {
     if (!setSearchTerm || !setProductsPage) return;
     setSearchTerm(search);
     setProductsPage(0);
+  };
+
+  const hasCreateErrors = useMemo(() => {
+    const errors = createState?.errors || {};
+    return Object.values(errors).some((arr) => Array.isArray(arr) && arr.length);
+  }, [createState?.errors]);
+
+  useEffect(() => {
+    if (!createState?.message) return;
+
+    const hasData = createState.data && Object.keys(createState.data || {}).length;
+    if (hasData && !hasCreateErrors) {
+      toast.success(createState.message);
+    } else if (hasCreateErrors) {
+      toast.error(createState.message);
+    }
+  }, [createState, hasCreateErrors]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      setCategoriesError("");
+
+      try {
+        const supabase = createSupabaseClient();
+        const { data, error } = await supabase
+          .from("categories")
+          .select("id, name")
+          .order("name", { ascending: true });
+
+        if (ignore) return;
+
+        if (error) {
+          setCategoriesError(error.message || "Failed to load categories.");
+          setCategories([]);
+          return;
+        }
+
+        setCategories(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (!ignore) {
+          setCategoriesError(
+            error?.message || "Failed to load categories. Please try again."
+          );
+          setCategories([]);
+        }
+      } finally {
+        if (!ignore) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    const term = (debouncedVendorSearch || "").trim();
+    if (!term) {
+      setVendorResults([]);
+      setVendorError("");
+      setVendorLoading(false);
+      return;
+    }
+
+    let ignore = false;
+
+    const searchVendors = async () => {
+      setVendorLoading(true);
+      setVendorError("");
+
+      try {
+        const supabase = createSupabaseClient();
+
+        let query = supabase
+          .from("vendors")
+          .select(
+            `
+            id,
+            business_name,
+            category,
+            profiles:profiles!Vendors_profiles_id_fkey (
+              id,
+              firstname,
+              lastname,
+              email
+            )
+          `
+          )
+          .limit(20);
+
+        const tokens = term
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((t) => `${t}:*`)
+          .join(" & ");
+
+        if (tokens) {
+          query = query.filter("search_vector", "fts", tokens);
+        }
+
+        const { data, error } = await query;
+
+        if (ignore) return;
+
+        if (error) {
+          setVendorError(error.message || "Failed to search vendors.");
+          setVendorResults([]);
+          return;
+        }
+
+        setVendorResults(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (!ignore) {
+          setVendorError(
+            error?.message ||
+              "Failed to search vendors. Please try again."
+          );
+          setVendorResults([]);
+        }
+      } finally {
+        if (!ignore) {
+          setVendorLoading(false);
+        }
+      }
+    };
+
+    searchVendors();
+
+    return () => {
+      ignore = true;
+    };
+  }, [debouncedVendorSearch]);
+
+  const handleSelectVendor = (vendor) => {
+    const profile = vendor.profiles || {};
+    const parts = [];
+    if (profile.firstname) parts.push(profile.firstname);
+    if (profile.lastname) parts.push(profile.lastname);
+    const contactName = parts.join(" ") || profile.email || "—";
+
+    setSelectedVendor({
+      id: vendor.id,
+      businessName: vendor.business_name || "Untitled Vendor",
+      category: vendor.category || "",
+      contactName,
+      contactEmail: profile.email || "",
+    });
+  };
+
+  const handleBulkFileChange = (event) => {
+    const file = event?.target?.files?.[0];
+    setBulkHeaderError("");
+    setBulkColumns([]);
+    setBulkFileLabel(file?.name || "");
+
+    if (!file) {
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const text = String(reader.result || "");
+        const lines = text
+          .split(/\r?\n/)
+          .map((line) => line.trimEnd())
+          .filter((line) => line.length > 0);
+
+        if (!lines.length) {
+          setBulkHeaderError("The CSV file is empty.");
+          return;
+        }
+
+        const header = parseCsvLine(lines[0]).map((h) => h.trim());
+        if (!header.length) {
+          setBulkHeaderError("Could not read header row from CSV.");
+          return;
+        }
+
+        setBulkColumns(header);
+
+        const lowerHeader = header.map((h) => h.toLowerCase());
+
+        const autoMap = (predicate) => {
+          const index = lowerHeader.findIndex(predicate);
+          return index >= 0 ? header[index] : "";
+        };
+
+        setBulkMapping((prev) => ({
+          name:
+            prev.name ||
+            autoMap((h) => h.includes("name") || h.includes("product")),
+          price:
+            prev.price || autoMap((h) => h.includes("price") || h === "amount"),
+          description:
+            prev.description ||
+            autoMap((h) => h.includes("description") || h.includes("details")),
+          stockQty:
+            prev.stockQty ||
+            autoMap((h) =>
+              h.includes("stock") || h.includes("quantity") || h === "qty"
+            ),
+          imageUrl:
+            prev.imageUrl ||
+            autoMap((h) => h.includes("image") || h.includes("photo")),
+        }));
+      } catch (error) {
+        setBulkHeaderError(
+          error?.message || "Failed to read CSV header. Please try again."
+        );
+        setBulkColumns([]);
+      }
+    };
+
+    reader.onerror = () => {
+      setBulkHeaderError("Failed to read CSV file.");
+      setBulkColumns([]);
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleImagesChange = (event) => {
+    const files = event?.target?.files;
+    const count = files ? files.length : 0;
+    setImageCount(count);
+
+    if (featuredIndex) {
+      const idx = Number(featuredIndex);
+      if (!Number.isInteger(idx) || idx >= count) {
+        setFeaturedIndex("");
+      }
+    }
   };
 
   return (
@@ -210,6 +541,628 @@ export default function ManageProductsContent() {
             );
           })}
         </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-1 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+        <div className="flex flex-col gap-2">
+          <h2 className="text-[#0A0A0A] text-xs font-medium font-inter">
+            Create Products for Vendor
+          </h2>
+          <p className="text-[#717182] text-[11px] font-poppins">
+            Search for a vendor, then create a single product or upload multiple
+            products from a CSV file (up to 200 rows per upload).
+          </p>
+        </div>
+
+        <section className="space-y-3">
+          {!selectedVendor && (
+            <div className="space-y-3">
+              <p className="text-[11px] font-medium text-[#717182]">
+                Step 1 - Choose Vendor
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <span className="absolute inset-y-0 left-3 flex items-center text-[#9CA3AF]">
+                    <Search className="size-3.5" />
+                  </span>
+                  <input
+                    type="text"
+                    value={vendorSearch}
+                    onChange={(event) => setVendorSearch(event.target.value)}
+                    placeholder="Search vendors by business name or email"
+                    className="w-full rounded-full border px-8 py-2 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-[#E5E7EB] bg-white max-h-64 overflow-y-auto text-xs">
+                {vendorLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-4 py-6 text-[11px] text-[#717182]">
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                    <span>Loading vendors e2 80 a6</span>
+                  </div>
+                ) : vendorError ? (
+                  <div className="px-4 py-6 text-[11px] text-red-600">
+                    {vendorError}
+                  </div>
+                ) : !vendorResults.length ? (
+                  <div className="px-4 py-6 text-[11px] text-[#717182]">
+                    Start typing to search for vendors by business name or email.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {vendorResults.map((vendor) => {
+                      const profile = vendor.profiles || {};
+                      const parts = [];
+                      if (profile.firstname) parts.push(profile.firstname);
+                      if (profile.lastname) parts.push(profile.lastname);
+                      const contactName =
+                        parts.join(" ") || profile.email || "-";
+                      const email = profile.email || "-";
+
+                      return (
+                        <li
+                          key={vendor.id}
+                          className="flex items-center justify-between gap-3 px-4 py-3"
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium text-[#0A0A0A]">
+                              {vendor.business_name || "Untitled Vendor"}
+                            </span>
+                            <span className="text-[11px] text-[#6A7282]">
+                              {contactName} - {email}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectVendor(vendor)}
+                            className="rounded-full px-3 py-1 text-[11px] font-medium border border-[#3979D2] bg-[#3979D2] text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+                          >
+                            Select
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
+
+          {selectedVendor && (
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 flex flex-col gap-1 text-[11px]">
+                  <span className="text-[#6B7280]">Selected Vendor</span>
+                  <span className="text-xs font-medium text-[#111827]">
+                    {selectedVendor.businessName}
+                  </span>
+                  <span className="text-[11px] text-[#6B7280]">
+                    {selectedVendor.contactName} - {selectedVendor.contactEmail}
+                  </span>
+                </div>
+                <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px]">
+                  {[
+                    { id: "single", label: "Single Product" },
+                    { id: "bulk", label: "Bulk from CSV" },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setCreateMode(tab.id)}
+                      className={
+                        "px-3 py-1.5 rounded-full cursor-pointer transition-colors " +
+                        (createMode === tab.id
+                          ? "bg-white text-[#0A0A0A] shadow-sm"
+                          : "text-[#6A7282] hover:text-[#0A0A0A]")
+                      }
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <form
+                action={createAction}
+                className="space-y-4 text-xs text-[#0A0A0A]"
+              >
+                <input type="hidden" name="vendorId" value={selectedVendor.id} />
+                <input type="hidden" name="mode" value={createMode} />
+                <input
+                  type="hidden"
+                  name="categoryId"
+                  value={selectedCategoryId || ""}
+                />
+                <input
+                  type="hidden"
+                  name="featuredImageIndex"
+                  value={featuredIndex || ""}
+                />
+
+                {createMode === "single" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium text-[#0A0A0A]">
+                        Category <span className="text-red-500">*</span>
+                      </label>
+                      <Select
+                        value={selectedCategoryId || ""}
+                        onValueChange={(value) =>
+                          setSelectedCategoryId(value || "")
+                        }
+                        disabled={categoriesLoading || createPending}
+                      >
+                        <SelectTrigger className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.name || "Untitled"}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {categoriesError ? (
+                        <p className="mt-1 text-[11px] text-red-600">
+                          {categoriesError}
+                        </p>
+                      ) : null}
+                      {(createState?.errors?.categoryId || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.categoryId.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="product-name"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Product Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="product-name"
+                        name="name"
+                        type="text"
+                        defaultValue={createState?.values?.name || ""}
+                        placeholder="e.g. Premium Gift Basket"
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.name || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.name.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="product-price"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Price (GHS) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="product-price"
+                        name="price"
+                        type="text"
+                        inputMode="decimal"
+                        defaultValue={createState?.values?.price || ""}
+                        placeholder="e.g. 250.00"
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.price || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.price.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="product-stock"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Stock Quantity
+                      </label>
+                      <input
+                        id="product-stock"
+                        name="stockQty"
+                        type="text"
+                        inputMode="numeric"
+                        defaultValue={createState?.values?.stockQty || ""}
+                        placeholder="e.g. 50"
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.stockQty || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.stockQty.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-[#717182]">
+                          Optional. Leave blank if stock is managed elsewhere.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="product-code"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Product ID
+                      </label>
+                      <input
+                        id="product-code"
+                        name="productCode"
+                        type="text"
+                        defaultValue={createState?.values?.productCode || ""}
+                        placeholder="Auto-generated if left blank"
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.productCode || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.productCode.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-[#717182]">
+                          Optional. If omitted, a product code will be generated.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-1">
+                      <label
+                        htmlFor="product-description"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Description
+                      </label>
+                      <textarea
+                        id="product-description"
+                        name="description"
+                        rows={3}
+                        defaultValue={createState?.values?.description || ""}
+                        placeholder="Short description of the product shown to guests."
+                        className="w-full rounded-lg border px-3 py-2 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.description || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.description.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-1">
+                      <label
+                        htmlFor="product-images"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Product Images
+                      </label>
+                      <input
+                        id="product-images"
+                        name="product_images"
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleImagesChange}
+                        className="block w-full text-[11px] text-[#4B5563] file:mr-3 file:rounded-full file:border file:border-[#D6D6D6] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-[#0A0A0A] hover:file:bg-[#F3F4F6]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.images || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.images.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-[#717182]">
+                          Upload up to 3 images per product. Each image must be 1MB or
+                          smaller. Images are uploaded to Cloudflare and stored as URLs
+                          on the product.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="text-xs font-medium text-[#0A0A0A]">
+                        Featured Image
+                      </label>
+                      <div className="flex flex-col gap-1 text-[11px] text-[#6B7280]">
+                        {imageCount <= 0 ? (
+                          <p>
+                            Select images above first. If you do not choose a featured
+                            image, the first uploaded image will be used.
+                          </p>
+                        ) : (
+                          <select
+                            value={featuredIndex}
+                            onChange={(e) => setFeaturedIndex(e.target.value)}
+                            className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                            disabled={createPending}
+                          >
+                            <option value="">
+                              Use first image as featured
+                            </option>
+                            {Array.from({ length: Math.min(imageCount, 3) }).map(
+                              (_, idx) => (
+                                <option key={idx} value={String(idx)}>
+                                  {`Image ${idx + 1}`}
+                                </option>
+                              )
+                            )}
+                          </select>
+                        )}
+                        {(createState?.errors?.featuredImageIndex || []).length ? (
+                          <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                            {createState.errors.featuredImageIndex.map(
+                              (err, index) => (
+                                <li key={index}>{err}</li>
+                              )
+                            )}
+                          </ul>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {createMode === "bulk" && (
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="bulk-file"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        CSV File <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="bulk-file"
+                        name="bulk_file"
+                        type="file"
+                        accept=".csv"
+                        onChange={handleBulkFileChange}
+                        className="block w-full text-[11px] text-[#4B5563] file:mr-3 file:rounded-full file:border file:border-[#D6D6D6] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-[#0A0A0A] hover:file:bg-[#F3F4F6]"
+                        disabled={createPending}
+                      />
+                      {bulkFileLabel ? (
+                        <p className="text-[11px] text-[#6A7282]">
+                          Selected: {bulkFileLabel}
+                        </p>
+                      ) : null}
+                      {bulkHeaderError ? (
+                        <p className="text-[11px] text-red-600 mt-1">
+                          {bulkHeaderError}
+                        </p>
+                      ) : null}
+                      {(createState?.errors?.bulkFile || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.bulkFile.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-[#717182]">
+                          Export from Excel or Google Sheets as a CSV with a header row.
+                          Maximum of 200 products per upload.
+                        </p>
+                      )}
+                    </div>
+
+                    <input
+                      type="hidden"
+                      name="bulk_mapping"
+                      value={JSON.stringify(bulkMapping)}
+                    />
+
+                    <div className="space-y-2">
+                      <p className="text-[11px] font-medium text-[#717182]">
+                        Step 2 - Map CSV Columns
+                      </p>
+                      {!bulkColumns.length ? (
+                        <p className="text-[11px] text-[#9CA3AF]">
+                          Upload a CSV file to configure column mappings.
+                        </p>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Product Name Column <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={bulkMapping.name}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  name: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Select column</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Price Column <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={bulkMapping.price}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  price: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Select column</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Description Column
+                            </label>
+                            <select
+                              value={bulkMapping.description}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  description: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Optional</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Stock Quantity Column
+                            </label>
+                            <select
+                              value={bulkMapping.stockQty}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  stockQty: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Optional</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Image URL Column
+                            </label>
+                            <select
+                              value={bulkMapping.imageUrl}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  imageUrl: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Optional</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      )}
+
+                      {(createState?.errors?.bulkMapping || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.bulkMapping.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                  </div>
+                )}
+
+                {createState?.message && hasCreateErrors && (
+                  <p className="text-[11px] text-red-600">
+                    {createState.message}
+                  </p>
+                )}
+
+                <div className="flex items-center justify-end gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedVendor(null);
+                      setVendorSearch("");
+                      setVendorResults([]);
+                    }}
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={createPending}
+                  >
+                    Change Vendor
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createPending}
+                    className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {createPending ? (
+                      <span className="inline-flex items-center gap-2">
+                        <LoaderCircle className="size-3.5 animate-spin" />
+                        <span>
+                          {createMode === "bulk"
+                            ? "Creating products e2 80 a6"
+                            : "Creating product e2 80 a6"}
+                        </span>
+                      </span>
+                    ) : createMode === "bulk" ? (
+                      "Create Products"
+                    ) : (
+                      "Create Product"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+        </section>
       </div>
 
       {/* <VendorRequestsTable /> */}

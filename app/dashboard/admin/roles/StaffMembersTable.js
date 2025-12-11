@@ -10,6 +10,8 @@ import {
   Pencil,
   RefreshCcw,
   Trash2,
+  Loader,
+  LoaderCircle,
 } from "lucide-react";
 import {
   useReactTable,
@@ -39,25 +41,30 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/Select";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
-import { updateStaffDetails, updateStaffStatus, resendStaffInvite } from "../action";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/app/components/Tooltip";
+import {
+  updateStaffDetails,
+  updateStaffStatus,
+  resendStaffInvite,
+} from "../action";
 
 const tableStyles = tv({
   slots: {
-    wrapper:
-      "mt-4 overflow-x-auto border border-[#D6D6D6] rounded-xl bg-white",
+    wrapper: "mt-4 overflow-x-auto border border-[#D6D6D6] rounded-xl bg-white",
     table: "min-w-full divide-y divide-gray-200",
     headRow: "bg-[#F9FAFB]",
     headCell:
       "px-4 py-3 text-left text-[11px] font-medium text-[#6A7282] tracking-wide",
     bodyRow: "border-b last:border-b-0 hover:bg-gray-50/60",
-    bodyCell:
-      "px-4 py-3 text-xs text-[#0A0A0A] align-middle whitespace-nowrap",
+    bodyCell: "px-4 py-3 text-xs text-[#0A0A0A] align-middle whitespace-nowrap",
   },
 });
 
-const { wrapper, table, headRow, headCell, bodyRow, bodyCell } =
-  tableStyles();
+const { wrapper, table, headRow, headCell, bodyRow, bodyCell } = tableStyles();
 
 const columnHelper = createColumnHelper();
 
@@ -169,12 +176,17 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
   );
 
   useEffect(() => {
-    if (!editState) return;
-    if (editState.message && editState.data && Object.keys(editState.data).length) {
+    //if (!editState) return;
+    if (
+      editState.message &&
+      editState.data &&
+      Object.keys(editState.data).length
+    ) {
       toast.success(editState.message);
       refreshStaff?.();
       setEditOpen(false);
-    } else if (
+    }
+    if (
       editState.message &&
       editState.errors &&
       Object.keys(editState.errors).length
@@ -184,7 +196,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
   }, [editState, refreshStaff]);
 
   useEffect(() => {
-    if (!statusState) return;
+    //if (!statusState) return;
     if (
       statusState.message &&
       statusState.data &&
@@ -193,7 +205,8 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
       toast.success(statusState.message);
       refreshStaff?.();
       setStatusOpen(false);
-    } else if (
+    }
+    if (
       statusState.message &&
       statusState.errors &&
       Object.keys(statusState.errors).length
@@ -203,14 +216,15 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
   }, [statusState, refreshStaff]);
 
   useEffect(() => {
-    if (!resendState) return;
+    //if (!resendState) return;
     if (
       resendState.message &&
       resendState.data &&
       Object.keys(resendState.data).length
     ) {
       toast.success(resendState.message);
-    } else if (
+    } 
+    if (
       resendState.message &&
       resendState.errors &&
       Object.keys(resendState.errors).length
@@ -257,9 +271,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
   const columns = useMemo(
     () => [
       columnHelper.accessor("name", {
-        header: ({ column }) => (
-          <SortableHeader column={column} title="Name" />
-        ),
+        header: ({ column }) => <SortableHeader column={column} title="Name" />,
         cell: (info) => (
           <span className="text-xs font-medium text-[#0A0A0A]">
             {info.getValue()}
@@ -275,9 +287,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
         ),
       }),
       columnHelper.accessor("role", {
-        header: ({ column }) => (
-          <SortableHeader column={column} title="Role" />
-        ),
+        header: ({ column }) => <SortableHeader column={column} title="Role" />,
         cell: (info) => (
           <span className="text-xs text-[#0A0A0A]">{info.getValue()}</span>
         ),
@@ -436,13 +446,14 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
   const canNext = pageIndex + 1 < pageCount;
 
   const selectedFullName = selectedStaff
-    ? [selectedStaff.firstname, selectedStaff.lastname].filter(Boolean).join(" ") ||
+    ? [selectedStaff.firstname, selectedStaff.lastname]
+        .filter(Boolean)
+        .join(" ") ||
       selectedStaff.email ||
       "—"
     : "";
 
-  const expectedConfirm =
-    statusMode === "suspend" ? "SUSPEND" : "DELETE STAFF";
+  const expectedConfirm = statusMode === "suspend" ? "SUSPEND" : "DELETE STAFF";
   const canSubmitStatus =
     confirmText.trim().toUpperCase() === expectedConfirm && !!selectedStaff;
 
@@ -486,10 +497,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
               <tr key={row.id} className={cx(bodyRow())}>
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
@@ -539,7 +547,9 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
                 </div>
                 <div>
                   <p className="font-medium">Status</p>
-                  <p className="text-[#6A7282]">{selectedStaff.status || "Active"}</p>
+                  <p className="text-[#6A7282]">
+                    {selectedStaff.status || "Active"}
+                  </p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -606,9 +616,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
                   id="edit-fullName"
                   name="fullName"
                   type="text"
-                  defaultValue={
-                    editState?.values?.fullName ?? selectedFullName
-                  }
+                  defaultValue={editState?.values?.fullName ?? selectedFullName}
                   className={cx(
                     "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                     "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -674,9 +682,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
                   }
                   onValueChange={(value) => {
                     // keep hidden input in sync via formData, no extra state needed
-                    const hidden = document.querySelector(
-                      "input[name='role']"
-                    );
+                    const hidden = document.querySelector("input[name='role']");
                     if (hidden) hidden.value = value;
                   }}
                   disabled={editPending}
@@ -747,9 +753,13 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
 
               <div className="space-y-2 text-xs text-[#0A0A0A]">
                 <p>
-                  Choose whether to <span className="font-semibold">suspend</span> or
-                  <span className="font-semibold"> permanently delete</span> this
-                  staff member.
+                  Choose whether to{" "}
+                  <span className="font-semibold">suspend</span> or
+                  <span className="font-semibold">
+                    {" "}
+                    permanently delete
+                  </span>{" "}
+                  this staff member.
                 </p>
                 <div className="inline-flex rounded-full bg-[#F1F2F6] p-1 gap-1">
                   <button
@@ -789,11 +799,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
                   htmlFor="confirmText"
                   className="text-xs font-medium text-[#0A0A0A]"
                 >
-                  Type
-                  {" "}
-                  <span className="font-semibold">
-                    {expectedConfirm}
-                  </span>{" "}
+                  Type <span className="font-semibold">{expectedConfirm}</span>{" "}
                   to confirm
                 </label>
                 <input
@@ -840,7 +846,13 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
                       : "border-[#3979D2] bg-[#3979D2] text-white hover:bg-white hover:text-[#3979D2]"
                   )}
                 >
-                  {statusMode === "delete" ? "Delete Staff" : "Suspend Staff"}
+                  {statusPending ? (
+                    <LoaderCircle className="animate-spin size-4" />
+                  ) : statusMode === "delete" ? (
+                    "Delete Staff"
+                  ) : (
+                    "Suspend Staff"
+                  )}
                 </button>
               </div>
             </form>
@@ -857,9 +869,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() =>
-              setStaffPage?.((prev) => (prev > 0 ? prev - 1 : 0))
-            }
+            onClick={() => setStaffPage?.((prev) => (prev > 0 ? prev - 1 : 0))}
             disabled={!canPrevious}
             className={cx(
               "flex h-7 w-7 items-center justify-center rounded-full border text-[#3979D2]",
