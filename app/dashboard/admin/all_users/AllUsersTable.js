@@ -10,6 +10,8 @@ import {
   Eye,
   RefreshCcw,
   Trash2,
+  Ban,
+  LoaderCircle,
 } from "lucide-react";
 import {
   useReactTable,
@@ -39,6 +41,7 @@ import { toast } from "sonner";
 import { useAllUsersContext } from "./context";
 import { useDashboardContext } from "../context";
 import { updateStaffStatus, resendStaffInvite } from "../action";
+import { deleteUser } from "./action";
 
 const tableStyles = tv({
   slots: {
@@ -86,6 +89,16 @@ const initialResendState = {
   data: {},
 };
 
+const initialDeleteState = {
+  message: "",
+  errors: {
+    staffId: [],
+    confirmText: [],
+  },
+  values: {},
+  data: {},
+};
+
 function SortableHeader({ column, title }) {
   const sorted = column.getIsSorted();
 
@@ -119,6 +132,8 @@ export default function AllUsersTable() {
   const [statusOpen, setStatusOpen] = useState(false);
   const [statusMode, setStatusMode] = useState("suspend");
   const [confirmText, setConfirmText] = useState("");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
   const {
     users,
@@ -140,6 +155,10 @@ export default function AllUsersTable() {
   const [resendState, resendAction, resendPending] = useActionState(
     resendStaffInvite,
     initialResendState
+  );
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    deleteUser,
+    initialDeleteState
   );
 
   useEffect(() => {
@@ -179,6 +198,26 @@ export default function AllUsersTable() {
       toast.error(resendState.message);
     }
   }, [resendState]);
+
+  useEffect(() => {
+    if (!deleteState) return;
+    if (
+      deleteState.message &&
+      deleteState.data &&
+      Object.keys(deleteState.data).length
+    ) {
+      toast.success(deleteState.message);
+      refreshUsers?.();
+      setDeleteOpen(false);
+    }
+    if (
+      deleteState.message &&
+      deleteState.errors &&
+      Object.keys(deleteState.errors).length
+    ) {
+      toast.error(deleteState.message);
+    }
+  }, [deleteState, refreshUsers]);
 
   const tableRows = useMemo(() => {
     if (!users || !users.length) return [];
@@ -317,6 +356,13 @@ export default function AllUsersTable() {
             setStatusOpen(true);
           };
 
+          const handleDelete = () => {
+            if (!isSuperAdmin) return;
+            setSelectedUser(raw);
+            setDeleteConfirmText("");
+            setDeleteOpen(true);
+          };
+
           return (
             <div className="flex justify-end items-center gap-2">
               <Tooltip>
@@ -350,19 +396,34 @@ export default function AllUsersTable() {
                   </Tooltip>
                 </form>
               )}
+              {isSuperAdmin && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      aria-label="Delete user"
+                      className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
+                    >
+                      <Trash2 className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Delete user</TooltipContent>
+                </Tooltip>
+              )}
               {isSuperAdmin && !isInvite && (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       onClick={handleStatus}
-                      aria-label="Suspend or delete user"
+                      aria-label="Suspend user"
                       className="p-1 rounded-full border border-red-200 text-red-500 hover:bg-red-50 cursor-pointer"
                     >
-                      <Trash2 className="size-4" />
+                      <Ban className="size-4" />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Suspend or delete user</TooltipContent>
+                  <TooltipContent>Suspend user</TooltipContent>
                 </Tooltip>
               )}
             </div>
@@ -531,6 +592,70 @@ export default function AllUsersTable() {
               </button>
             </DialogClose>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Delete User
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Only Super Admins can perform this action.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <form action={deleteAction} className="mt-3 space-y-4">
+              <input type="hidden" name="staffId" value={selectedUser.id} />
+
+              <div className="space-y-1">
+                <label
+                  htmlFor="deleteConfirmText"
+                  className="text-xs font-medium text-[#0A0A0A]"
+                >
+                  Type <span className="font-semibold">DELETE USER</span> to
+                  confirm
+                </label>
+                <input
+                  id="deleteConfirmText"
+                  name="confirmText"
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                  placeholder="DELETE USER"
+                  disabled={deletePending}
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={deletePending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={
+                    deletePending ||
+                    !deleteConfirmText.trim() ||
+                    deleteConfirmText.trim().toUpperCase() !== "DELETE USER"
+                  }
+                  className={cx(
+                    "inline-flex items-center justify-center rounded-full border px-6 py-2 text-xs font-medium cursor-pointer",
+                    "border-red-500 bg-red-500 text-white hover:bg-white hover:text-red-600"
+                  )}
+                >
+                  {deletePending ? <LoaderCircle className="animate-spin size-4" /> : "Delete User"}
+                </button>
+              </div>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
 
