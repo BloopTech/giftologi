@@ -12,6 +12,11 @@ export default function StaticPagesTab(props) {
     currentTab,
     isLoading,
     staticPageRows,
+    focusId,
+    focusEntity,
+    setFocusId,
+    setFocusEntity,
+    makeFocusDomId,
     staticPageStatusVariant,
     formatDate,
     wrapper,
@@ -25,6 +30,21 @@ export default function StaticPagesTab(props) {
   const [editOpen, setEditOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedPage, setSelectedPage] = useState(null);
+
+  React.useEffect(() => {
+    if (currentTab !== "static_pages") return;
+    if (!focusId) return;
+    if (String(focusEntity || "").toLowerCase() !== "content_static_page") return;
+    if (viewOpen) return;
+
+    const match = (staticPageRows || []).find((row) => row?.id === focusId);
+    if (!match) return;
+
+    setSelectedPage(match);
+    setViewOpen(true);
+    setFocusId?.("");
+    setFocusEntity?.("");
+  }, [currentTab, focusId, focusEntity, staticPageRows, viewOpen, setFocusId, setFocusEntity]);
 
   const handleNew = () => {
     setSelectedPage(null);
@@ -87,7 +107,19 @@ export default function StaticPagesTab(props) {
                   </tr>
                 ) : staticPageRows.length ? (
                   staticPageRows.map((page) => (
-                    <tr key={page.id} className={cx(bodyRow())}>
+                    <tr
+                      key={page.id}
+                      id={makeFocusDomId?.("content_static_page", page.id)}
+                      className={
+                        cx(bodyRow()) +
+                        (focusId &&
+                        String(focusEntity || "").toLowerCase() ===
+                          "content_static_page" &&
+                        page.id === focusId
+                          ? " bg-[#F3F6FF]"
+                          : "")
+                      }
+                    >
                       <td className={cx(bodyCell())}>
                         <span className="text-xs font-medium text-[#0A0A0A]">
                           {page.title || "Untitled page"}

@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { Plus, Eye, Pencil } from "lucide-react";
+import { Plus, Eye, Pencil, Search } from "lucide-react";
 import { tv } from "tailwind-variants";
 import { cx } from "@/app/components/utils";
 import { Badge } from "@/app/components/Badge";
@@ -56,6 +56,12 @@ export default function ContentPolicyContent() {
   const {
     activeTab,
     setActiveTab,
+    searchQuery,
+    setSearchQuery,
+    focusId,
+    setFocusId,
+    focusEntity,
+    setFocusEntity,
     staticPages,
     emailTemplates,
     faqs,
@@ -68,13 +74,99 @@ export default function ContentPolicyContent() {
   const currentTab = activeTab || "static_pages";
   const isLoading = !!loading;
 
-  const staticPageRows = Array.isArray(staticPages) ? staticPages : [];
-  const emailTemplateRows = Array.isArray(emailTemplates) ? emailTemplates : [];
-  const faqRows = Array.isArray(faqs) ? faqs : [];
+  const normalize = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const q = normalize(searchQuery);
+
+  const staticPageRowsAll = Array.isArray(staticPages) ? staticPages : [];
+  const emailTemplateRowsAll = Array.isArray(emailTemplates) ? emailTemplates : [];
+  const faqRowsAll = Array.isArray(faqs) ? faqs : [];
   const contactSettingsValue = contactSettings || null;
-  const contactSubmissionRows = Array.isArray(contactSubmissions)
+  const contactSubmissionRowsAll = Array.isArray(contactSubmissions)
     ? contactSubmissions
     : [];
+
+  const staticPageRows = React.useMemo(() => {
+    if (!q) return staticPageRowsAll;
+    return staticPageRowsAll.filter((row) =>
+      normalize(`${row.title || ""} ${row.slug || ""} ${row.status || ""}`).includes(q)
+    );
+  }, [q, staticPageRowsAll]);
+
+  const emailTemplateRows = React.useMemo(() => {
+    if (!q) return emailTemplateRowsAll;
+    return emailTemplateRowsAll.filter((row) =>
+      normalize(
+        `${row.name || ""} ${row.subject || ""} ${row.category || ""} ${row.recipient_type || ""} ${row.status || ""}`
+      ).includes(q)
+    );
+  }, [q, emailTemplateRowsAll]);
+
+  const faqRows = React.useMemo(() => {
+    if (!q) return faqRowsAll;
+    return faqRowsAll.filter((row) =>
+      normalize(
+        `${row.question || ""} ${row.answer || ""} ${row.category || ""} ${row.visibility || ""}`
+      ).includes(q)
+    );
+  }, [q, faqRowsAll]);
+
+  const contactSubmissionRows = React.useMemo(() => {
+    if (!q) return contactSubmissionRowsAll;
+    return contactSubmissionRowsAll.filter((row) =>
+      normalize(
+        `${row.name || ""} ${row.email || ""} ${row.subject || ""} ${row.message || ""} ${row.status || ""}`
+      ).includes(q)
+    );
+  }, [q, contactSubmissionRowsAll]);
+
+  const resolveFocusTab = React.useCallback(
+    (entity) => {
+      const key = String(entity || "").toLowerCase();
+      if (key === "content_static_page") return "static_pages";
+      if (key === "content_email_template") return "email_templates";
+      if (key === "content_faq") return "faq";
+      if (key === "content_contact_submission" || key === "content_contact_settings") {
+        return "contact_info";
+      }
+      return null;
+    },
+    []
+  );
+
+  React.useEffect(() => {
+    if (!focusId) return;
+    const neededTab = resolveFocusTab(focusEntity);
+    if (!neededTab) return;
+    if (currentTab !== neededTab) {
+      setActiveTab?.(neededTab);
+    }
+  }, [focusId, focusEntity, currentTab, setActiveTab, resolveFocusTab]);
+
+  const makeFocusDomId = React.useCallback((entity, id) => {
+    const safeEntity = encodeURIComponent(String(entity || "").toLowerCase());
+    const safeId = encodeURIComponent(String(id || ""));
+    return `content-policy-${safeEntity}-${safeId}`;
+  }, []);
+
+  React.useEffect(() => {
+    if (!focusId) return;
+    if (!focusEntity) return;
+    const el =
+      typeof document !== "undefined"
+        ? document.getElementById(makeFocusDomId(focusEntity, focusId))
+        : null;
+    if (!el) return;
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (_) {
+      el.scrollIntoView();
+    }
+  }, [focusId, focusEntity, makeFocusDomId, currentTab]);
 
   return (
     <div className="flex flex-col space-y-4 w-full mb-[2rem]">
@@ -86,6 +178,19 @@ export default function ContentPolicyContent() {
           <span className="text-[#717182] text-xs/4 font-poppins">
             Manage static pages, email templates, and FAQs.
           </span>
+        </div>
+
+        <div className="max-w-md w-full">
+          <div className="flex items-center gap-2 rounded-full border border-[#D6D6D6] bg-white px-4 py-2.5">
+            <Search className="size-4 text-[#717182]" />
+            <input
+              type="text"
+              value={searchQuery || ""}
+              onChange={(event) => setSearchQuery?.(event.target.value)}
+              placeholder="Search content (pages, templates, FAQs, contact submissions)..."
+              className="w-full bg-transparent outline-none text-xs text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+            />
+          </div>
         </div>
       </div>
 
@@ -124,6 +229,11 @@ export default function ContentPolicyContent() {
         currentTab={currentTab}
         isLoading={isLoading}
         staticPageRows={staticPageRows}
+        focusId={focusId}
+        focusEntity={focusEntity}
+        setFocusId={setFocusId}
+        setFocusEntity={setFocusEntity}
+        makeFocusDomId={makeFocusDomId}
         staticPageStatusVariant={staticPageStatusVariant}
         formatDate={formatDate}
         wrapper={wrapper}
@@ -138,6 +248,11 @@ export default function ContentPolicyContent() {
         currentTab={currentTab}
         isLoading={isLoading}
         emailTemplateRows={emailTemplateRows}
+        focusId={focusId}
+        focusEntity={focusEntity}
+        setFocusId={setFocusId}
+        setFocusEntity={setFocusEntity}
+        makeFocusDomId={makeFocusDomId}
         emailStatusVariant={emailStatusVariant}
         wrapper={wrapper}
         table={table}
@@ -151,6 +266,11 @@ export default function ContentPolicyContent() {
         currentTab={currentTab}
         isLoading={isLoading}
         faqRows={faqRows}
+        focusId={focusId}
+        focusEntity={focusEntity}
+        setFocusId={setFocusId}
+        setFocusEntity={setFocusEntity}
+        makeFocusDomId={makeFocusDomId}
         visibilityVariant={visibilityVariant}
         wrapper={wrapper}
         table={table}
@@ -165,6 +285,11 @@ export default function ContentPolicyContent() {
         isLoading={isLoading}
         contactSettingsValue={contactSettingsValue}
         contactSubmissionRows={contactSubmissionRows}
+        focusId={focusId}
+        focusEntity={focusEntity}
+        setFocusId={setFocusId}
+        setFocusEntity={setFocusEntity}
+        makeFocusDomId={makeFocusDomId}
         formatDate={formatDate}
         wrapper={wrapper}
         table={table}

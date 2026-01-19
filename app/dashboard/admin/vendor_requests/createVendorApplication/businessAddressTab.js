@@ -17,7 +17,6 @@ export default function BusinessAddressTab(props) {
             <input
               name="streetAddress"
               type="text"
-              defaultValue={state?.values?.streetAddress ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -32,7 +31,6 @@ export default function BusinessAddressTab(props) {
             <input
               name="city"
               type="text"
-              defaultValue={state?.values?.city ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -47,7 +45,6 @@ export default function BusinessAddressTab(props) {
             <input
               name="region"
               type="text"
-              defaultValue={state?.values?.region ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -62,7 +59,6 @@ export default function BusinessAddressTab(props) {
             <input
               name="postalCode"
               type="text"
-              defaultValue={state?.values?.postalCode ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",

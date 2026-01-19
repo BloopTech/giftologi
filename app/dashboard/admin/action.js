@@ -347,6 +347,8 @@ export async function manageRoles(prevState, queryData) {
     details: `Created staff ${email} with role ${role}`,
   });
 
+  revalidatePath("/dashboard/admin");
+
   return {
     message: "Staff member created.",
     errors: {},
@@ -457,6 +459,8 @@ export async function updateStaffDetails(prevState, formData) {
     targetId: staffId,
     details: `Updated staff ${staffId} details (role: ${role})`,
   });
+
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Staff details updated successfully.",
@@ -583,6 +587,8 @@ export async function resendStaffInvite(prevState, formData) {
     targetId: staffId,
     details: `Resent staff invite to ${signupProfile.email} (${signupProfile.role})`,
   });
+
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "We've sent a new invite email to this staff member.",
@@ -739,6 +745,8 @@ export async function updateStaffStatus(prevState, formData) {
       details: `Deleted pending staff invite ${staffId}`,
     });
 
+    revalidatePath("/dashboard/admin");
+
     return {
       message: "Staff member has been deleted.",
       errors: {},
@@ -807,6 +815,8 @@ export async function updateStaffStatus(prevState, formData) {
         ? `Suspended staff member ${staffId}`
         : `Deleted staff member ${staffId}`,
   });
+
+  revalidatePath("/dashboard/admin");
 
   return {
     message:
@@ -1086,6 +1096,8 @@ export async function createVendor(prevState, formData) {
     targetId: vendor?.id || userId,
     details: `Created vendor ${businessName} (${email})`,
   });
+
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Vendor created.",

@@ -15,11 +15,27 @@ const ContentsPolicyContext = createContext();
 const DEFAULT_TAB = "static_pages";
 
 function useContentsPolicyValue() {
+  const [searchParam, setSearchParam] = useQueryState(
+    "q",
+    parseAsString.withDefault("")
+  );
   const [tabParam, setTabParam] = useQueryState(
     "tab",
     parseAsString.withDefault(DEFAULT_TAB)
   );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault("")
+  );
+  const [focusEntityParam, setFocusEntityParam] = useQueryState(
+    "focusEntity",
+    parseAsString.withDefault("")
+  );
+
+  const searchQuery = searchParam || "";
   const activeTab = tabParam || DEFAULT_TAB;
+  const focusId = focusIdParam || "";
+  const focusEntity = focusEntityParam || "";
 
   const [staticPages, setStaticPages] = useState([]);
   const [emailTemplates, setEmailTemplates] = useState([]);
@@ -125,10 +141,37 @@ function useContentsPolicyValue() {
     setVersion((prev) => prev + 1);
   }, []);
 
+  const setSearchQuery = useCallback(
+    (value) => {
+      setSearchParam(value || "");
+    },
+    [setSearchParam]
+  );
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam]
+  );
+
+  const setFocusEntity = useCallback(
+    (value) => {
+      setFocusEntityParam(value || "");
+    },
+    [setFocusEntityParam]
+  );
+
   return useMemo(
     () => ({
+      searchQuery,
+      setSearchQuery,
       activeTab,
       setActiveTab: setTabParam,
+      focusId,
+      setFocusId,
+      focusEntity,
+      setFocusEntity,
       staticPages,
       emailTemplates,
       faqs,
@@ -139,8 +182,14 @@ function useContentsPolicyValue() {
       refresh,
     }),
     [
+      searchQuery,
+      setSearchQuery,
       activeTab,
       setTabParam,
+      focusId,
+      setFocusId,
+      focusEntity,
+      setFocusEntity,
       staticPages,
       emailTemplates,
       faqs,

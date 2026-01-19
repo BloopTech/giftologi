@@ -23,18 +23,33 @@ export default function SearchEngine() {
   const [query, setQuery] = useState("");
   const [typeValue, setTypeValue] = useState("all");
   const [statusValue, setStatusValue] = useState("all");
+  const [groups, setGroups] = useState([]);
   const [results, setResults] = useState([]);
   const [message, setMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const [debouncedQuery] = useDebounce(query, 300);
+
+  const flattenGroups = (inputGroups) =>
+    (Array.isArray(inputGroups) ? inputGroups : []).flatMap((group) =>
+      (group?.results || []).map((result) => ({
+        ...result,
+        __pageKey: group?.pageKey,
+        __pageTitle: group?.pageTitle,
+      }))
+    );
+
+  const flattenedResults = flattenGroups(groups);
 
   useEffect(() => {
     if (!open) return;
     const term = debouncedQuery.trim();
 
     if (!term) {
+      setGroups([]);
       setResults([]);
       setMessage("");
+      setActiveIndex(-1);
       return;
     }
 
@@ -62,21 +77,30 @@ export default function SearchEngine() {
         if (!res.ok) {
           if (!isCancelled) {
             setMessage(data?.message || "Unable to fetch results");
+            setGroups([]);
             setResults([]);
+            setActiveIndex(-1);
           }
           return;
         }
 
         if (!isCancelled) {
-          setResults(data?.results || []);
+          const nextGroups = Array.isArray(data?.groups) ? data.groups : [];
+          const nextResults = Array.isArray(data?.results) ? data.results : [];
+          setGroups(nextGroups);
+          setResults(nextGroups.length ? flattenGroups(nextGroups) : nextResults);
           setMessage(
-            data?.message || (data?.results?.length ? "" : "No results found")
+            data?.message ||
+              ((nextGroups.length || nextResults.length) ? "" : "No results found")
           );
+          setActiveIndex(-1);
         }
       } catch (error) {
         if (!isCancelled) {
           setMessage("Unable to fetch results");
+          setGroups([]);
           setResults([]);
+          setActiveIndex(-1);
         }
       } finally {
         if (!isCancelled) {
@@ -90,6 +114,12 @@ export default function SearchEngine() {
     };
   }, [open, debouncedQuery, typeValue, statusValue]);
 
+  useEffect(() => {
+    if (!open) {
+      setActiveIndex(-1);
+    }
+  }, [open]);
+
   const handleResultClick = (result) => {
     if (!result?.navigate?.path) return;
 
@@ -101,20 +131,62 @@ export default function SearchEngine() {
           searchParams.set(key, String(value));
         }
       });
-    } else {
-      if (query) {
-        searchParams.set("q", query);
-      }
-      const entityType = result.entityType || "vendor";
-      searchParams.set("type", entityType);
+    }
+    if (!result.navigate?.query) {
+      searchParams.set("q", query);
+      searchParams.set("status", statusValue);
       if (result.id) {
         searchParams.set("focusId", result.id);
       }
       searchParams.set("page", "1");
     }
 
-    router.push(`${result.navigate.path}?${searchParams.toString()}`);
+    const qs = searchParams.toString();
+    if (!qs) {
+      router.push(result.navigate.path);
+    } else if (String(result.navigate.path).includes("?")) {
+      router.push(`${result.navigate.path}&${qs}`);
+    } else {
+      router.push(`${result.navigate.path}?${qs}`);
+    }
     setOpen(false);
+  };
+
+  const handleKeyDown = (event) => {
+    if (!open) return;
+    const list = groups?.length ? flattenedResults : results;
+    if (!Array.isArray(list) || !list.length) return;
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      setActiveIndex((prev) => {
+        const next = prev + 1;
+        return next >= list.length ? 0 : next;
+      });
+      return;
+    }
+
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex((prev) => {
+        const next = prev - 1;
+        return next < 0 ? list.length - 1 : next;
+      });
+      return;
+    }
+
+    if (event.key === "Enter") {
+      if (activeIndex >= 0 && activeIndex < list.length) {
+        event.preventDefault();
+        handleResultClick(list[activeIndex]);
+      }
+      return;
+    }
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      setOpen(false);
+    }
   };
 
   return (
@@ -134,7 +206,7 @@ export default function SearchEngine() {
       >
         <Search className="size-4 text-[#717182] mr-2" />
         <span className="text-[#717182]">
-          {query ? query : "Search all users here"}
+          {query ? query : "Search anything (users, registries, products, orders...)"}
         </span>
       </button>
 
@@ -153,7 +225,8 @@ export default function SearchEngine() {
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search all users here"
+                onKeyDown={handleKeyDown}
+                placeholder="Search anything (users, registries, products, orders...)"
                 className="flex-1 bg-transparent text-xs outline-none text-[#0A0A0A]"
               />
             </div>
@@ -174,9 +247,20 @@ export default function SearchEngine() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="vendor">Vendor</SelectItem>
-                  <SelectItem value="host">Host</SelectItem>
-                  <SelectItem value="guest">Guest</SelectItem>
+                  <SelectItem value="pages">Pages</SelectItem>
+                  <SelectItem value="users">Users</SelectItem>
+                  <SelectItem value="staff">Staff</SelectItem>
+                  <SelectItem value="vendor">Vendors</SelectItem>
+                  <SelectItem value="host">Hosts</SelectItem>
+                  <SelectItem value="guest">Guests</SelectItem>
+                  <SelectItem value="registry">Registries</SelectItem>
+                  <SelectItem value="products">Products</SelectItem>
+                  <SelectItem value="transactions">Transactions</SelectItem>
+                  <SelectItem value="payouts">Payouts</SelectItem>
+                  <SelectItem value="tickets">Support Tickets</SelectItem>
+                  <SelectItem value="content">Content</SelectItem>
+                  <SelectItem value="activity_log">Activity Log</SelectItem>
+                  <SelectItem value="notifications">Notifications</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -187,8 +271,24 @@ export default function SearchEngine() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="approved">Approved</SelectItem>
+                  <SelectItem value="rejected">Rejected</SelectItem>
+                  <SelectItem value="flagged">Flagged</SelectItem>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="in_progress">In progress</SelectItem>
+                  <SelectItem value="escalated">Escalated</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="shipped">Shipped</SelectItem>
+                  <SelectItem value="delivered">Delivered</SelectItem>
+                  <SelectItem value="disputed">Disputed</SelectItem>
+                  <SelectItem value="verified">Verified</SelectItem>
+                  <SelectItem value="unverified">Unverified</SelectItem>
+                  <SelectItem value="read">Read</SelectItem>
+                  <SelectItem value="unread">Unread</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -201,36 +301,105 @@ export default function SearchEngine() {
             {!isLoading && message && !results.length ? (
               <p className="text-xs text-[#717182]">{message}</p>
             ) : null}
-            {results.length ? (
-              <ul className="space-y-1">
-                {results.map((result) => (
-                  <li key={`${result.entityType}-${result.id}`}>
-                    <button
-                      type="button"
-                      onClick={() => handleResultClick(result)}
-                      className="w-full flex flex-col items-start rounded-lg border border-[#D6D6D6] bg-white px-3 py-2 text-left hover:border-[#3979D2] hover:bg-[#F3F6FF] cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span className="text-xs font-medium text-[#0A0A0A]">
-                          {result.title}
-                        </span>
-                        <span className="text-[10px] rounded-full border border-[#D6D6D6] px-2 py-0.5 text-[#717182] capitalize">
-                          {result.entityType}
-                        </span>
-                      </div>
-                      {result.subtitle ? (
-                        <p className="mt-1 text-[11px] text-[#717182]">
-                          {result.subtitle}
-                        </p>
-                      ) : null}
-                      {result.status ? (
-                        <p className="mt-1 text-[10px] text-[#3979D2]">
-                          {result.status}
-                        </p>
-                      ) : null}
-                    </button>
-                  </li>
+            {groups?.length ? (
+              <div className="space-y-4">
+                {groups.map((group) => (
+                  <div key={group.pageKey} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-medium text-[#717182]">
+                        {group.pageTitle}
+                      </span>
+                      <span className="text-[10px] text-[#B0B7C3]">
+                        {(group.results || []).length}
+                      </span>
+                    </div>
+                    <ul className="space-y-1">
+                      {(group.results || []).map((result) => {
+                        const flatIndex = flattenedResults.findIndex(
+                          (row) =>
+                            row.id === result.id &&
+                            row.entityType === result.entityType &&
+                            row.__pageKey === group.pageKey
+                        );
+                        const isActive = flatIndex === activeIndex;
+
+                        return (
+                          <li key={`${group.pageKey}-${result.entityType}-${result.id}`}>
+                            <button
+                              type="button"
+                              onClick={() => handleResultClick(result)}
+                              className={
+                                "w-full flex flex-col items-start rounded-lg border bg-white px-3 py-2 text-left cursor-pointer " +
+                                (isActive
+                                  ? "border-[#3979D2] bg-[#F3F6FF]"
+                                  : "border-[#D6D6D6] hover:border-[#3979D2] hover:bg-[#F3F6FF]")
+                              }
+                            >
+                              <div className="flex items-center justify-between w-full">
+                                <span className="text-xs font-medium text-[#0A0A0A]">
+                                  {result.title}
+                                </span>
+                                <span className="text-[10px] rounded-full border border-[#D6D6D6] px-2 py-0.5 text-[#717182] capitalize">
+                                  {result.entityType}
+                                </span>
+                              </div>
+                              {result.subtitle ? (
+                                <p className="mt-1 text-[11px] text-[#717182]">
+                                  {result.subtitle}
+                                </p>
+                              ) : null}
+                              {result.status ? (
+                                <p className="mt-1 text-[10px] text-[#3979D2]">
+                                  {result.status}
+                                </p>
+                              ) : null}
+                            </button>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
                 ))}
+              </div>
+            ) : results.length ? (
+              <ul className="space-y-1">
+                {results.map((result, idx) => {
+                  const isActive = idx === activeIndex;
+
+                  return (
+                    <li key={`${result.entityType}-${result.id}`}>
+                      <button
+                        type="button"
+                        onClick={() => handleResultClick(result)}
+                        className={
+                          "w-full flex flex-col items-start rounded-lg border bg-white px-3 py-2 text-left cursor-pointer " +
+                          (isActive
+                            ? "border-[#3979D2] bg-[#F3F6FF]"
+                            : "border-[#D6D6D6] hover:border-[#3979D2] hover:bg-[#F3F6FF]")
+                        }
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-xs font-medium text-[#0A0A0A]">
+                            {result.title}
+                          </span>
+                          <span className="text-[10px] rounded-full border border-[#D6D6D6] px-2 py-0.5 text-[#717182] capitalize">
+                            {result.entityType}
+                          </span>
+                        </div>
+                        {result.subtitle ? (
+                          <p className="mt-1 text-[11px] text-[#717182]">
+                            {result.subtitle}
+                          </p>
+                        ) : null}
+                        {result.status ? (
+                          <p className="mt-1 text-[10px] text-[#3979D2]">
+                            {result.status}
+                          </p>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
               </ul>
             ) : null}
           </div>

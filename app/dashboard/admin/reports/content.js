@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { PiFileText, PiDownloadSimple } from "react-icons/pi";
 import { useGenerateReportsContext } from "./context";
 
@@ -16,7 +16,22 @@ export default function GenerateReportsContent() {
     exportingReportId,
     error,
     generateReport,
+    focusId,
   } = useGenerateReportsContext() || {};
+
+  const lastAppliedFocusIdRef = useRef("");
+  const focusIdValue = focusId ? String(focusId).trim() : "";
+
+  useEffect(() => {
+    if (!focusIdValue) return;
+    if (lastAppliedFocusIdRef.current === focusIdValue) return;
+
+    const el = document.getElementById(`report-card-${focusIdValue}`);
+    if (!el) return;
+
+    lastAppliedFocusIdRef.current = focusIdValue;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusIdValue]);
 
   const handleGenerate = async (reportId) => {
     if (!generateReport) return;
@@ -63,11 +78,17 @@ export default function GenerateReportsContent() {
 
   const renderReportCard = (report) => {
     const isExporting = exportingReportId === report.id;
+    const isFocused = !!focusIdValue && String(report.id) === focusIdValue;
 
     return (
       <div
         key={report.id}
-        className="flex flex-col justify-between rounded-xl border border-[#D6D6D6] bg-white p-4 space-y-3"
+        id={`report-card-${report.id}`}
+        className={
+          isFocused
+            ? "flex flex-col justify-between rounded-xl border border-[#D6D6D6] bg-[#EEF4FF] p-4 space-y-3 outline outline-[#3979D2] outline-offset-[-1px]"
+            : "flex flex-col justify-between rounded-xl border border-[#D6D6D6] bg-white p-4 space-y-3"
+        }
       >
         <div className="flex items-start gap-2">
           <div className="flex items-center justify-center rounded-full bg-[#F1F2F6] text-[#3979D2] w-7 h-7 mt-0.5">

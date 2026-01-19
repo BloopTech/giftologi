@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { useQueryState, parseAsString } from "nuqs";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
@@ -14,20 +15,62 @@ const RolesContext = createContext();
 
 export const RolesProvider = ({ children }) => {
   const [staff, setStaff] = useState([]);
-  const [staffPage, setStaffPage] = useState(0);
   const [pageSize] = useState(10);
   const [staffTotal, setStaffTotal] = useState(0);
   const [loadingStaff, setLoadingStaff] = useState(false);
   const [errorStaff, setErrorStaff] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
   const refreshStaff = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
   }, [setRefreshKey]);
+  
   const [searchParam, setSearchParam] = useQueryState(
     "q",
     parseAsString.withDefault("")
   );
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault("1")
+  );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault("")
+  );
   const staffSearchTerm = searchParam || "";
+  const focusId = focusIdParam || "";
+  const lastAppliedFocusIdRef = useRef("");
+
+  const staffPage = useMemo(() => {
+    const num = parseInt(pageParam || "1", 10);
+    if (Number.isNaN(num) || num < 1) return 0;
+    return num - 1;
+  }, [pageParam]);
+
+  const setStaffPage = useCallback(
+    (next) => {
+      const resolved =
+        typeof next === "function" ? next(staffPage) : Number(next);
+      const safe = Number.isFinite(resolved) && resolved >= 0 ? resolved : 0;
+      setPageParam(String(safe + 1));
+    },
+    [staffPage, setPageParam]
+  );
+
+  const setStaffSearchTerm = useCallback(
+    (value) => {
+      setSearchParam(value || "");
+      setPageParam("1");
+    },
+    [setSearchParam, setPageParam]
+  );
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam]
+  );
   const [currentAdmin, setCurrentAdmin] = useState(null);
   const [loadingCurrentAdmin, setLoadingCurrentAdmin] = useState(true);
 
@@ -191,11 +234,77 @@ export const RolesProvider = ({ children }) => {
             // ignore auth metadata enrichment failures
           }
 
+          const focusValue = focusId ? String(focusId).trim() : "";
+          const totalProfiles = count ?? (baseRows ? baseRows.length : 0);
+          const totalForFooter = totalProfiles + pendingInvites.length;
+
+          if (focusValue && lastAppliedFocusIdRef.current !== focusValue) {
+            const inPage = (enriched || []).some(
+              (row) => row && String(row.id) === focusValue
+            );
+
+            if (!inPage) {
+              const focusLookup = await supabase
+                .from("profiles")
+                .select("id, created_at")
+                .eq("id", focusValue)
+                .maybeSingle();
+
+              if (focusLookup?.data?.id && focusLookup.data.created_at) {
+                let verifyQuery = supabase
+                  .from("profiles")
+                  .select("id")
+                  .eq("id", focusLookup.data.id)
+                  .in("role", staffRoles);
+
+                if (staffSearchTerm && staffSearchTerm.trim()) {
+                  const term = staffSearchTerm.trim();
+                  verifyQuery = verifyQuery.textSearch("search_vector", term, {
+                    type: "websearch",
+                    config: "simple",
+                  });
+                }
+
+                const verifyResult = await verifyQuery.maybeSingle();
+
+                if (verifyResult?.data?.id) {
+                  let rankQuery = supabase
+                    .from("profiles")
+                    .select("id", { count: "exact", head: true })
+                    .in("role", staffRoles)
+                    .gt("created_at", focusLookup.data.created_at);
+
+                  if (staffSearchTerm && staffSearchTerm.trim()) {
+                    const term = staffSearchTerm.trim();
+                    rankQuery = rankQuery.textSearch("search_vector", term, {
+                      type: "websearch",
+                      config: "simple",
+                    });
+                  }
+
+                  const rankResult = await rankQuery;
+                  const beforeCount =
+                    typeof rankResult?.count === "number" ? rankResult.count : 0;
+                  const desiredPage = Math.floor(beforeCount / pageSize);
+                  lastAppliedFocusIdRef.current = focusValue;
+
+                  if (desiredPage !== staffPage) {
+                    setPageParam(String(desiredPage + 1));
+                    setStaff([]);
+                    setStaffTotal(totalForFooter);
+                    return;
+                  }
+                }
+              }
+            } else {
+              lastAppliedFocusIdRef.current = focusValue;
+            }
+          }
+
           // Staff array includes both real staff profiles and pending invites.
           // Ensure the total used in the footer reflects both.
           setStaff(enriched);
-          const totalProfiles = count ?? (baseRows ? baseRows.length : 0);
-          setStaffTotal(totalProfiles + pendingInvites.length);
+          setStaffTotal(totalForFooter);
         }
       } catch (error) {
         if (!ignore) {
@@ -214,7 +323,7 @@ export const RolesProvider = ({ children }) => {
     return () => {
       ignore = true;
     };
-  }, [staffPage, pageSize, refreshKey, staffSearchTerm]);
+  }, [staffPage, pageSize, refreshKey, staffSearchTerm, focusId, setPageParam]);
 
   useEffect(() => {
     let ignore = false;
@@ -277,7 +386,9 @@ export const RolesProvider = ({ children }) => {
       setStaffPage,
       refreshStaff,
       staffSearchTerm,
-      setStaffSearchTerm: setSearchParam,
+      setStaffSearchTerm,
+      focusId,
+      setFocusId,
       currentAdmin,
       loadingCurrentAdmin,
     }),
@@ -289,10 +400,13 @@ export const RolesProvider = ({ children }) => {
       loadingStaff,
       errorStaff,
       staffSearchTerm,
+      setStaffSearchTerm,
+      focusId,
+      setFocusId,
       currentAdmin,
       loadingCurrentAdmin,
       refreshStaff,
-      setSearchParam,
+      setStaffPage,
     ]
   );
 

@@ -23,7 +23,6 @@ export default function OwnerReferencesTab(props) {
               <input
                 name={`ref${index}Name`}
                 type="text"
-                defaultValue={state?.values?.[`ref${index}Name`] ?? ""}
                 placeholder="Name"
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white mb-1",
@@ -35,7 +34,6 @@ export default function OwnerReferencesTab(props) {
               <input
                 name={`ref${index}Company`}
                 type="text"
-                defaultValue={state?.values?.[`ref${index}Company`] ?? ""}
                 placeholder="Company"
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white mb-1",
@@ -47,7 +45,6 @@ export default function OwnerReferencesTab(props) {
               <input
                 name={`ref${index}Phone`}
                 type="tel"
-                defaultValue={state?.values?.[`ref${index}Phone`] ?? ""}
                 placeholder="Phone"
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white mb-1",
@@ -59,7 +56,6 @@ export default function OwnerReferencesTab(props) {
               <input
                 name={`ref${index}Email`}
                 type="email"
-                defaultValue={state?.values?.[`ref${index}Email`] ?? ""}
                 placeholder="Email"
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white",

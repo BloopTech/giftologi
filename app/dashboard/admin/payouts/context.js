@@ -3,7 +3,9 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
@@ -15,20 +17,21 @@ export const PayoutsProvider = ({ children }) => {
   const value = usePayoutsProviderValue();
 
   return (
-    <PayoutsContext.Provider value={value}>
-      {children}
-    </PayoutsContext.Provider>
+    <PayoutsContext.Provider value={value}>{children}</PayoutsContext.Provider>
   );
 };
 
 function usePayoutsProviderValue() {
   const [payouts, setPayouts] = useState([]);
-  const [payoutsPage, setPayoutsPage] = useState(0);
   const [pageSize] = useState(10);
   const [payoutsTotal, setPayoutsTotal] = useState(0);
   const [loadingPayouts, setLoadingPayouts] = useState(false);
   const [errorPayouts, setErrorPayouts] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshPayouts = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+  }, [setRefreshKey]);
 
   const [metrics, setMetrics] = useState({
     pendingPayouts: null,
@@ -41,15 +44,65 @@ function usePayoutsProviderValue() {
 
   const [searchParam, setSearchParam] = useQueryState(
     "q",
-    parseAsString.withDefault("")
+    parseAsString.withDefault(""),
   );
   const [statusParam, setStatusParam] = useQueryState(
     "status",
-    parseAsString.withDefault("all")
+    parseAsString.withDefault("all"),
+  );
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault("1"),
+  );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault(""),
   );
 
   const searchTerm = searchParam || "";
   const statusFilter = (statusParam || "all").toLowerCase();
+  const focusId = focusIdParam || "";
+
+  const lastAppliedFocusIdRef = useRef("");
+
+  const payoutsPage = useMemo(() => {
+    const num = parseInt(pageParam || "1", 10);
+    if (Number.isNaN(num) || num < 1) return 0;
+    return num - 1;
+  }, [pageParam]);
+
+  const setPayoutsPage = useCallback(
+    (next) => {
+      const resolved =
+        typeof next === "function" ? next(payoutsPage) : Number(next);
+      const safe = Number.isFinite(resolved) && resolved >= 0 ? resolved : 0;
+      setPageParam(String(safe + 1));
+    },
+    [payoutsPage, setPageParam],
+  );
+
+  const setSearchTerm = useCallback(
+    (value) => {
+      setSearchParam(value || "");
+      setPageParam("1");
+    },
+    [setSearchParam, setPageParam],
+  );
+
+  const setStatusFilter = useCallback(
+    (value) => {
+      setStatusParam(value || "all");
+      setPageParam("1");
+    },
+    [setStatusParam, setPageParam],
+  );
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam],
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -63,12 +116,11 @@ function usePayoutsProviderValue() {
       try {
         const supabase = createSupabaseClient();
 
-        const { data: orderItemsData, error: orderItemsError } =
-          await supabase
-            .from("order_items")
-            .select(
-              "id, order_id, vendor_id, quantity, price, fulfillment_status, finance_payout_approved, super_admin_payout_approved"
-            );
+        const { data: orderItemsData, error: orderItemsError } = await supabase
+          .from("order_items")
+          .select(
+            "id, order_id, vendor_id, quantity, price, fulfillment_status, finance_payout_approved, super_admin_payout_approved",
+          );
 
         if (orderItemsError) {
           if (!ignore) {
@@ -112,15 +164,15 @@ function usePayoutsProviderValue() {
           new Set(
             deliveredItems
               .map((row) => row.order_id)
-              .filter((value) => !!value)
-          )
+              .filter((value) => !!value),
+          ),
         );
         const vendorIds = Array.from(
           new Set(
             deliveredItems
               .map((row) => row.vendor_id)
-              .filter((value) => !!value)
-          )
+              .filter((value) => !!value),
+          ),
         );
 
         const ordersPromise = orderIds.length
@@ -141,7 +193,7 @@ function usePayoutsProviderValue() {
           ? supabase
               .from("payment_info")
               .select(
-                "id, vendor_id, bank_name, bank_account, bank_branch, momo_number, momo_network"
+                "id, vendor_id, bank_name, bank_account, bank_branch, momo_number, momo_network",
               )
               .in("vendor_id", vendorIds)
           : Promise.resolve({ data: [], error: null });
@@ -214,10 +266,7 @@ function usePayoutsProviderValue() {
             if (paymentInfo) {
               if (paymentInfo.bank_name || paymentInfo.bank_account) {
                 payoutMethodLabel = "Bank Transfer";
-              } else if (
-                paymentInfo.momo_network ||
-                paymentInfo.momo_number
-              ) {
+              } else if (paymentInfo.momo_network || paymentInfo.momo_number) {
                 payoutMethodLabel = "MoMo";
               }
             }
@@ -240,9 +289,7 @@ function usePayoutsProviderValue() {
             aggregated = {
               vendorId,
               vendorName: vendor?.business_name || "Unknown vendor",
-              payoutCode: `PAY-${String(vendorId)
-                .slice(0, 4)
-                .toUpperCase()}`,
+              payoutCode: `PAY-${String(vendorId).slice(0, 4).toUpperCase()}`,
               commissionRate,
               totalSales: 0,
               totalNetAmount: 0,
@@ -339,11 +386,11 @@ function usePayoutsProviderValue() {
             {
               minimumFractionDigits: 2,
               maximumFractionDigits: 2,
-            }
+            },
           );
 
           const pendingPayoutLabel = Number(
-            row.pendingPayoutAmount || 0
+            row.pendingPayoutAmount || 0,
           ).toLocaleString("en-GH", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
@@ -365,7 +412,9 @@ function usePayoutsProviderValue() {
           let periodLabel = "—";
           if (firstLabel && lastLabel) {
             periodLabel =
-              firstLabel === lastLabel ? firstLabel : `${firstLabel} - ${lastLabel}`;
+              firstLabel === lastLabel
+                ? firstLabel
+                : `${firstLabel} - ${lastLabel}`;
           } else if (firstLabel || lastLabel) {
             periodLabel = firstLabel || lastLabel;
           }
@@ -384,7 +433,7 @@ function usePayoutsProviderValue() {
             normalizedStatus,
             statusLabel: statusLabelMap[normalizedStatus] || "Pending",
             firstOrderAt: row.firstOrderAt,
-             lastOrderAt: row.lastOrderAt,
+            lastOrderAt: row.lastOrderAt,
             periodLabel,
             totalItems: row.totalItems,
             financeOnlyCount: row.financeOnlyCount,
@@ -410,7 +459,7 @@ function usePayoutsProviderValue() {
             approvedPayouts: 0,
             totalPendingAmount: 0,
             totalPayouts: 0,
-          }
+          },
         );
 
         const trimmedSearch = searchTerm ? searchTerm.trim().toLowerCase() : "";
@@ -429,14 +478,31 @@ function usePayoutsProviderValue() {
 
         if (statusFilter && statusFilter !== "all") {
           const desired = statusFilter.toLowerCase();
-          filtered = filtered.filter(
-            (row) => row.normalizedStatus === desired
+          filtered = filtered.filter((row) => row.normalizedStatus === desired);
+        }
+
+        let resolvedPageIndex = payoutsPage ?? 0;
+        const safeFocusId = focusId ? String(focusId).trim() : "";
+
+        if (safeFocusId && lastAppliedFocusIdRef.current !== safeFocusId) {
+          const focusIndex = filtered.findIndex(
+            (row) =>
+              String(row.vendorId) === safeFocusId ||
+              String(row.payoutCode) === safeFocusId,
           );
+
+          if (focusIndex >= 0) {
+            const targetPageIndex = Math.floor(focusIndex / pageSize);
+            lastAppliedFocusIdRef.current = safeFocusId;
+            if (targetPageIndex !== resolvedPageIndex) {
+              resolvedPageIndex = targetPageIndex;
+              setPageParam(String(targetPageIndex + 1));
+            }
+          }
         }
 
         const total = filtered.length;
-        const pageIndex = payoutsPage ?? 0;
-        const start = pageIndex * pageSize;
+        const start = resolvedPageIndex * pageSize;
         const end = start + pageSize;
         const pageRows = filtered.slice(start, end);
 
@@ -470,7 +536,15 @@ function usePayoutsProviderValue() {
     return () => {
       ignore = true;
     };
-  }, [payoutsPage, pageSize, searchTerm, statusFilter, refreshKey]);
+  }, [
+    payoutsPage,
+    pageSize,
+    searchTerm,
+    statusFilter,
+    focusId,
+    refreshKey,
+    setPageParam,
+  ]);
 
   return useMemo(
     () => ({
@@ -481,14 +555,16 @@ function usePayoutsProviderValue() {
       loadingPayouts,
       errorPayouts,
       setPayoutsPage,
-      refreshPayouts: () => setRefreshKey((prev) => prev + 1),
+      refreshPayouts,
       metrics,
       loadingMetrics,
       metricsError,
       searchTerm,
-      setSearchTerm: setSearchParam,
+      setSearchTerm,
       statusFilter,
-      setStatusFilter: setStatusParam,
+      setStatusFilter,
+      focusId,
+      setFocusId,
     }),
     [
       payouts,
@@ -502,9 +578,12 @@ function usePayoutsProviderValue() {
       metricsError,
       searchTerm,
       statusFilter,
-      setSearchParam,
-      setStatusParam,
-    ]
+      setSearchTerm,
+      setStatusFilter,
+      focusId,
+      setFocusId,
+      setPayoutsPage,
+    ],
   );
 }
 

@@ -15,7 +15,6 @@ export default function DocumentsNotesTab(props) {
           <textarea
             name="verificationNotes"
             rows={3}
-            defaultValue={state?.values?.verificationNotes ?? ""}
             className={cx(
               "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
               "border-[#93C5FD] text-[#1D4ED8] placeholder:text-[#60A5FA]",

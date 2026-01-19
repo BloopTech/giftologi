@@ -12,6 +12,11 @@ export default function FAQsTab(props) {
     currentTab,
     isLoading,
     faqRows,
+    focusId,
+    focusEntity,
+    setFocusId,
+    setFocusEntity,
+    makeFocusDomId,
     visibilityVariant,
     wrapper,
     table,
@@ -24,6 +29,21 @@ export default function FAQsTab(props) {
   const [editOpen, setEditOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedFaq, setSelectedFaq] = useState(null);
+
+  React.useEffect(() => {
+    if (currentTab !== "faq") return;
+    if (!focusId) return;
+    if (String(focusEntity || "").toLowerCase() !== "content_faq") return;
+    if (viewOpen) return;
+
+    const match = (faqRows || []).find((row) => row?.id === focusId);
+    if (!match) return;
+
+    setSelectedFaq(match);
+    setViewOpen(true);
+    setFocusId?.("");
+    setFocusEntity?.("");
+  }, [currentTab, focusId, focusEntity, faqRows, viewOpen, setFocusId, setFocusEntity]);
 
   const handleNew = () => {
     setSelectedFaq(null);
@@ -86,7 +106,19 @@ export default function FAQsTab(props) {
                   </tr>
                 ) : faqRows.length ? (
                   faqRows.map((row) => (
-                    <tr key={row.id} className={cx(bodyRow())}>
+                    <tr
+                      key={row.id}
+                      id={makeFocusDomId?.("content_faq", row.id)}
+                      className={
+                        cx(bodyRow()) +
+                        (focusId &&
+                        String(focusEntity || "").toLowerCase() ===
+                          "content_faq" &&
+                        row.id === focusId
+                          ? " bg-[#F3F6FF]"
+                          : "")
+                      }
+                    >
                       <td className={cx(bodyCell())}>
                         <span className="text-xs text-[#6A7282]">
                           {typeof row.sort_order === "number"

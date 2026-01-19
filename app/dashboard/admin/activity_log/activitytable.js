@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, Eye } from "lucide-react";
 import { PiDownloadSimple } from "react-icons/pi";
 import { tv } from "tailwind-variants";
@@ -38,10 +38,32 @@ export default function ActivityLogTable() {
     exportLogs,
     setPageIndex,
     hasRealData = true,
+    focusId,
   } = context;
 
   const [selectedActivity, setSelectedActivity] = React.useState(null);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
+
+  const lastAppliedFocusIdRef = useRef("");
+  const focusIdValue = focusId ? String(focusId).trim() : "";
+
+  useEffect(() => {
+    if (!focusIdValue) return;
+    if (!logs || !logs.length) return;
+    if (lastAppliedFocusIdRef.current === focusIdValue) return;
+
+    const match = logs.find((row) => String(row?.id) === focusIdValue);
+    if (!match) return;
+
+    lastAppliedFocusIdRef.current = focusIdValue;
+    setSelectedActivity(match);
+    setDetailsOpen(true);
+
+    if (match.id) {
+      const el = document.getElementById(`activity-row-${match.id}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focusIdValue, logs]);
 
   const canPrevious = pageIndex > 0;
   const canNext = pageIndex + 1 < pageCount;
@@ -119,8 +141,19 @@ export default function ActivityLogTable() {
               </td>
             </tr>
           ) : logs.length ? (
-            logs.map((row) => (
-              <tr key={row.id || row.timestamp} className={cx(bodyRow())}>
+            logs.map((row) => {
+              const isFocused =
+                !!focusIdValue && String(row?.id) === String(focusIdValue);
+
+              return (
+                <tr
+                  key={row.id || row.timestamp}
+                  id={row?.id ? `activity-row-${row.id}` : undefined}
+                  className={cx(
+                    bodyRow(),
+                    isFocused && "bg-[#EDF4FF] ring-2 ring-inset ring-[#B8D4FF]"
+                  )}
+                >
                 <td className={cx(bodyCell())}>
                   <span className="text-xs text-[#0A0A0A]">
                     {row.timestampLabel || "—"}
@@ -171,8 +204,9 @@ export default function ActivityLogTable() {
                     <span>View</span>
                   </button>
                 </td>
-              </tr>
-            ))
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td

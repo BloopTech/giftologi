@@ -15,7 +15,6 @@ export default function FinancialNotesTab(props) {
           <textarea
             name="financialVerificationNotes"
             rows={3}
-            defaultValue={state?.values?.financialVerificationNotes ?? ""}
             className={cx(
               "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
               "border-[#FBBF24] text-[#92400E] placeholder:text-[#F59E0B]",

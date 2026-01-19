@@ -13,6 +13,11 @@ export default function ContactInfoTab(props) {
     contactSettingsValue,
     isLoading,
     contactSubmissionRows,
+    focusId,
+    focusEntity,
+    setFocusId,
+    setFocusEntity,
+    makeFocusDomId,
     formatDate,
     wrapper,
     table,
@@ -25,6 +30,41 @@ export default function ContactInfoTab(props) {
   const [editSettingsOpen, setEditSettingsOpen] = useState(false);
   const [viewSubmissionOpen, setViewSubmissionOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState(null);
+
+  React.useEffect(() => {
+    if (currentTab !== "contact_info") return;
+    if (!focusId) return;
+
+    const entityKey = String(focusEntity || "").toLowerCase();
+
+    if (entityKey === "content_contact_settings") {
+      if (editSettingsOpen) return;
+      setEditSettingsOpen(true);
+      setFocusId?.("");
+      setFocusEntity?.("");
+      return;
+    }
+
+    if (entityKey !== "content_contact_submission") return;
+    if (viewSubmissionOpen) return;
+
+    const match = (contactSubmissionRows || []).find((row) => row?.id === focusId);
+    if (!match) return;
+
+    setSelectedSubmission(match);
+    setViewSubmissionOpen(true);
+    setFocusId?.("");
+    setFocusEntity?.("");
+  }, [
+    currentTab,
+    focusId,
+    focusEntity,
+    contactSubmissionRows,
+    editSettingsOpen,
+    viewSubmissionOpen,
+    setFocusId,
+    setFocusEntity,
+  ]);
 
   const handleEditSettings = () => {
     setEditSettingsOpen(true);
@@ -60,7 +100,13 @@ export default function ContactInfoTab(props) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 space-y-1">
+              <div
+                id={makeFocusDomId?.(
+                  "content_contact_settings",
+                  contactSettingsValue?.id || "settings"
+                )}
+                className="p-4 space-y-1"
+              >
                 <p className="text-[11px] font-medium text-[#0A0A0A]">
                   Support Email
                 </p>
@@ -137,7 +183,19 @@ export default function ContactInfoTab(props) {
                     </tr>
                   ) : contactSubmissionRows.length ? (
                     contactSubmissionRows.map((row) => (
-                      <tr key={row.id} className={cx(bodyRow())}>
+                      <tr
+                        key={row.id}
+                        id={makeFocusDomId?.("content_contact_submission", row.id)}
+                        className={
+                          cx(bodyRow()) +
+                          (focusId &&
+                          String(focusEntity || "").toLowerCase() ===
+                            "content_contact_submission" &&
+                          row.id === focusId
+                            ? " bg-[#F3F6FF]"
+                            : "")
+                        }
+                      >
                         <td className={cx(bodyCell())}>
                           <span className="text-xs font-medium text-[#0A0A0A]">
                             {row.name || "—"}

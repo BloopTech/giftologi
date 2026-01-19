@@ -2,7 +2,7 @@
 import React, { useActionState, useEffect, useMemo, useState } from "react";
 import { manageRoles } from "../action";
 import { toast } from "sonner";
-import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle, Copy } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -95,10 +95,10 @@ export default function AddStaffDialog({ onClose }) {
   const [password, setPassword] = useState(state?.values?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    setRoleValue(state?.values?.role ?? "");
-    setPassword(state?.values?.password ?? "");
-  }, [state?.values]);
+  // useEffect(() => {
+  //   setRoleValue(state?.values?.role ?? "");
+  //   setPassword(state?.values?.password ?? "");
+  // }, [state?.values]);
 
   useEffect(() => {
     const hasErrors =
@@ -172,6 +172,17 @@ export default function AddStaffDialog({ onClose }) {
     setPassword(generated);
   };
 
+  const handleCopyPassword = async () => {
+    if (password) {
+      try {
+        await navigator.clipboard.writeText(password);
+        toast.success("Password copied to clipboard");
+      } catch (err) {
+        toast.error("Failed to copy password");
+      }
+    }
+  };
+
   return (
     <form action={formAction} className="space-y-4">
       <div className="grid grid-cols-1 gap-4">
@@ -187,7 +198,6 @@ export default function AddStaffDialog({ onClose }) {
             name="fullName"
             type="text"
             required
-            defaultValue={state?.values?.fullName ?? ""}
             placeholder="Joe Doe"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
@@ -218,7 +228,6 @@ export default function AddStaffDialog({ onClose }) {
             name="email"
             type="email"
             required
-            defaultValue={state?.values?.email ?? ""}
             placeholder="joe.doe@giftologi.com"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
@@ -248,7 +257,6 @@ export default function AddStaffDialog({ onClose }) {
             id="phone"
             name="phone"
             type="tel"
-            defaultValue={state?.values?.phone ?? ""}
             placeholder="+233 000 0 00 0000"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
@@ -287,7 +295,7 @@ export default function AddStaffDialog({ onClose }) {
               onChange={(event) => setPassword(event.target.value)}
               required
               className={cx(
-                "w-full rounded-full border px-4 py-2.5 pr-24 text-xs shadow-sm outline-none bg-white",
+                "w-full rounded-full border px-4 py-2.5 pr-32 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
                 hasError("password") ? hasErrorInput : ""
@@ -305,6 +313,15 @@ export default function AddStaffDialog({ onClose }) {
               ) : (
                 <Eye className="size-4" />
               )}
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyPassword}
+              className="absolute inset-y-0 right-16 flex items-center pr-2 text-[#717182] cursor-pointer"
+              disabled={!password || isPending}
+              title="Copy password"
+            >
+              <Copy className="size-4" />
             </button>
             <button
               type="button"

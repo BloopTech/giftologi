@@ -3,7 +3,9 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
@@ -23,7 +25,6 @@ export const RegistryListProvider = ({ children }) => {
 
 function useRegistryListProviderValue() {
   const [registries, setRegistries] = useState([]);
-  const [registryPage, setRegistryPage] = useState(0);
   const [pageSize] = useState(10);
   const [registriesTotal, setRegistriesTotal] = useState(0);
   const [loadingRegistries, setLoadingRegistries] = useState(false);
@@ -50,11 +51,15 @@ function useRegistryListProviderValue() {
     "status",
     parseAsString.withDefault("all")
   );
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault("1")
+  );
   const [externalTypeParam] = useQueryState(
     "type",
     parseAsString.withDefault("all")
   );
-  const [focusIdParam] = useQueryState(
+  const [focusIdParam, setFocusIdParam] = useQueryState(
     "focusId",
     parseAsString.withDefault("")
   );
@@ -64,6 +69,59 @@ function useRegistryListProviderValue() {
     externalType === "host" || externalType === "guest";
   const focusId = focusIdParam || "";
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshRegistries = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+  }, [setRefreshKey]);
+
+  const lastAppliedFocusIdRef = useRef("");
+
+  const registryPage = useMemo(() => {
+    const num = parseInt(pageParam || "1", 10);
+    if (Number.isNaN(num) || num < 1) return 0;
+    return num - 1;
+  }, [pageParam]);
+
+  const setRegistryPage = useCallback(
+    (next) => {
+      const resolved =
+        typeof next === "function" ? next(registryPage) : Number(next);
+      const safe = Number.isFinite(resolved) && resolved >= 0 ? resolved : 0;
+      setPageParam(String(safe + 1));
+    },
+    [registryPage, setPageParam]
+  );
+
+  const setSearchTerm = useCallback(
+    (value) => {
+      setSearchParam(value || "");
+      setPageParam("1");
+    },
+    [setSearchParam, setPageParam]
+  );
+
+  const setByFilter = useCallback(
+    (value) => {
+      setTypeFilter(value || "all");
+      setPageParam("1");
+    },
+    [setTypeFilter, setPageParam]
+  );
+
+  const setStatus = useCallback(
+    (value) => {
+      setStatusFilter(value || "all");
+      setPageParam("1");
+    },
+    [setStatusFilter, setPageParam]
+  );
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam]
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -494,8 +552,58 @@ function useRegistryListProviderValue() {
           });
         }
 
+        const total = enriched ? enriched.length : 0;
+
+        const focusValue = focusId ? String(focusId).trim() : "";
+        if (focusValue && lastAppliedFocusIdRef.current !== focusValue) {
+          const focusIndex = enriched.findIndex((row) => {
+            if (!row) return false;
+            if (String(row.id) === focusValue) return true;
+            const code = row.__raw?.registry?.registry_code
+              ? String(row.__raw.registry.registry_code)
+              : "";
+            if (code && code === focusValue) return true;
+            return false;
+          });
+
+          if (focusIndex >= 0) {
+            const desiredPage = Math.floor(focusIndex / pageSize);
+            lastAppliedFocusIdRef.current = focusValue;
+            if (desiredPage !== registryPage) {
+              setPageParam(String(desiredPage + 1));
+              setRegistries([]);
+              setRegistriesTotal(total);
+              return;
+            }
+          } else if (!hasSearch && (statusFilter || "all") === "all") {
+            const focusLookup = await supabase
+              .from("registries")
+              .select("id, registry_code, created_at")
+              .or(`id.eq.${focusValue},registry_code.eq.${focusValue}`)
+              .maybeSingle();
+
+            if (focusLookup?.data?.id && focusLookup.data.created_at) {
+              const rankResult = await supabase
+                .from("registries")
+                .select("id", { count: "exact", head: true })
+                .gt("created_at", focusLookup.data.created_at);
+
+              const beforeCount =
+                typeof rankResult?.count === "number" ? rankResult.count : 0;
+              const desiredPage = Math.floor(beforeCount / pageSize);
+              lastAppliedFocusIdRef.current = focusValue;
+
+              if (desiredPage !== registryPage) {
+                setPageParam(String(desiredPage + 1));
+                setRegistries([]);
+                setRegistriesTotal(total);
+                return;
+              }
+            }
+          }
+        }
+
         if (hasSearch) {
-          const total = enriched ? enriched.length : 0;
           const startIdx = registryPage * pageSize;
           const endIdx = startIdx + pageSize;
           const pageRegistries = enriched.slice(startIdx, endIdx);
@@ -504,7 +612,7 @@ function useRegistryListProviderValue() {
           setRegistriesTotal(total);
         } else {
           setRegistries(enriched);
-          setRegistriesTotal(count ?? (enriched ? enriched.length : 0));
+          setRegistriesTotal(count ?? total);
         }
       } catch (error) {
         if (!ignore) {
@@ -532,6 +640,8 @@ function useRegistryListProviderValue() {
     refreshKey,
     externalType,
     isExternalHostOrGuest,
+    focusId,
+    setPageParam,
   ]);
 
   return useMemo(
@@ -543,16 +653,18 @@ function useRegistryListProviderValue() {
       loadingRegistries,
       errorRegistries,
       setRegistryPage,
-      refreshRegistries: () => setRefreshKey((prev) => prev + 1),
+      refreshRegistries,
       metrics,
       loadingMetrics,
       metricsError,
       searchTerm,
-      setSearchTerm: setSearchParam,
+      setSearchTerm,
       typeFilter,
-      setTypeFilter,
+      setTypeFilter: setByFilter,
       statusFilter,
-      setStatusFilter,
+      setStatusFilter: setStatus,
+      focusId,
+      setFocusId,
     }),
     [
       registries,
@@ -561,15 +673,18 @@ function useRegistryListProviderValue() {
       registriesTotal,
       loadingRegistries,
       errorRegistries,
+      setRegistryPage,
       metrics,
       loadingMetrics,
       metricsError,
       searchTerm,
       typeFilter,
       statusFilter,
-      setSearchParam,
-      setTypeFilter,
-      setStatusFilter,
+      setSearchTerm,
+      setByFilter,
+      setStatus,
+      focusId,
+      setFocusId,
     ]
   );
 }

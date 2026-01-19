@@ -3,7 +3,7 @@ import React, { useActionState, useEffect, useState } from "react";
 import { createVendor } from "../action";
 import { VENDOR_CATEGORIES } from "../vendorCategories";
 import { toast } from "sonner";
-import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle } from "lucide-react";
+import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle, Copy } from "lucide-react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { DialogClose } from "@/app/components/Dialog";
 
@@ -52,9 +52,9 @@ export default function AddVendorDialog({ onClose }) {
   const [password, setPassword] = useState(state?.values?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
 
-  useEffect(() => {
-    setPassword(state?.values?.password ?? "");
-  }, [state?.values]);
+  // useEffect(() => {
+  //   setPassword(state?.values?.password ?? "");
+  // }, [state?.values]);
 
   useEffect(() => {
     const hasErrors =
@@ -118,6 +118,17 @@ export default function AddVendorDialog({ onClose }) {
     setPassword(generated);
   };
 
+  const handleCopyPassword = async () => {
+    if (password) {
+      try {
+        await navigator.clipboard.writeText(password);
+        toast.success("Password copied to clipboard");
+      } catch (err) {
+        toast.error("Failed to copy password");
+      }
+    }
+  };
+
   return (
     <form action={formAction} className="space-y-4">
       <div className="grid grid-cols-1 gap-4">
@@ -133,7 +144,6 @@ export default function AddVendorDialog({ onClose }) {
             name="businessName"
             type="text"
             required
-            defaultValue={state?.values?.businessName ?? ""}
             placeholder="Acme Gifts Limited"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
@@ -163,7 +173,6 @@ export default function AddVendorDialog({ onClose }) {
             id="category"
             name="category"
             required
-            defaultValue={state?.values?.category ?? ""}
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A]",
@@ -202,7 +211,6 @@ export default function AddVendorDialog({ onClose }) {
             name="fullName"
             type="text"
             required
-            defaultValue={state?.values?.fullName ?? ""}
             placeholder="Joe Doe"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
@@ -233,7 +241,6 @@ export default function AddVendorDialog({ onClose }) {
             name="email"
             type="email"
             required
-            defaultValue={state?.values?.email ?? ""}
             placeholder="vendor@example.com"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
@@ -263,7 +270,6 @@ export default function AddVendorDialog({ onClose }) {
             id="phone"
             name="phone"
             type="tel"
-            defaultValue={state?.values?.phone ?? ""}
             placeholder="+233 000 0 00 0000"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
@@ -302,7 +308,7 @@ export default function AddVendorDialog({ onClose }) {
               onChange={(event) => setPassword(event.target.value)}
               required
               className={cx(
-                "w-full rounded-full border px-4 py-2.5 pr-24 text-xs shadow-sm outline-none bg-white",
+                "w-full rounded-full border px-4 py-2.5 pr-32 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
                 hasError("password") ? hasErrorInput : ""
@@ -320,6 +326,15 @@ export default function AddVendorDialog({ onClose }) {
               ) : (
                 <Eye className="size-4" />
               )}
+            </button>
+            <button
+              type="button"
+              onClick={handleCopyPassword}
+              className="absolute inset-y-0 right-16 flex items-center pr-2 text-[#717182] cursor-pointer"
+              disabled={!password || isPending}
+              title="Copy password"
+            >
+              <Copy className="size-4" />
             </button>
             <button
               type="button"

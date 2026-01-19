@@ -13,6 +13,11 @@ export default function EmailTemplatesTab(props) {
     isLoading,
     emailStatusVariant,
     currentTab,
+    focusId,
+    focusEntity,
+    setFocusId,
+    setFocusEntity,
+    makeFocusDomId,
     wrapper,
     table,
     headRow,
@@ -24,6 +29,21 @@ export default function EmailTemplatesTab(props) {
   const [editOpen, setEditOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
+
+  React.useEffect(() => {
+    if (currentTab !== "email_templates") return;
+    if (!focusId) return;
+    if (String(focusEntity || "").toLowerCase() !== "content_email_template") return;
+    if (viewOpen) return;
+
+    const match = (emailTemplateRows || []).find((row) => row?.id === focusId);
+    if (!match) return;
+
+    setSelectedTemplate(match);
+    setViewOpen(true);
+    setFocusId?.("");
+    setFocusEntity?.("");
+  }, [currentTab, focusId, focusEntity, emailTemplateRows, viewOpen, setFocusId, setFocusEntity]);
 
   const handleNew = () => {
     setSelectedTemplate(null);
@@ -87,7 +107,19 @@ export default function EmailTemplatesTab(props) {
                   </tr>
                 ) : emailTemplateRows.length ? (
                   emailTemplateRows.map((tpl) => (
-                    <tr key={tpl.id} className={cx(bodyRow())}>
+                    <tr
+                      key={tpl.id}
+                      id={makeFocusDomId?.("content_email_template", tpl.id)}
+                      className={
+                        cx(bodyRow()) +
+                        (focusId &&
+                        String(focusEntity || "").toLowerCase() ===
+                          "content_email_template" &&
+                        tpl.id === focusId
+                          ? " bg-[#F3F6FF]"
+                          : "")
+                      }
+                    >
                       <td className={cx(bodyCell())}>
                         <span className="text-xs font-medium text-[#0A0A0A]">
                           {tpl.name || "Untitled template"}

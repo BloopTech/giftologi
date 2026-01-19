@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useActionState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useActionState,
+} from "react";
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -107,6 +113,8 @@ export default function TransactionsTable() {
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundRow, setRefundRow] = useState(null);
 
+  const lastAppliedFocusIdRef = useRef("");
+
   const {
     transactions,
     transactionsPage,
@@ -115,6 +123,7 @@ export default function TransactionsTable() {
     loadingTransactions,
     setTransactionsPage,
     refreshTransactions,
+    focusId,
   } = useViewTransactionsContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
@@ -153,6 +162,31 @@ export default function TransactionsTable() {
     if (!transactions || !transactions.length) return [];
     return transactions;
   }, [transactions]);
+
+  const focusIdValue = focusId ? String(focusId).trim() : "";
+
+  useEffect(() => {
+    if (!focusIdValue) return;
+    if (!tableRows || !tableRows.length) return;
+    if (lastAppliedFocusIdRef.current === focusIdValue) return;
+
+    const match = tableRows.find(
+      (row) =>
+        String(row.id) === focusIdValue ||
+        String(row.orderCode || "") === focusIdValue
+    );
+
+    if (!match) return;
+
+    lastAppliedFocusIdRef.current = focusIdValue;
+    setSelectedRow(match);
+    setViewOpen(true);
+
+    if (match.id) {
+      const el = document.getElementById(`transaction-row-${match.id}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focusIdValue, tableRows]);
 
   const columns = useMemo(
     () => [
@@ -490,18 +524,34 @@ export default function TransactionsTable() {
               </td>
             </tr>
           ) : tableInstance.getRowModel().rows.length ? (
-            tableInstance.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={cx(bodyRow())}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))
+            tableInstance.getRowModel().rows.map((row) => {
+              const original = row.original;
+              const isFocused =
+                !!focusIdValue &&
+                (String(original?.id) === focusIdValue ||
+                  String(original?.orderCode || "") === focusIdValue);
+
+              return (
+                <tr
+                  key={row.id}
+                  id={original?.id ? `transaction-row-${original.id}` : undefined}
+                  className={cx(
+                    bodyRow(),
+                    isFocused &&
+                      "bg-[#EDF4FF] outline outline-2 outline-[#B8D4FF]"
+                  )}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className={cx(bodyCell())}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td

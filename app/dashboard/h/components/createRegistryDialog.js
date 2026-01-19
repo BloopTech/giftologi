@@ -81,7 +81,6 @@ export default function CreateRegistryDialog({ onClose }) {
             name="title"
             type="text"
             required
-            defaultValue={state?.values?.title ?? ""}
             placeholder="e.g. Sarah & John Wedding"
             className={cx(
               "w-full rounded-md border px-3 py-2 shadow-sm outline-none transition sm:text-sm",
@@ -139,7 +138,6 @@ export default function CreateRegistryDialog({ onClose }) {
             name="location"
             type="text"
             required
-            defaultValue={state?.values?.location ?? ""}
             placeholder="e.g. Austin, TX"
             className={cx(
               "w-full rounded-md border px-3 py-2 shadow-sm outline-none transition sm:text-sm",
@@ -170,7 +168,6 @@ export default function CreateRegistryDialog({ onClose }) {
             id="description"
             name="description"
             rows={3}
-            defaultValue={state?.values?.description ?? ""}
             placeholder="Share details about your event..."
             className={cx(
               "w-full rounded-md border px-3 py-2 shadow-sm outline-none transition sm:text-sm",

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useActionState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -116,6 +116,8 @@ export default function PayoutsTable() {
   const [selectedRow, setSelectedRow] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  const lastAppliedFocusIdRef = useRef("");
+
   const {
     payouts,
     payoutsPage,
@@ -124,6 +126,7 @@ export default function PayoutsTable() {
     loadingPayouts,
     setPayoutsPage,
     refreshPayouts,
+    focusId,
   } = usePayoutsContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
@@ -189,6 +192,31 @@ export default function PayoutsTable() {
     if (!payouts || !payouts.length) return [];
     return payouts;
   }, [payouts]);
+
+  const focusIdValue = focusId ? String(focusId).trim() : "";
+
+  useEffect(() => {
+    if (!focusIdValue) return;
+    if (!tableRows || !tableRows.length) return;
+    if (lastAppliedFocusIdRef.current === focusIdValue) return;
+
+    const match = tableRows.find(
+      (row) =>
+        String(row.vendorId) === focusIdValue ||
+        String(row.payoutCode) === focusIdValue
+    );
+
+    if (!match) return;
+
+    lastAppliedFocusIdRef.current = focusIdValue;
+    setSelectedRow(match);
+    setViewOpen(true);
+
+    if (match.vendorId) {
+      const el = document.getElementById(`payout-row-${match.vendorId}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [focusIdValue, tableRows]);
 
   const selectedApprovalLabel = useMemo(() => {
     if (!selectedRow) return "Approve";
@@ -521,15 +549,37 @@ export default function PayoutsTable() {
               </td>
             </tr>
           ) : tableInstance.getRowModel().rows.length ? (
-            tableInstance.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={cx(bodyRow())}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))
+            tableInstance.getRowModel().rows.map((row) => {
+              const original = row.original;
+              const isFocused =
+                !!focusIdValue &&
+                (String(original.vendorId) === focusIdValue ||
+                  String(original.payoutCode) === focusIdValue);
+              const rowDomId = original?.vendorId
+                ? `payout-row-${original.vendorId}`
+                : undefined;
+
+              return (
+                <tr
+                  key={row.id}
+                  id={rowDomId}
+                  className={cx(
+                    bodyRow(),
+                    isFocused &&
+                      "outline outline-[#3979D2] outline-offset-[-1px] bg-[#EEF4FF]"
+                  )}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className={cx(bodyCell())}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td

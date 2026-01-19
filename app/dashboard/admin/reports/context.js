@@ -567,6 +567,10 @@ function useGenerateReportsProviderValue() {
     "format",
     parseAsString.withDefault(DEFAULT_FORMAT)
   );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault("")
+  );
 
   const [recentReports, setRecentReports] = useState([]);
   const [exportingReportId, setExportingReportId] = useState(null);
@@ -575,6 +579,14 @@ function useGenerateReportsProviderValue() {
   const dateRange = rangeParam || DEFAULT_DATE_RANGE;
   const statusFilter = statusParam || DEFAULT_STATUS;
   const exportFormat = (formatParam || DEFAULT_FORMAT).toLowerCase();
+  const focusId = focusIdParam || "";
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam]
+  );
 
   const generateReport = useCallback(
     async (reportId) => {
@@ -645,6 +657,8 @@ function useGenerateReportsProviderValue() {
       setDateRange: setRangeParam,
       setStatusFilter: setStatusParam,
       setExportFormat: setFormatParam,
+      focusId,
+      setFocusId,
       recentReports,
       exportingReportId,
       error,
@@ -654,6 +668,8 @@ function useGenerateReportsProviderValue() {
       dateRange,
       statusFilter,
       exportFormat,
+      focusId,
+      setFocusId,
       recentReports,
       exportingReportId,
       error,

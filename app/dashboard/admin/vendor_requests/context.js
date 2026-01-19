@@ -1,9 +1,11 @@
 "use client";
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useQueryState, parseAsString } from "nuqs";
@@ -23,18 +25,61 @@ export const VendorRequestsProvider = ({ children }) => {
 
 function useVendorRequestsProviderValue() {
   const [requests, setRequests] = useState([]);
-  const [requestsPage, setRequestsPage] = useState(0);
   const [pageSize] = useState(10);
   const [requestsTotal, setRequestsTotal] = useState(0);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [errorRequests, setErrorRequests] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  const refreshRequests = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+  }, [setRefreshKey]);
+
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault("1"),
+  );
+  const parsedPage = useMemo(() => {
+    const raw = typeof pageParam === "string" ? pageParam.trim() : "";
+    const value = Number.parseInt(raw || "1", 10);
+    if (Number.isNaN(value) || value < 1) return 1;
+    return value;
+  }, [pageParam]);
+  const requestsPage = Math.max(0, parsedPage - 1);
+
+  const setRequestsPage = useCallback(
+    (valueOrUpdater) => {
+      const prev = requestsPage;
+      const nextRaw =
+        typeof valueOrUpdater === "function"
+          ? valueOrUpdater(prev)
+          : valueOrUpdater;
+      const next =
+        typeof nextRaw === "number" && Number.isFinite(nextRaw) ? nextRaw : 0;
+      const normalized = Math.max(0, Math.floor(next));
+      setPageParam(String(normalized + 1));
+    },
+    [requestsPage, setPageParam],
+  );
+
   const [searchParam, setSearchParam] = useQueryState(
     "q",
-    parseAsString.withDefault("")
+    parseAsString.withDefault(""),
   );
   const searchTerm = searchParam || "";
+
+  const [statusParam, setStatusParam] = useQueryState(
+    "status",
+    parseAsString.withDefault("pending"),
+  );
+  const statusFilter = (statusParam || "pending").toLowerCase();
+
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault(""),
+  );
+  const focusId = focusIdParam || "";
+  const lastAppliedFocusIdRef = useRef("");
 
   useEffect(() => {
     let ignore = false;
@@ -47,6 +92,15 @@ function useVendorRequestsProviderValue() {
         const supabase = createSupabaseClient();
         const from = requestsPage * pageSize;
         const to = from + pageSize - 1;
+
+        const trimmedSearch = searchTerm ? searchTerm.trim() : "";
+        const ftsTokens = trimmedSearch
+          ? trimmedSearch
+              .split(/\s+/)
+              .filter(Boolean)
+              .map((t) => `${t}:*`)
+              .join(" & ")
+          : "";
 
         let query = supabase
           .from("vendor_applications")
@@ -86,26 +140,19 @@ function useVendorRequestsProviderValue() {
               email
             )
           `,
-            { count: "exact" }
+            { count: "exact" },
           )
-          .eq("status", "pending");
+          .order("created_at", { ascending: false });
 
-        if (searchTerm && searchTerm.trim()) {
-          const term = searchTerm.trim();
-          const tokens = term
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((t) => `${t}:*`)
-            .join(" & ");
-
-          if (tokens) {
-            query = query.filter("search_vector", "fts", tokens);
-          }
+        if (statusFilter !== "all") {
+          query = query.eq("status", statusFilter);
         }
 
-        const { data, error, count } = await query
-          .order("created_at", { ascending: false })
-          .range(from, to);
+        if (ftsTokens) {
+          query = query.filter("search_vector", "fts", ftsTokens);
+        }
+
+        const { data, error, count } = await query.range(from, to);
 
         if (error) {
           if (!ignore) {
@@ -122,8 +169,7 @@ function useVendorRequestsProviderValue() {
             const nameParts = [];
             if (profile?.firstname) nameParts.push(profile.firstname);
             if (profile?.lastname) nameParts.push(profile.lastname);
-            const contactName =
-              nameParts.join(" ") || profile?.email || "—";
+            const contactName = nameParts.join(" ") || profile?.email || "—";
 
             const vendorCodeSuffix = String(index + 1).padStart(3, "0");
             const vendorIdLabel = `VEN-${vendorCodeSuffix}`;
@@ -143,6 +189,76 @@ function useVendorRequestsProviderValue() {
 
           setRequests(enriched);
           setRequestsTotal(count ?? (enriched ? enriched.length : 0));
+
+          if (focusId && focusId !== lastAppliedFocusIdRef.current) {
+            const focusValue = String(focusId).trim();
+            const focusRow = enriched.find((row) => row?.id === focusValue);
+
+            if (!focusRow) {
+              const focusLookup = await supabase
+                .from("vendor_applications")
+                .select("id, created_at")
+                .eq("id", focusValue)
+                .maybeSingle();
+
+              if (focusLookup?.data?.id && focusLookup.data.created_at) {
+                let verifyQuery = supabase
+                  .from("vendor_applications")
+                  .select("id")
+                  .eq("id", focusLookup.data.id);
+
+                if (statusFilter !== "all") {
+                  verifyQuery = verifyQuery.eq("status", statusFilter);
+                }
+
+                if (ftsTokens) {
+                  verifyQuery = verifyQuery.filter(
+                    "search_vector",
+                    "fts",
+                    ftsTokens,
+                  );
+                }
+
+                const verifyResult = await verifyQuery.maybeSingle();
+
+                if (verifyResult?.data?.id) {
+                  let rankQuery = supabase
+                    .from("vendor_applications")
+                    .select("id", { count: "exact", head: true })
+                    .gt("created_at", focusLookup.data.created_at);
+
+                  if (statusFilter !== "all") {
+                    rankQuery = rankQuery.eq("status", statusFilter);
+                  }
+
+                  if (ftsTokens) {
+                    rankQuery = rankQuery.filter(
+                      "search_vector",
+                      "fts",
+                      ftsTokens,
+                    );
+                  }
+
+                  const rankResult = await rankQuery;
+                  const beforeCount =
+                    typeof rankResult?.count === "number"
+                      ? rankResult.count
+                      : 0;
+                  const desiredPage = Math.floor(beforeCount / pageSize);
+
+                  lastAppliedFocusIdRef.current = focusValue;
+                  if (desiredPage !== requestsPage) {
+                    setPageParam(String(desiredPage + 1));
+                    setRequests([]);
+                    setRequestsTotal(count ?? 0);
+                    return;
+                  }
+                }
+              }
+            } else {
+              lastAppliedFocusIdRef.current = focusValue;
+            }
+          }
         }
       } catch (error) {
         if (!ignore) {
@@ -161,7 +277,31 @@ function useVendorRequestsProviderValue() {
     return () => {
       ignore = true;
     };
-  }, [requestsPage, pageSize, searchTerm, refreshKey]);
+  }, [
+    requestsPage,
+    pageSize,
+    searchTerm,
+    statusFilter,
+    focusId,
+    refreshKey,
+    setPageParam,
+  ]);
+
+  const setSearchTerm = useCallback(
+    (value) => {
+      setSearchParam(value || "");
+      setPageParam("1");
+    },
+    [setSearchParam, setPageParam],
+  );
+
+  const setStatusFilter = useCallback(
+    (value) => {
+      setStatusParam(value || "pending");
+      setPageParam("1");
+    },
+    [setStatusParam, setPageParam],
+  );
 
   return useMemo(
     () => ({
@@ -172,9 +312,13 @@ function useVendorRequestsProviderValue() {
       loadingRequests,
       errorRequests,
       setRequestsPage,
-      refreshRequests: () => setRefreshKey((prev) => prev + 1),
+      refreshRequests,
       searchTerm,
-      setSearchTerm: setSearchParam,
+      setSearchTerm,
+      statusFilter,
+      setStatusFilter,
+      focusId,
+      setFocusId: setFocusIdParam,
     }),
     [
       requests,
@@ -184,8 +328,14 @@ function useVendorRequestsProviderValue() {
       loadingRequests,
       errorRequests,
       searchTerm,
-      setSearchParam,
-    ]
+      statusFilter,
+      setRequestsPage,
+      refreshKey,
+      setSearchTerm,
+      setStatusFilter,
+      focusId,
+      setFocusIdParam,
+    ],
   );
 }
 

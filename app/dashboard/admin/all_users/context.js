@@ -6,6 +6,7 @@ import React, {
   useMemo,
   useState,
   useCallback,
+  useRef,
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import { useQueryState, parseAsString } from "nuqs";
@@ -24,12 +25,12 @@ export const AllUsersProvider = ({ children }) => {
 
 function useAllUsersProviderValue() {
   const [users, setUsers] = useState([]);
-  const [usersPage, setUsersPage] = useState(0);
   const [pageSize] = useState(10);
   const [usersTotal, setUsersTotal] = useState(0);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [errorUsers, setErrorUsers] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  
   const refreshUsers = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
   }, [setRefreshKey]);
@@ -46,10 +47,61 @@ function useAllUsersProviderValue() {
     "status",
     parseAsString.withDefault("all")
   );
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault("1")
+  );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault("")
+  );
 
   const searchTerm = searchParam || "";
   const roleFilter = (roleParam || "all").toLowerCase();
   const statusFilter = statusParam || "all";
+  const focusId = focusIdParam || "";
+
+  const lastAppliedFocusIdRef = useRef("");
+
+  const usersPage = useMemo(() => {
+    const num = parseInt(pageParam || "1", 10);
+    if (Number.isNaN(num) || num < 1) return 0;
+    return num - 1;
+  }, [pageParam]);
+
+  const setUsersPage = useCallback(
+    (next) => {
+      const resolved =
+        typeof next === "function" ? next(usersPage) : Number(next);
+      const safe = Number.isFinite(resolved) && resolved >= 0 ? resolved : 0;
+      setPageParam(String(safe + 1));
+    },
+    [setPageParam, usersPage]
+  );
+
+  const setSearchTerm = useCallback(
+    (value) => {
+      setSearchParam(value || "");
+      setPageParam("1");
+    },
+    [setSearchParam, setPageParam]
+  );
+
+  const setRoleFilter = useCallback(
+    (value) => {
+      setRoleParam(value || "all");
+      setPageParam("1");
+    },
+    [setRoleParam, setPageParam]
+  );
+
+  const setStatusFilter = useCallback(
+    (value) => {
+      setStatusParam(value || "all");
+      setPageParam("1");
+    },
+    [setStatusParam, setPageParam]
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -254,6 +306,22 @@ function useAllUsersProviderValue() {
           } catch (_) {}
 
           const totalItems = enriched.length;
+
+          if (focusId && focusId !== lastAppliedFocusIdRef.current) {
+            const focusIndex = enriched.findIndex((row) => row?.id === focusId);
+            if (focusIndex >= 0) {
+              const desiredPage = Math.floor(focusIndex / pageSize);
+              if (desiredPage !== usersPage) {
+                lastAppliedFocusIdRef.current = focusId;
+                setPageParam(String(desiredPage + 1));
+                setUsers([]);
+                setUsersTotal(totalItems);
+                return;
+              }
+              lastAppliedFocusIdRef.current = focusId;
+            }
+          }
+
           const startIndex = usersPage * pageSize;
           const endIndex = startIndex + pageSize;
           const pageSlice = enriched.slice(startIndex, endIndex);
@@ -278,7 +346,16 @@ function useAllUsersProviderValue() {
     return () => {
       ignore = true;
     };
-  }, [usersPage, pageSize, searchTerm, roleFilter, statusFilter, refreshKey]);
+  }, [
+    usersPage,
+    pageSize,
+    searchTerm,
+    roleFilter,
+    statusFilter,
+    focusId,
+    refreshKey,
+    setPageParam,
+  ]);
 
   return useMemo(
     () => ({
@@ -291,11 +368,13 @@ function useAllUsersProviderValue() {
       setUsersPage,
       refreshUsers,
       searchTerm,
-      setSearchTerm: setSearchParam,
+      setSearchTerm,
       roleFilter,
-      setRoleFilter: setRoleParam,
+      setRoleFilter,
       statusFilter,
-      setStatusFilter: setStatusParam,
+      setStatusFilter,
+      focusId,
+      setFocusId: (value) => setFocusIdParam(value || ""),
     }),
     [
       users,
@@ -304,13 +383,16 @@ function useAllUsersProviderValue() {
       usersTotal,
       loadingUsers,
       errorUsers,
+      setUsersPage,
       searchTerm,
+      setSearchTerm,
       roleFilter,
       statusFilter,
       refreshUsers,
-      setSearchParam,
-      setRoleParam,
-      setStatusParam,
+      setRoleFilter,
+      setStatusFilter,
+      focusId,
+      setFocusIdParam,
     ]
   );
 }

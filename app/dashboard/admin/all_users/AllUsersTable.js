@@ -143,6 +143,8 @@ export default function AllUsersTable() {
     loadingUsers,
     setUsersPage,
     refreshUsers,
+    focusId,
+    setFocusId,
   } = useAllUsersContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
@@ -218,6 +220,19 @@ export default function AllUsersTable() {
       toast.error(deleteState.message);
     }
   }, [deleteState, refreshUsers]);
+
+  useEffect(() => {
+    if (!focusId) return;
+    if (!users || !users.length) return;
+    if (viewOpen) return;
+
+    const match = users.find((row) => row?.id === focusId);
+    if (!match) return;
+
+    setSelectedUser(match);
+    setViewOpen(true);
+    setFocusId?.("");
+  }, [focusId, users, viewOpen, setFocusId]);
 
   const tableRows = useMemo(() => {
     if (!users || !users.length) return [];

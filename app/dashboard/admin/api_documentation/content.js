@@ -1,5 +1,7 @@
 "use client";
 import React from "react";
+import { Search } from "lucide-react";
+import { useAPIDocumentationContext } from "./context";
 
 const primaryInterfaces = [
   {
@@ -41,6 +43,41 @@ const primaryInterfaces = [
 ];
 
 export default function APIDocumentationContent() {
+  const { query, setQuery, focusId } = useAPIDocumentationContext() || {};
+  const searchTerm = query || "";
+
+  const normalize = (value) =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const makeRowId = (endpoint) => `api-doc-row-${encodeURIComponent(endpoint)}`;
+
+  const filteredInterfaces = React.useMemo(() => {
+    const q = normalize(searchTerm);
+    if (!q) return primaryInterfaces;
+
+    return primaryInterfaces.filter((row) => {
+      const haystack = normalize(
+        `${row.endpoint || ""} ${row.method || ""} ${row.description || ""}`
+      );
+      return haystack.includes(q);
+    });
+  }, [searchTerm]);
+
+  React.useEffect(() => {
+    if (!focusId) return;
+    const id = makeRowId(focusId);
+    const el = typeof document !== "undefined" ? document.getElementById(id) : null;
+    if (!el) return;
+    try {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (_) {
+      el.scrollIntoView();
+    }
+  }, [focusId]);
+
   return (
     <div className="flex flex-col space-y-4 w-full mb-[2rem]">
       <div className="flex items-center justify-between">
@@ -66,6 +103,19 @@ export default function APIDocumentationContent() {
           </p>
         </div>
 
+        <div className="mt-1 max-w-md">
+          <div className="flex items-center gap-2 rounded-full border border-[#D6D6D6] bg-white px-4 py-2.5">
+            <Search className="size-4 text-[#717182]" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(event) => setQuery?.(event.target.value)}
+              placeholder="Search endpoints, tables, or keywords..."
+              className="w-full bg-transparent outline-none text-xs text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+            />
+          </div>
+        </div>
+
         <div className="mt-2 overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 text-xs">
             <thead className="bg-[#F9FAFB]">
@@ -82,22 +132,32 @@ export default function APIDocumentationContent() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
-              {primaryInterfaces.map((row) => (
-                <tr
-                  key={`${row.endpoint}-${row.method}`}
-                  className="hover:bg-gray-50/60"
-                >
-                  <td className="px-4 py-3 align-top whitespace-nowrap font-mono text-[11px] text-[#0A0A0A]">
-                    {row.endpoint}
-                  </td>
-                  <td className="px-4 py-3 align-top whitespace-nowrap text-[11px] text-[#0A0A0A]">
-                    {row.method}
-                  </td>
-                  <td className="px-4 py-3 align-top text-[11px] text-[#4B5563]">
-                    {row.description}
-                  </td>
-                </tr>
-              ))}
+              {filteredInterfaces.map((row) => {
+                const isFocused = focusId && row.endpoint === focusId;
+
+                return (
+                  <tr
+                    key={`${row.endpoint}-${row.method}`}
+                    id={makeRowId(row.endpoint)}
+                    className={
+                      "hover:bg-gray-50/60 " +
+                      (isFocused
+                        ? "bg-[#F3F6FF] outline outline-[#3979D2]"
+                        : "")
+                    }
+                  >
+                    <td className="px-4 py-3 align-top whitespace-nowrap font-mono text-[11px] text-[#0A0A0A]">
+                      {row.endpoint}
+                    </td>
+                    <td className="px-4 py-3 align-top whitespace-nowrap text-[11px] text-[#0A0A0A]">
+                      {row.method}
+                    </td>
+                    <td className="px-4 py-3 align-top text-[11px] text-[#4B5563]">
+                      {row.description}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

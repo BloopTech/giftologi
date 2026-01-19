@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState, useActionState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -151,6 +151,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
     setStaffPage,
     refreshStaff,
     currentAdmin,
+    focusId,
   } = useRolesContext() || {};
 
   const isSuperAdmin = currentAdmin?.role === "super_admin";
@@ -161,6 +162,8 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
   const [selectedStaff, setSelectedStaff] = useState(null);
   const [statusMode, setStatusMode] = useState("suspend");
   const [confirmText, setConfirmText] = useState("");
+
+  const lastAppliedFocusIdRef = useRef("");
 
   const [editState, editAction, editPending] = useActionState(
     updateStaffDetails,
@@ -267,6 +270,31 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
       };
     });
   }, [staff]);
+
+  const focusIdValue = focusId ? String(focusId).trim() : "";
+
+  useEffect(() => {
+    if (!focusIdValue) return;
+    if (!tableRows || !tableRows.length) return;
+    if (lastAppliedFocusIdRef.current === focusIdValue) return;
+
+    const match = tableRows.find((row) => {
+      if (!row) return false;
+      if (String(row.id) === focusIdValue) return true;
+      const email = row.email ? String(row.email).trim().toLowerCase() : "";
+      if (email && email === focusIdValue.toLowerCase()) return true;
+      return false;
+    });
+
+    if (!match) return;
+
+    lastAppliedFocusIdRef.current = focusIdValue;
+    setSelectedStaff(match.__raw);
+    setViewOpen(true);
+
+    const el = document.getElementById(`staff-row-${match.id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusIdValue, tableRows]);
 
   const columns = useMemo(
     () => [
@@ -493,15 +521,36 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
               </td>
             </tr>
           ) : tableInstance.getRowModel().rows.length ? (
-            tableInstance.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={cx(bodyRow())}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))
+            tableInstance.getRowModel().rows.map((row) => {
+              const original = row.original;
+              const raw = original.__raw;
+              const email = raw?.email ? String(raw.email).trim().toLowerCase() : "";
+              const isFocused =
+                !!focusIdValue &&
+                (String(original.id) === focusIdValue ||
+                  (email && email === focusIdValue.toLowerCase()));
+
+              return (
+                <tr
+                  key={row.id}
+                  id={`staff-row-${original.id}`}
+                  className={cx(
+                    bodyRow(),
+                    isFocused &&
+                      "outline outline-[#3979D2] outline-offset-[-1px] bg-[#EEF4FF]"
+                  )}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className={cx(bodyCell())}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td

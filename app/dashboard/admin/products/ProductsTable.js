@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useActionState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -119,6 +119,8 @@ export default function ProductsTable() {
   const [flagOpen, setFlagOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
 
+  const lastAppliedFocusIdRef = useRef("");
+
   const {
     products,
     productsPage,
@@ -127,6 +129,7 @@ export default function ProductsTable() {
     loadingProducts,
     setProductsPage,
     refreshProducts,
+    focusId,
   } = useManageProductsContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
@@ -225,6 +228,29 @@ export default function ProductsTable() {
       };
     });
   }, [products]);
+
+  const focusIdValue = focusId ? String(focusId).trim() : "";
+
+  useEffect(() => {
+    if (!focusIdValue) return;
+    if (!tableRows || !tableRows.length) return;
+    if (lastAppliedFocusIdRef.current === focusIdValue) return;
+
+    const match = tableRows.find(
+      (row) =>
+        String(row.id) === focusIdValue ||
+        String(row.product_code || "") === focusIdValue
+    );
+
+    if (!match) return;
+
+    lastAppliedFocusIdRef.current = focusIdValue;
+    setSelectedProduct(match);
+    setViewOpen(true);
+
+    const el = document.getElementById(`product-row-${match.id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusIdValue, tableRows]);
 
   const columns = useMemo(
     () => [
@@ -461,15 +487,34 @@ export default function ProductsTable() {
               </td>
             </tr>
           ) : tableInstance.getRowModel().rows.length ? (
-            tableInstance.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={cx(bodyRow())}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                  </td>
-                ))}
-              </tr>
-            ))
+            tableInstance.getRowModel().rows.map((row) => {
+              const original = row.original;
+              const isFocused =
+                !!focusIdValue &&
+                (String(original.id) === focusIdValue ||
+                  String(original.product_code || "") === focusIdValue);
+
+              return (
+                <tr
+                  key={row.id}
+                  id={`product-row-${original.id}`}
+                  className={cx(
+                    bodyRow(),
+                    isFocused &&
+                      "outline outline-[#3979D2] outline-offset-[-1px] bg-[#EEF4FF]"
+                  )}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className={cx(bodyCell())}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td
@@ -505,7 +550,6 @@ export default function ProductsTable() {
                         key={url || index}
                         className="relative h-16 w-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200"
                       >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <Image
                           src={url}
                           alt={
@@ -637,7 +681,6 @@ export default function ProductsTable() {
                 <textarea
                   id="flag-reason"
                   name="reason"
-                  defaultValue={flagState?.values?.reason ?? ""}
                   rows={3}
                   className={cx(
                     "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",

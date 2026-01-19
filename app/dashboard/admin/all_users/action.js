@@ -3,9 +3,10 @@
 import { z } from "zod";
 import { createClient, createAdminClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
+import { revalidatePath } from "next/cache";
 
 const deleteUserSchema = z.object({
-  staffId: z.string().uuid(),
+  staffId: z.uuid(),
   confirmText: z.string().min(1, "Confirmation text is required."),
 });
 
@@ -167,6 +168,9 @@ export async function deleteUser(prevState, formData) {
     targetId: staffId,
     details: `Deleted user ${staffId}`,
   });
+
+  revalidatePath("/dashboard/admin/all_users");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "User has been deleted.",

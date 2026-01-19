@@ -5,6 +5,8 @@ import React, {
   useEffect,
   useMemo,
   useState,
+  useCallback,
+  useRef,
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import { useQueryState, parseAsString } from "nuqs";
@@ -23,12 +25,15 @@ export const ViewTransactionsProvider = ({ children }) => {
 
 function useViewTransactionsProviderValue() {
   const [transactions, setTransactions] = useState([]);
-  const [transactionsPage, setTransactionsPage] = useState(0);
   const [pageSize] = useState(10);
   const [transactionsTotal, setTransactionsTotal] = useState(0);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
   const [errorTransactions, setErrorTransactions] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshTransactions = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+  }, [setRefreshKey]);
 
   const [metrics, setMetrics] = useState({
     totalRevenue: null,
@@ -52,6 +57,15 @@ function useViewTransactionsProviderValue() {
     parseAsString.withDefault("all")
   );
 
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault("1")
+  );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault("")
+  );
+
   const [methodParam, setMethodParam] = useQueryState(
     "method",
     parseAsString.withDefault("all")
@@ -71,6 +85,32 @@ function useViewTransactionsProviderValue() {
   const paymentMethodFilter = (methodParam || "all").toLowerCase();
   const fromDate = fromParam || "";
   const toDate = toParam || "";
+
+  const focusId = focusIdParam || "";
+  const lastAppliedFocusIdRef = useRef("");
+
+  const transactionsPage = useMemo(() => {
+    const num = parseInt(pageParam || "1", 10);
+    if (Number.isNaN(num) || num < 1) return 0;
+    return num - 1;
+  }, [pageParam]);
+
+  const setTransactionsPage = useCallback(
+    (next) => {
+      const resolved =
+        typeof next === "function" ? next(transactionsPage) : Number(next);
+      const safe = Number.isFinite(resolved) && resolved >= 0 ? resolved : 0;
+      setPageParam(String(safe + 1));
+    },
+    [transactionsPage, setPageParam]
+  );
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam]
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -470,6 +510,134 @@ function useViewTransactionsProviderValue() {
           };
         });
 
+        const focusValue = focusId ? String(focusId).trim() : "";
+        if (focusValue && lastAppliedFocusIdRef.current !== focusValue) {
+          const inPage = baseTransactions.some(
+            (row) =>
+              String(row.id) === focusValue ||
+              String(row.orderCode || "") === focusValue
+          );
+
+          if (!inPage) {
+            const focusLookup = await supabase
+              .from("orders")
+              .select("id, created_at")
+              .eq("id", focusValue)
+              .maybeSingle();
+
+            if (focusLookup?.data?.id && focusLookup.data.created_at) {
+              let verifyQuery = supabase
+                .from("orders")
+                .select("id")
+                .eq("id", focusLookup.data.id);
+
+              if (statusFilter && statusFilter !== "all") {
+                verifyQuery = verifyQuery.eq("status", statusFilter);
+              }
+
+              if (paymentMethodFilter && paymentMethodFilter !== "all") {
+                verifyQuery = verifyQuery.eq(
+                  "payment_method",
+                  paymentMethodFilter
+                );
+              }
+
+              if (fromDate) {
+                const fromDateObj = new Date(fromDate);
+                if (!Number.isNaN(fromDateObj.getTime())) {
+                  verifyQuery = verifyQuery.gte(
+                    "created_at",
+                    fromDateObj.toISOString()
+                  );
+                }
+              }
+
+              if (toDate) {
+                const toDateObj = new Date(toDate);
+                if (!Number.isNaN(toDateObj.getTime())) {
+                  const endOfDay = new Date(
+                    toDateObj.getFullYear(),
+                    toDateObj.getMonth(),
+                    toDateObj.getDate(),
+                    23,
+                    59,
+                    59,
+                    999
+                  );
+                  verifyQuery = verifyQuery.lte(
+                    "created_at",
+                    endOfDay.toISOString()
+                  );
+                }
+              }
+
+              const verifyResult = await verifyQuery.maybeSingle();
+
+              if (verifyResult?.data?.id) {
+                let rankQuery = supabase
+                  .from("orders")
+                  .select("id", { count: "exact", head: true })
+                  .gt("created_at", focusLookup.data.created_at);
+
+                if (statusFilter && statusFilter !== "all") {
+                  rankQuery = rankQuery.eq("status", statusFilter);
+                }
+
+                if (paymentMethodFilter && paymentMethodFilter !== "all") {
+                  rankQuery = rankQuery.eq(
+                    "payment_method",
+                    paymentMethodFilter
+                  );
+                }
+
+                if (fromDate) {
+                  const fromDateObj = new Date(fromDate);
+                  if (!Number.isNaN(fromDateObj.getTime())) {
+                    rankQuery = rankQuery.gte(
+                      "created_at",
+                      fromDateObj.toISOString()
+                    );
+                  }
+                }
+
+                if (toDate) {
+                  const toDateObj = new Date(toDate);
+                  if (!Number.isNaN(toDateObj.getTime())) {
+                    const endOfDay = new Date(
+                      toDateObj.getFullYear(),
+                      toDateObj.getMonth(),
+                      toDateObj.getDate(),
+                      23,
+                      59,
+                      59,
+                      999
+                    );
+                    rankQuery = rankQuery.lte(
+                      "created_at",
+                      endOfDay.toISOString()
+                    );
+                  }
+                }
+
+                const rankResult = await rankQuery;
+                const beforeCount =
+                  typeof rankResult?.count === "number" ? rankResult.count : 0;
+                const desiredPage = Math.floor(beforeCount / pageSize);
+                lastAppliedFocusIdRef.current = focusValue;
+
+                if (desiredPage !== transactionsPage) {
+                  setPageParam(String(desiredPage + 1));
+                  setTransactions([]);
+                  setTransactionsTotal(count ?? 0);
+                  return;
+                }
+              }
+            }
+          } else {
+            lastAppliedFocusIdRef.current = focusValue;
+          }
+        }
+
         let filtered = baseTransactions;
         const trimmedSearch = searchTerm
           ? searchTerm.trim().toLowerCase()
@@ -510,6 +678,18 @@ function useViewTransactionsProviderValue() {
           );
         }
 
+        if (focusValue) {
+          const focusRow = baseTransactions.find(
+            (row) =>
+              String(row.id) === focusValue ||
+              String(row.orderCode || "") === focusValue
+          );
+
+          if (focusRow && !filtered.some((row) => row.id === focusRow.id)) {
+            filtered = [focusRow, ...filtered];
+          }
+        }
+
         setTransactions(filtered);
         setTransactionsTotal(count ?? (filtered ? filtered.length : 0));
       } catch (error) {
@@ -541,6 +721,8 @@ function useViewTransactionsProviderValue() {
     fromDate,
     toDate,
     refreshKey,
+    focusId,
+    setPageParam,
   ]);
 
   return useMemo(
@@ -552,7 +734,7 @@ function useViewTransactionsProviderValue() {
       loadingTransactions,
       errorTransactions,
       setTransactionsPage,
-      refreshTransactions: () => setRefreshKey((prev) => prev + 1),
+      refreshTransactions,
       metrics,
       loadingMetrics,
       metricsError,
@@ -568,6 +750,8 @@ function useViewTransactionsProviderValue() {
       setFromDate: setFromParam,
       toDate,
       setToDate: setToParam,
+      focusId,
+      setFocusId,
     }),
     [
       transactions,
@@ -585,6 +769,8 @@ function useViewTransactionsProviderValue() {
       paymentMethodFilter,
       fromDate,
       toDate,
+      focusId,
+      setFocusId,
       setSearchParam,
       setTypeParam,
       setStatusParam,

@@ -3,7 +3,9 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useCallback,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
@@ -23,12 +25,15 @@ export const ManageProductsProvider = ({ children }) => {
 
 function useManageProductsProviderValue() {
   const [products, setProducts] = useState([]);
-  const [productsPage, setProductsPage] = useState(0);
   const [pageSize] = useState(10);
   const [productsTotal, setProductsTotal] = useState(0);
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [errorProducts, setErrorProducts] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshProducts = useCallback(() => {
+    setRefreshKey((prev) => prev + 1);
+  }, [setRefreshKey]);
 
   const [metrics, setMetrics] = useState({
     pending: null,
@@ -42,20 +47,78 @@ function useManageProductsProviderValue() {
 
   const [searchParam, setSearchParam] = useQueryState(
     "q",
-    parseAsString.withDefault("")
+    parseAsString.withDefault(""),
   );
   const [statusParam, setStatusParam] = useQueryState(
     "status",
-    parseAsString.withDefault("all")
+    parseAsString.withDefault("all"),
   );
   const [typeParam, setTypeParam] = useQueryState(
     "type",
-    parseAsString.withDefault("all")
+    parseAsString.withDefault("all"),
+  );
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault("1"),
+  );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault(""),
   );
 
   const searchTerm = searchParam || "";
   const statusFilter = (statusParam || "all").toLowerCase();
   const typeFilter = (typeParam || "all").toLowerCase();
+  const focusId = focusIdParam || "";
+
+  const lastAppliedFocusIdRef = useRef("");
+
+  const productsPage = useMemo(() => {
+    const num = parseInt(pageParam || "1", 10);
+    if (Number.isNaN(num) || num < 1) return 0;
+    return num - 1;
+  }, [pageParam]);
+
+  const setProductsPage = useCallback(
+    (next) => {
+      const resolved =
+        typeof next === "function" ? next(productsPage) : Number(next);
+      const safe = Number.isFinite(resolved) && resolved >= 0 ? resolved : 0;
+      setPageParam(String(safe + 1));
+    },
+    [productsPage, setPageParam],
+  );
+
+  const setSearchTerm = useCallback(
+    (value) => {
+      setSearchParam(value || "");
+      setPageParam("1");
+    },
+    [setSearchParam, setPageParam],
+  );
+
+  const setStatusFilter = useCallback(
+    (value) => {
+      setStatusParam(value || "all");
+      setPageParam("1");
+    },
+    [setStatusParam, setPageParam],
+  );
+
+  const setTypeFilter = useCallback(
+    (value) => {
+      setTypeParam(value || "all");
+      setPageParam("1");
+    },
+    [setTypeParam, setPageParam],
+  );
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam],
+  );
 
   useEffect(() => {
     let ignore = false;
@@ -95,7 +158,13 @@ function useManageProductsProviderValue() {
 
         if (ignore) return;
 
-        if (totalError || pendingError || approvedError || rejectedError || flaggedError) {
+        if (
+          totalError ||
+          pendingError ||
+          approvedError ||
+          rejectedError ||
+          flaggedError
+        ) {
           const message =
             totalError?.message ||
             pendingError?.message ||
@@ -142,10 +211,8 @@ function useManageProductsProviderValue() {
         const from = productsPage * pageSize;
         const to = from + pageSize - 1;
 
-        let query = supabase
-          .from("products")
-          .select(
-            `
+        let query = supabase.from("products").select(
+          `
             id,
             product_code,
             name,
@@ -164,8 +231,8 @@ function useManageProductsProviderValue() {
               name
             )
           `,
-            { count: "exact" }
-          );
+          { count: "exact" },
+        );
 
         const trimmedSearch = searchTerm ? searchTerm.trim() : "";
         if (trimmedSearch) {
@@ -214,6 +281,87 @@ function useManageProductsProviderValue() {
 
           setProducts(enriched);
           setProductsTotal(count ?? (enriched ? enriched.length : 0));
+
+          if (focusId && focusId !== lastAppliedFocusIdRef.current) {
+            const focusValue = String(focusId).trim();
+            const focusRow = enriched.find((row) => {
+              if (!row) return false;
+              if (row.id === focusValue) return true;
+              if (String(row.product_code || "") === focusValue) return true;
+              return false;
+            });
+
+            if (!focusRow) {
+              const focusLookup = await supabase
+                .from("products")
+                .select("id, product_code, created_at")
+                .or(`id.eq.${focusValue},product_code.eq.${focusValue}`)
+                .maybeSingle();
+
+              if (focusLookup?.data?.id && focusLookup.data.created_at) {
+                let verifyQuery = supabase
+                  .from("products")
+                  .select("id", { count: "exact" })
+                  .eq("id", focusLookup.data.id);
+
+                if (trimmedSearch) {
+                  verifyQuery = verifyQuery.textSearch(
+                    "search_vector",
+                    trimmedSearch,
+                    {
+                      type: "websearch",
+                      config: "simple",
+                    },
+                  );
+                }
+
+                if (statusFilter && statusFilter !== "all") {
+                  verifyQuery = verifyQuery.eq("status", statusFilter);
+                }
+
+                const verifyResult = await verifyQuery.maybeSingle();
+
+                if (verifyResult?.data?.id) {
+                  let rankQuery = supabase
+                    .from("products")
+                    .select("id", { count: "exact", head: true })
+                    .gt("created_at", focusLookup.data.created_at);
+
+                  if (trimmedSearch) {
+                    rankQuery = rankQuery.textSearch(
+                      "search_vector",
+                      trimmedSearch,
+                      {
+                        type: "websearch",
+                        config: "simple",
+                      },
+                    );
+                  }
+
+                  if (statusFilter && statusFilter !== "all") {
+                    rankQuery = rankQuery.eq("status", statusFilter);
+                  }
+
+                  const rankResult = await rankQuery;
+                  const beforeCount =
+                    typeof rankResult?.count === "number"
+                      ? rankResult.count
+                      : 0;
+                  const desiredPage = Math.floor(beforeCount / pageSize);
+
+                  lastAppliedFocusIdRef.current = focusValue;
+                  if (desiredPage !== productsPage) {
+                    setPageParam(String(desiredPage + 1));
+                    setProducts([]);
+                    setProductsTotal(count ?? 0);
+                    return;
+                  }
+                }
+              }
+            } else {
+              lastAppliedFocusIdRef.current = focusValue;
+            }
+          }
         }
       } catch (error) {
         if (!ignore) {
@@ -232,7 +380,15 @@ function useManageProductsProviderValue() {
     return () => {
       ignore = true;
     };
-  }, [productsPage, pageSize, searchTerm, statusFilter, refreshKey]);
+  }, [
+    productsPage,
+    pageSize,
+    searchTerm,
+    statusFilter,
+    focusId,
+    refreshKey,
+    setPageParam,
+  ]);
 
   return useMemo(
     () => ({
@@ -243,13 +399,15 @@ function useManageProductsProviderValue() {
       loadingProducts,
       errorProducts,
       setProductsPage,
-      refreshProducts: () => setRefreshKey((prev) => prev + 1),
+      refreshProducts,
       searchTerm,
-      setSearchTerm: setSearchParam,
+      setSearchTerm,
       statusFilter,
-      setStatusFilter: setStatusParam,
+      setStatusFilter,
       typeFilter,
-      setTypeFilter: setTypeParam,
+      setTypeFilter,
+      focusId,
+      setFocusId,
       metrics,
       loadingMetrics,
       metricsError,
@@ -264,13 +422,16 @@ function useManageProductsProviderValue() {
       searchTerm,
       statusFilter,
       typeFilter,
+      focusId,
       metrics,
       loadingMetrics,
       metricsError,
-      setSearchParam,
-      setStatusParam,
-      setTypeParam,
-    ]
+      setProductsPage,
+      setSearchTerm,
+      setStatusFilter,
+      setTypeFilter,
+      setFocusId,
+    ],
   );
 }
 

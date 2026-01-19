@@ -117,7 +117,6 @@ export default function InitiateRefundDialog({ open, onOpenChange, transaction }
               name="reason"
               rows={3}
               required
-              defaultValue={state?.values?.reason ?? ""}
               placeholder="Please provide a reason for the refund..."
               className={cx(
                 "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",

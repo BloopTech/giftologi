@@ -21,7 +21,6 @@ export default function FormInput(props) {
             <input
               type="email"
               name="email"
-              defaultValue={state?.values?.email || ""}
               className={`w-full border border-gray-200 rounded-md bg-white p-2 form-input focus:outline-none focus:ring-2  ${
                 Object.keys(state?.errors).length !== 0 &&
                 (state?.errors?.email?.length ||

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useActionState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -137,6 +137,8 @@ export default function RegistryListTable() {
   const [selectedRegistry, setSelectedRegistry] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
 
+  const lastAppliedFocusIdRef = useRef("");
+
   const {
     registries,
     registryPage,
@@ -145,6 +147,7 @@ export default function RegistryListTable() {
     loadingRegistries,
     setRegistryPage,
     refreshRegistries,
+    focusId,
   } = useRegistryListContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
@@ -173,7 +176,6 @@ export default function RegistryListTable() {
   const hasDeleteError = (key) => (deleteErrorFor(key)?.length ?? 0) > 0;
 
   useEffect(() => {
-    if (!updateState) return;
     if (
       updateState.message &&
       updateState.data &&
@@ -182,7 +184,8 @@ export default function RegistryListTable() {
       toast.success(updateState.message);
       refreshRegistries?.();
       setEditOpen(false);
-    } else if (
+    }
+    if (
       updateState.message &&
       updateState.errors &&
       Object.keys(updateState.errors).length
@@ -192,12 +195,12 @@ export default function RegistryListTable() {
   }, [updateState, refreshRegistries]);
 
   useEffect(() => {
-    if (!flagState) return;
     if (flagState.message && flagState.data && Object.keys(flagState.data).length) {
       toast.success(flagState.message);
       refreshRegistries?.();
       setFlagOpen(false);
-    } else if (
+    }
+    if (
       flagState.message &&
       flagState.errors &&
       Object.keys(flagState.errors).length
@@ -207,7 +210,6 @@ export default function RegistryListTable() {
   }, [flagState, refreshRegistries]);
 
   useEffect(() => {
-    if (!deleteState) return;
     if (
       deleteState.message &&
       deleteState.data &&
@@ -218,7 +220,8 @@ export default function RegistryListTable() {
       setDeleteOpen(false);
       setSelectedRegistry(null);
       setDeleteConfirmText("");
-    } else if (
+    }
+    if (
       deleteState.message &&
       deleteState.errors &&
       Object.keys(deleteState.errors).length
@@ -246,6 +249,33 @@ export default function RegistryListTable() {
       };
     });
   }, [registries]);
+
+  const focusIdValue = focusId ? String(focusId).trim() : "";
+
+  useEffect(() => {
+    if (!focusIdValue) return;
+    if (!tableRows || !tableRows.length) return;
+    if (lastAppliedFocusIdRef.current === focusIdValue) return;
+
+    const match = tableRows.find((row) => {
+      if (!row) return false;
+      if (String(row.id) === focusIdValue) return true;
+      const code = row.__raw?.registry?.registry_code
+        ? String(row.__raw.registry.registry_code)
+        : "";
+      if (code && code === focusIdValue) return true;
+      return false;
+    });
+
+    if (!match) return;
+
+    lastAppliedFocusIdRef.current = focusIdValue;
+    setViewRow(match);
+    setViewOpen(true);
+
+    const el = document.getElementById(`registry-row-${match.id}`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [focusIdValue, tableRows]);
 
   const columns = useMemo(
     () => [
@@ -483,18 +513,37 @@ export default function RegistryListTable() {
               </td>
             </tr>
           ) : tableInstance.getRowModel().rows.length ? (
-            tableInstance.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={cx(bodyRow())}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
-                  </td>
-                ))}
-              </tr>
-            ))
+            tableInstance.getRowModel().rows.map((row) => {
+              const original = row.original;
+              const code = original?.__raw?.registry?.registry_code
+                ? String(original.__raw.registry.registry_code)
+                : "";
+              const isFocused =
+                !!focusIdValue &&
+                (String(original.id) === focusIdValue ||
+                  (code && code === focusIdValue));
+
+              return (
+                <tr
+                  key={row.id}
+                  id={`registry-row-${original.id}`}
+                  className={cx(
+                    bodyRow(),
+                    isFocused &&
+                      "outline outline-[#3979D2] outline-offset-[-1px] bg-[#EEF4FF]"
+                  )}
+                >
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id} className={cx(bodyCell())}>
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })
           ) : (
             <tr>
               <td
@@ -689,7 +738,6 @@ export default function RegistryListTable() {
                 <textarea
                   id="flag-reason"
                   name="reason"
-                  defaultValue={flagState?.values?.reason ?? ""}
                   rows={3}
                   className={cx(
                     "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",

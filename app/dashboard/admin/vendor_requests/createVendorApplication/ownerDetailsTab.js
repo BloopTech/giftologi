@@ -17,7 +17,6 @@ export default function OwnerDetailsTab(props) {
             <input
               name="ownerFullName"
               type="text"
-              defaultValue={state?.values?.ownerFullName ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -32,7 +31,6 @@ export default function OwnerDetailsTab(props) {
             <input
               name="ownerEmail"
               type="email"
-              defaultValue={state?.values?.ownerEmail ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -47,7 +45,6 @@ export default function OwnerDetailsTab(props) {
             <input
               name="ownerPhone"
               type="tel"
-              defaultValue={state?.values?.ownerPhone ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",

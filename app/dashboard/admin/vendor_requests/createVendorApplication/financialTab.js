@@ -36,7 +36,6 @@ export default function FinancialTabs(props) {
             <input
               name="bankAccountNumber"
               type="text"
-              defaultValue={state?.values?.bankAccountNumber ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -51,7 +50,6 @@ export default function FinancialTabs(props) {
             <input
               name="bankName"
               type="text"
-              defaultValue={state?.values?.bankName ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -66,7 +64,6 @@ export default function FinancialTabs(props) {
             <input
               name="bankBranchCode"
               type="text"
-              defaultValue={state?.values?.bankBranchCode ?? ""}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",

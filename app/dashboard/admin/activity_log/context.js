@@ -5,6 +5,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { useQueryState, parseAsString } from "nuqs";
@@ -167,6 +168,10 @@ function useActivityLogProviderValue() {
     "q",
     parseAsString.withDefault("")
   );
+  const [focusIdParam, setFocusIdParam] = useQueryState(
+    "focusId",
+    parseAsString.withDefault("")
+  );
   const [actionParam, setActionParam] = useQueryState(
     "action",
     parseAsString.withDefault(DEFAULT_ACTION_FILTER)
@@ -187,8 +192,11 @@ function useActivityLogProviderValue() {
   const [exporting, setExporting] = useState(false);
 
   const search = searchParam || "";
+  const focusId = focusIdParam || "";
   const actionFilter = actionParam || DEFAULT_ACTION_FILTER;
   const userFilter = userParam || DEFAULT_USER_FILTER;
+
+  const lastAppliedFocusIdRef = useRef("");
 
   const pageIndex = useMemo(() => {
     const num = parseInt(pageParam || DEFAULT_PAGE, 10);
@@ -230,6 +238,13 @@ function useActivityLogProviderValue() {
       setPageParam(String(safeIndex + 1));
     },
     [setPageParam]
+  );
+
+  const setFocusId = useCallback(
+    (value) => {
+      setFocusIdParam(value || "");
+    },
+    [setFocusIdParam]
   );
 
   useEffect(() => {
@@ -283,6 +298,99 @@ function useActivityLogProviderValue() {
 
         const rows = Array.isArray(data) ? data.map(mapDbRowToActivityRow) : [];
 
+        const focusValue = focusId ? String(focusId).trim() : "";
+
+        if (focusValue && lastAppliedFocusIdRef.current !== focusValue) {
+          const inPage = rows.some((row) => String(row?.id) === focusValue);
+
+          if (!inPage) {
+            const supabase = createSupabaseClient();
+            const focusLookup = await supabase
+              .from("admin_activity_log")
+              .select(
+                "id, created_at, admin_id, admin_email, admin_name, action, entity, target_id, details"
+              )
+              .eq("id", focusValue)
+              .maybeSingle();
+
+            if (focusLookup?.data?.id && focusLookup.data.created_at) {
+              let verifyQuery = supabase
+                .from("admin_activity_log")
+                .select("id")
+                .eq("id", focusLookup.data.id);
+
+              if (actionFilter && actionFilter !== DEFAULT_ACTION_FILTER) {
+                verifyQuery = verifyQuery.eq("action", actionFilter);
+              }
+
+              if (userFilter && userFilter !== DEFAULT_USER_FILTER) {
+                verifyQuery = verifyQuery.eq("admin_email", userFilter);
+              }
+
+              if (trimmedSearch) {
+                verifyQuery = verifyQuery.textSearch(
+                  "search_vector",
+                  trimmedSearch,
+                  {
+                    type: "websearch",
+                    config: "simple",
+                  }
+                );
+              }
+
+              const verifyResult = await verifyQuery.maybeSingle();
+
+              if (verifyResult?.data?.id) {
+                let rankQuery = supabase
+                  .from("admin_activity_log")
+                  .select("id", { count: "exact", head: true })
+                  .gt("created_at", focusLookup.data.created_at);
+
+                if (actionFilter && actionFilter !== DEFAULT_ACTION_FILTER) {
+                  rankQuery = rankQuery.eq("action", actionFilter);
+                }
+
+                if (userFilter && userFilter !== DEFAULT_USER_FILTER) {
+                  rankQuery = rankQuery.eq("admin_email", userFilter);
+                }
+
+                if (trimmedSearch) {
+                  rankQuery = rankQuery.textSearch(
+                    "search_vector",
+                    trimmedSearch,
+                    {
+                      type: "websearch",
+                      config: "simple",
+                    }
+                  );
+                }
+
+                const rankResult = await rankQuery;
+                const beforeCount =
+                  typeof rankResult?.count === "number" ? rankResult.count : 0;
+                const desiredPageIndex = Math.floor(beforeCount / pageSize);
+
+                lastAppliedFocusIdRef.current = focusValue;
+                if (desiredPageIndex !== pageIndex) {
+                  setPageParam(String(desiredPageIndex + 1));
+                  setLogs([]);
+                  setTotal(typeof count === "number" ? count : rows.length);
+                  return;
+                }
+              }
+
+              const focusRow = mapDbRowToActivityRow(focusLookup.data);
+              if (!rows.some((row) => String(row?.id) === focusValue)) {
+                rows.unshift(focusRow);
+              }
+
+              lastAppliedFocusIdRef.current = focusValue;
+            }
+          } else {
+            lastAppliedFocusIdRef.current = focusValue;
+          }
+        }
+
         setLogs(rows);
         setTotal(typeof count === "number" ? count : rows.length);
       } catch (err) {
@@ -303,7 +411,7 @@ function useActivityLogProviderValue() {
     return () => {
       cancelled = true;
     };
-  }, [search, actionFilter, userFilter, pageIndex, pageSize]);
+  }, [search, actionFilter, userFilter, pageIndex, pageSize, focusId, setPageParam]);
 
   const pageCount = useMemo(() => {
     if (!total) return 1;
@@ -443,6 +551,8 @@ function useActivityLogProviderValue() {
       setActionFilter,
       setUserFilter,
       setPageIndex,
+      focusId,
+      setFocusId,
       availableActions,
       availableUsers,
       exporting,
@@ -465,6 +575,8 @@ function useActivityLogProviderValue() {
       setActionFilter,
       setUserFilter,
       setPageIndex,
+      focusId,
+      setFocusId,
       availableActions,
       availableUsers,
       exporting,

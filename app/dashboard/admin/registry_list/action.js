@@ -97,6 +97,7 @@ export async function updateRegistryEvent(prevState, formData) {
   }
 
   revalidatePath("/dashboard/admin/registry_list");
+  revalidatePath("/dashboard/admin");
 
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
@@ -134,7 +135,7 @@ const defaultFlagRegistryValues = {
 };
 
 const flagRegistrySchema = z.object({
-  registryId: z.string().uuid({ message: "Invalid registry" }),
+  registryId: z.uuid({ message: "Invalid registry" }),
   reason: z.string().trim().optional().or(z.literal("")),
 });
 
@@ -223,6 +224,7 @@ export async function flagRegistry(prevState, formData) {
   }
 
   revalidatePath("/dashboard/admin/registry_list");
+  revalidatePath("/dashboard/admin");
 
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
@@ -329,6 +331,7 @@ export async function deleteRegistry(prevState, formData) {
   }
 
   revalidatePath("/dashboard/admin/registry_list");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Registry deleted successfully.",

@@ -73,7 +73,6 @@ const defaultStaticPageErrors = {
 
 const saveStaticPageSchema = z.object({
   pageId: z
-    .string()
     .uuid()
     .optional()
     .or(z.literal(""))
@@ -239,7 +238,6 @@ const defaultEmailTemplateErrors = {
 
 const saveEmailTemplateSchema = z.object({
   templateId: z
-    .string()
     .uuid()
     .optional()
     .or(z.literal(""))
@@ -503,6 +501,9 @@ export async function sendTestEmailTemplate(prevState, formData) {
     targetId: templateId,
     details: `Sent test email for template ${templateId} to ${testEmail}`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: `Test email sent to ${testEmail}.`,

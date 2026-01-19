@@ -346,7 +346,7 @@ const defaultFlagVendorValues = {
 };
 
 const flagVendorSchema = z.object({
-  applicationId: z.string().uuid({ message: "Invalid vendor request" }),
+  applicationId: z.uuid({ message: "Invalid vendor request" }),
   reason: z.string().trim().optional().or(z.literal("")),
 });
 

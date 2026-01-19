@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useMemo, useState, useActionState } from "react";
+import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
 
 import {
   ChevronsUpDown,
@@ -130,6 +130,8 @@ export default function VendorRequestsTable() {
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [flagOpen, setFlagOpen] = useState(false);
 
+  const lastOpenedFocusIdRef = useRef("");
+
   const {
     requests,
     requestsPage,
@@ -138,6 +140,8 @@ export default function VendorRequestsTable() {
     loadingRequests,
     setRequestsPage,
     refreshRequests,
+    focusId,
+    setFocusId,
   } = useVendorRequestsContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
@@ -243,6 +247,27 @@ export default function VendorRequestsTable() {
       };
     });
   }, [requests]);
+
+  useEffect(() => {
+    if (!focusId) return;
+    const focusValue = String(focusId).trim();
+    if (!focusValue) return;
+    if (focusValue === lastOpenedFocusIdRef.current) return;
+
+    const match = tableRows.find((row) => row?.id === focusValue);
+    if (!match) return;
+
+    lastOpenedFocusIdRef.current = focusValue;
+    setSelectedRequest(match);
+    setViewOpen(true);
+
+    window.requestAnimationFrame(() => {
+      const el = document.getElementById(`vendor-request-row-${match.id}`);
+      if (el?.scrollIntoView) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  }, [focusId, tableRows]);
 
   const columns = useMemo(
     () => [
@@ -467,7 +492,16 @@ export default function VendorRequestsTable() {
             </tr>
           ) : tableInstance.getRowModel().rows.length ? (
             tableInstance.getRowModel().rows.map((row) => (
-              <tr key={row.id} className={cx(bodyRow())}>
+              <tr
+                key={row.id}
+                id={`vendor-request-row-${row.original?.id || row.id}`}
+                className={cx(
+                  bodyRow(),
+                  row.original?.id && String(row.original.id) === String(focusId || "")
+                    ? "bg-blue-50/60 ring-2 ring-[#427ED3]/30"
+                    : ""
+                )}
+              >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className={cx(bodyCell())}>
                     {flexRender(
@@ -497,6 +531,9 @@ export default function VendorRequestsTable() {
           setViewOpen(open);
           if (!open) {
             setSelectedRequest(null);
+            if (setFocusId && focusId) {
+              setFocusId("");
+            }
           }
         }}
       >
@@ -546,7 +583,6 @@ export default function VendorRequestsTable() {
                 <textarea
                   id="flag-reason"
                   name="reason"
-                  defaultValue={flagState?.values?.reason ?? ""}
                   rows={3}
                   className={cx(
                     "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",

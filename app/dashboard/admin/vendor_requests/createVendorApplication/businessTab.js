@@ -89,7 +89,6 @@ export default function BusinessTab(props) {
               <input
                 name="businessType"
                 type="text"
-                defaultValue={state?.values?.businessType ?? ""}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -107,7 +106,6 @@ export default function BusinessTab(props) {
               <input
                 name="businessRegistrationNumber"
                 type="text"
-                defaultValue={state?.values?.businessRegistrationNumber ?? ""}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -123,7 +121,6 @@ export default function BusinessTab(props) {
               <input
                 name="taxId"
                 type="text"
-                defaultValue={state?.values?.taxId ?? ""}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -142,7 +139,6 @@ export default function BusinessTab(props) {
                 name="yearsInBusiness"
                 type="number"
                 min="0"
-                defaultValue={state?.values?.yearsInBusiness ?? ""}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -158,7 +154,6 @@ export default function BusinessTab(props) {
               <input
                 name="website"
                 type="url"
-                defaultValue={state?.values?.website ?? ""}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -180,7 +175,6 @@ export default function BusinessTab(props) {
           <textarea
             name="businessDescription"
             rows={3}
-            defaultValue={state?.values?.businessDescription ?? ""}
             className={cx(
               "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
