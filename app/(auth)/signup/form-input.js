@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
-import { PhoneInput } from "react-simple-phone-input";
-import "react-simple-phone-input/dist/style.css";
+// import { PhoneInput } from "react-simple-phone-input";
+// import "react-simple-phone-input/dist/style.css";
 import { Eye, EyeOff, LoaderCircle, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
