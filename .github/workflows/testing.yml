@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: npm install --legacy-peer-deps --global vercel@latest
       - name: List Vercel teams
         run: vercel teams ls --token "$VERCEL_TOKEN"
       - name: List projects under Giftologi
