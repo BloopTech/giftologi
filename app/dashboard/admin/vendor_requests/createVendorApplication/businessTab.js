@@ -4,8 +4,16 @@ import { VENDOR_CATEGORIES } from "../../vendorCategories";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 
 export default function BusinessTab(props) {
-  const { state, hasError, errorFor, isPending, selectedVendor } =
-    props;
+  const {
+    state,
+    hasError,
+    errorFor,
+    isPending,
+    selectedVendor,
+    getFieldValue,
+    onInputChange,
+    disableIdentityFields = true,
+  } = props;
 
   return (
     <div className="space-y-4">
@@ -22,20 +30,18 @@ export default function BusinessTab(props) {
               <input
                 name="businessName"
                 type="text"
+                maxLength={50}
                 required
-                defaultValue={
-                  state?.values?.businessName ??
-                  selectedVendor.businessName ??
-                  ""
-                }
+                value={getFieldValue("businessName")}
+                onChange={(e) => onInputChange("businessName", e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                   focusInput,
-                  hasError("businessName") ? hasErrorInput : ""
+                  hasError("businessName") ? hasErrorInput : "",
                 )}
                 placeholder="Premium Home Goods"
-                disabled={isPending}
+                disabled={isPending || disableIdentityFields}
               />
               {hasError("businessName") && (
                 <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
@@ -53,16 +59,15 @@ export default function BusinessTab(props) {
               <select
                 name="category"
                 required
-                defaultValue={
-                  state?.values?.category ?? selectedVendor.category ?? ""
-                }
+                value={getFieldValue("category")}
+                onChange={(e) => onInputChange("category", e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A]",
                   focusInput,
-                  hasError("category") ? hasErrorInput : ""
+                  hasError("category") ? hasErrorInput : "",
                 )}
-                disabled={isPending}
+                disabled={isPending || disableIdentityFields}
               >
                 <option value="" disabled>
                   Select category
@@ -84,15 +89,20 @@ export default function BusinessTab(props) {
 
             <div className="space-y-1">
               <label className="text-[11px] text-[#717182]">
-                Business Type
+                Business Type <span className="text-red-500">*</span>
               </label>
               <input
+                required
                 name="businessType"
                 type="text"
+                maxLength={50}
+                value={getFieldValue("businessType")}
+                onChange={(e) => onInputChange("businessType", e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
-                  focusInput
+                  focusInput,
+                  hasError("businessType") ? hasErrorInput : "",
                 )}
                 placeholder="Limited Liability Company"
                 disabled={isPending}
@@ -101,15 +111,23 @@ export default function BusinessTab(props) {
 
             <div className="space-y-1">
               <label className="text-[11px] text-[#717182]">
-                Business Registration Number
+                Business Registration Number{" "}
+                <span className="text-red-500">*</span>
               </label>
               <input
+                required
                 name="businessRegistrationNumber"
                 type="text"
+                maxLength={50}
+                value={getFieldValue("businessRegistrationNumber")}
+                onChange={(e) =>
+                  onInputChange("businessRegistrationNumber", e.target.value)
+                }
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
-                  focusInput
+                  focusInput,
+                  hasError("businessRegistrationNumber") ? hasErrorInput : "",
                 )}
                 placeholder="BR-2024-001"
                 disabled={isPending}
@@ -117,14 +135,21 @@ export default function BusinessTab(props) {
             </div>
 
             <div className="space-y-1">
-              <label className="text-[11px] text-[#717182]">Tax ID</label>
+              <label className="text-[11px] text-[#717182]">
+                Tax ID <span className="text-red-500">*</span>
+              </label>
               <input
                 name="taxId"
+                required
                 type="text"
+                maxLength={50}
+                value={getFieldValue("taxId")}
+                onChange={(e) => onInputChange("taxId", e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
-                  focusInput
+                  focusInput,
+                  hasError("taxId") ? hasErrorInput : "",
                 )}
                 placeholder="TIN-123-456"
                 disabled={isPending}
@@ -139,10 +164,14 @@ export default function BusinessTab(props) {
                 name="yearsInBusiness"
                 type="number"
                 min="0"
+                value={getFieldValue("yearsInBusiness")}
+                onChange={(e) =>
+                  onInputChange("yearsInBusiness", e.target.value)
+                }
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
-                  focusInput
+                  focusInput,
                 )}
                 placeholder="5"
                 disabled={isPending}
@@ -150,14 +179,21 @@ export default function BusinessTab(props) {
             </div>
 
             <div className="col-span-2 space-y-1">
-              <label className="text-[11px] text-[#717182]">Website</label>
+              <label className="text-[11px] text-[#717182]">
+                Website <span className="text-red-500">*</span>
+              </label>
               <input
                 name="website"
+                required
+                maxLength={100}
                 type="url"
+                value={getFieldValue("website")}
+                onChange={(e) => onInputChange("website", e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
-                  focusInput
+                  focusInput,
+                  hasError("website") ? hasErrorInput : "",
                 )}
                 placeholder="https://example.com"
                 disabled={isPending}
@@ -175,10 +211,14 @@ export default function BusinessTab(props) {
           <textarea
             name="businessDescription"
             rows={3}
+            value={getFieldValue("businessDescription")}
+            onChange={(e) =>
+              onInputChange("businessDescription", e.target.value)
+            }
             className={cx(
               "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
-              focusInput
+              focusInput,
             )}
             placeholder="Describe the business, key products, and target customers."
             disabled={isPending}

@@ -36,7 +36,11 @@ const isFileLike = (value) => {
 const isValidSelectedFile = (file) => {
   if (!isFileLike(file)) return false;
   const name = typeof file.name === "string" ? file.name.trim() : "";
-  if (!name || name.toLowerCase() === "undefined" || name.toLowerCase() === "null") {
+  if (
+    !name ||
+    name.toLowerCase() === "undefined" ||
+    name.toLowerCase() === "null"
+  ) {
     return false;
   }
   if (typeof file.size !== "number" || file.size <= 0) return false;
@@ -190,9 +194,6 @@ export async function approveProduct(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/products");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -203,6 +204,9 @@ export async function approveProduct(prevState, formData) {
     targetId: productId,
     details: `Approved product ${productId}`,
   });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Product approved.",
@@ -312,9 +316,6 @@ export async function rejectProduct(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/products");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -325,6 +326,9 @@ export async function rejectProduct(prevState, formData) {
     targetId: productId,
     details: `Rejected product ${productId}`,
   });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Product rejected.",
@@ -457,9 +461,6 @@ export async function flagProduct(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/products");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -470,6 +471,9 @@ export async function flagProduct(prevState, formData) {
     targetId: productId,
     details: `Flagged product ${productId}${reason ? `: ${reason}` : ""}`,
   });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Product flagged successfully.",
@@ -506,10 +510,7 @@ const defaultUpdateCategoryValues = {
 const defaultDeleteCategoryValues = {};
 
 const createCategorySchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, { message: "Category name is required" }),
+  name: z.string().trim().min(1, { message: "Category name is required" }),
 });
 
 export async function createCategory(prevState, formData) {
@@ -554,7 +555,10 @@ export async function createCategory(prevState, formData) {
   if (!parsed.success) {
     return {
       message: parsed.error.issues?.[0]?.message || "Validation failed",
-      errors: { ...defaultCreateCategoryValues, ...parsed.error.flatten().fieldErrors },
+      errors: {
+        ...defaultCreateCategoryValues,
+        ...parsed.error.flatten().fieldErrors,
+      },
       values: raw,
       data: {},
     };
@@ -581,7 +585,10 @@ export async function createCategory(prevState, formData) {
   if (existingCategory) {
     return {
       message: "Category already exists.",
-      errors: { ...defaultCreateCategoryValues, name: ["Category already exists."] },
+      errors: {
+        ...defaultCreateCategoryValues,
+        name: ["Category already exists."],
+      },
       values: raw,
       data: {},
     };
@@ -611,9 +618,6 @@ export async function createCategory(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/products");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -629,6 +633,9 @@ export async function createCategory(prevState, formData) {
     targetId: category?.id,
     details: `Created category ${category?.name || name}`,
   });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Category created.",
@@ -686,7 +693,10 @@ export async function updateCategory(prevState, formData) {
   if (!name) {
     return {
       message: "Category name is required.",
-      errors: { ...defaultUpdateCategoryValues, name: ["Category name is required."] },
+      errors: {
+        ...defaultUpdateCategoryValues,
+        name: ["Category name is required."],
+      },
       values: { name },
       data: {},
     };
@@ -727,7 +737,10 @@ export async function updateCategory(prevState, formData) {
   if (slugConflict) {
     return {
       message: "A category with this name already exists.",
-      errors: { ...defaultUpdateCategoryValues, name: ["A category with this name already exists."] },
+      errors: {
+        ...defaultUpdateCategoryValues,
+        name: ["A category with this name already exists."],
+      },
       values: { name },
       data: {},
     };
@@ -755,9 +768,6 @@ export async function updateCategory(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/products");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -773,6 +783,9 @@ export async function updateCategory(prevState, formData) {
     targetId: category?.id,
     details: `Updated category ${category?.name || name}`,
   });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Category updated.",
@@ -879,9 +892,6 @@ export async function deleteCategory(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/products");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -897,6 +907,9 @@ export async function deleteCategory(prevState, formData) {
     targetId: category?.id,
     details: `Deleted category ${category?.name}`,
   });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Category deleted.",
@@ -917,15 +930,8 @@ const createProductsBaseSchema = z.object({
 });
 
 const createSingleProductSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, { message: "Product name is required" }),
-  description: z
-    .string()
-    .trim()
-    .optional()
-    .or(z.literal("")),
+  name: z.string().trim().min(1, { message: "Product name is required" }),
+  description: z.string().trim().optional().or(z.literal("")),
   price: z
     .string()
     .trim()
@@ -944,15 +950,8 @@ const createSingleProductSchema = z.object({
       const num = Number(value.replace(/,/g, ""));
       return Number.isInteger(num) && num >= 0;
     }, "Enter a valid stock quantity"),
-  productCode: z
-    .string()
-    .trim()
-    .optional()
-    .or(z.literal("")),
-  categoryId: z
-    .string()
-    .trim()
-    .uuid({ message: "Select a category" }),
+  productCode: z.string().trim().optional().or(z.literal("")),
+  categoryId: z.string().trim().uuid({ message: "Select a category" }),
   featuredImageIndex: z
     .string()
     .trim()
@@ -976,23 +975,10 @@ const createBulkMappingSchema = z.object({
 });
 
 const bulkRowSchema = z.object({
-  name: z
-    .string()
-    .trim()
-    .min(1, { message: "Row is missing a product name" }),
-  description: z
-    .string()
-    .trim()
-    .optional()
-    .or(z.literal("")),
-  price: z
-    .number()
-    .nonnegative({ message: "Price must be zero or greater" }),
-  stockQty: z
-    .number()
-    .int()
-    .nonnegative()
-    .optional(),
+  name: z.string().trim().min(1, { message: "Row is missing a product name" }),
+  description: z.string().trim().optional().or(z.literal("")),
+  price: z.number().nonnegative({ message: "Price must be zero or greater" }),
+  stockQty: z.number().int().nonnegative().optional(),
   imageUrl: z
     .string()
     .trim()
@@ -1195,11 +1181,7 @@ export async function createVendorProducts(prevState, formData) {
     let orderedImageUrls = imageUrls;
     if (single.featuredImageIndex && orderedImageUrls.length) {
       const idx = Number(single.featuredImageIndex);
-      if (
-        Number.isInteger(idx) &&
-        idx >= 0 &&
-        idx < orderedImageUrls.length
-      ) {
+      if (Number.isInteger(idx) && idx >= 0 && idx < orderedImageUrls.length) {
         const clone = [...orderedImageUrls];
         const [featured] = clone.splice(idx, 1);
         orderedImageUrls = [featured, ...clone];

@@ -194,9 +194,6 @@ export async function saveStaticPage(prevState, formData) {
     page = data;
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -214,6 +211,9 @@ export async function saveStaticPage(prevState, formData) {
       ? `Updated static page ${pageId} (${title})`
       : `Created static page ${page?.id || ""} (${title})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: pageId ? "Page updated." : "Page created.",
@@ -368,9 +368,6 @@ export async function saveEmailTemplate(prevState, formData) {
     template = data;
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -388,6 +385,9 @@ export async function saveEmailTemplate(prevState, formData) {
       ? `Updated email template ${templateId} (${name})`
       : `Created email template ${template?.id || ""} (${name})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: templateId ? "Email template updated." : "Email template created.",
@@ -647,9 +647,6 @@ export async function saveFaq(prevState, formData) {
     faq = data;
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -667,6 +664,9 @@ export async function saveFaq(prevState, formData) {
       ? `Updated FAQ ${faqId} (${question})`
       : `Created FAQ ${faq?.id || ""} (${question})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: faqId ? "FAQ updated." : "FAQ created.",
@@ -796,9 +796,6 @@ export async function saveContactSettings(prevState, formData) {
     settingsRow = data;
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -814,6 +811,9 @@ export async function saveContactSettings(prevState, formData) {
     targetId: settingsRow?.id || null,
     details: "Updated contact page settings.",
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Contact settings updated.",
@@ -903,9 +903,6 @@ export async function archiveStaticPage(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -921,6 +918,9 @@ export async function archiveStaticPage(prevState, formData) {
     targetId: pageId,
     details: `Archived static page ${pageId} (${page.title || ""})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Page archived.",
@@ -988,9 +988,6 @@ export async function deleteStaticPage(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -1006,6 +1003,9 @@ export async function deleteStaticPage(prevState, formData) {
     targetId: pageId,
     details: `Deleted static page ${pageId} (${page.title || ""})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Page deleted.",
@@ -1095,9 +1095,6 @@ export async function archiveEmailTemplate(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -1113,6 +1110,9 @@ export async function archiveEmailTemplate(prevState, formData) {
     targetId: templateId,
     details: `Archived email template ${templateId} (${template.name || ""})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Template archived (set to inactive).",
@@ -1180,9 +1180,6 @@ export async function deleteEmailTemplate(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -1198,6 +1195,9 @@ export async function deleteEmailTemplate(prevState, formData) {
     targetId: templateId,
     details: `Deleted email template ${templateId} (${template.name || ""})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Template deleted.",
@@ -1287,9 +1287,6 @@ export async function archiveFaq(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -1305,6 +1302,9 @@ export async function archiveFaq(prevState, formData) {
     targetId: faqId,
     details: `Archived FAQ ${faqId} (${faq.question || ""})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "FAQ archived (set to internal).",
@@ -1372,9 +1372,6 @@ export async function deleteFaq(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/content_policy_pages");
-  revalidatePath("/dashboard/admin");
-
   const adminNameParts = [];
   if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
   if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
@@ -1390,6 +1387,9 @@ export async function deleteFaq(prevState, formData) {
     targetId: faqId,
     details: `Deleted FAQ ${faqId} (${faq.question || ""})`,
   });
+
+  revalidatePath("/dashboard/admin/content_policy_pages");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "FAQ deleted.",

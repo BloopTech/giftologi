@@ -1,19 +1,19 @@
 "use client";
-
-import React, { useActionState, useEffect, useMemo, useState } from "react";
+import React, { useState, useEffect, useMemo, useTransition, useActionState } from "react";
+import { toast } from "sonner";
+import { LoaderCircle, Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { useDebounce } from "use-debounce";
 import {
+  Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogClose,
 } from "@/app/components/Dialog";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
-import { toast } from "sonner";
-import { LoaderCircle, Search } from "lucide-react";
 import { createClient as createSupabaseClient } from "../../../../utils/supabase/client";
 import { createVendorApplication } from "../action";
-import { useDebounce } from "use-debounce";
 import BusinessTab from "./businessTab";
 import BusinessAddressTab from "./businessAddressTab";
 import OwnerDetailsTab from "./ownerDetailsTab";
@@ -24,17 +24,59 @@ import FinancialTabs from "./financialTab";
 import FinancialNotesTab from "./financialNotesTab";
 
 const TABS = [
-  { id: "business", label: "Business Info" },
+  { id: "business", label: "Business" },
   { id: "business-address", label: "Business Address" },
-  { id: "owner", label: "Owner Details" },
-  { id: "owner-references", label: "References" },
+  { id: "owner", label: "Owner" },
+  { id: "owner-references", label: "Owner References" },
   { id: "documents", label: "Documents" },
-  { id: "documents-notes", label: "Doc Notes" },
-  { id: "financial", label: "Financial Info" },
+  { id: "documents-notes", label: "Documents Notes" },
+  { id: "financial", label: "Financial" },
   { id: "financial-notes", label: "Financial Notes" },
 ];
 
 const MAX_VENDOR_DOC_FILE_SIZE_BYTES = 2 * 1024 * 1024;
+
+const TAB_ORDER = TABS.map((tab) => tab.id);
+
+const FORM_FIELDS = [
+  "businessName",
+  "category",
+  "businessType",
+  "businessRegistrationNumber",
+  "taxId",
+  "yearsInBusiness",
+  "website",
+  "businessDescription",
+  "streetAddress",
+  "city",
+  "region",
+  "postalCode",
+  "ownerFullName",
+  "ownerEmail",
+  "ownerPhone",
+  "ref1Name",
+  "ref1Company",
+  "ref1Phone",
+  "ref1Email",
+  "ref2Name",
+  "ref2Company",
+  "ref2Phone",
+  "ref2Email",
+  "verificationNotes",
+  "bankAccountName",
+  "bankName",
+  "bankAccountNumber",
+  "bankBranchCode",
+  "financialVerificationNotes",
+];
+
+const DOCUMENT_FIELDS = [
+  "businessRegistrationCertificate",
+  "taxClearanceCertificate",
+  "ownerIdDocument",
+  "bankStatement",
+  "proofOfBusinessAddress",
+];
 
 const initialState = {
   message: "",
@@ -52,6 +94,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
     createVendorApplication,
     initialState
   );
+  const [isPendingTransition, startTransition] = useTransition();
 
   const [activeTab, setActiveTab] = useState("business");
   const [vendors, setVendors] = useState([]);
@@ -61,12 +104,22 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [usedUserIds, setUsedUserIds] = useState(() => new Set());
 
+  // Form state to persist values across tabs
+  const [formValues, setFormValues] = useState({});
+
   const [docErrors, setDocErrors] = useState({
     businessRegistrationCertificate: "",
     taxClearanceCertificate: "",
     ownerIdDocument: "",
     bankStatement: "",
     proofOfBusinessAddress: "",
+  });
+  const [docFiles, setDocFiles] = useState({
+    businessRegistrationCertificate: null,
+    taxClearanceCertificate: null,
+    ownerIdDocument: null,
+    bankStatement: null,
+    proofOfBusinessAddress: null,
   });
 
   const [debouncedSearch] = useDebounce(vendorSearch, 300);
@@ -79,6 +132,14 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
       setActiveTab("business");
       setVendors([]);
       setUsedUserIds(new Set());
+      setFormValues({});
+      setDocFiles({
+        businessRegistrationCertificate: null,
+        taxClearanceCertificate: null,
+        ownerIdDocument: null,
+        bankStatement: null,
+        proofOfBusinessAddress: null,
+      });
       setDocErrors({
         businessRegistrationCertificate: "",
         taxClearanceCertificate: "",
@@ -222,6 +283,40 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
   const errorFor = (key) => state?.errors?.[key] ?? [];
   const hasError = (key) => (errorFor(key)?.length ?? 0) > 0;
 
+  // Merge server state values with local form values for persistence
+  const getFieldValue = (fieldName) => {
+    // Prioritize server state values (from validation errors) over local state
+    if (state?.values?.[fieldName] !== undefined && state?.values?.[fieldName] !== null) {
+      return state.values[fieldName];
+    }
+    // Fall back to local form state for tab persistence
+    if (formValues[fieldName] !== undefined && formValues[fieldName] !== null) {
+      return formValues[fieldName];
+    }
+    // Finally, fall back to selected vendor defaults for specific fields
+    if (fieldName === "businessName" && selectedVendor?.businessName) {
+      return selectedVendor.businessName;
+    }
+    if (fieldName === "category" && selectedVendor?.category) {
+      return selectedVendor.category;
+    }
+    if (fieldName === "ownerFullName" && selectedVendor?.contactName) {
+      return selectedVendor.contactName;
+    }
+    if (fieldName === "ownerEmail" && selectedVendor?.contactEmail) {
+      return selectedVendor.contactEmail;
+    }
+    return "";
+  };
+
+  // Handle input changes to persist across tabs
+  const handleInputChange = (fieldName, value) => {
+    setFormValues(prev => ({
+      ...prev,
+      [fieldName]: value
+    }));
+  };
+
   const filteredVendors = useMemo(() => {
     // Vendors are already filtered at the database level using the debounced search term
     return vendors;
@@ -247,12 +342,16 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
   const hasSelectedVendor = !!selectedVendor?.vendorUserId;
 
   const handleDocumentFileChange = (event, key) => {
-    const file = event?.target?.files?.[0];
+    const file = event?.target?.files?.[0] ?? null;
 
     if (!file) {
       setDocErrors((prev) => ({
         ...prev,
         [key]: "",
+      }));
+      setDocFiles((prev) => ({
+        ...prev,
+        [key]: null,
       }));
       return;
     }
@@ -265,6 +364,10 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
         ...prev,
         [key]: "File must be 2MB or smaller.",
       }));
+      setDocFiles((prev) => ({
+        ...prev,
+        [key]: null,
+      }));
       // Clear the selection so the oversized file is not submitted
       if (event.target) {
         event.target.value = "";
@@ -274,12 +377,111 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
         ...prev,
         [key]: "",
       }));
+      setDocFiles((prev) => ({
+        ...prev,
+        [key]: file,
+      }));
     }
   };
 
   const hasDocumentErrors = Object.values(docErrors).some(
     (message) => message && message.length > 0
   );
+
+  // Tab carousel state
+  const [, setTabScrollOffset] = useState(0);
+
+  // Handle tab carousel navigation
+  const handleTabCarouselScroll = (direction) => {
+    const tabContainer = document.getElementById('tab-carousel');
+    if (!tabContainer) return;
+    
+    const scrollAmount = 200; // Adjust based on tab width
+    if (direction === 'forward') {
+      tabContainer.scrollLeft += scrollAmount;
+    } else {
+      tabContainer.scrollLeft -= scrollAmount;
+    }
+  };
+
+  // Check if tabs can scroll
+  const checkCanScroll = () => {
+    const tabContainer = document.getElementById('tab-carousel');
+    if (!tabContainer) return { canScrollForward: false, canScrollBack: false };
+    
+    return {
+      canScrollForward: tabContainer.scrollLeft < tabContainer.scrollWidth - tabContainer.clientWidth,
+      canScrollBack: tabContainer.scrollLeft > 0
+    };
+  };
+  // Handle form submission with multi-step navigation
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    
+    // Define tab order
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    
+    // If we're on the last tab, submit the form using the server action
+    if (currentIndex === TAB_ORDER.length - 1) {
+      startTransition(() => {
+        const missingDocs = DOCUMENT_FIELDS.filter(
+          (field) => !(docFiles[field] instanceof File),
+        );
+
+        if (missingDocs.length > 0) {
+          setDocErrors((prev) => {
+            const updated = { ...prev };
+            missingDocs.forEach((field) => {
+              updated[field] = "This document is required.";
+            });
+            return updated;
+          });
+          setActiveTab("documents");
+          return;
+        }
+
+        const formData = new FormData();
+
+        if (selectedVendor?.vendorUserId) {
+          formData.set("vendorUserId", selectedVendor.vendorUserId);
+        }
+
+        FORM_FIELDS.forEach((field) => {
+          formData.set(field, getFieldValue(field) ?? "");
+        });
+
+        DOCUMENT_FIELDS.forEach((field) => {
+          const file = docFiles[field];
+          if (file instanceof File) {
+            formData.set(field, file);
+          }
+        });
+
+        formAction(formData);
+      });
+    } else {
+      // Navigate to next tab
+      setActiveTab(TAB_ORDER[currentIndex + 1]);
+    }
+  };
+
+  // Get button text based on current tab
+  const getButtonText = () => {
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    
+    if (currentIndex === TAB_ORDER.length - 1) {
+      return (isPending || isPendingTransition) ? (
+        <span className="inline-flex items-center gap-2">
+          <LoaderCircle className="size-3.5 animate-spin" />
+          <span>Creating application…</span>
+        </span>
+      ) : (
+        "Create Vendor Application"
+      );
+    } else {
+      return "Next Step";
+    }
+  };
 
   return (
     <DialogContent className="max-w-3xl">
@@ -297,7 +499,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
       </DialogHeader>
 
       <form
-        action={formAction}
+        onSubmit={handleSubmit}
         className="mt-3 space-y-4 text-xs text-[#0A0A0A]"
       >
         {!hasSelectedVendor && (
@@ -388,12 +590,6 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
 
         {hasSelectedVendor && (
           <>
-            <input
-              type="hidden"
-              name="vendorUserId"
-              value={selectedVendor.vendorUserId || ""}
-            />
-
             <section className="space-y-2">
               <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 flex flex-col gap-1 text-[11px]">
                 <span className="text-[#6B7280]">Selected Vendor</span>
@@ -407,22 +603,85 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
             </section>
 
             <section className="space-y-3">
-              <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px]">
-                {TABS.map((tab) => (
+              {/* Responsive Tab Navigation */}
+              <div className="relative">
+                {/* Tab carousel navigation */}
+                <div className="flex items-center gap-2">
+                  {/* Back button for carousel */}
                   <button
-                    key={tab.id}
                     type="button"
-                    onClick={() => setActiveTab(tab.id)}
+                    onClick={() => handleTabCarouselScroll('back')}
+                    disabled={!checkCanScroll().canScrollBack}
                     className={cx(
-                      "px-3 py-1.5 rounded-full cursor-pointer transition-colors",
-                      activeTab === tab.id
-                        ? "bg-white text-[#0A0A0A] shadow-sm"
-                        : "text-[#6A7282] hover:text-[#0A0A0A]"
+                      "shrink-0 p-1.5 rounded-full border transition-colors",
+                      !checkCanScroll().canScrollBack
+                        ? "border-gray-200 text-gray-300 cursor-not-allowed" 
+                        : "border-[#D1D5DB] bg-white text-[#6B7280] hover:border-[#3979D2] hover:text-[#3979D2] cursor-pointer"
                     )}
                   >
-                    {tab.label}
+                    <ChevronLeft className="size-3.5" />
                   </button>
-                ))}
+
+                  {/* Scrollable tab container */}
+                  <div className="flex-1 overflow-hidden">
+                    <div 
+                      id="tab-carousel"
+                      className="overflow-x-auto scrollbar-hide"
+                      style={{
+                        scrollbarWidth: 'none', /* Firefox */
+                        msOverflowStyle: 'none', /* IE and Edge */
+                      }}
+                      onScroll={() => {
+                        // Force re-render to update button states
+                        setTabScrollOffset(prev => prev + 1);
+                      }}
+                    >
+                      <style jsx>{`
+                        #tab-carousel::-webkit-scrollbar {
+                          display: none; /* Chrome, Safari and Opera */
+                        }
+                      `}</style>
+                      <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px] whitespace-nowrap">
+                        {TABS.map((tab) => (
+                          <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setActiveTab(tab.id)}
+                            className={cx(
+                              "px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap",
+                              activeTab === tab.id
+                                ? "bg-white text-[#0A0A0A] shadow-sm"
+                                : "text-[#6A7282] hover:text-[#0A0A0A]"
+                            )}
+                          >
+                            {tab.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Forward button for carousel */}
+                  <button
+                    type="button"
+                    onClick={() => handleTabCarouselScroll('forward')}
+                    disabled={!checkCanScroll().canScrollForward}
+                    className={cx(
+                      "shrink-0 p-1.5 rounded-full border transition-colors",
+                      !checkCanScroll().canScrollForward
+                        ? "border-gray-200 text-gray-300 cursor-not-allowed" 
+                        : "border-[#D1D5DB] bg-white text-[#6B7280] hover:border-[#3979D2] hover:text-[#3979D2] cursor-pointer"
+                    )}
+                  >
+                    <ChevronRight className="size-3.5" />
+                  </button>
+                </div>
+
+                {/* Progress indicator */}
+                <div className="mt-2 flex items-center justify-between text-[10px] text-[#9CA3AF]">
+                  <span>Step {TABS.findIndex(tab => tab.id === activeTab) + 1} of {TABS.length}</span>
+                  <span>{TABS.find(tab => tab.id === activeTab)?.label}</span>
+                </div>
               </div>
 
               {activeTab === "business" && (
@@ -432,45 +691,95 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                   errorFor={errorFor}
                   isPending={isPending}
                   selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
                 />
               )}
 
               {activeTab === "business-address" && (
-                <BusinessAddressTab state={state} isPending={isPending} />
-              )}
-
-              {activeTab === "owner" && (
-                <OwnerDetailsTab state={state} isPending={isPending} />
-              )}
-
-              {activeTab === "owner-references" && (
-                <OwnerReferencesTab state={state} isPending={isPending} />
-              )}
-
-              {activeTab === "documents" && (
-                <DocumentsTab
+                <BusinessAddressTab 
+                  state={state}
+                  hasError={hasError}
+                  errorFor={errorFor}
                   isPending={isPending}
-                  handleDocumentFileChange={handleDocumentFileChange}
-                  docErrors={docErrors}
+                  selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
                 />
               )}
 
+              {activeTab === "owner" && (
+                <OwnerDetailsTab 
+                  state={state}
+                  hasError={hasError}
+                  errorFor={errorFor}
+                  isPending={isPending}
+                  selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
+                />
+              )}
+
+              {activeTab === "owner-references" && (
+                <OwnerReferencesTab 
+                  state={state}
+                  hasError={hasError}
+                  errorFor={errorFor}
+                  isPending={isPending}
+                  selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
+                />
+              )}
+
+              <div className={activeTab === "documents" ? "" : "hidden"}>
+                <DocumentsTab
+                  state={state}
+                  hasError={hasError}
+                  errorFor={errorFor}
+                  isPending={isPending}
+                  selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
+                  handleDocumentFileChange={handleDocumentFileChange}
+                  docErrors={docErrors}
+                  selectedFiles={docFiles}
+                />
+              </div>
+
               {activeTab === "documents-notes" && (
-                <DocumentsNotesTab state={state} isPending={isPending} />
+                <DocumentsNotesTab 
+                  state={state}
+                  hasError={hasError}
+                  errorFor={errorFor}
+                  isPending={isPending}
+                  selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
+                />
               )}
 
               {activeTab === "financial" && (
                 <FinancialTabs
                   state={state}
+                  hasError={hasError}
+                  errorFor={errorFor}
                   isPending={isPending}
                   selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
                 />
               )}
 
               {activeTab === "financial-notes" && (
                 <FinancialNotesTab
                   state={state}
+                  hasError={hasError}
+                  errorFor={errorFor}
                   isPending={isPending}
+                  selectedVendor={selectedVendor}
+                  getFieldValue={getFieldValue}
+                  onInputChange={handleInputChange}
                 />
               )}
             </section>
@@ -491,22 +800,15 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
           <div className="flex items-center gap-3">
             <button
               type="submit"
-              disabled={isPending || !hasSelectedVendor || hasDocumentErrors}
+              disabled={isPending || isPendingTransition || !hasSelectedVendor || hasDocumentErrors}
               className={cx(
                 "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
                 "border-[#3979D2] text-white bg-[#3979D2] hover:bg-white hover:text-[#3979D2]",
-                (!hasSelectedVendor || isPending || hasDocumentErrors) &&
+                (!hasSelectedVendor || isPending || isPendingTransition || hasDocumentErrors) &&
                   "opacity-60 cursor-not-allowed hover:bg-[#3979D2] hover:text-white"
               )}
             >
-              {isPending ? (
-                <span className="inline-flex items-center gap-2">
-                  <LoaderCircle className="size-3.5 animate-spin" />
-                  <span>Creating application…</span>
-                </span>
-              ) : (
-                "Create Vendor Application"
-              )}
+              {getButtonText()}
             </button>
           </div>
         </div>

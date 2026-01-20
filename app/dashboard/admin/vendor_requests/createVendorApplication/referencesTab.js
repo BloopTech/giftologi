@@ -3,7 +3,7 @@ import React from "react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 
 export default function OwnerReferencesTab(props) {
-  const { state, isPending } = props;
+  const { state, isPending, getFieldValue, onInputChange } = props;
 
   return (
     <div className="space-y-4">
@@ -24,6 +24,8 @@ export default function OwnerReferencesTab(props) {
                 name={`ref${index}Name`}
                 type="text"
                 placeholder="Name"
+                value={getFieldValue(`ref${index}Name`)}
+                onChange={(e) => onInputChange(`ref${index}Name`, e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white mb-1",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -35,6 +37,8 @@ export default function OwnerReferencesTab(props) {
                 name={`ref${index}Company`}
                 type="text"
                 placeholder="Company"
+                value={getFieldValue(`ref${index}Company`)}
+                onChange={(e) => onInputChange(`ref${index}Company`, e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white mb-1",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -46,6 +50,8 @@ export default function OwnerReferencesTab(props) {
                 name={`ref${index}Phone`}
                 type="tel"
                 placeholder="Phone"
+                value={getFieldValue(`ref${index}Phone`)}
+                onChange={(e) => onInputChange(`ref${index}Phone`, e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white mb-1",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
@@ -57,6 +63,8 @@ export default function OwnerReferencesTab(props) {
                 name={`ref${index}Email`}
                 type="email"
                 placeholder="Email"
+                value={getFieldValue(`ref${index}Email`)}
+                onChange={(e) => onInputChange(`ref${index}Email`, e.target.value)}
                 className={cx(
                   "w-full rounded-full border px-3 py-1.5 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",

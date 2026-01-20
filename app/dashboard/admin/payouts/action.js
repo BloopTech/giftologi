@@ -259,9 +259,6 @@ export async function updateVendorPayoutApproval(prevState, formData) {
     }
   }
 
-  revalidatePath("/dashboard/admin/payouts");
-  revalidatePath("/dashboard/admin");
-
   const actionLabel = "approved_payout";
   const detailLabel = isFinance && isSuper
     ? "Payout approvals updated."
@@ -279,6 +276,9 @@ export async function updateVendorPayoutApproval(prevState, formData) {
     targetId: vendorId,
     details: `${detailLabel} (vendor: ${vendorId})`,
   });
+
+  revalidatePath("/dashboard/admin/payouts");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: isFinance && isSuper
@@ -373,9 +373,6 @@ export async function rejectVendorPayout(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/payouts");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -386,6 +383,9 @@ export async function rejectVendorPayout(prevState, formData) {
     targetId: vendorId,
     details: `Rejected payout for vendor ${vendorId}`,
   });
+
+  revalidatePath("/dashboard/admin/payouts");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Payout rejected.",

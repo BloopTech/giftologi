@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Eye,
   Flag,
+  Pencil,
 } from "lucide-react";
 
 import {
@@ -36,6 +37,7 @@ import { toast } from "sonner";
 
 import { useVendorRequestsContext } from "./context";
 import VendorKycDialog from "./VendorKycDialog";
+import EditVendorApplicationDialog from "./editVendorApplication";
 
 import { useDashboardContext } from "../context";
 
@@ -129,6 +131,8 @@ export default function VendorRequestsTable() {
   const [viewOpen, setViewOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [flagOpen, setFlagOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editRequest, setEditRequest] = useState(null);
 
   const lastOpenedFocusIdRef = useRef("");
 
@@ -327,6 +331,7 @@ export default function VendorRequestsTable() {
         cell: ({ row }) => {
           const original = row.original;
           const isPending = original.normalizedStatus === "pending";
+          const isApproved = original.normalizedStatus === "approved";
 
           if (!canModerate) {
             return (
@@ -346,6 +351,11 @@ export default function VendorRequestsTable() {
             setFlagOpen(true);
           };
 
+          const handleEdit = () => {
+            setEditRequest(original);
+            setEditOpen(true);
+          };
+
           return (
             <div className="flex justify-end items-center gap-2">
               <Tooltip>
@@ -360,6 +370,27 @@ export default function VendorRequestsTable() {
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>View request</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleEdit}
+                    aria-label="Edit vendor request"
+                    disabled={isApproved}
+                    className={cx(
+                      "p-1 rounded-full border",
+                      isApproved
+                        ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                        : "border-blue-200 text-blue-500 hover:bg-blue-50 cursor-pointer"
+                    )}
+                  >
+                    <Pencil className="size-4" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isApproved ? "Approved requests cannot be edited" : "Edit request"}
+                </TooltipContent>
               </Tooltip>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -544,6 +575,25 @@ export default function VendorRequestsTable() {
             rejectAction={rejectAction}
             approvePending={approvePending}
             rejectPending={rejectPending}
+          />
+        )}
+      </Dialog>
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={(open) => {
+          setEditOpen(open);
+          if (!open) {
+            setEditRequest(null);
+          }
+        }}
+      >
+        {editRequest && (
+          <EditVendorApplicationDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            request={editRequest}
+            onUpdated={refreshRequests}
           />
         )}
       </Dialog>

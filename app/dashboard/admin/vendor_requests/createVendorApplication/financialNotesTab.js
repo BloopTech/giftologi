@@ -3,7 +3,7 @@ import React from "react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 
 export default function FinancialNotesTab(props) {
-  const { state, isPending } = props;
+  const { state, isPending, getFieldValue, onInputChange } = props;
 
   return (
     <div className="space-y-4">
@@ -15,6 +15,8 @@ export default function FinancialNotesTab(props) {
           <textarea
             name="financialVerificationNotes"
             rows={3}
+            value={getFieldValue("financialVerificationNotes")}
+            onChange={(e) => onInputChange("financialVerificationNotes", e.target.value)}
             className={cx(
               "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
               "border-[#FBBF24] text-[#92400E] placeholder:text-[#F59E0B]",

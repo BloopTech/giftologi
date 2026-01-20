@@ -96,9 +96,6 @@ export async function updateRegistryEvent(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/registry_list");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -120,6 +117,9 @@ export async function updateRegistryEvent(prevState, formData) {
     targetId: registryId,
     details: `Updated registry ${registryId} event to ${eventType} on ${event.date}`,
   });
+
+  revalidatePath("/dashboard/admin/registry_list");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Event updated successfully.",
@@ -223,9 +223,6 @@ export async function flagRegistry(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/registry_list");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -236,6 +233,9 @@ export async function flagRegistry(prevState, formData) {
     targetId: registryId,
     details: `Flagged registry ${registryId}${reason ? `: ${reason}` : ""}`,
   });
+
+  revalidatePath("/dashboard/admin/registry_list");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Registry flagged successfully.",
@@ -326,9 +326,6 @@ export async function unflagRegistry(prevState, formData) {
     };
   }
 
-  revalidatePath("/dashboard/admin/registry_list");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -339,6 +336,9 @@ export async function unflagRegistry(prevState, formData) {
     targetId: registryId,
     details: `Unflagged registry ${registryId}`,
   });
+
+  revalidatePath("/dashboard/admin/registry_list");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Registry unflagged successfully.",

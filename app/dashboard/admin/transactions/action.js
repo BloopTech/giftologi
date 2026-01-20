@@ -129,10 +129,7 @@ export async function updateOrderStatus(prevState, formData) {
       .from("order_items")
       .update({ fulfillment_status: newStatus })
       .eq("order_id", orderId);
-  }
-
-  revalidatePath("/dashboard/admin/transactions");
-  revalidatePath("/dashboard/admin");
+  };
 
   const previousStatus = order.status || "unknown";
   await logAdminActivityWithClient(supabase, {
@@ -145,6 +142,9 @@ export async function updateOrderStatus(prevState, formData) {
     targetId: orderId,
     details: `Updated order status from ${previousStatus} to ${newStatus}`,
   });
+
+  revalidatePath("/dashboard/admin/transactions");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Order status updated.",
@@ -293,9 +293,6 @@ export async function initiateOrderRefund(prevState, formData) {
     .update({ status: "disputed", updated_at: new Date().toISOString() })
     .eq("id", orderId);
 
-  revalidatePath("/dashboard/admin/transactions");
-  revalidatePath("/dashboard/admin");
-
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -306,6 +303,9 @@ export async function initiateOrderRefund(prevState, formData) {
     targetId: orderId,
     details: `Initiated refund of ${amountValue} for order ${orderId}`,
   });
+
+  revalidatePath("/dashboard/admin/transactions");
+  revalidatePath("/dashboard/admin");
 
   return {
     message: "Refund request initiated.",
