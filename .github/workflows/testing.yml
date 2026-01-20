@@ -44,6 +44,6 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Build Project Artifacts
-        run: NODE_OPTIONS="--max-old-space-size=39096" vercel build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+        run: NODE_OPTIONS="--max-old-space-size=39096" vercel build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN --legacy-peer-deps"
       - name: Deploy Project Artifacts to Vercel
         run: vercel deploy --prebuilt --prod --yes --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
