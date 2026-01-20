@@ -11,6 +11,7 @@ import {
   Pencil,
   Trash2,
   Flag,
+  FlagOff,
 } from "lucide-react";
 import {
   useReactTable,
@@ -36,7 +37,12 @@ import {
 } from "@/app/components/Dialog";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { useDashboardContext } from "../context";
-import { updateRegistryEvent, flagRegistry, deleteRegistry } from "./action";
+import {
+  updateRegistryEvent,
+  flagRegistry,
+  unflagRegistry,
+  deleteRegistry,
+} from "./action";
 
 const tableStyles = tv({
   slots: {
@@ -79,6 +85,15 @@ const initialFlagRegistryState = {
   errors: {
     registryId: [],
     reason: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialUnflagRegistryState = {
+  message: "",
+  errors: {
+    registryId: [],
   },
   values: {},
   data: {},
@@ -133,6 +148,7 @@ export default function RegistryListTable() {
   const [viewRow, setViewRow] = useState(null);
   const [editOpen, setEditOpen] = useState(false);
   const [flagOpen, setFlagOpen] = useState(false);
+  const [unflagOpen, setUnflagOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [selectedRegistry, setSelectedRegistry] = useState(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
@@ -161,6 +177,10 @@ export default function RegistryListTable() {
     flagRegistry,
     initialFlagRegistryState
   );
+  const [unflagState, unflagAction, unflagPending] = useActionState(
+    unflagRegistry,
+    initialUnflagRegistryState
+  );
   const [deleteState, deleteAction, deletePending] = useActionState(
     deleteRegistry,
     initialDeleteRegistryState
@@ -171,6 +191,9 @@ export default function RegistryListTable() {
 
   const flagErrorFor = (key) => flagState?.errors?.[key] ?? [];
   const hasFlagError = (key) => (flagErrorFor(key)?.length ?? 0) > 0;
+
+  const unflagErrorFor = (key) => unflagState?.errors?.[key] ?? [];
+  const hasUnflagError = (key) => (unflagErrorFor(key)?.length ?? 0) > 0;
 
   const deleteErrorFor = (key) => deleteState?.errors?.[key] ?? [];
   const hasDeleteError = (key) => (deleteErrorFor(key)?.length ?? 0) > 0;
@@ -208,6 +231,26 @@ export default function RegistryListTable() {
       toast.error(flagState.message);
     }
   }, [flagState, refreshRegistries]);
+
+  useEffect(() => {
+    if (
+      unflagState.message &&
+      unflagState.data &&
+      Object.keys(unflagState.data).length
+    ) {
+      toast.success(unflagState.message);
+      refreshRegistries?.();
+      setUnflagOpen(false);
+      setSelectedRegistry(null);
+    }
+    if (
+      unflagState.message &&
+      unflagState.errors &&
+      Object.keys(unflagState.errors).length
+    ) {
+      toast.error(unflagState.message);
+    }
+  }, [unflagState, refreshRegistries]);
 
   useEffect(() => {
     if (
@@ -364,6 +407,7 @@ export default function RegistryListTable() {
         cell: ({ row }) => {
           const original = row.original;
           const raw = original.__raw;
+          const isFlagged = original.status === "Flagged";
 
           const handleView = () => {
             setViewRow(original);
@@ -406,20 +450,37 @@ export default function RegistryListTable() {
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!raw?.registry?.id) return;
-                          setSelectedRegistry(raw);
-                          setFlagOpen(true);
-                        }}
-                        aria-label="Flag registry"
-                        className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
-                      >
-                        <Flag className="size-4" />
-                      </button>
+                      {isFlagged ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!raw?.registry?.id) return;
+                            setSelectedRegistry(raw);
+                            setUnflagOpen(true);
+                          }}
+                          aria-label="Unflag registry"
+                          className="p-1 rounded-full border border-emerald-200 text-emerald-600 hover:bg-emerald-50 cursor-pointer"
+                        >
+                          <FlagOff className="size-4" />
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!raw?.registry?.id) return;
+                            setSelectedRegistry(raw);
+                            setFlagOpen(true);
+                          }}
+                          aria-label="Flag registry"
+                          className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
+                        >
+                          <Flag className="size-4" />
+                        </button>
+                      )}
                     </TooltipTrigger>
-                    <TooltipContent>Flag registry</TooltipContent>
+                    <TooltipContent>
+                      {isFlagged ? "Unflag registry" : "Flag registry"}
+                    </TooltipContent>
                   </Tooltip>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -773,6 +834,69 @@ export default function RegistryListTable() {
                   className="inline-flex items-center justify-center rounded-full border border-yellow-500 bg-yellow-500 px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-yellow-600 cursor-pointer"
                 >
                   Flag Registry
+                </button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Unflag registry dialog */}
+      <Dialog open={unflagOpen} onOpenChange={setUnflagOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Unflag Registry
+            </DialogTitle>
+            <DialogDescription className="text-xs text-[#717182]">
+              Mark the escalated ticket as resolved. Only Super Admins can perform
+              this action.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedRegistry && (
+            <form action={unflagAction} className="mt-3 space-y-4">
+              <input
+                type="hidden"
+                name="registryId"
+                value={selectedRegistry.registry?.id || ""}
+              />
+
+              <div className="space-y-1 text-xs text-[#0A0A0A]">
+                <p className="font-medium">Registry</p>
+                <p className="text-[#6A7282]">
+                  {selectedRegistry.registry?.title || "Untitled"}
+                  {selectedRegistry.registry?.registry_code ? (
+                    <span className="ml-1 text-[11px] text-[#3979D2]">
+                      (Code: {selectedRegistry.registry.registry_code})
+                    </span>
+                  ) : null}
+                </p>
+              </div>
+
+              {hasUnflagError("registryId") && (
+                <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                  {unflagErrorFor("registryId").map((err, index) => (
+                    <li key={index}>{err}</li>
+                  ))}
+                </ul>
+              )}
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={unflagPending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={unflagPending}
+                  className="inline-flex items-center justify-center rounded-full border border-emerald-600 bg-emerald-600 px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-emerald-700 cursor-pointer"
+                >
+                  Unflag Registry
                 </button>
               </div>
             </form>

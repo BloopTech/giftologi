@@ -34,6 +34,7 @@ const ROLE_OPTIONS = [
   { label: "Operations Manager", value: "operations_manager_admin" },
   { label: "Finance", value: "finance_admin" },
   { label: "Customer Support", value: "customer_support_admin" },
+  { label: "Ops/HR", value: "ops_hr_admin" },
 ];
 
 const ROLE_MODULES = {
@@ -57,6 +58,7 @@ const ROLE_MODULES = {
   ],
   finance_admin: ["View Payouts", "Generate Reports"],
   customer_support_admin: ["Dashboard", "Support Tickets"],
+  ops_hr_admin: ["Staff Directory", "Invite Staff", "Assign Roles"],
 };
 
 function getRoleLabel(value) {

@@ -66,6 +66,7 @@ export async function middlewareClient(request) {
   const code = url.searchParams.get("code");
   const type = url.searchParams.get("type");
   const isPasswordResetRoute = url.pathname.startsWith("/password-reset");
+  const isRecoveryFlow = isPasswordResetRoute && type === "recovery";
   const isForgotRoute = url.pathname === "/forgot-password";
   const isEventPublicRoute = eventPublicRoutes?.some((pattern) =>
     matchesRoutePattern(url.pathname, pattern)
@@ -100,7 +101,7 @@ export async function middlewareClient(request) {
   if (!user && hasOAuthOrVerifyCode && code) {
     // For email/password confirmation links (e.g. /?code=...), do NOT run PKCE exchange on the server.
     // Instead, treat them as plain verification and send user to login with a verified flag.
-    if (!isAuthCallbackRoute) {
+    if (!isAuthCallbackRoute && !isRecoveryFlow) {
       const dest = new URL("/login", request.url);
       dest.searchParams.set("verified", "1");
       return withCookiesRedirect(dest);
@@ -138,6 +139,13 @@ export async function middlewareClient(request) {
         // Re-fetch user after successful exchange (email is now confirmed)
         const res = await supabase.auth.getUser();
         user = res.data.user;
+
+        // Recovery links should keep the user on the reset page, but strip the code
+        if (isRecoveryFlow) {
+          const cleanUrl = new URL(request.url);
+          cleanUrl.searchParams.delete("code");
+          return withCookiesRedirect(cleanUrl);
+        }
 
         // If this is a confirmation from signup
         if (type === "signup") {
@@ -178,7 +186,7 @@ export async function middlewareClient(request) {
     }
     // Block auth pages for logged-in users, except allow password reset during recovery flow
     if (isForgotRoute || isPasswordResetRoute) {
-      if (isPasswordResetRoute && hasOAuthOrVerifyCode) {
+      if (isPasswordResetRoute && (hasOAuthOrVerifyCode || type === "recovery")) {
         return supabaseResponse;
       }
       return withCookiesRedirect(new URL(loginRedirect, request.url));

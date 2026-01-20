@@ -245,6 +245,109 @@ export async function flagRegistry(prevState, formData) {
   };
 }
 
+const defaultUnflagRegistryValues = {
+  registryId: [],
+};
+
+const unflagRegistrySchema = z.object({
+  registryId: z.uuid({ message: "Invalid registry" }),
+});
+
+export async function unflagRegistry(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to unflag registries.",
+      errors: { ...defaultUnflagRegistryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  if (!currentProfile || currentProfile.role !== "super_admin") {
+    return {
+      message: "You are not authorized to unflag registries.",
+      errors: { ...defaultUnflagRegistryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    registryId: formData.get("registryId"),
+  };
+
+  const parsed = unflagRegistrySchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { registryId } = parsed.data;
+
+  const { data: updatedTickets, error } = await supabase
+    .from("support_tickets")
+    .update({ status: "resolved" })
+    .eq("registry_id", registryId)
+    .eq("status", "escalated")
+    .select("id");
+
+  if (error) {
+    return {
+      message: error.message,
+      errors: { ...defaultUnflagRegistryValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (!updatedTickets || updatedTickets.length === 0) {
+    return {
+      message: "Registry is not flagged.",
+      errors: {},
+      values: {},
+      data: { registryId },
+    };
+  }
+
+  revalidatePath("/dashboard/admin/registry_list");
+  revalidatePath("/dashboard/admin");
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "unflagged_registry",
+    entity: "registry",
+    targetId: registryId,
+    details: `Unflagged registry ${registryId}`,
+  });
+
+  return {
+    message: "Registry unflagged successfully.",
+    errors: {},
+    values: {},
+    data: { registryId },
+  };
+}
+
 const defaultDeleteRegistryValues = {
   registryId: [],
   confirmText: [],

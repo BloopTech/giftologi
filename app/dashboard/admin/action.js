@@ -163,6 +163,7 @@ export async function manageRoles(prevState, queryData) {
     "finance_admin",
     "operations_manager_admin",
     "customer_support_admin",
+    "ops_hr_admin",
   ];
 
   const { data: existingProfile } = await supabase

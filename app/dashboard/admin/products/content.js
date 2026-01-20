@@ -2,6 +2,7 @@
 import { Search, LoaderCircle } from "lucide-react";
 import React, {
   useActionState,
+  useCallback,
   useEffect,
   useMemo,
   useState,
@@ -22,10 +23,357 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../../components/Select";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/Dialog";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
-import { createVendorProducts } from "./action";
+import { createCategory, createVendorProducts, updateCategory, deleteCategory } from "./action";
+
+// Category management component
+function CategoriesSection({ categories, categoriesLoading, categoriesError, onCategoriesRefresh }) {
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [editCategoryName, setEditCategoryName] = useState("");
+  const [categoryUsage, setCategoryUsage] = useState({});
+
+  const [createState, createAction, createPending] = useActionState(createCategory, initialCreateCategoryState);
+  const [updateState, updateAction, updatePending] = useActionState(updateCategory, initialUpdateCategoryState);
+  const [deleteState, deleteAction, deletePending] = useActionState(deleteCategory, initialDeleteCategoryState);
+
+  const loadCategoryUsage = useCallback(async () => {
+    const supabase = createSupabaseClient();
+    const { data, error } = await supabase
+      .from("products")
+      .select("category_id")
+      .not("category_id", "is", null);
+
+    if (error) {
+      console.error("Failed to load category usage:", error);
+      return;
+    }
+
+    const usage = {};
+    (data || []).forEach((product) => {
+      const catId = product.category_id;
+      usage[catId] = (usage[catId] || 0) + 1;
+    });
+    setCategoryUsage(usage);
+  }, []);
+
+  useEffect(() => {
+    loadCategoryUsage();
+  }, [loadCategoryUsage]);
+
+  useEffect(() => {
+    if (createState?.message && !createState?.errors?.name?.length) {
+      toast.success(createState.message);
+      setNewCategoryName("");
+      setCreateDialogOpen(false);
+      onCategoriesRefresh?.();
+      loadCategoryUsage();
+    } else if (createState?.message && createState?.errors?.name?.length) {
+      toast.error(createState.message);
+    }
+  }, [createState, onCategoriesRefresh, loadCategoryUsage]);
+
+  useEffect(() => {
+    if (updateState?.message && !updateState?.errors?.name?.length) {
+      toast.success(updateState.message);
+      setEditDialogOpen(false);
+      setEditingCategory(null);
+      onCategoriesRefresh?.();
+    } else if (updateState?.message && updateState?.errors?.name?.length) {
+      toast.error(updateState.message);
+    }
+  }, [updateState, onCategoriesRefresh]);
+
+  useEffect(() => {
+    if (deleteState?.message && !deleteState?.errors?.length) {
+      toast.success(deleteState.message);
+      setDeleteDialogOpen(false);
+      setDeletingCategory(null);
+      onCategoriesRefresh?.();
+      loadCategoryUsage();
+    } else if (deleteState?.message) {
+      toast.error(deleteState.message);
+    }
+  }, [deleteState, onCategoriesRefresh, loadCategoryUsage]);
+
+  const handleEdit = (category) => {
+    setEditingCategory(category);
+    setEditCategoryName(category.name || "");
+    setEditDialogOpen(true);
+  };
+
+  const handleDelete = (category) => {
+    setDeletingCategory(category);
+    setDeleteDialogOpen(true);
+  };
+
+  return (
+    <div className="mt-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="text-[#0A0A0A] text-xs font-medium font-inter">
+            Categories
+          </h2>
+          <button
+            type="button"
+            onClick={() => setCreateDialogOpen(true)}
+            className="rounded-full border border-[#3979D2] bg-[#3979D2] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+          >
+            + New Category
+          </button>
+        </div>
+        <p className="text-[#717182] text-[11px] font-poppins">
+          Manage product categories. Categories in use cannot be deleted.
+        </p>
+      </div>
+
+      {categoriesLoading ? (
+        <div className="flex items-center justify-center gap-2 py-6 text-[11px] text-[#717182]">
+          <LoaderCircle className="size-3.5 animate-spin" />
+          <span>Loading categories...</span>
+        </div>
+      ) : categoriesError ? (
+        <div className="py-6 text-[11px] text-red-600">
+          {categoriesError}
+        </div>
+      ) : !categories.length ? (
+        <div className="py-6 text-[11px] text-[#717182]">
+          No categories found. Create your first category to get started.
+        </div>
+      ) : (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-[#E5E7EB]">
+                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">Name</th>
+                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">Slug</th>
+                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">Usage</th>
+                <th className="text-right py-2 px-2 font-medium text-[#0A0A0A]">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {categories.map((category) => {
+                const usageCount = categoryUsage[category.id] || 0;
+                const canDelete = usageCount === 0;
+
+                return (
+                  <tr key={category.id} className="border-b border-[#F3F4F6]">
+                    <td className="py-2 px-2 text-[#0A0A0A]">{category.name || "Untitled"}</td>
+                    <td className="py-2 px-2 text-[#6B7280]">{category.slug || "-"}</td>
+                    <td className="py-2 px-2">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${usageCount > 0 ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}`}>
+                        {usageCount} product{usageCount !== 1 ? "s" : ""}
+                      </span>
+                    </td>
+                    <td className="py-2 px-2 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(category)}
+                          className="rounded px-2 py-1 text-[11px] text-[#3979D2] hover:bg-blue-50 cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(category)}
+                          disabled={!canDelete}
+                          className={`rounded px-2 py-1 text-[11px] cursor-pointer ${
+                            canDelete
+                              ? "text-red-600 hover:bg-red-50"
+                              : "text-gray-400 cursor-not-allowed"
+                          }`}
+                          title={canDelete ? "Delete category" : "Cannot delete: category is in use"}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Create Category Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Create Category
+            </DialogTitle>
+          </DialogHeader>
+          <form action={createAction} className="space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="new-category-name" className="text-xs font-medium text-[#0A0A0A]">
+                Category Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="new-category-name"
+                name="name"
+                type="text"
+                value={newCategoryName}
+                onChange={(e) => setNewCategoryName(e.target.value)}
+                placeholder="e.g. Gift Baskets"
+                className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                disabled={createPending}
+              />
+              {(createState?.errors?.name || []).length ? (
+                <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                  {createState.errors.name.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            {createState?.message && createState?.errors?.name?.length ? (
+              <p className="text-[11px] text-red-600">{createState.message}</p>
+            ) : null}
+            <div className="flex items-center justify-end gap-2">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="rounded-full border border-gray-300 bg-white px-4 py-2 text-[11px] text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                  disabled={createPending}
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={createPending}
+                className="rounded-full border border-[#3979D2] bg-[#3979D2] px-4 py-2 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+              >
+                {createPending ? "Saving..." : "Save Category"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Category Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Edit Category
+            </DialogTitle>
+          </DialogHeader>
+          <form id="edit-category-form" action={updateAction} className="space-y-4">
+            <div className="space-y-1">
+              <label htmlFor="edit-category-name" className="text-xs font-medium text-[#0A0A0A]">
+                Category Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                id="edit-category-name"
+                name="name"
+                type="text"
+                value={editCategoryName}
+                onChange={(e) => setEditCategoryName(e.target.value)}
+                placeholder="e.g. Gift Baskets"
+                className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                disabled={updatePending}
+              />
+              {(updateState?.errors?.name || []).length ? (
+                <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                  {updateState.errors.name.map((err, i) => (
+                    <li key={i}>{err}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            {updateState?.message && updateState?.errors?.name?.length ? (
+              <p className="text-[11px] text-red-600">{updateState.message}</p>
+            ) : null}
+            <input type="hidden" name="categoryId" value={editingCategory?.id || ""} />
+            <div className="flex items-center justify-end gap-2">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="rounded-full border border-gray-300 bg-white px-4 py-2 text-[11px] text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                  disabled={updatePending}
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={updatePending}
+                className="rounded-full border border-[#3979D2] bg-[#3979D2] px-4 py-2 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+              >
+                {updatePending ? "Saving..." : "Save Changes"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Category Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+              Delete Category
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-[11px] text-[#6B7280]">
+              Are you sure you want to delete the category <strong>"{deletingCategory?.name}"</strong>?
+              {categoryUsage[deletingCategory?.id] > 0 && (
+                <span className="block mt-2 text-red-600">
+                  This cannot be undone because the category is being used by {categoryUsage[deletingCategory?.id]} product(s).
+                </span>
+              )}
+            </p>
+            {deleteState?.message ? (
+              <p className="text-[11px] text-red-600">{deleteState.message}</p>
+            ) : null}
+            <form action={deleteAction} className="space-y-4">
+              <input type="hidden" name="categoryId" value={deletingCategory?.id || ""} />
+              <div className="flex items-center justify-end gap-2">
+                <DialogClose asChild>
+                  <button
+                    type="button"
+                    className="rounded-full border border-gray-300 bg-white px-4 py-2 text-[11px] text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                    disabled={deletePending}
+                  >
+                    Cancel
+                  </button>
+                </DialogClose>
+                <button
+                  type="submit"
+                  disabled={deletePending || categoryUsage[deletingCategory?.id] > 0}
+                  className={`rounded-full px-4 py-2 text-[11px] font-medium cursor-pointer ${
+                    categoryUsage[deletingCategory?.id] > 0
+                      ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                      : "border border-red-600 bg-red-600 text-white hover:bg-white hover:text-red-600"
+                  }`}
+                >
+                  {deletePending ? "Deleting..." : "Delete Category"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 const initialCreateState = {
   message: "",
@@ -44,6 +392,31 @@ const initialCreateState = {
     bulkMapping: [],
     bulkCategoryId: [],
   },
+  values: {},
+  data: {},
+};
+
+const initialCreateCategoryState = {
+  message: "",
+  errors: {
+    name: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialUpdateCategoryState = {
+  message: "",
+  errors: {
+    name: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialDeleteCategoryState = {
+  message: "",
+  errors: {},
   values: {},
   data: {},
 };
@@ -93,6 +466,8 @@ export default function ManageProductsContent() {
     createVendorProducts,
     initialCreateState
   );
+  const [categoryState, createCategoryAction, createCategoryPending] =
+    useActionState(createCategory, initialCreateCategoryState);
 
   const [vendorSearch, setVendorSearch] = useState("");
   const [debouncedVendorSearch] = useDebounce(vendorSearch, 300);
@@ -157,6 +532,34 @@ export default function ManageProductsContent() {
     return Object.values(errors).some((arr) => Array.isArray(arr) && arr.length);
   }, [createState?.errors]);
 
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    setCategoriesError("");
+
+    try {
+      const supabase = createSupabaseClient();
+      const { data, error } = await supabase
+        .from("categories")
+        .select("id, name")
+        .order("name", { ascending: true });
+
+      if (error) {
+        setCategoriesError(error.message || "Failed to load categories.");
+        setCategories([]);
+        return;
+      }
+
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setCategoriesError(
+        error?.message || "Failed to load categories. Please try again."
+      );
+      setCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!createState?.message) return;
 
@@ -169,48 +572,8 @@ export default function ManageProductsContent() {
   }, [createState, hasCreateErrors]);
 
   useEffect(() => {
-    let ignore = false;
-
-    const loadCategories = async () => {
-      setCategoriesLoading(true);
-      setCategoriesError("");
-
-      try {
-        const supabase = createSupabaseClient();
-        const { data, error } = await supabase
-          .from("categories")
-          .select("id, name")
-          .order("name", { ascending: true });
-
-        if (ignore) return;
-
-        if (error) {
-          setCategoriesError(error.message || "Failed to load categories.");
-          setCategories([]);
-          return;
-        }
-
-        setCategories(Array.isArray(data) ? data : []);
-      } catch (error) {
-        if (!ignore) {
-          setCategoriesError(
-            error?.message || "Failed to load categories. Please try again."
-          );
-          setCategories([]);
-        }
-      } finally {
-        if (!ignore) {
-          setCategoriesLoading(false);
-        }
-      }
-    };
-
     loadCategories();
-
-    return () => {
-      ignore = true;
-    };
-  }, []);
+  }, [loadCategories]);
 
   useEffect(() => {
     const term = (debouncedVendorSearch || "").trim();
@@ -546,6 +909,13 @@ export default function ManageProductsContent() {
         </div>
       </div>
 
+      <CategoriesSection
+        categories={categories}
+        categoriesLoading={categoriesLoading}
+        categoriesError={categoriesError}
+        onCategoriesRefresh={loadCategories}
+      />
+
       <div className="mt-4 grid grid-cols-1 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col gap-2">
           <h2 className="text-[#0A0A0A] text-xs font-medium font-inter">
@@ -691,9 +1061,11 @@ export default function ManageProductsContent() {
                 {createMode === "single" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-[#0A0A0A]">
-                        Category <span className="text-red-500">*</span>
-                      </label>
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-xs font-medium text-[#0A0A0A]">
+                          Category <span className="text-red-500">*</span>
+                        </label>
+                      </div>
                       <Select
                         value={selectedCategoryId || ""}
                         onValueChange={(value) =>

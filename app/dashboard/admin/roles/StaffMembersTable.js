@@ -80,6 +80,7 @@ const ROLE_OPTIONS = [
   { label: "Operations Manager", value: "operations_manager_admin" },
   { label: "Finance", value: "finance_admin" },
   { label: "Customer Support", value: "customer_support_admin" },
+  { label: "Ops/HR", value: "ops_hr_admin" },
 ];
 
 const initialEditState = {

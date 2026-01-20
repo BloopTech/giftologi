@@ -1,7 +1,7 @@
 "use server";
 import React from "react";
 import { createClient } from "../../../utils/supabase/server";
-import RegistryPageViewTracker from "./RegistryPageViewTracker";
+import RegistryPageViewTracker from "../../../components/RegistryPageViewTracker";
 import { PiFileImageLight, PiGiftDuotone, PiGiftFill } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";

@@ -1,6 +1,6 @@
 export const publicRoutes = [`/`];
 
-export const eventPublicRoutes = [`/event/:event_code`];
+export const eventPublicRoutes = [`/event/:event_code`, `/registry/:registry_code`];
 
 export const authRoutes = [
   `/login`,

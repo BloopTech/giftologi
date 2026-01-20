@@ -82,6 +82,15 @@ async function uploadProductImage(file, keyPrefix) {
 const generateProductCode = () =>
   `P-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
+const slugifyCategory = (value) => {
+  const base = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return base || "category";
+};
+
 const defaultApproveProductValues = {
   productId: [],
 };
@@ -485,6 +494,417 @@ const defaultCreateProductValues = {
   bulkMapping: [],
   bulkCategoryId: [],
 };
+
+const defaultCreateCategoryValues = {
+  name: [],
+};
+
+const defaultUpdateCategoryValues = {
+  name: [],
+};
+
+const defaultDeleteCategoryValues = {};
+
+const createCategorySchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, { message: "Category name is required" }),
+});
+
+export async function createCategory(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to create categories.",
+      errors: { ...defaultCreateCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role, firstname, lastname, email")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = ["super_admin", "operations_manager_admin"];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to create categories.",
+      errors: { ...defaultCreateCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    name: formData.get("name") || "",
+  };
+
+  const parsed = createCategorySchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: { ...defaultCreateCategoryValues, ...parsed.error.flatten().fieldErrors },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { name } = parsed.data;
+  const slug = slugifyCategory(name);
+
+  const { data: existingCategory, error: existingError } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (existingError) {
+    return {
+      message: existingError.message,
+      errors: { ...defaultCreateCategoryValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (existingCategory) {
+    return {
+      message: "Category already exists.",
+      errors: { ...defaultCreateCategoryValues, name: ["Category already exists."] },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const { data: category, error: insertError } = await supabase
+    .from("categories")
+    .insert([
+      {
+        name,
+        slug,
+        created_at: nowIso,
+        updated_at: nowIso,
+      },
+    ])
+    .select("id, name, slug")
+    .single();
+
+  if (insertError) {
+    return {
+      message: insertError.message,
+      errors: { ...defaultCreateCategoryValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
+
+  const adminNameParts = [];
+  if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
+  if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
+  const adminName = adminNameParts.join(" ") || null;
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: currentProfile?.email || user.email || null,
+    adminName,
+    action: "created_category",
+    entity: "categories",
+    targetId: category?.id,
+    details: `Created category ${category?.name || name}`,
+  });
+
+  return {
+    message: "Category created.",
+    errors: {},
+    values: {},
+    data: { category },
+  };
+}
+
+export async function updateCategory(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to update categories.",
+      errors: { ...defaultUpdateCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role, firstname, lastname, email")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = ["super_admin", "operations_manager_admin"];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to update categories.",
+      errors: { ...defaultUpdateCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const categoryId = formData.get("categoryId");
+  const name = (formData.get("name") || "").trim();
+
+  if (!categoryId) {
+    return {
+      message: "Category ID is required.",
+      errors: { ...defaultUpdateCategoryValues },
+      values: { name },
+      data: {},
+    };
+  }
+
+  if (!name) {
+    return {
+      message: "Category name is required.",
+      errors: { ...defaultUpdateCategoryValues, name: ["Category name is required."] },
+      values: { name },
+      data: {},
+    };
+  }
+
+  const { data: existingCategory, error: fetchError } = await supabase
+    .from("categories")
+    .select("id, name, slug")
+    .eq("id", categoryId)
+    .single();
+
+  if (fetchError || !existingCategory) {
+    return {
+      message: "Category not found.",
+      errors: { ...defaultUpdateCategoryValues },
+      values: { name },
+      data: {},
+    };
+  }
+
+  const newSlug = slugifyCategory(name);
+  const { data: slugConflict, error: slugError } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("slug", newSlug)
+    .neq("id", categoryId)
+    .maybeSingle();
+
+  if (slugError) {
+    return {
+      message: slugError.message,
+      errors: { ...defaultUpdateCategoryValues },
+      values: { name },
+      data: {},
+    };
+  }
+
+  if (slugConflict) {
+    return {
+      message: "A category with this name already exists.",
+      errors: { ...defaultUpdateCategoryValues, name: ["A category with this name already exists."] },
+      values: { name },
+      data: {},
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+
+  const { data: category, error: updateError } = await supabase
+    .from("categories")
+    .update({
+      name,
+      slug: newSlug,
+      updated_at: nowIso,
+    })
+    .eq("id", categoryId)
+    .select("id, name, slug")
+    .single();
+
+  if (updateError) {
+    return {
+      message: updateError.message,
+      errors: { ...defaultUpdateCategoryValues },
+      values: { name },
+      data: {},
+    };
+  }
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
+
+  const adminNameParts = [];
+  if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
+  if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
+  const adminName = adminNameParts.join(" ") || null;
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: currentProfile?.email || user.email || null,
+    adminName,
+    action: "updated_category",
+    entity: "categories",
+    targetId: category?.id,
+    details: `Updated category ${category?.name || name}`,
+  });
+
+  return {
+    message: "Category updated.",
+    errors: {},
+    values: {},
+    data: { category },
+  };
+}
+
+export async function deleteCategory(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to delete categories.",
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role, firstname, lastname, email")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = ["super_admin", "operations_manager_admin"];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to delete categories.",
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const categoryId = formData.get("categoryId");
+
+  if (!categoryId) {
+    return {
+      message: "Category ID is required.",
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: category, error: fetchError } = await supabase
+    .from("categories")
+    .select("id, name, slug")
+    .eq("id", categoryId)
+    .single();
+
+  if (fetchError || !category) {
+    return {
+      message: "Category not found.",
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: productsUsingCategory, error: usageError } = await supabase
+    .from("products")
+    .select("id")
+    .eq("category_id", categoryId)
+    .limit(1);
+
+  if (usageError) {
+    return {
+      message: usageError.message,
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  if (productsUsingCategory && productsUsingCategory.length > 0) {
+    return {
+      message: "Cannot delete category because it is being used by products.",
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { error: deleteError } = await supabase
+    .from("categories")
+    .delete()
+    .eq("id", categoryId);
+
+  if (deleteError) {
+    return {
+      message: deleteError.message,
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
+
+  const adminNameParts = [];
+  if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
+  if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
+  const adminName = adminNameParts.join(" ") || null;
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: currentProfile?.email || user.email || null,
+    adminName,
+    action: "deleted_category",
+    entity: "categories",
+    targetId: category?.id,
+    details: `Deleted category ${category?.name}`,
+  });
+
+  return {
+    message: "Category deleted.",
+    errors: {},
+    values: {},
+    data: { category },
+  };
+}
 
 const createProductsBaseSchema = z.object({
   mode: z
