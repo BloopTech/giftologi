@@ -5,6 +5,10 @@ on: [push]
 jobs:
   tests:
     runs-on: ubuntu-latest
+    env:
+      CI: true
+      NPM_CONFIG_LEGACY_PEER_DEPS: true
+      NODE_OPTIONS: --max-old-space-size=8192
 
     strategy:
       matrix:
@@ -17,6 +21,7 @@ jobs:
         with:
           node-version: ${{matrix.node-version}}
           cache: "npm"
+          cache-dependency-path: '**/package-lock.json'
       - name: npm install
         run: npm ci --legacy-peer-deps
 
@@ -31,10 +36,19 @@ jobs:
       VERCEL_CI: true
       # Set to an email that belongs to a member of the Giftologi Vercel team (create a secret VERCEL_DEPLOY_EMAIL)
       VERCEL_GIT_COMMIT_AUTHOR_EMAIL: ${{ secrets.VERCEL_DEPLOY_EMAIL }}
+      NPM_CONFIG_LEGACY_PEER_DEPS: true
+      CI: true
+      NODE_OPTIONS: --max-old-space-size=8192
     steps:
       - uses: actions/checkout@v4
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: '**/package-lock.json'
       - name: Install Vercel CLI
-        run: npm install --legacy-peer-deps --global vercel@latest
+        run: npm install --global vercel@latest
       - name: Install project dependencies
         run: npm ci --legacy-peer-deps
       - name: List Vercel teams
@@ -46,6 +60,6 @@ jobs:
       - name: Pull Vercel Environment Information
         run: vercel pull --yes --environment=production --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Build Project Artifacts
-        run: NODE_OPTIONS="--max-old-space-size=39096" vercel build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+        run: NODE_OPTIONS="--max-old-space-size=8192" vercel build --prod --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
       - name: Deploy Project Artifacts to Vercel
         run: vercel deploy --prebuilt --prod --yes --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
