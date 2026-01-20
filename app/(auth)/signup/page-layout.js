@@ -60,7 +60,7 @@ export default function SignupPageLayout() {
               {" "}
               <Image src={Logo} alt="Logo" width={50} height={50} priority />
             </Link>
-            <p className="text-[#BBA96C] font-medium text-xl">
+            <p className="text-primary font-medium text-xl">
               Create an Account
             </p>
           </div>

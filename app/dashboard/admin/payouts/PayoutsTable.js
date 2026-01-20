@@ -511,7 +511,7 @@ export default function PayoutsTable() {
               <button
                 type="button"
                 onClick={handleExportCsv}
-                className="inline-flex space-x-2 items-center justify-center rounded-full border border-[#3979D2] px-3 py-1 text-[11px] font-medium text-[#3979D2] hover:bg-[#3979D2] hover:text:white cursor-pointer"
+                className="inline-flex space-x-2 items-center justify-center rounded-full border border-primary px-3 py-1 text-[11px] font-medium text-primary hover:bg-primary hover:text:white cursor-pointer"
               >
                 <PiDownloadSimple className="size-4" />
                 <span>Export CSV</span>

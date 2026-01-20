@@ -56,7 +56,7 @@ export default function LoginPageLayout() {
               {" "}
               <Image src={Logo} alt="Logo" width={50} height={50} priority />
             </Link>
-            <p className="text-[#BBA96C] font-medium text-xl">Sign in</p>
+            <p className="text-primary font-medium text-xl">Sign in</p>
           </div>
           <div className="w-full">
             <FormInput

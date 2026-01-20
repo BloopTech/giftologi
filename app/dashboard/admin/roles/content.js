@@ -61,7 +61,7 @@ export default function RolesContent() {
           <button
             type="button"
             onClick={() => setAddStaffOpen(true)}
-            className="px-5 py-2.5 inline-flex items-center justify-center border border-[#427ED3] text-[#427ED3] bg-white text-xs rounded-full cursor-pointer hover:text-white hover:bg-[#427ED3] gap-1"
+            className="px-5 py-2.5 inline-flex items-center justify-center border border-primary text-primary bg-white text-xs rounded-full cursor-pointer hover:text-white hover:bg-primary gap-1"
           >
             <Plus className="size-4" />
             <span>Add Staff</span>
@@ -134,7 +134,7 @@ export default function RolesContent() {
             setStaffSearchTerm?.(search);
             setStaffPage?.(0);
           }}
-          className="px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-[#3979D2] text-white text-xs font-medium border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2]"
+          className="px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-primary text-white text-xs font-medium border border-primary cursor-pointer hover:bg-white hover:text-primary"
         >
           Search
         </button>

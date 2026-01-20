@@ -163,7 +163,7 @@ export default function SuperAdminDashboardContent() {
 
       {/* Quick Access */}
       {role === "operations_manager_admin" ? null : (
-        <div className="flex flex-col space-y-4 w-full rounded-xl border border-[#AAE43E] p-4 bg-[#EAF9D4]">
+        <div className="flex flex-col gap-4 w-full rounded-xl border border-[#AAE43E] p-4 bg-[#EAF9D4]">
           <div className="flex flex-col">
             <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
               Quick Access
@@ -173,10 +173,10 @@ export default function SuperAdminDashboardContent() {
             </span>
           </div>
           {/* Cards */}
-          <div className="flex flex-col space-y-4 md:flex-row md:space-y-0 md:space-x-4">
+          <div className="w-full flex flex-col space-y-4 md:flex-row md:space-y-0 md:gap-4">
             {/* Full Access */}
             {role === "customer_support_admin" ? (
-              <div className="border border-[#AAE43E] flex flex-col space-y-2 rounded-md bg-white p-2">
+              <div className="border border-[#AAE43E] flex flex-col space-y-4 rounded-md bg-white p-4">
                 <div className="flex space-x-4 items-start">
                   <div className="flex flex-col">
                     <div className="flex justify-between items-center">
@@ -205,7 +205,7 @@ export default function SuperAdminDashboardContent() {
                 </div>
               </div>
             ) : (
-              <div className="border border-[#AAE43E] flex flex-col space-y-2 rounded-md bg-white p-2">
+              <div className="border border-[#AAE43E] flex flex-col space-y-4 rounded-md bg-white p-4">
                 <p className="font-inter text-xs text-[#0A0A0A] font-medium">
                   {role === "finance_admin"
                     ? "Recent Transactions"
@@ -226,7 +226,7 @@ export default function SuperAdminDashboardContent() {
               </div>
             )}
             {/* Add Staff */}
-            <div className="border border-[#AAE43E] flex flex-col space-y-2 rounded-md bg-white p-2">
+            <div className="border border-[#AAE43E] flex flex-col space-y-4 rounded-md bg-white p-4">
               <p className="font-inter text-xs text-[#0A0A0A] font-medium">
                 {role === "finance_admin"
                   ? "Approve Payouts"
@@ -251,7 +251,7 @@ export default function SuperAdminDashboardContent() {
                   onClick={() => {
                     role === "super_admin" ? setAddStaffOpen(true) : null;
                   }}
-                  className="text-[10px] cursor-pointer bg-[#3979D2] text-white border border-[#3979D2] hover:bg-white hover:text-[#3979D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
+                  className="text-[10px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
                 >
                   {role === "finance_admin"
                     ? "Manage Payouts"
@@ -274,7 +274,7 @@ export default function SuperAdminDashboardContent() {
               </div>
             </div>
             {/* Manage Roles */}
-            <div className="border border-[#AAE43E] flex flex-col space-y-2 rounded-md bg-white p-2">
+            <div className="border border-[#AAE43E] flex flex-col space-y-4 rounded-md bg-white p-4">
               <p className="font-inter text-xs text-[#0A0A0A] font-medium">
                 {role === "finance_admin"
                   ? "Download Reports"
@@ -295,7 +295,7 @@ export default function SuperAdminDashboardContent() {
               </span>
               <div>
                 <button
-                  className="text-[10px] cursor-pointer bg-white text-[#3979D2] border border-[#3979D2] hover:bg-[#3979D2] hover:text-white rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
+                  className="text-[10px] cursor-pointer bg-white text-primary border border-primary hover:bg-primary hover:text-white rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
                   onClick={() => {
                     role === "super_admin"
                       ? router.push("/dashboard/admin/roles")

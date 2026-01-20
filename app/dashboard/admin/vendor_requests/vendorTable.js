@@ -1,5 +1,11 @@
 "use client";
-import React, { useEffect, useMemo, useRef, useState, useActionState } from "react";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useActionState,
+} from "react";
 
 import {
   ChevronsUpDown,
@@ -10,6 +16,7 @@ import {
   Eye,
   Flag,
   Pencil,
+  LoaderIcon,
 } from "lucide-react";
 
 import {
@@ -38,27 +45,30 @@ import { toast } from "sonner";
 import { useVendorRequestsContext } from "./context";
 import VendorKycDialog from "./VendorKycDialog";
 import EditVendorApplicationDialog from "./editVendorApplication";
+import { RejectVendorDialog } from "./RejectVendorDialog";
 
 import { useDashboardContext } from "../context";
 
 import {
   approveVendorRequest,
-  rejectVendorRequest,
   flagVendorRequest,
+  unflagVendorRequest,
 } from "./action";
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from "@/app/components/Tooltip";
 
 const tableStyles = tv({
   slots: {
-    wrapper:
-      "mt-4 overflow-x-auto border border-[#D6D6D6] rounded-xl bg-white",
+    wrapper: "mt-4 overflow-x-auto border border-[#D6D6D6] rounded-xl bg-white",
     table: "min-w-full divide-y divide-gray-200",
     headRow: "bg-[#F9FAFB]",
     headCell:
       "px-4 py-3 text-left text-[11px] font-medium text-[#6A7282] tracking-wide",
     bodyRow: "border-b last:border-b-0 hover:bg-gray-50/60",
-    bodyCell:
-      "px-4 py-3 text-xs text-[#0A0A0A] align-middle whitespace-nowrap",
+    bodyCell: "px-4 py-3 text-xs text-[#0A0A0A] align-middle whitespace-nowrap",
   },
 });
 
@@ -81,20 +91,20 @@ const initialApproveState = {
   data: {},
 };
 
-const initialRejectState = {
-  message: "",
-  errors: {
-    applicationId: [],
-  },
-  values: {},
-  data: {},
-};
-
 const initialFlagState = {
   message: "",
   errors: {
     applicationId: [],
     reason: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialUnflagState = {
+  message: "",
+  errors: {
+    applicationId: [],
   },
   values: {},
   data: {},
@@ -149,25 +159,22 @@ export default function VendorRequestsTable() {
   } = useVendorRequestsContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
-  const allowedActionRoles = [
-    "super_admin",
-    "operations_manager_admin",
-  ];
+  const allowedActionRoles = ["super_admin", "operations_manager_admin"];
   const canModerate =
     !!currentAdmin && allowedActionRoles.includes(currentAdmin.role);
 
   const [approveState, approveAction, approvePending] = useActionState(
     approveVendorRequest,
-    initialApproveState
-  );
-  const [rejectState, rejectAction, rejectPending] = useActionState(
-    rejectVendorRequest,
-    initialRejectState
+    initialApproveState,
   );
 
   const [flagState, flagAction, flagPending] = useActionState(
     flagVendorRequest,
-    initialFlagState
+    initialFlagState,
+  );
+  const [unflagState, unflagAction, unflagPending] = useActionState(
+    unflagVendorRequest,
+    initialUnflagState,
   );
 
   const flagErrorFor = (key) => flagState?.errors?.[key] ?? [];
@@ -194,26 +201,6 @@ export default function VendorRequestsTable() {
   }, [approveState, refreshRequests]);
 
   useEffect(() => {
-    if (!rejectState) return;
-    if (
-      rejectState.message &&
-      rejectState.data &&
-      Object.keys(rejectState.data).length
-    ) {
-      toast.success(rejectState.message);
-      refreshRequests?.();
-      setViewOpen(false);
-      setSelectedRequest(null);
-    } else if (
-      rejectState.message &&
-      rejectState.errors &&
-      Object.keys(rejectState.errors).length
-    ) {
-      toast.error(rejectState.message);
-    }
-  }, [rejectState, refreshRequests]);
-
-  useEffect(() => {
     if (!flagState) return;
     if (
       flagState.message &&
@@ -233,6 +220,25 @@ export default function VendorRequestsTable() {
     }
   }, [flagState, refreshRequests]);
 
+  useEffect(() => {
+    if (!unflagState) return;
+    if (
+      unflagState.message &&
+      unflagState.data &&
+      Object.keys(unflagState.data).length
+    ) {
+      toast.success(unflagState.message);
+      refreshRequests?.();
+      setSelectedRequest(null);
+    } else if (
+      unflagState.message &&
+      unflagState.errors &&
+      Object.keys(unflagState.errors).length
+    ) {
+      toast.error(unflagState.message);
+    }
+  }, [unflagState, refreshRequests]);
+
   const tableRows = useMemo(() => {
     if (!requests || !requests.length) return [];
     return requests.map((row) => {
@@ -241,8 +247,7 @@ export default function VendorRequestsTable() {
         : "—";
       const normalizedStatus = (row.status || "pending").toLowerCase();
       const statusLabel =
-        normalizedStatus.charAt(0).toUpperCase() +
-        normalizedStatus.slice(1);
+        normalizedStatus.charAt(0).toUpperCase() + normalizedStatus.slice(1);
       return {
         ...row,
         appliedDateLabel,
@@ -315,12 +320,18 @@ export default function VendorRequestsTable() {
         header: "Status",
         cell: (info) => {
           const row = info.row.original;
-          const variant =
-            statusVariantMap[row.normalizedStatus] || "neutral";
+          const variant = statusVariantMap[row.normalizedStatus] || "neutral";
           return (
-            <Badge variant={variant} className="text-[11px]">
-              {info.getValue()}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant={variant} className="text-[11px]">
+                {info.getValue()}
+              </Badge>
+              {row.isFlagged && (
+                <Badge variant="warning" className="text-[11px]">
+                  Flagged
+                </Badge>
+              )}
+            </div>
           );
         },
       }),
@@ -332,6 +343,9 @@ export default function VendorRequestsTable() {
           const original = row.original;
           const isPending = original.normalizedStatus === "pending";
           const isApproved = original.normalizedStatus === "approved";
+          const isRejected = original.normalizedStatus === "rejected";
+          const isFlagged = !!original.isFlagged;
+          const canProcess = isPending || isRejected;
 
           if (!canModerate) {
             return (
@@ -382,14 +396,16 @@ export default function VendorRequestsTable() {
                       "p-1 rounded-full border",
                       isApproved
                         ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                        : "border-blue-200 text-blue-500 hover:bg-blue-50 cursor-pointer"
+                        : "border-blue-200 text-blue-500 hover:bg-blue-50 cursor-pointer",
                     )}
                   >
                     <Pencil className="size-4" />
                   </button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {isApproved ? "Approved requests cannot be edited" : "Edit request"}
+                  {isApproved
+                    ? "Approved requests cannot be edited"
+                    : "Edit request"}
                 </TooltipContent>
               </Tooltip>
               <Tooltip>
@@ -398,67 +414,105 @@ export default function VendorRequestsTable() {
                     type="button"
                     onClick={handleFlag}
                     aria-label="Flag vendor request"
-                    className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
+                    disabled={!isPending || isFlagged}
+                    className={cx(
+                      "p-1 rounded-full border",
+                      !isPending || isFlagged
+                        ? "border-gray-200 text-gray-300 cursor-not-allowed"
+                        : "border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer",
+                    )}
                   >
                     <Flag className="size-4" />
                   </button>
                 </TooltipTrigger>
-                <TooltipContent>Flag vendor request</TooltipContent>
+                <TooltipContent>
+                  {isFlagged
+                    ? "Vendor request already flagged"
+                    : "Flag vendor request"}
+                </TooltipContent>
               </Tooltip>
+              {isFlagged && isPending && (
+                <form action={unflagAction}>
+                  <input
+                    type="hidden"
+                    name="applicationId"
+                    value={original.id}
+                  />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="submit"
+                        disabled={unflagPending}
+                        aria-label="Unflag vendor request"
+                        className={cx(
+                          "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                          "border-yellow-500 text-yellow-700 bg-yellow-50 hover:bg-yellow-100",
+                          unflagPending &&
+                            "opacity-60 cursor-not-allowed hover:bg-yellow-50",
+                        )}
+                      >
+                        Unflag
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Unflag vendor request</TooltipContent>
+                  </Tooltip>
+                </form>
+              )}
               <form action={approveAction}>
-                <input
-                  type="hidden"
-                  name="applicationId"
-                  value={original.id}
-                />
+                <input type="hidden" name="applicationId" value={original.id} />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="submit"
-                      disabled={!isPending || approvePending || rejectPending}
+                      disabled={!canProcess || approvePending}
                       className={cx(
                         "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
-                        "border-[#6EA30B] text:white bg-[#6EA30B] hover:bg:white hover:text-[#6EA30B]",
-                        (!isPending || approvePending || rejectPending) &&
-                          "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text:white"
+                        "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
+                        (!canProcess || approvePending) &&
+                          "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white",
                       )}
                     >
-                      Approve
+                      {approvePending ? <LoaderIcon className="h-4 w-4 animate-spin" /> : "Approve"}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>Approve vendor application</TooltipContent>
                 </Tooltip>
               </form>
-              <form action={rejectAction}>
-                <input
-                  type="hidden"
-                  name="applicationId"
-                  value={original.id}
-                />
+              <RejectVendorDialog 
+                applicationId={original.id}
+                businessName={original.business_name}
+              >
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      type="submit"
-                      disabled={!isPending || approvePending || rejectPending}
+                      type="button"
+                      disabled={!canProcess || approvePending}
                       className={cx(
                         "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
                         "border-[#DF0404] text-[#DF0404] bg-white hover:bg-[#DF0404] hover:text-white",
-                        (!isPending || approvePending || rejectPending) &&
-                          "opacity-60 cursor-not-allowed hover:bg:white hover:text-[#DF0404]"
+                        (!canProcess || approvePending) &&
+                          "opacity-60 cursor-not-allowed hover:bg-white hover:text-[#DF0404]",
                       )}
                     >
-                      Reject
+                      {"Reject"}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>Reject vendor application</TooltipContent>
                 </Tooltip>
-              </form>
+              </RejectVendorDialog>
             </div>
           );
         },
       }),
     ],
-    [canModerate, approveAction, rejectAction, approvePending, rejectPending]
+    [
+      canModerate,
+      approveAction,
+      flagPending,
+      unflagAction,
+      unflagPending,
+      approvePending,
+    ],
   );
 
   const tableInstance = useReactTable({
@@ -504,7 +558,7 @@ export default function VendorRequestsTable() {
                     ? null
                     : flexRender(
                         header.column.columnDef.header,
-                        header.getContext()
+                        header.getContext(),
                       )}
                 </th>
               ))}
@@ -528,17 +582,15 @@ export default function VendorRequestsTable() {
                 id={`vendor-request-row-${row.original?.id || row.id}`}
                 className={cx(
                   bodyRow(),
-                  row.original?.id && String(row.original.id) === String(focusId || "")
+                  row.original?.id &&
+                    String(row.original.id) === String(focusId || "")
                     ? "bg-blue-50/60 ring-2 ring-[#427ED3]/30"
-                    : ""
+                    : "",
                 )}
               >
                 {row.getVisibleCells().map((cell) => (
                   <td key={cell.id} className={cx(bodyCell())}>
-                    {flexRender(
-                      cell.column.columnDef.cell,
-                      cell.getContext()
-                    )}
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
                 ))}
               </tr>
@@ -572,9 +624,7 @@ export default function VendorRequestsTable() {
           <VendorKycDialog
             request={selectedRequest}
             approveAction={approveAction}
-            rejectAction={rejectAction}
             approvePending={approvePending}
-            rejectPending={rejectPending}
           />
         )}
       </Dialog>
@@ -638,7 +688,7 @@ export default function VendorRequestsTable() {
                     "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                     "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                     focusInput,
-                    hasFlagError("reason") ? hasErrorInput : ""
+                    hasFlagError("reason") ? hasErrorInput : "",
                   )}
                   placeholder="Describe why this vendor request needs attention"
                   disabled={flagPending}
@@ -667,7 +717,11 @@ export default function VendorRequestsTable() {
                   disabled={flagPending}
                   className="inline-flex items-center justify-center rounded-full border border-yellow-500 bg-yellow-500 px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-yellow-600 cursor-pointer"
                 >
-                  Flag Request
+                  {flagPending ? (
+                    <LoaderIcon className="size-4" />
+                  ) : (
+                    "Flag Request"
+                  )}
                 </button>
               </div>
             </form>
@@ -692,7 +746,7 @@ export default function VendorRequestsTable() {
               "flex h-7 w-7 items-center justify-center rounded-full border text-[#3979D2]",
               !canPrevious
                 ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                : "border-[#3979D2] bg-white hover:bg-[#3979D2] hover:text-white cursor-pointer"
+                : "border-[#3979D2] bg-white hover:bg-[#3979D2] hover:text-white cursor-pointer",
             )}
           >
             <ChevronLeft className="size-4" />
@@ -710,7 +764,7 @@ export default function VendorRequestsTable() {
               "flex h-7 w-7 items-center justify-center rounded-full border text-[#3979D2]",
               !canNext
                 ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                : "border-[#3979D2] bg-white hover:bg-[#3979D2] hover:text-white cursor-pointer"
+                : "border-[#3979D2] bg-white hover:bg-[#3979D2] hover:text-white cursor-pointer",
             )}
           >
             <ChevronRight className="size-4" />

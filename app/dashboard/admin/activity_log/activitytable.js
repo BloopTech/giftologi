@@ -110,7 +110,7 @@ export default function ActivityLogTable() {
             type="button"
             onClick={handleExport}
             disabled={exporting || !exportLogs || total === 0 || !hasRealData}
-            className="inline-flex items-center justify-center gap-1 rounded-full border border-[#3979D2] bg-[#3979D2] px-4 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+            className="inline-flex items-center justify-center gap-1 rounded-full border border-primary bg-primary px-4 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-primary disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
           >
             <PiDownloadSimple className="size-4" />
             <span>{exporting ? "Exporting..." : "Export log"}</span>

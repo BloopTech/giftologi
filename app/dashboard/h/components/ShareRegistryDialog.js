@@ -60,7 +60,7 @@ export default function ShareRegistryDialog(props) {
               />
               <button
                 onClick={handleCopy}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs whitespace-nowrap text-white cursor-pointer bg-[#BBA96C] border border-[#BBA96C] hover:bg-white hover:text-[#BBA96C] rounded-full px-3 py-2"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-xs whitespace-nowrap text-white cursor-pointer bg-primary border border-primary hover:bg-white hover:text-primary rounded-full px-3 py-2"
               >
                 {copyLabel}
               </button>
@@ -69,19 +69,19 @@ export default function ShareRegistryDialog(props) {
 
           {/* Second section: three share boxes */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="flex flex-col items-center justify-center space-y-4 border border-[#BBA96C] rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
+            <div className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
               <Send className="size-12 text-[#9B9B9B]" />
               <p className="text-xs text-[#394B71] font-semibold">
                 Share via e-mail
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center space-y-4 border border-[#BBA96C] rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
+            <div className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
               <Link className="size-12 text-[#9B9B9B]" />
               <p className="text-xs text-[#394B71] font-semibold">
                 Share on Social
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center space-y-4 border border-[#BBA96C] rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
+            <div className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
               <QrCode className="size-12 text-[#9B9B9B]" />
               <p className="text-xs text-[#394B71] font-semibold">
                 Share on QR

@@ -86,12 +86,12 @@ export default function GenerateReportsContent() {
         id={`report-card-${report.id}`}
         className={
           isFocused
-            ? "flex flex-col justify-between rounded-xl border border-[#D6D6D6] bg-[#EEF4FF] p-4 space-y-3 outline outline-[#3979D2] outline-offset-[-1px]"
+            ? "flex flex-col justify-between rounded-xl border border-[#D6D6D6] bg-[#EEF4FF] p-4 space-y-3 outline outline-primary outline-offset-[-1px]"
             : "flex flex-col justify-between rounded-xl border border-[#D6D6D6] bg-white p-4 space-y-3"
         }
       >
         <div className="flex items-start gap-2">
-          <div className="flex items-center justify-center rounded-full bg-[#F1F2F6] text-[#3979D2] w-7 h-7 mt-0.5">
+          <div className="flex items-center justify-center rounded-full bg-[#F1F2F6] text-primary w-7 h-7 mt-0.5">
             <PiFileText className="size-4" />
           </div>
           <div className="flex flex-col">
@@ -129,7 +129,7 @@ export default function GenerateReportsContent() {
             type="button"
             onClick={() => handleGenerate(report.id)}
             disabled={isExporting}
-            className="w-full space-x-2 inline-flex items-center justify-center rounded-full bg-[#3979D2] px-4 py-2 text-[11px] font-medium text-white border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2] disabled:opacity-60 disabled:cursor-not-allowed"
+            className="w-full space-x-2 inline-flex items-center justify-center rounded-full bg-primary px-4 py-2 text-[11px] font-medium text-white border border-primary cursor-pointer hover:bg-white hover:text-primary disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <PiDownloadSimple className="size-4" />
             <span>{isExporting ? "Generating..." : "Generate Report"}</span>

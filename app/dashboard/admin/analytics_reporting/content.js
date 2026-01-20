@@ -250,7 +250,7 @@ export default function AnalyticsReportingContent() {
           <button
             type="button"
             onClick={handleExport}
-            className="inline-flex items-center justify-center space-x-2 rounded-full bg-[#3979D2] px-4 py-2 text-xs font-medium text-white border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2]"
+            className="inline-flex items-center justify-center space-x-2 rounded-full bg-primary px-4 py-2 text-xs font-medium text-white border border-primary cursor-pointer hover:bg-white hover:text-primary"
           >
             <PiDownloadSimple className="size-4" />
             <span>Export summary (CSV)</span>

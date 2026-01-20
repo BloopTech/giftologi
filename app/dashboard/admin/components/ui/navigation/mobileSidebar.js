@@ -88,7 +88,7 @@ export default function MobileSidebar(props) {
                 <DrawerClose asChild>
                   <NextLink
                     href="/dashboard/admin"
-                    className="text-[#BBA96C] text-xs flex items-center space-x-2"
+                    className="text-primary text-xs flex items-center space-x-2"
                   >
                     <MoveLeft className="size-4" />
                     <span>Back to Dashboard Overview</span>

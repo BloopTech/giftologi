@@ -104,7 +104,7 @@ export default function AllUsersContent() {
         <button
           type="button"
           onClick={handleSearch}
-          className="w-full md:w-auto px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-[#3979D2] text-white text-xs font-medium border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2]"
+          className="w-full md:w-auto px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-primary text-white text-xs font-medium border border-primary cursor-pointer hover:bg-white hover:text-primary"
         >
           Search
         </button>

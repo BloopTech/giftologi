@@ -174,6 +174,7 @@ export async function manageRoles(prevState, queryData) {
 
   let userId = null;
   let reactivatedFromDeleted = false;
+  let authData = null;
 
   if (existingProfile) {
     const isStaffRole = staffRoles.includes(existingProfile.role);
@@ -224,7 +225,7 @@ export async function manageRoles(prevState, queryData) {
 
   if (!reactivatedFromDeleted) {
     // Sign up staff user in Supabase Auth (sends confirmation email)
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { data: signUpData, error: authError } = await supabase.auth.signUp({
       email,
       password,
     });
@@ -261,7 +262,8 @@ export async function manageRoles(prevState, queryData) {
       };
     }
 
-    userId = authData?.user?.id;
+    authData = signUpData;
+    userId = signUpData?.user?.id;
 
     if (!userId) {
       return {
@@ -354,7 +356,7 @@ export async function manageRoles(prevState, queryData) {
     message: "Staff member created.",
     errors: {},
     data: {
-      user: authData.user,
+      user: authData?.user || null,
       signup_profile: signupProfile,
       credentials: {
         email,
@@ -1469,5 +1471,154 @@ console.log("results se,,,,,,,................", results)
     },
     values: parsed.data,
     results,
+  };
+}
+
+const defaultRejectVendorValues = {
+  applicationId: [],
+  reason: [],
+};
+
+const rejectVendorSchema = z.object({
+  applicationId: z
+    .string()
+    .uuid({ message: "Invalid application ID" }),
+  reason: z
+    .string()
+    .trim()
+    .min(1, { message: "Rejection reason is required" })
+    .max(500, { message: "Reason must be less than 500 characters" }),
+});
+
+export async function rejectVendorApplication(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to reject vendor applications.",
+      errors: {
+        ...defaultRejectVendorValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role, firstname, lastname, email")
+    .eq("id", user.id)
+    .single();
+
+  if (!currentProfile || currentProfile.role !== "super_admin") {
+    return {
+      message: "You are not authorized to reject vendor applications.",
+      errors: {
+        ...defaultRejectVendorValues,
+      },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    applicationId: formData.get("applicationId"),
+    reason: formData.get("reason"),
+  };
+
+  const validated = rejectVendorSchema.safeParse(raw);
+
+  if (!validated.success) {
+    return {
+      message: validated.error.issues?.[0]?.message || "Validation failed",
+      errors: validated.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { applicationId, reason } = validated.data;
+
+  // Check if application exists and is in pending status
+  const { data: application, error: applicationError } = await supabase
+    .from("vendor_applications")
+    .select("id, user_id, business_name, owner_email, status")
+    .eq("id", applicationId)
+    .single();
+
+  if (applicationError || !application) {
+    return {
+      message: "Vendor application not found.",
+      errors: {
+        ...defaultRejectVendorValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (application.status !== "pending") {
+    return {
+      message: "This application has already been processed.",
+      errors: {
+        ...defaultRejectVendorValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  // Update application status to rejected with reason
+  const { error: updateError } = await supabase
+    .from("vendor_applications")
+    .update({
+      status: "rejected",
+      reason: reason,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", applicationId);
+
+  if (updateError) {
+    return {
+      message: updateError.message,
+      errors: {
+        ...defaultRejectVendorValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const adminNameParts = [];
+  if (currentProfile?.firstname) adminNameParts.push(currentProfile.firstname);
+  if (currentProfile?.lastname) adminNameParts.push(currentProfile.lastname);
+  const adminName = adminNameParts.join(" ") || null;
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: currentProfile?.email || user.email || null,
+    adminName,
+    action: "rejected_vendor_application",
+    entity: "vendor_applications",
+    targetId: applicationId,
+    details: `Rejected vendor application for ${application.business_name} (${application.owner_email}). Reason: ${reason}`,
+  });
+
+  revalidatePath("/dashboard/admin/vendor_requests");
+
+  return {
+    message: "Vendor application rejected successfully.",
+    errors: {},
+    values: {},
+    data: {
+      applicationId,
+      businessName: application.business_name,
+      ownerEmail: application.owner_email,
+    },
   };
 }

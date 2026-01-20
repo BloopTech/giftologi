@@ -187,7 +187,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setAddStaffOpen(true)}
-                    className="px-4 py-2 flex items-center justify-center border border-[#427ED3] text-[#427ED3] bg-white text-xs rounded-full cursor-pointer hover:text-white hover:bg-[#427ED3]"
+                    className="px-4 py-2 flex items-center justify-center border border-primary text-primary bg-white text-xs rounded-full cursor-pointer hover:text-white hover:bg-primary"
                   >
                     <Plus className="size-4" />
                     Add Staff
@@ -207,7 +207,7 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={() => setAddVendorOpen(true)}
-                    className="py-2 px-4 flex items-center justify-center border border-[#427ED3] text-white bg-[#427ED3] text-xs rounded-full cursor-pointer hover:text-[#427ED3] hover:bg-white"
+                    className="py-2 px-4 flex items-center justify-center border border-primary text-white bg-primary text-xs rounded-full cursor-pointer hover:text-primary hover:bg-white"
                   >
                     <Plus className="size-4" />
                     Add Vendor

@@ -22,7 +22,7 @@ export default function VendorRequestsContent() {
           <button
             type="button"
             onClick={() => setCreateOpen(true)}
-            className="rounded-full border border-[#3979D2] bg-[#3979D2] px-4 py-2 text-xs font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+            className="rounded-full border border-primary bg-primary px-4 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
           >
             Create Vendor Application
           </button>

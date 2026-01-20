@@ -148,7 +148,8 @@ export async function approveVendorRequest(prevState, formData) {
     };
   }
 
-  if (application.status && application.status !== "pending") {
+  const normalizedStatus = (application.status || "pending").toLowerCase();
+  if (!['pending', 'rejected'].includes(normalizedStatus)) {
     return {
       message: "This vendor request has already been processed.",
       errors: {},
@@ -168,6 +169,7 @@ export async function approveVendorRequest(prevState, formData) {
         commission_rate: null,
         verified: true,
         created_by: currentProfile?.id || user.id,
+        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       },
     ])
@@ -188,6 +190,7 @@ export async function approveVendorRequest(prevState, formData) {
     .update({
       status: "approved",
       approved_by: currentProfile?.id || user.id,
+      reason: null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", applicationId);
@@ -407,7 +410,7 @@ export async function flagVendorRequest(prevState, formData) {
 
   const { data: application, error: applicationError } = await supabase
     .from("vendor_applications")
-    .select("id, business_name, user_id, status")
+    .select("id, business_name, user_id, status, is_flagged")
     .eq("id", applicationId)
     .single();
 
@@ -417,6 +420,24 @@ export async function flagVendorRequest(prevState, formData) {
       errors: { ...defaultFlagVendorValues },
       values: raw,
       data: {},
+    };
+  }
+
+  if ((application.status || "").toLowerCase() !== "pending") {
+    return {
+      message: "Only pending vendor requests can be flagged.",
+      errors: { ...defaultFlagVendorValues },
+      values: raw,
+      data: { applicationId },
+    };
+  }
+
+  if (application.is_flagged) {
+    return {
+      message: "Vendor request is already flagged.",
+      errors: {},
+      values: raw,
+      data: { applicationId },
     };
   }
 
@@ -450,6 +471,25 @@ export async function flagVendorRequest(prevState, formData) {
     };
   }
 
+  const { error: flagUpdateError } = await supabase
+    .from("vendor_applications")
+    .update({
+      is_flagged: true,
+      flagged_at: new Date().toISOString(),
+      flagged_by: currentProfile?.id || user.id,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", applicationId);
+
+  if (flagUpdateError) {
+    return {
+      message: flagUpdateError.message,
+      errors: { ...defaultFlagVendorValues },
+      values: raw,
+      data: {},
+    };
+  }
+
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -466,6 +506,138 @@ export async function flagVendorRequest(prevState, formData) {
 
   return {
     message: "Vendor request flagged successfully.",
+    errors: {},
+    values: {},
+    data: { applicationId },
+  };
+}
+
+const defaultUnflagVendorValues = {
+  applicationId: [],
+};
+
+const unflagVendorSchema = z.object({
+  applicationId: z.uuid({ message: "Invalid vendor request" }),
+});
+
+export async function unflagVendorRequest(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to unflag vendor requests.",
+      errors: { ...defaultUnflagVendorValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = ["super_admin", "operations_manager_admin"];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to unflag vendor requests.",
+      errors: { ...defaultUnflagVendorValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    applicationId: formData.get("applicationId"),
+  };
+
+  const parsed = unflagVendorSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { applicationId } = parsed.data;
+
+  const { data: application, error: applicationError } = await supabase
+    .from("vendor_applications")
+    .select("id, status, is_flagged")
+    .eq("id", applicationId)
+    .single();
+
+  if (applicationError || !application) {
+    return {
+      message: applicationError?.message || "Vendor request not found.",
+      errors: { ...defaultUnflagVendorValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if ((application.status || "").toLowerCase() !== "pending") {
+    return {
+      message: "Only pending vendor requests can be unflagged.",
+      errors: { ...defaultUnflagVendorValues },
+      values: raw,
+      data: { applicationId },
+    };
+  }
+
+  if (!application.is_flagged) {
+    return {
+      message: "Vendor request is not flagged.",
+      errors: {},
+      values: raw,
+      data: { applicationId },
+    };
+  }
+
+  const { error: unflagError } = await supabase
+    .from("vendor_applications")
+    .update({
+      is_flagged: false,
+      flagged_at: null,
+      flagged_by: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", applicationId);
+
+  if (unflagError) {
+    return {
+      message: unflagError.message,
+      errors: { ...defaultUnflagVendorValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "unflagged_vendor",
+    entity: "vendors",
+    targetId: applicationId,
+    details: `Unflagged vendor application ${applicationId}`,
+  });
+
+  revalidatePath("/dashboard/admin/vendor_requests");
+  revalidatePath("/dashboard/admin");
+
+  return {
+    message: "Vendor request unflagged.",
     errors: {},
     values: {},
     data: { applicationId },

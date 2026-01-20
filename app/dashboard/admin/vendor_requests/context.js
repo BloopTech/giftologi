@@ -70,9 +70,9 @@ function useVendorRequestsProviderValue() {
 
   const [statusParam, setStatusParam] = useQueryState(
     "status",
-    parseAsString.withDefault("pending"),
+    parseAsString.withDefault("all"),
   );
-  const statusFilter = (statusParam || "pending").toLowerCase();
+  const statusFilter = (statusParam || "all").toLowerCase();
 
   const [focusIdParam, setFocusIdParam] = useQueryState(
     "focusId",
@@ -111,6 +111,7 @@ function useVendorRequestsProviderValue() {
             business_name,
             category,
             status,
+            is_flagged,
             created_at,
             business_type,
             business_registration_number,
@@ -133,6 +134,8 @@ function useVendorRequestsProviderValue() {
             bank_account_number,
             bank_branch_code,
             financial_verification_notes,
+            flagged_at,
+            flagged_by,
             profiles:profiles!vendor_applications_user_id_fkey (
               id,
               firstname,
@@ -180,6 +183,7 @@ function useVendorRequestsProviderValue() {
               businessName: row.business_name || contactName || "—",
               category: row.category || "",
               status: row.status || "pending",
+              isFlagged: !!row.is_flagged,
               appliedDate: row.created_at,
               contactName,
               contactEmail: profile?.email || "",
@@ -297,7 +301,7 @@ function useVendorRequestsProviderValue() {
 
   const setStatusFilter = useCallback(
     (value) => {
-      setStatusParam(value || "pending");
+      setStatusParam(value || "all");
       setPageParam("1");
     },
     [setStatusParam, setPageParam],

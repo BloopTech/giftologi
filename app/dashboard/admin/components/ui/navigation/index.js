@@ -84,7 +84,7 @@ export default function AdminSidebar() {
           <div className="px-[1rem]">
             <Link
               href="/dashboard/admin"
-              className="text-[#BBA96C] text-xs flex items-center space-x-2"
+              className="text-primary text-xs flex items-center space-x-2"
             >
               <MoveLeft className="size-4" />
               <span>Back to Dashboard Overview</span>
@@ -115,9 +115,9 @@ export default function AdminSidebar() {
                               onClick={() => toggleDropdown(name)}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#BBA96C] dark:text-white border border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
+                                  ? "text-white bg-primary dark:text-white border border-primary hover:text-primary hover:!bg-white hover:dark:text-primary"
                                   : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center justify-between text-xs py-1 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group w-full",
+                                "flex items-center justify-between text-xs py-1 transition hover:bg-primary hover:dark:bg-gray-900 font-medium group w-full",
                                 focusRing
                               )}
                             >
@@ -127,7 +127,7 @@ export default function AdminSidebar() {
                                     aria-hidden="true"
                                     className={cx(
                                       isActive(href)
-                                        ? " dark:text-white group-hover:text-[#BBA96C] dark:group-hover:text-white"
+                                        ? " dark:text-white group-hover:text-primary dark:group-hover:text-white"
                                         : "text-[#686868] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                       "size-4 shrink-0 text-[#686868] flex items-center justify-center",
                                       focusRing
@@ -148,9 +148,9 @@ export default function AdminSidebar() {
                               href={href}
                               className={cx(
                                 isActive(href)
-                                  ? "text-[#BBA96C] dark:text-white border border-white hover:border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
+                                  ? "text-primary dark:text-white border border-white hover:border-primary hover:text-primary hover:!bg-white hover:dark:text-primary"
                                   : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center gap-x-8 text-xs py-1 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group",
+                                "flex items-center gap-x-8 text-xs py-1 transition hover:bg-primary hover:dark:bg-gray-900 font-medium group",
                                 focusRing
                               )}
                             >
@@ -159,7 +159,7 @@ export default function AdminSidebar() {
                                   aria-hidden="true"
                                   className={cx(
                                     isActive(href)
-                                      ? "dark:text-white text-[#BBA96C] group-hover:text-[#BBA96C] dark:group-hover:text-[#BBA96C]"
+                                      ? "dark:text-white text-primary group-hover:text-primary dark:group-hover:text-primary"
                                       : "text-[#686868] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                     "size-4 shrink-0 flex items-center justify-center",
                                     focusRing
@@ -178,9 +178,9 @@ export default function AdminSidebar() {
                                     href={subItem.href}
                                     className={cx(
                                       isActive(subItem.href)
-                                        ? "text-white bg-[#BBA96C] dark:text-white border border-[#BBA96C] hover:text-[#BBA96C] hover:!bg-white hover:dark:text-[#BBA96C]"
+                                        ? "text-white bg-primary dark:text-white border border-primary hover:text-primary hover:!bg-white hover:dark:text-primary"
                                         : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "flex items-center text-xs py-0.5 transition hover:bg-[#BBA96C] hover:dark:bg-gray-900 font-medium group pl-4",
+                                      "flex items-center text-xs py-0.5 transition hover:bg-primary hover:dark:bg-gray-900 font-medium group pl-4",
                                       focusRing
                                     )}
                                   >

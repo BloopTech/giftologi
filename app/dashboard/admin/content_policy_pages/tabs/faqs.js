@@ -76,7 +76,7 @@ export default function FAQsTab(props) {
             <button
               type="button"
               onClick={handleNew}
-              className="inline-flex items-center justify-center gap-1 rounded-full border border-[#3979D2] bg-[#3979D2] px-4 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+              className="inline-flex items-center justify-center gap-1 rounded-full border border-primary bg-primary px-4 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
             >
               <Plus className="size-4" />
               <span>Add FAQ</span>
@@ -153,7 +153,7 @@ export default function FAQsTab(props) {
                           <button
                             type="button"
                             onClick={() => handleView(row)}
-                            className="inline-flex items-center justify-center rounded-full border border-[#D6D6D6] px-2 py-1 text-[11px] text-[#3979D2] hover:border-[#3979D2] hover:bg-[#F3F8FF] cursor-pointer"
+                            className="inline-flex items-center justify-center rounded-full border border-[#D6D6D6] px-2 py-1 text-[11px] text-primary hover:border-primary hover:bg-[#F3F8FF] cursor-pointer"
                           >
                             <Eye className="size-3 mr-1" />
                             <span>View</span>
@@ -161,7 +161,7 @@ export default function FAQsTab(props) {
                           <button
                             type="button"
                             onClick={() => handleEdit(row)}
-                            className="inline-flex items-center justify-center rounded-full border border-[#D6D6D6] px-2 py-1 text-[11px] text-[#3979D2] hover:border-[#3979D2] hover:bg-[#F3F8FF] cursor-pointer"
+                            className="inline-flex items-center justify-center rounded-full border border-[#D6D6D6] px-2 py-1 text-[11px] text-primary hover:border-primary hover:bg-[#F3F8FF] cursor-pointer"
                           >
                             <Pencil className="size-3 mr-1" />
                             <span>Edit</span>

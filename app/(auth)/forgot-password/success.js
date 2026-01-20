@@ -28,7 +28,7 @@ export default function ForgotPasswordSuccess() {
       <div className="w-full flex items-center justify-center">
         <Link
           href="/login"
-          className="bg-[#BBA96C] hover:bg-white hover:text-[#BBA96C] text-sm border border-[#A5914B] text-white rounded-4xl px-4 py-2 w-full flex items-center justify-center cursor-pointer"
+          className="bg-primary hover:bg-white hover:text-primary text-sm border border-[#A5914B] text-white rounded-4xl px-4 py-2 w-full flex items-center justify-center cursor-pointer"
         >
           Done
         </Link>

@@ -10,6 +10,7 @@ import {
 } from "@/app/components/Dialog";
 import { Badge } from "@/app/components/Badge";
 import { cx } from "@/app/components/utils";
+import { RejectVendorDialog } from "./RejectVendorDialog";
 
 const TABS = [
   { id: "business", label: "Business Info" },
@@ -19,31 +20,29 @@ const TABS = [
 ];
 
 function formatDate(value) {
-  if (!value) return "";
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
+  if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString();
 }
 
 function formatDateTime(value) {
-  if (!value) return "";
+  if (!value) return "";
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "";
+  if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleString();
 }
 
 function safeText(value) {
-  if (value === null || typeof value === "undefined") return "";
+  if (value === null || typeof value === "undefined") return "";
   const str = String(value).trim();
-  return str.length ? str : "";
+  return str.length ? str : "";
 }
 
 export default function VendorKycDialog({
   request,
   approveAction,
-  rejectAction,
   approvePending,
-  rejectPending,
 }) {
   const [activeTab, setActiveTab] = useState("business");
 
@@ -186,8 +185,10 @@ export default function VendorKycDialog({
   const isKycComplete =
     hasBusinessCore && hasAddress && hasOwner && hasBank && hasAllRequiredDocuments;
 
+  const isRejectedStatus = normalizedStatus === "rejected";
+  const canProcess = isPendingStatus || isRejectedStatus;
   const disableActions =
-    !isPendingStatus || !isKycComplete || approvePending || rejectPending;
+    !canProcess || !isKycComplete || approvePending;
 
   const topMetaLabelParts = [];
   if (vendorId) topMetaLabelParts.push(`Vendor ID: ${vendorId}`);
@@ -512,10 +513,12 @@ export default function VendorKycDialog({
         </DialogClose>
 
         <div className="flex items-center gap-3">
-          <form action={rejectAction}>
-            <input type="hidden" name="applicationId" value={applicationId || ""} />
+          <RejectVendorDialog 
+            applicationId={applicationId || ""}
+            businessName={data.businessName || "Unknown Business"}
+          >
             <button
-              type="submit"
+              type="button"
               disabled={disableActions}
               className={cx(
                 "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
@@ -526,7 +529,7 @@ export default function VendorKycDialog({
             >
               Reject Application
             </button>
-          </form>
+          </RejectVendorDialog>
           <form action={approveAction}>
             <input type="hidden" name="applicationId" value={applicationId || ""} />
             <button
@@ -534,9 +537,9 @@ export default function VendorKycDialog({
               disabled={disableActions}
               className={cx(
                 "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
-                "border-[#6EA30B] text:white bg-[#6EA30B] hover:bg:white hover:text-[#6EA30B]",
+                "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
                 disableActions &&
-                  "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text:white"
+                  "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white"
               )}
             >
               Approve Vendor

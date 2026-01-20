@@ -130,7 +130,7 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
           <button
             type="button"
             onClick={() => setCreateDialogOpen(true)}
-            className="rounded-full border border-[#3979D2] bg-[#3979D2] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+            className="rounded-full border border-primary bg-primary px-3 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
           >
             + New Category
           </button>
@@ -861,7 +861,7 @@ export default function ManageProductsContent() {
         <button
           type="button"
           onClick={handleSearch}
-          className="w-full md:w-auto px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-[#3979D2] text-white text-xs font-medium border border-[#3979D2] cursor-pointer hover:bg-white hover:text-[#3979D2]"
+          className="w-full md:w-auto px-8 py-2.5 inline-flex items-center justify-center rounded-full bg-primary text-white text-xs font-medium border border-primary cursor-pointer hover:bg-white hover:text-primary"
         >
           Search
         </button>
@@ -952,7 +952,7 @@ export default function ManageProductsContent() {
                 {vendorLoading ? (
                   <div className="flex items-center justify-center gap-2 px-4 py-6 text-[11px] text-[#717182]">
                     <LoaderCircle className="size-3.5 animate-spin" />
-                    <span>Loading vendors e2 80 a6</span>
+                    <span>Loading vendors</span>
                   </div>
                 ) : vendorError ? (
                   <div className="px-4 py-6 text-[11px] text-red-600">
@@ -989,7 +989,7 @@ export default function ManageProductsContent() {
                           <button
                             type="button"
                             onClick={() => handleSelectVendor(vendor)}
-                            className="rounded-full px-3 py-1 text-[11px] font-medium border border-[#3979D2] bg-[#3979D2] text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+                            className="rounded-full px-3 py-1 text-[11px] font-medium border border-primary bg-primary text-white hover:bg-white hover:text-primary cursor-pointer"
                           >
                             Select
                           </button>
