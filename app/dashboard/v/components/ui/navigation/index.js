@@ -1,7 +1,13 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { cx, focusRing } from "../../../../../components/utils";
-import { ChevronRight, OctagonAlert, Sun, ChevronDown } from "lucide-react";
+import {
+  ChevronRight,
+  OctagonAlert,
+  Sun,
+  ChevronDown,
+  MoveLeft,
+} from "lucide-react";
 import NextLink from "next/link";
 import { usePathname } from "next/navigation";
 import MobileSidebar from "./mobileSidebar";
@@ -15,8 +21,9 @@ import { DropdownTheme, DropdownUserProfile } from "./dropdownUserProfile";
 import { createClient } from "../../../../../utils/supabase/client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
-export default function VendorSidebar() {
+export default function AdminSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [openDropdowns, setOpenDropdowns] = useState({});
@@ -25,6 +32,7 @@ export default function VendorSidebar() {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
   useEffect(() => {
     let ignore = false;
     const load = async () => {
@@ -70,19 +78,17 @@ export default function VendorSidebar() {
   return (
     <>
       {/* sidebar (lg+) */}
-      <nav className="hidden lg:fixed lg:inset-y-0 lg:z-50 lg:flex lg:w-72 lg:flex-col border-r border-[#f4f4f4]">
-        <div>
-          <WorkspacesDropdownDesktop />
-        </div>
+      <nav className="hidden lg:fixed lg:top-[6rem] lg:bottom-0 lg:z-40 lg:flex lg:w-64 lg:flex-col left-[2rem]">
+      <aside className={`${pathname !== "/dashboard/admin" ? "max-h-[30.5rem]" : "max-h-[29.5rem]"} h-auto py-4 w-full mx-auto border border-[#f4f4f4] bg-white rounded-xl`}>
 
         <nav
           aria-label="core navigation links"
-          className="flex flex-1 flex-col space-y-3"
+          className={`flex flex-1 flex-col space-y-2 overflow-y-auto`}
         >
           {navigation?.map(({ label, items, id }) => {
             return (
               <div key={id} className="flex flex-col space-y-1">
-                <span className="text-xs text-[#111827] dark:text-white pl-[4rem]">
+                <span className="text-xs text-[#686868] dark:text-white pl-[4rem] font-medium">
                   {label}
                 </span>
 
@@ -99,9 +105,9 @@ export default function VendorSidebar() {
                               onClick={() => toggleDropdown(name)}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#2C3E50] dark:text-white border border-[#2C3E50] hover:text-[#2C3E50] hover:!bg-white hover:dark:text-[#2C3E50]"
-                                  : "text-[#111827] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center justify-between text-xs py-1.5 transition hover:bg-[#2C3E50] hover:dark:bg-gray-900 font-medium group w-full",
+                                  ? "text-white bg-primary dark:text-white border border-primary hover:text-primary hover:!bg-white hover:dark:text-primary"
+                                  : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                "flex items-center justify-between text-xs py-1 transition hover:bg-primary hover:dark:bg-gray-900 font-medium group w-full",
                                 focusRing
                               )}
                             >
@@ -111,9 +117,9 @@ export default function VendorSidebar() {
                                     aria-hidden="true"
                                     className={cx(
                                       isActive(href)
-                                        ? " dark:text-white group-hover:text-[#2C3E50] dark:group-hover:text-white"
-                                        : "text-[#111827] group-hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "size-4 shrink-0 text-[#111827] flex items-center justify-center",
+                                        ? " dark:text-white group-hover:text-primary dark:group-hover:text-white"
+                                        : "text-[#686868] group-hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      "size-4 shrink-0 text-[#686868] flex items-center justify-center",
                                       focusRing
                                     )}
                                   />
@@ -132,9 +138,9 @@ export default function VendorSidebar() {
                               href={href}
                               className={cx(
                                 isActive(href)
-                                  ? "text-white bg-[#2C3E50] dark:text-white border border-[#2C3E50] hover:text-[#2C3E50] hover:!bg-white hover:dark:text-[#2C3E50]"
-                                  : "text-[#111827] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                "flex items-center gap-x-8 text-xs py-1.5 transition hover:bg-[#2C3E50] hover:dark:bg-gray-900 font-medium group",
+                                  ? "text-primary dark:text-white border border-white hover:border-primary hover:text-primary hover:!bg-white hover:dark:text-primary"
+                                  : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                "flex items-center gap-x-8 text-xs py-1 transition hover:bg-primary hover:dark:bg-gray-900 font-medium group",
                                 focusRing
                               )}
                             >
@@ -143,8 +149,8 @@ export default function VendorSidebar() {
                                   aria-hidden="true"
                                   className={cx(
                                     isActive(href)
-                                      ? " dark:text-white text-white group-hover:text-[#2C3E50] dark:group-hover:text-[#2C3E50]"
-                                      : "text-[#111827] group-hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      ? "dark:text-white text-primary group-hover:text-primary dark:group-hover:text-primary"
+                                      : "text-[#686868] group-hover:text-white dark:text-white hover:dark:text-gray-50",
                                     "size-4 shrink-0 flex items-center justify-center",
                                     focusRing
                                   )}
@@ -162,9 +168,9 @@ export default function VendorSidebar() {
                                     href={subItem.href}
                                     className={cx(
                                       isActive(subItem.href)
-                                        ? "text-white bg-[#2C3E50] dark:text-white border border-[#2C3E50] hover:text-[#2C3E50] hover:!bg-white hover:dark:text-[#2C3E50]"
-                                        : "text-[#111827] hover:text-white dark:text-white hover:dark:text-gray-50",
-                                      "flex items-center text-xs py-1.5 transition hover:bg-[#2C3E50] hover:dark:bg-gray-900 font-medium group pl-4",
+                                        ? "text-white bg-primary dark:text-white border border-primary hover:text-primary hover:!bg-white hover:dark:text-primary"
+                                        : "text-[#686868] hover:text-white dark:text-white hover:dark:text-gray-50",
+                                      "flex items-center text-xs py-0.5 transition hover:bg-primary hover:dark:bg-gray-900 font-medium group pl-4",
                                       focusRing
                                     )}
                                   >
@@ -183,19 +189,8 @@ export default function VendorSidebar() {
             );
           })}
         </nav>
-
-        <div className="w-full inline-flex gap-x-5 items-end">
-          <UserProfileDesktop userData={userData} />
-        </div>
+        </aside>
       </nav>
-      {/* top navbar (xs-lg) */}
-      <div className="sticky top-0 z-40 flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-2 shadow-sm sm:gap-x-6 sm:px-4 lg:hidden dark:border-gray-800 dark:bg-gray-950">
-        <WorkspacesDropdownMobile />
-        <div className="flex items-center gap-1 sm:gap-2">
-          <UserProfileMobile userData={userData} />
-          <MobileSidebar userData={userData} />
-        </div>
-      </div>
     </>
   );
 }

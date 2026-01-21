@@ -37,13 +37,21 @@ export async function POST(req) {
 
     const profile_id = profile?.id || null;
 
-    const { error: insertError } = await supabase.from("registry_page_views").insert({
-      registry_id,
-      profile_id,
-      session_id: typeof session_id === "string" ? session_id : null,
-      ip_hash,
-      user_agent: ua,
-    });
+    const { error: insertError } = await supabase
+      .from("registry_page_views")
+      .upsert(
+        {
+          registry_id,
+          profile_id,
+          session_id: typeof session_id === "string" ? session_id : null,
+          ip_hash,
+          user_agent: ua,
+        },
+        {
+          onConflict: "registry_id,session_id",
+          ignoreDuplicates: true,
+        }
+      );
 
     if (insertError) {
       console.error("Error inserting registry_page_views:", insertError);

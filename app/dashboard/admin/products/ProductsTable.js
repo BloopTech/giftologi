@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Eye,
   Flag,
+  LoaderIcon,
 } from "lucide-react";
 import {
   useReactTable,
@@ -33,7 +34,8 @@ import {
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { useManageProductsContext } from "./context";
 import { useDashboardContext } from "../context";
-import { approveProduct, rejectProduct, flagProduct } from "./action";
+import { approveProduct, flagProduct, unflagProduct } from "./action";
+import RejectProductDialog from "./RejectProductDialog";
 import Image from "next/image";
 
 const tableStyles = tv({
@@ -68,20 +70,20 @@ const initialApproveState = {
   data: {},
 };
 
-const initialRejectState = {
-  message: "",
-  errors: {
-    productId: [],
-  },
-  values: {},
-  data: {},
-};
-
 const initialFlagState = {
   message: "",
   errors: {
     productId: [],
     reason: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialUnflagState = {
+  message: "",
+  errors: {
+    productId: [],
   },
   values: {},
   data: {},
@@ -141,14 +143,14 @@ export default function ProductsTable() {
     approveProduct,
     initialApproveState
   );
-  const [rejectState, rejectAction, rejectPending] = useActionState(
-    rejectProduct,
-    initialRejectState
-  );
-
   const [flagState, flagAction, flagPending] = useActionState(
     flagProduct,
     initialFlagState
+  );
+
+  const [unflagState, unflagAction, unflagPending] = useActionState(
+    unflagProduct,
+    initialUnflagState
   );
 
   const flagErrorFor = (key) => flagState?.errors?.[key] ?? [];
@@ -173,24 +175,6 @@ export default function ProductsTable() {
   }, [approveState, refreshProducts]);
 
   useEffect(() => {
-    if (!rejectState) return;
-    if (
-      rejectState.message &&
-      rejectState.data &&
-      Object.keys(rejectState.data).length
-    ) {
-      toast.success(rejectState.message);
-      refreshProducts?.();
-    } else if (
-      rejectState.message &&
-      rejectState.errors &&
-      Object.keys(rejectState.errors).length
-    ) {
-      toast.error(rejectState.message);
-    }
-  }, [rejectState, refreshProducts]);
-
-  useEffect(() => {
     if (!flagState) return;
     if (
       flagState.message &&
@@ -209,6 +193,24 @@ export default function ProductsTable() {
       toast.error(flagState.message);
     }
   }, [flagState, refreshProducts]);
+
+  useEffect(() => {
+    if (!unflagState) return;
+    if (
+      unflagState.message &&
+      unflagState.data &&
+      Object.keys(unflagState.data).length
+    ) {
+      toast.success(unflagState.message);
+      refreshProducts?.();
+    } else if (
+      unflagState.message &&
+      unflagState.errors &&
+      Object.keys(unflagState.errors).length
+    ) {
+      toast.error(unflagState.message);
+    }
+  }, [unflagState, refreshProducts]);
 
   const tableRows = useMemo(() => {
     if (!products || !products.length) return [];
@@ -333,6 +335,7 @@ export default function ProductsTable() {
         cell: ({ row }) => {
           const original = row.original;
           const isPending = original.normalizedStatus === "pending";
+          const isFlagged = original.normalizedStatus === "flagged";
 
           if (!canModerate) {
             return (
@@ -367,50 +370,84 @@ export default function ProductsTable() {
                 </TooltipTrigger>
                 <TooltipContent>View product</TooltipContent>
               </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={handleFlag}
-                    aria-label="Flag product"
-                    className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
-                  >
-                    <Flag className="size-4" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent>Flag product</TooltipContent>
-              </Tooltip>
+              {isFlagged ? (
+                <form action={unflagAction}>
+                  <input type="hidden" name="productId" value={original.id} />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="submit"
+                        disabled={unflagPending}
+                        aria-label="Unflag product"
+                        className={cx(
+                          "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                          "border-emerald-500 text-emerald-700 bg-emerald-50 hover:bg-emerald-100",
+                          unflagPending &&
+                            "opacity-60 cursor-not-allowed hover:bg-emerald-50"
+                        )}
+                      >
+                        {unflagPending ? (
+                          <LoaderIcon className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Unflag"
+                        )}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>Unflag product</TooltipContent>
+                  </Tooltip>
+                </form>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleFlag}
+                      aria-label="Flag product"
+                      className="p-1 rounded-full border border-yellow-200 text-yellow-500 hover:bg-yellow-50 cursor-pointer"
+                    >
+                      <Flag className="size-4" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>Flag product</TooltipContent>
+                </Tooltip>
+              )}
               <form action={approveAction}>
                 <input type="hidden" name="productId" value={original.id} />
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="submit"
-                      disabled={!isPending || approvePending || rejectPending}
+                      disabled={!isPending || approvePending}
                       className={cx(
                         "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
                         "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
-                        (!isPending || approvePending || rejectPending) &&
+                        (!isPending || approvePending) &&
                           "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white"
                       )}
                     >
-                      Approve
+                      {approvePending ? (
+                        <LoaderIcon className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Approve"
+                      )}
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>Approve product</TooltipContent>
                 </Tooltip>
               </form>
-              <form action={rejectAction}>
-                <input type="hidden" name="productId" value={original.id} />
+              <RejectProductDialog
+                product={original}
+                onSuccess={() => refreshProducts?.()}
+              >
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
-                      type="submit"
-                      disabled={!isPending || approvePending || rejectPending}
+                      type="button"
+                      disabled={!isPending || approvePending}
                       className={cx(
                         "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
                         "border-[#DF0404] text-[#DF0404] bg-white hover:bg-[#DF0404] hover:text-white",
-                        (!isPending || approvePending || rejectPending) &&
+                        (!isPending || approvePending) &&
                           "opacity-60 cursor-not-allowed hover:bg-white hover:text-[#DF0404]"
                       )}
                     >
@@ -419,13 +456,20 @@ export default function ProductsTable() {
                   </TooltipTrigger>
                   <TooltipContent>Reject product</TooltipContent>
                 </Tooltip>
-              </form>
+              </RejectProductDialog>
             </div>
           );
         },
       }),
     ],
-    [canModerate, approveAction, rejectAction, approvePending, rejectPending]
+    [
+      canModerate,
+      approveAction,
+      unflagAction,
+      unflagPending,
+      approvePending,
+      refreshProducts,
+    ]
   );
 
   const tableInstance = useReactTable({
@@ -634,6 +678,14 @@ export default function ProductsTable() {
                   {selectedProduct.product_code || selectedProduct.id}
                 </p>
               </div>
+              {selectedProduct.normalizedStatus === "rejected" && selectedProduct.rejection_reason ? (
+                <div>
+                  <p className="font-medium">Rejection Reason</p>
+                  <p className="text-[#6A7282] whitespace-pre-wrap">
+                    {selectedProduct.rejection_reason}
+                  </p>
+                </div>
+              ) : null}
             </div>
           )}
           <div className="mt-4 flex justify-end">
@@ -715,7 +767,11 @@ export default function ProductsTable() {
                   disabled={flagPending}
                   className="inline-flex items-center justify-center rounded-full border border-yellow-500 bg-yellow-500 px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-yellow-600 cursor-pointer"
                 >
-                  Flag Product
+                  {flagPending ? (
+                    <LoaderIcon className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Flag Product"
+                  )}
                 </button>
               </div>
             </form>

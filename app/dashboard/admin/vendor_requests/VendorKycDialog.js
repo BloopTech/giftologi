@@ -11,6 +11,7 @@ import {
 import { Badge } from "@/app/components/Badge";
 import { cx } from "@/app/components/utils";
 import { RejectVendorDialog } from "./RejectVendorDialog";
+import { Loader2Icon } from "lucide-react";
 
 const TABS = [
   { id: "business", label: "Business Info" },
@@ -67,7 +68,7 @@ export default function VendorKycDialog({
       streetAddress: app.street_address || "",
       city: app.city || "",
       region: app.region || "",
-      postalCode: app.postal_code || "",
+      digitalAddress: app.digital_address || "",
       ownerFullName: app.owner_full_name || "",
       ownerEmail: app.owner_email || "",
       ownerPhone: app.owner_phone || "",
@@ -80,6 +81,7 @@ export default function VendorKycDialog({
       bankName: app.bank_name || "",
       bankAccountNumber: app.bank_account_number || "",
       bankBranchCode: app.bank_branch_code || "",
+      bankBranch: app.bank_branch || "",
       financialVerificationNotes: app.financial_verification_notes || "",
       applicationId: request.id,
     };
@@ -104,7 +106,7 @@ export default function VendorKycDialog({
     streetAddress,
     city,
     region,
-    postalCode,
+    digitalAddress,
     ownerFullName,
     ownerEmail,
     ownerPhone,
@@ -115,6 +117,7 @@ export default function VendorKycDialog({
     bankName,
     bankAccountNumber,
     bankBranchCode,
+    bankBranch,
     financialVerificationNotes,
     applicationId,
   } = data;
@@ -131,8 +134,8 @@ export default function VendorKycDialog({
     city.trim() &&
     region &&
     region.trim() &&
-    postalCode &&
-    postalCode.trim()
+    digitalAddress &&
+    digitalAddress.trim()
   );
   const hasOwner = !!(
     (ownerFullName || contactName) &&
@@ -142,7 +145,7 @@ export default function VendorKycDialog({
     (bankAccountName || businessName) &&
     bankAccountNumber &&
     bankName &&
-    bankBranchCode
+    bankBranch
   );
   const normalizedDocuments = Array.isArray(documents) ? documents : [];
 
@@ -318,7 +321,7 @@ export default function VendorKycDialog({
                 <Field label="Street Address" value={streetAddress} />
                 <Field label="City" value={city} />
                 <Field label="Region" value={region} />
-                <Field label="Postal Code" value={postalCode} />
+                <Field label="Digital Address" value={digitalAddress} />
               </div>
             </section>
           </div>
@@ -484,6 +487,7 @@ export default function VendorKycDialog({
                 <Field label="Account Number" value={bankAccountNumber} />
                 <Field label="Bank Name" value={bankName} />
                 <Field label="Branch Code" value={bankBranchCode} />
+                <Field label="Branch Name" value={bankBranch} />
               </div>
             </section>
 
@@ -542,7 +546,7 @@ export default function VendorKycDialog({
                   "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white"
               )}
             >
-              Approve Vendor
+              {approvePending ? <Loader2Icon className="animate-spin h-4 w-4" /> : "Approve Vendor"}
             </button>
           </form>
         </div>

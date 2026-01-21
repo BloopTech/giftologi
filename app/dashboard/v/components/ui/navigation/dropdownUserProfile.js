@@ -19,6 +19,7 @@ import { useTheme } from "next-themes";
 import { createClient } from "../../../../../utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Link from "next/link";
 
 export function DropdownUserProfile({ children, align = "start", userData }) {
   const [isPending, startTransition] = useTransition();
@@ -59,6 +60,46 @@ export function DropdownUserProfile({ children, align = "start", userData }) {
         <DropdownMenuContent align={align}>
           <DropdownMenuLabel>{userData?.email}</DropdownMenuLabel>
           <DropdownMenuGroup>
+            <Link
+              href="/dashboard/h/lists"
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              Lists
+            </Link>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+            <Link
+              href="/dashboard/h/registry-zero"
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              Registry Zero
+            </Link>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+            <Link
+              href="/dashboard/h/registry"
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              Registry
+            </Link>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+            <Link
+              href="/dashboard/h/purchased"
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              Purchased
+            </Link>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
+            <Link
+              href="/dashboard/h/public-registry"
+              className="py-1.5 w-full hover:bg-gray-100 hover:dark:bg-gray-900 disabled:opacity-60 flex items-center cursor-pointer justify-between text-sm text-gray-900 dark:text-gray-50 pl-2 pr-1"
+            >
+              Public Registry
+            </Link>
+          </DropdownMenuGroup>
+          <DropdownMenuGroup>
             <DropdownMenuSubMenu>
               <DropdownMenuSubMenuTrigger>Theme</DropdownMenuSubMenuTrigger>
               <DropdownMenuSubMenuContent>
@@ -96,7 +137,7 @@ export function DropdownUserProfile({ children, align = "start", userData }) {
               </DropdownMenuSubMenuContent>
             </DropdownMenuSubMenu>
           </DropdownMenuGroup>
-          
+
           <DropdownMenuGroup>
             <button
               onClick={handleLogout}
@@ -114,7 +155,6 @@ export function DropdownUserProfile({ children, align = "start", userData }) {
 }
 
 export function DropdownTheme({ children, align = "start" }) {
-
   const [mounted, setMounted] = useState(false);
   const { theme, setTheme } = useTheme();
   useEffect(() => {

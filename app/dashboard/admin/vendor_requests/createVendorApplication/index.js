@@ -22,6 +22,7 @@ import DocumentsTab from "./documentsTab";
 import DocumentsNotesTab from "./notesTab";
 import FinancialTabs from "./financialTab";
 import FinancialNotesTab from "./financialNotesTab";
+import { useVendorRequestsContext } from "../context";
 
 const TABS = [
   { id: "business", label: "Business" },
@@ -50,7 +51,7 @@ const FORM_FIELDS = [
   "streetAddress",
   "city",
   "region",
-  "postalCode",
+  "digitalAddress",
   "ownerFullName",
   "ownerEmail",
   "ownerPhone",
@@ -67,6 +68,7 @@ const FORM_FIELDS = [
   "bankName",
   "bankAccountNumber",
   "bankBranchCode",
+  "bankBranch",
   "financialVerificationNotes",
 ];
 
@@ -95,6 +97,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
     initialState
   );
   const [isPendingTransition, startTransition] = useTransition();
+  const { refreshRequests } = useVendorRequestsContext() || {};
 
   const [activeTab, setActiveTab] = useState("business");
   const [vendors, setVendors] = useState([]);
@@ -213,7 +216,8 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
               id,
               firstname,
               lastname,
-              email
+              email,
+              phone
             )
           `
           )
@@ -276,9 +280,10 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
       );
     } else if (hasData) {
       toast.success(state.message || "Vendor application created.");
+      refreshRequests?.();
       onOpenChange?.(false);
     }
-  }, [state, onOpenChange]);
+  }, [state, onOpenChange, refreshRequests]);
 
   const errorFor = (key) => state?.errors?.[key] ?? [];
   const hasError = (key) => (errorFor(key)?.length ?? 0) > 0;
@@ -305,6 +310,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
     }
     if (fieldName === "ownerEmail" && selectedVendor?.contactEmail) {
       return selectedVendor.contactEmail;
+    }
+    if (fieldName === "ownerPhone" && selectedVendor?.contactPhone) {
+      return selectedVendor.contactPhone;
     }
     return "";
   };
@@ -336,6 +344,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
       category: vendor.category || "",
       contactName,
       contactEmail: profile.email || "",
+      contactPhone: profile.phone || "",
     });
   };
 
@@ -732,7 +741,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                 />
               )}
 
-              <div className={activeTab === "documents" ? "" : "hidden"}>
+              {activeTab === "documents" && (
                 <DocumentsTab
                   state={state}
                   hasError={hasError}
@@ -745,7 +754,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                   docErrors={docErrors}
                   selectedFiles={docFiles}
                 />
-              </div>
+              )}
 
               {activeTab === "documents-notes" && (
                 <DocumentsNotesTab 
@@ -803,9 +812,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
               disabled={isPending || isPendingTransition || !hasSelectedVendor || hasDocumentErrors}
               className={cx(
                 "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
-                "border-[#3979D2] text-white bg-[#3979D2] hover:bg-white hover:text-[#3979D2]",
+                "border-primary text-white bg-primary hover:bg-white hover:text-primary",
                 (!hasSelectedVendor || isPending || isPendingTransition || hasDocumentErrors) &&
-                  "opacity-60 cursor-not-allowed hover:bg-[#3979D2] hover:text-white"
+                  "opacity-60 cursor-not-allowed hover:bg-primary hover:text-white"
               )}
             >
               {getButtonText()}

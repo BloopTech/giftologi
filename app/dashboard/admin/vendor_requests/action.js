@@ -158,31 +158,77 @@ export async function approveVendorRequest(prevState, formData) {
     };
   }
 
-  const { data: vendor, error: vendorError } = await supabase
+  const { data: existingVendor, error: existingVendorError } = await supabase
     .from("vendors")
-    .insert([
-      {
-        profiles_id: application.user_id,
-        business_name: application.business_name,
-        category: application.category,
-        description: null,
-        commission_rate: null,
-        verified: true,
-        created_by: currentProfile?.id || user.id,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      },
-    ])
     .select("id, business_name")
-    .single();
+    .eq("profiles_id", application.user_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (vendorError) {
+  if (existingVendorError) {
     return {
-      message: vendorError.message,
+      message: existingVendorError.message,
       errors: { ...defaultApproveVendorValues },
       values: raw,
       data: {},
     };
+  }
+
+  let vendor = existingVendor;
+
+  if (vendor) {
+    const { data: updatedVendor, error: updateVendorError } = await supabase
+      .from("vendors")
+      .update({
+        business_name: application.business_name,
+        category: application.category,
+        verified: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", vendor.id)
+      .select("id, business_name")
+      .single();
+
+    if (updateVendorError) {
+      return {
+        message: updateVendorError.message,
+        errors: { ...defaultApproveVendorValues },
+        values: raw,
+        data: {},
+      };
+    }
+
+    vendor = updatedVendor;
+  } else {
+    const { data: insertedVendor, error: vendorError } = await supabase
+      .from("vendors")
+      .insert([
+        {
+          profiles_id: application.user_id,
+          business_name: application.business_name,
+          category: application.category,
+          description: null,
+          commission_rate: null,
+          verified: true,
+          created_by: currentProfile?.id || user.id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select("id, business_name")
+      .single();
+
+    if (vendorError) {
+      return {
+        message: vendorError.message,
+        errors: { ...defaultApproveVendorValues },
+        values: raw,
+        data: {},
+      };
+    }
+
+    vendor = insertedVendor;
   }
 
   const { error: updateError } = await supabase
@@ -228,10 +274,16 @@ export async function approveVendorRequest(prevState, formData) {
 
 const defaultRejectVendorValues = {
   applicationId: [],
+  reason: [],
 };
 
 const rejectVendorSchema = z.object({
   applicationId: z.string().uuid({ message: "Invalid vendor request" }),
+  reason: z
+    .string()
+    .trim()
+    .min(1, { message: "Rejection reason is required" })
+    .max(500, { message: "Reason must be less than 500 characters" }),
 });
 
 export async function rejectVendorRequest(prevState, formData) {
@@ -269,6 +321,7 @@ export async function rejectVendorRequest(prevState, formData) {
 
   const raw = {
     applicationId: formData.get("applicationId"),
+    reason: formData.get("reason"),
   };
 
   const parsed = rejectVendorSchema.safeParse(raw);
@@ -282,7 +335,7 @@ export async function rejectVendorRequest(prevState, formData) {
     };
   }
 
-  const { applicationId } = parsed.data;
+  const { applicationId, reason } = parsed.data;
 
   const { data: application, error: applicationError } = await supabase
     .from("vendor_applications")
@@ -312,6 +365,7 @@ export async function rejectVendorRequest(prevState, formData) {
     .from("vendor_applications")
     .update({
       status: "rejected",
+      reason,
       updated_at: new Date().toISOString(),
     })
     .eq("id", applicationId);
@@ -333,7 +387,7 @@ export async function rejectVendorRequest(prevState, formData) {
     action: "rejected_vendor",
     entity: "vendors",
     targetId: applicationId,
-    details: `Rejected vendor application ${applicationId}`,
+    details: `Rejected vendor application ${applicationId}. Reason: ${reason}`,
   });
 
   revalidatePath("/dashboard/admin/vendor_requests");
@@ -655,7 +709,7 @@ const defaultCreateVendorApplicationValues = {
   streetAddress: [],
   city: [],
   region: [],
-  postalCode: [],
+  digitalAddress: [],
   ownerFullName: [],
   ownerEmail: [],
   ownerPhone: [],
@@ -663,6 +717,7 @@ const defaultCreateVendorApplicationValues = {
   bankName: [],
   bankAccountNumber: [],
   bankBranchCode: [],
+  bankBranch: [],
 };
 
 const createVendorApplicationSchema = z.object({
@@ -754,7 +809,7 @@ const createVendorApplicationSchema = z.object({
     .trim()
     .min(1, { message: "Region is required" })
     .max(50, { message: "Region must be 50 characters or less" }),
-  postalCode: z
+  digitalAddress: z
     .string()
     .trim()
     .min(1, { message: "Digital address is required" })
@@ -812,9 +867,16 @@ const createVendorApplicationSchema = z.object({
   bankBranchCode: z
     .string()
     .trim()
-    .min(1, { message: "Branch code is required" })
-    .regex(/^\d+$/, { message: "Branch code must be numeric" })
-    .max(10, { message: "Branch code must be 10 characters or less" }),
+    .optional()
+    .or(z.literal("")),
+    bankBranch: z
+    .string()
+    .trim()
+    .min(1, { message: "Branch name is required" })
+    .regex(/^(?=.*\p{L})[\p{L}\p{N} \-]*[\p{L}\p{N}]$/u, {
+      message:
+        "Branch name must contain only letters, numbers, spaces, and hyphens",
+    }),
   financialVerificationNotes: z.string().trim().optional().or(z.literal("")),
 });
 
@@ -861,7 +923,6 @@ export async function createVendorApplication(prevState, formData) {
       data: {},
     };
   }
-  console.log("form data.............", formData);
 
   const raw = {
     vendorUserId: formData.get("vendorUserId") || "",
@@ -877,7 +938,7 @@ export async function createVendorApplication(prevState, formData) {
     streetAddress: formData.get("streetAddress") || "",
     city: formData.get("city") || "",
     region: formData.get("region") || "",
-    postalCode: formData.get("postalCode") || "",
+    digitalAddress: formData.get("digitalAddress") || "",
     ownerFullName: formData.get("ownerFullName") || "",
     ownerEmail: formData.get("ownerEmail") || "",
     ownerPhone: formData.get("ownerPhone") || "",
@@ -894,6 +955,7 @@ export async function createVendorApplication(prevState, formData) {
     bankName: formData.get("bankName") || "",
     bankAccountNumber: formData.get("bankAccountNumber") || "",
     bankBranchCode: formData.get("bankBranchCode") || "",
+    bankBranch: formData.get("bankBranch") || "",
     financialVerificationNotes:
       formData.get("financialVerificationNotes") || "",
   };
@@ -922,7 +984,7 @@ export async function createVendorApplication(prevState, formData) {
     streetAddress,
     city,
     region,
-    postalCode,
+    digitalAddress,
     ownerFullName,
     ownerEmail,
     ownerPhone,
@@ -939,8 +1001,43 @@ export async function createVendorApplication(prevState, formData) {
     bankName,
     bankAccountNumber,
     bankBranchCode,
+    bankBranch,
     financialVerificationNotes,
   } = parsed.data;
+
+  const {
+    data: existingApplication,
+    error: existingApplicationError,
+  } = await supabase
+    .from("vendor_applications")
+    .select("id, status")
+    .eq("user_id", vendorUserId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingApplicationError) {
+    return {
+      message: existingApplicationError.message,
+      errors: { ...defaultCreateVendorApplicationValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (existingApplication?.id) {
+    const existingStatus = (existingApplication.status || "").toLowerCase();
+    const statusLabel = existingStatus ? ` (${existingStatus})` : "";
+    return {
+      message: `Vendor already has an application${statusLabel}.`,
+      errors: {
+        ...defaultCreateVendorApplicationValues,
+        vendorUserId: ["Vendor already has an application."],
+      },
+      values: raw,
+      data: { applicationId: existingApplication.id },
+    };
+  }
 
   const businessReferences = [];
 
@@ -1121,7 +1218,7 @@ export async function createVendorApplication(prevState, formData) {
     street_address: streetAddress || null,
     city: city || null,
     region: region || null,
-    postal_code: postalCode || null,
+    digital_address: digitalAddress || null,
     owner_full_name: ownerFullName || null,
     owner_email: ownerEmail || null,
     owner_phone: ownerPhone || null,
@@ -1133,6 +1230,7 @@ export async function createVendorApplication(prevState, formData) {
     bank_name: bankName || null,
     bank_account_number: bankAccountNumber || null,
     bank_branch_code: bankBranchCode || null,
+    bank_branch: bankBranch || null,
     financial_verification_notes: financialVerificationNotes || null,
     updated_at: new Date().toISOString(),
   };
@@ -1219,7 +1317,7 @@ export async function updateVendorApplication(prevState, formData) {
     streetAddress: formData.get("streetAddress") || "",
     city: formData.get("city") || "",
     region: formData.get("region") || "",
-    postalCode: formData.get("postalCode") || "",
+    digitalAddress: formData.get("digitalAddress") || "",
     ownerFullName: formData.get("ownerFullName") || "",
     ownerEmail: formData.get("ownerEmail") || "",
     ownerPhone: formData.get("ownerPhone") || "",
@@ -1236,6 +1334,7 @@ export async function updateVendorApplication(prevState, formData) {
     bankName: formData.get("bankName") || "",
     bankAccountNumber: formData.get("bankAccountNumber") || "",
     bankBranchCode: formData.get("bankBranchCode") || "",
+    bankBranch: formData.get("bankBranch") || "",
     financialVerificationNotes:
       formData.get("financialVerificationNotes") || "",
   };
@@ -1264,7 +1363,7 @@ export async function updateVendorApplication(prevState, formData) {
     streetAddress,
     city,
     region,
-    postalCode,
+    digitalAddress,
     ownerFullName,
     ownerEmail,
     ownerPhone,
@@ -1281,6 +1380,7 @@ export async function updateVendorApplication(prevState, formData) {
     bankName,
     bankAccountNumber,
     bankBranchCode,
+    bankBranch,
     financialVerificationNotes,
   } = parsed.data;
 
@@ -1455,7 +1555,7 @@ export async function updateVendorApplication(prevState, formData) {
     street_address: streetAddress || null,
     city: city || null,
     region: region || null,
-    postal_code: postalCode || null,
+    digital_address: digitalAddress || null,
     owner_full_name: ownerFullName || null,
     owner_email: ownerEmail || null,
     owner_phone: ownerPhone || null,
@@ -1467,6 +1567,7 @@ export async function updateVendorApplication(prevState, formData) {
     bank_name: bankName || null,
     bank_account_number: bankAccountNumber || null,
     bank_branch_code: bankBranchCode || null,
+    bank_branch: bankBranch || null,
     financial_verification_notes: financialVerificationNotes || null,
     updated_at: new Date().toISOString(),
   };

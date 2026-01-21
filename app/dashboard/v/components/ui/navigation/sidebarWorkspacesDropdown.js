@@ -104,7 +104,7 @@ export const WorkspacesDropdownDesktop = () => {
         <DropdownMenuTrigger asChild>
           <button
             className={cx(
-              "cursor-pointer flex w-full py-2 items-center gap-x-1 bg-gray-200 px-2 text-sm shadow-sm transition-all hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 hover:dark:bg-gray-900",
+              "cursor-pointer py-2 flex w-full items-center gap-x-1 bg-gray-200 px-2 text-sm shadow-sm transition-all hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-950 hover:dark:bg-gray-900",
               focusInput
             )}
           >

@@ -1,6 +1,12 @@
 "use client";
-import React, { useState, useTransition, useEffect } from "react";
-import { Globe, Check } from "lucide-react";
+import React, { useMemo, useState, useTransition, useEffect } from "react";
+import {
+  Globe,
+  Check,
+  ShoppingCart,
+  CircleChevronDown,
+  Plus,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Switch } from "../../../../../components/Switch";
 import {
@@ -17,19 +23,221 @@ import {
   DropdownMenuSubMenuTrigger,
   DropdownMenuTrigger,
 } from "../../../../../components/Dropdown";
-
+import { createClient } from "../../../../../utils/supabase/client";
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from "../../../../../components/Avatar";
+import { cx } from "../../../../../components/utils";
+import { DropdownUserProfile } from "./dropdownUserProfile";
+import Image from "next/image";
+import logo from "../../../../../../public/giftologi_vendor_logo.png";
+import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../../../../components/Dialog";
+import { useDashboardContext } from "../../../context";
+import MobileSidebar from "./mobileSidebar";
 
 export default function Header() {
 
-
   // Add state to control the switch
   const [isLiveMode, setIsLiveMode] = useState(false);
-  
-  
+
+  // Track scroll to toggle white background for header
+  const [scrolled, setScrolled] = useState(false);
+
+  // Control Create Registry dialog open state
+  const [createRegistryOpen, setCreateRegistryOpen] = useState(false);
+  const openCreateRegistry = () => setCreateRegistryOpen(true);
+  const closeCreateRegistry = () => setCreateRegistryOpen(false);
+
+  const supabase = createClient();
+  const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      toast.success("Logged out successfully");
+    } catch (e) {
+      console.error("signOut error", e);
+      toast.error("Failed to log out");
+    } finally {
+      // Force a server navigation so middleware reads cleared cookies
+      window.location.href = "/login";
+      // Alternatively: router.replace('/login')
+    }
+  };
+
+  const roleDisplayName = useMemo(() => {
+    if (!userData?.role) return null;
+
+    const roleMap = {
+      super_admin: "Super Admin",
+      finance_admin: "Finance",
+      operations_manager_admin: "Operations Manager",
+      customer_support_admin: "Customer Support Admin",
+    };
+
+    return roleMap[userData.role] ?? null;
+  }, [userData?.role]);
+
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      const { data: { user } = {} } = await supabase.auth.getUser();
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (!ignore) {
+        if (error) {
+          console.error("profiles select error", error);
+          setError(error);
+        }
+        setUserData(data || null);
+        setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, [supabase]);
+
+  // Listen to scroll and set white background when scrolled
+  useEffect(() => {
+    const onScroll = () => {
+      setScrolled(window.scrollY > 0);
+    };
+    onScroll(); // initialize on mount
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
-    <nav className="fixed left-0 top-0 z-10 w-full hidden lg:inline-block">
-      
+    <nav
+      className={cx(
+        "fixed left-0 top-0 z-10 w-full transition-colors duration-200",
+        scrolled ? "bg-white shadow-sm" : "bg-transparent"
+      )}
+    >
+      <div className="px-5 lg:px-10 w-full">
+        <div className="flex justify-between w-full items-center">
+          <div className="py-4">
+            <Link href="/dashboard/admin" className="cursor-pointer">
+              <div className="flex items-center space-x-2">
+                <div className="flex aspect-square items-center justify-center">
+                  <Image
+                    src={logo}
+                    alt="logo"
+                    width={60}
+                    height={60}
+                    priority
+                  />
+                </div>
+                <div className="md:flex flex-col items-start hidden">
+                  <div className="flex items-center space-x-1">
+                    <p className="text-lg font-medium text-[#D9778D]">
+                      Giftologi
+                    </p>
+                    <span className="text-xs text-[#686868]">
+                      Vendor Dashboard
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#686868]">
+                    Manage your products, orders, and payouts efficiently.
+                  </span>
+                </div>
+              </div>
+            </Link>
+          </div>
+          <div className="flex items-center space-x-3 lg:hidden">
+            <MobileSidebar
+              userData={userData}
+              roleDisplayName={roleDisplayName}
+              onLogout={handleLogout}
+              loggingOut={loggingOut}
+              showStaffVendorButtons={userData?.role === "super_admin"}
+            />
+          </div>
+          <div className="hidden lg:flex justify-end space-x-4 py-4 items-center">
+            <div
+              className={cx(
+                "flex items-center space-x-4 py-3 px-6 mx-auto w-xs",
+                scrolled ? "" : "border-[#DCDCDE] bg-white border rounded-4xl"
+              )}
+            >
+              <div className="text-sm text-[#A2845E] flex items-center justify-between w-full">
+                <div className="text-sm text-[#A2845E] flex items-center space-x-2 ">
+                  <div
+                    aria-label="User settings"
+                    //variant="ghost"
+                    className={cx(
+                      "group flex items-center rounded-md text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 data-[state=open]:bg-gray-100 hover:dark:bg-gray-400/10"
+                    )}
+                  >
+                    <span className="relative">
+                      {userData ? (
+                        <Avatar className="w-8 h-8 shadow-xl">
+                          <AvatarImage
+                            src={userData?.image}
+                            alt={userData?.firstname}
+                            className="object-cover"
+                          />
+                          <AvatarFallback
+                            style={{ backgroundColor: userData?.color }}
+                            className="flex size-8 shrink-0 items-center justify-center rounded-full border border-gray-300 text-xs text-white dark:border-gray-800 dark:bg-gray-950 dark:text-white"
+                          >
+                            {userData?.firstname?.charAt(0)}
+                            {userData?.lastname?.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                      ) : (
+                        <span className="w-8 h-8 shadow-xl rounded-full bg-[#A2845E] flex items-center justify-center" />
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex flex-col space-x-1 items-start">
+                    <p className="text-sm text-[#A2845E]">
+                      Hello{" "}
+                      <span className="font-semibold">
+                        {userData?.firstname}
+                      </span>
+                    </p>
+                    {userData && userData.role ? (
+                      <span className="text-xs text-[#A2845E]">
+                        {userData?.role}
+                      </span>
+                    ): null}
+                  </div>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                  className="text-xs text-red-500 hover:text-white hover:bg-red-500 transition-colors cursor-pointer flex items-center border border-red-500 rounded-full px-4 py-1"
+                >
+                  Log Out
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </nav>
   );
 }
-

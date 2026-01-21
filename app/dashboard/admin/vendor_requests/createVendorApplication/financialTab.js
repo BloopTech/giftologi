@@ -98,7 +98,7 @@ export default function FinancialTabs(props) {
             )}
           </div>
           <div className="space-y-1">
-            <label className="text-[11px] text-[#717182]">Branch Code <span className="text-red-500">*</span></label>
+            <label className="text-[11px] text-[#717182]">Branch Code (optional)</label>
             <input
               name="bankBranchCode"
               type="tel"
@@ -107,7 +107,6 @@ export default function FinancialTabs(props) {
               onInput={(e) => {
                 e.target.value = e.target.value.replace(/[^0-9]/g, "");
               }}
-              required
               maxLength={10}
               value={getFieldValue("bankBranchCode")}
               onChange={(e) => onInputChange("bankBranchCode", e.target.value)}
@@ -123,6 +122,32 @@ export default function FinancialTabs(props) {
             {hasError("bankBranchCode") && (
               <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
                 {errorFor("bankBranchCode").map((err, index) => (
+                  <li key={index}>{err}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] text-[#717182]">Branch Name <span className="text-red-500">*</span></label>
+            <input
+              name="bankBranch"
+              type="text"
+              required
+              maxLength={50}
+              value={getFieldValue("bankBranch")}
+              onChange={(e) => onInputChange("bankBranch", e.target.value)}
+              className={cx(
+                "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
+                "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                focusInput,
+                hasError("bankBranch") ? hasErrorInput : "",
+              )}
+              placeholder="Branch Name"
+              disabled={isPending}
+            />
+            {hasError("bankBranch") && (
+              <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                {errorFor("bankBranch").map((err, index) => (
                   <li key={index}>{err}</li>
                 ))}
               </ul>

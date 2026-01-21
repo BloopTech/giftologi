@@ -428,7 +428,7 @@ export default function AddStaffDialog({ onClose }) {
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+          className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
         >
           {isPending ? (
             <LoaderCircle className="size-4 animate-spin" />

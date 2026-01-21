@@ -93,7 +93,7 @@ export default function OwnerDetailsTab(props) {
                 hasError("ownerPhone") ? hasErrorInput : "",
               )}
               placeholder="+233 24 000 0000"
-              disabled={isPending}
+              disabled={isPending || disableIdentityFields}
             />
             {hasError("ownerPhone") && (
               <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">

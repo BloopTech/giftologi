@@ -45,7 +45,7 @@ export const UserProfileDesktop = (props) => {
             <span className="line-clamp-1">
               {userData?.firstname} {userData?.lastname}
             </span>
-            <span className="text-[#2C3E50] capitalize">{userData?.role}</span>
+            <span className="text-[#800020] capitalize">{userData?.role}</span>
           </span>
         </span>
         <LogOut

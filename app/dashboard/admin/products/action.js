@@ -150,7 +150,7 @@ export async function approveProduct(prevState, formData) {
     };
   }
 
-  const { productId } = parsed.data;
+  const { productId, reason } = parsed.data;
 
   const { data: product, error: productError } = await supabase
     .from("products")
@@ -218,10 +218,16 @@ export async function approveProduct(prevState, formData) {
 
 const defaultRejectProductValues = {
   productId: [],
+  reason: [],
 };
 
 const rejectProductSchema = z.object({
   productId: z.string().uuid({ message: "Invalid product" }),
+  reason: z
+    .string()
+    .trim()
+    .min(1, { message: "Rejection reason is required" })
+    .max(500, { message: "Reason must be less than 500 characters" }),
 });
 
 export async function rejectProduct(prevState, formData) {
@@ -259,6 +265,7 @@ export async function rejectProduct(prevState, formData) {
 
   const raw = {
     productId: formData.get("productId"),
+    reason: formData.get("reason"),
   };
 
   const parsed = rejectProductSchema.safeParse(raw);
@@ -272,7 +279,7 @@ export async function rejectProduct(prevState, formData) {
     };
   }
 
-  const { productId } = parsed.data;
+  const { productId, reason } = parsed.data;
 
   const { data: product, error: productError } = await supabase
     .from("products")
@@ -303,6 +310,7 @@ export async function rejectProduct(prevState, formData) {
     .update({
       status: "rejected",
       active: false,
+      rejection_reason: reason,
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
@@ -324,7 +332,7 @@ export async function rejectProduct(prevState, formData) {
     action: "rejected_product",
     entity: "products",
     targetId: productId,
-    details: `Rejected product ${productId}`,
+    details: `Rejected product ${productId}. Reason: ${reason}`,
   });
 
   revalidatePath("/dashboard/admin/products");
@@ -477,6 +485,127 @@ export async function flagProduct(prevState, formData) {
 
   return {
     message: "Product flagged successfully.",
+    errors: {},
+    values: {},
+    data: { productId },
+  };
+}
+
+const defaultUnflagProductValues = {
+  productId: [],
+};
+
+const unflagProductSchema = z.object({
+  productId: z.string().uuid({ message: "Invalid product" }),
+});
+
+export async function unflagProduct(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to unflag products.",
+      errors: { ...defaultUnflagProductValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = ["super_admin", "operations_manager_admin"];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to unflag products.",
+      errors: { ...defaultUnflagProductValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    productId: formData.get("productId"),
+  };
+
+  const parsed = unflagProductSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { productId } = parsed.data;
+
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id, status")
+    .eq("id", productId)
+    .single();
+
+  if (productError || !product) {
+    return {
+      message: productError?.message || "Product not found.",
+      errors: { ...defaultUnflagProductValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if ((product.status || "").toLowerCase() !== "flagged") {
+    return {
+      message: "Product is not flagged.",
+      errors: {},
+      values: {},
+      data: { productId },
+    };
+  }
+
+  const { error: unflagError } = await supabase
+    .from("products")
+    .update({
+      status: "pending",
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId);
+
+  if (unflagError) {
+    return {
+      message: unflagError.message,
+      errors: { ...defaultUnflagProductValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "unflagged_product",
+    entity: "products",
+    targetId: productId,
+    details: `Unflagged product ${productId}`,
+  });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
+
+  return {
+    message: "Product unflagged successfully.",
     errors: {},
     values: {},
     data: { productId },

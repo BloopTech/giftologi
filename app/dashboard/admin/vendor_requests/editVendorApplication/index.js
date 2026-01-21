@@ -53,7 +53,7 @@ const FORM_FIELDS = [
   "streetAddress",
   "city",
   "region",
-  "postalCode",
+  "digitalAddress",
   "ownerFullName",
   "ownerEmail",
   "ownerPhone",
@@ -70,6 +70,7 @@ const FORM_FIELDS = [
   "bankName",
   "bankAccountNumber",
   "bankBranchCode",
+  "bankBranch",
   "financialVerificationNotes",
 ];
 
@@ -113,7 +114,7 @@ const buildInitialValues = (request) => {
     streetAddress: raw.street_address || "",
     city: raw.city || "",
     region: raw.region || "",
-    postalCode: raw.postal_code || "",
+    digitalAddress: raw.digital_address || "",
     ownerFullName: raw.owner_full_name || "",
     ownerEmail: raw.owner_email || "",
     ownerPhone: raw.owner_phone || "",
@@ -130,6 +131,7 @@ const buildInitialValues = (request) => {
     bankName: raw.bank_name || "",
     bankAccountNumber: raw.bank_account_number || "",
     bankBranchCode: raw.bank_branch_code || "",
+    bankBranch: raw.bank_branch || "",
     financialVerificationNotes: raw.financial_verification_notes || "",
   };
 };
@@ -454,6 +456,7 @@ export default function EditVendorApplicationDialog({
             isPending={isPending || isPendingTransition}
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
+            hasError={hasError}
           />
         )}
 
@@ -464,6 +467,7 @@ export default function EditVendorApplicationDialog({
             docErrors={docErrors}
             selectedFiles={docFiles}
             existingDocuments={existingDocuments}
+            hasError={hasError}
           />
         </div>
 
@@ -483,6 +487,7 @@ export default function EditVendorApplicationDialog({
             selectedVendor={{ businessName: getFieldValue("businessName") }}
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
+            hasError={hasError}
           />
         )}
 
@@ -492,6 +497,7 @@ export default function EditVendorApplicationDialog({
             isPending={isPending || isPendingTransition}
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
+            hasError={hasError}
           />
         )}
 
@@ -510,9 +516,9 @@ export default function EditVendorApplicationDialog({
             disabled={actionDisabled}
             className={cx(
               "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
-              "border-[#3979D2] text-white bg-[#3979D2] hover:bg-white hover:text-[#3979D2]",
+              "border-primary text-white bg-primary hover:bg-white hover:text-primary",
               actionDisabled &&
-                "opacity-60 cursor-not-allowed hover:bg-[#3979D2] hover:text-white",
+                "opacity-60 cursor-not-allowed hover:bg-primary hover:text-white",
             )}
           >
             {(isPending || isPendingTransition) ? (

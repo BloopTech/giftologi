@@ -33,10 +33,20 @@ import {
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import { useDebounce } from "use-debounce";
 import { toast } from "sonner";
-import { createCategory, createVendorProducts, updateCategory, deleteCategory } from "./action";
+import {
+  createCategory,
+  createVendorProducts,
+  updateCategory,
+  deleteCategory,
+} from "./action";
 
 // Category management component
-function CategoriesSection({ categories, categoriesLoading, categoriesError, onCategoriesRefresh }) {
+function CategoriesSection({
+  categories,
+  categoriesLoading,
+  categoriesError,
+  onCategoriesRefresh,
+}) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -46,9 +56,18 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
   const [editCategoryName, setEditCategoryName] = useState("");
   const [categoryUsage, setCategoryUsage] = useState({});
 
-  const [createState, createAction, createPending] = useActionState(createCategory, initialCreateCategoryState);
-  const [updateState, updateAction, updatePending] = useActionState(updateCategory, initialUpdateCategoryState);
-  const [deleteState, deleteAction, deletePending] = useActionState(deleteCategory, initialDeleteCategoryState);
+  const [createState, createAction, createPending] = useActionState(
+    createCategory,
+    initialCreateCategoryState,
+  );
+  const [updateState, updateAction, updatePending] = useActionState(
+    updateCategory,
+    initialUpdateCategoryState,
+  );
+  const [deleteState, deleteAction, deletePending] = useActionState(
+    deleteCategory,
+    initialDeleteCategoryState,
+  );
 
   const loadCategoryUsage = useCallback(async () => {
     const supabase = createSupabaseClient();
@@ -146,9 +165,7 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
           <span>Loading categories...</span>
         </div>
       ) : categoriesError ? (
-        <div className="py-6 text-[11px] text-red-600">
-          {categoriesError}
-        </div>
+        <div className="py-6 text-[11px] text-red-600">{categoriesError}</div>
       ) : !categories.length ? (
         <div className="py-6 text-[11px] text-[#717182]">
           No categories found. Create your first category to get started.
@@ -158,10 +175,18 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-[#E5E7EB]">
-                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">Name</th>
-                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">Slug</th>
-                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">Usage</th>
-                <th className="text-right py-2 px-2 font-medium text-[#0A0A0A]">Actions</th>
+                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">
+                  Name
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">
+                  Slug
+                </th>
+                <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">
+                  Usage
+                </th>
+                <th className="text-right py-2 px-2 font-medium text-[#0A0A0A]">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -171,10 +196,16 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
 
                 return (
                   <tr key={category.id} className="border-b border-[#F3F4F6]">
-                    <td className="py-2 px-2 text-[#0A0A0A]">{category.name || "Untitled"}</td>
-                    <td className="py-2 px-2 text-[#6B7280]">{category.slug || "-"}</td>
+                    <td className="py-2 px-2 text-[#0A0A0A]">
+                      {category.name || "Untitled"}
+                    </td>
+                    <td className="py-2 px-2 text-[#6B7280]">
+                      {category.slug || "-"}
+                    </td>
                     <td className="py-2 px-2">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${usageCount > 0 ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] ${usageCount > 0 ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}`}
+                      >
                         {usageCount} product{usageCount !== 1 ? "s" : ""}
                       </span>
                     </td>
@@ -196,7 +227,11 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
                               ? "text-red-600 hover:bg-red-50"
                               : "text-gray-400 cursor-not-allowed"
                           }`}
-                          title={canDelete ? "Delete category" : "Cannot delete: category is in use"}
+                          title={
+                            canDelete
+                              ? "Delete category"
+                              : "Cannot delete: category is in use"
+                          }
                         >
                           Delete
                         </button>
@@ -220,7 +255,10 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
           </DialogHeader>
           <form action={createAction} className="space-y-4">
             <div className="space-y-1">
-              <label htmlFor="new-category-name" className="text-xs font-medium text-[#0A0A0A]">
+              <label
+                htmlFor="new-category-name"
+                className="text-xs font-medium text-[#0A0A0A]"
+              >
                 Category Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -274,9 +312,16 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
               Edit Category
             </DialogTitle>
           </DialogHeader>
-          <form id="edit-category-form" action={updateAction} className="space-y-4">
+          <form
+            id="edit-category-form"
+            action={updateAction}
+            className="space-y-4"
+          >
             <div className="space-y-1">
-              <label htmlFor="edit-category-name" className="text-xs font-medium text-[#0A0A0A]">
+              <label
+                htmlFor="edit-category-name"
+                className="text-xs font-medium text-[#0A0A0A]"
+              >
                 Category Name <span className="text-red-500">*</span>
               </label>
               <input
@@ -300,7 +345,11 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
             {updateState?.message && updateState?.errors?.name?.length ? (
               <p className="text-[11px] text-red-600">{updateState.message}</p>
             ) : null}
-            <input type="hidden" name="categoryId" value={editingCategory?.id || ""} />
+            <input
+              type="hidden"
+              name="categoryId"
+              value={editingCategory?.id || ""}
+            />
             <div className="flex items-center justify-end gap-2">
               <DialogClose asChild>
                 <button
@@ -333,10 +382,12 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-[11px] text-[#6B7280]">
-              Are you sure you want to delete the category <strong>"{deletingCategory?.name}"</strong>?
+              Are you sure you want to delete the category{" "}
+              <strong>"{deletingCategory?.name}"</strong>?
               {categoryUsage[deletingCategory?.id] > 0 && (
                 <span className="block mt-2 text-red-600">
-                  This cannot be undone because the category is being used by {categoryUsage[deletingCategory?.id]} product(s).
+                  This cannot be undone because the category is being used by{" "}
+                  {categoryUsage[deletingCategory?.id]} product(s).
                 </span>
               )}
             </p>
@@ -344,7 +395,11 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
               <p className="text-[11px] text-red-600">{deleteState.message}</p>
             ) : null}
             <form action={deleteAction} className="space-y-4">
-              <input type="hidden" name="categoryId" value={deletingCategory?.id || ""} />
+              <input
+                type="hidden"
+                name="categoryId"
+                value={deletingCategory?.id || ""}
+              />
               <div className="flex items-center justify-end gap-2">
                 <DialogClose asChild>
                   <button
@@ -357,7 +412,9 @@ function CategoriesSection({ categories, categoriesLoading, categoriesError, onC
                 </DialogClose>
                 <button
                   type="submit"
-                  disabled={deletePending || categoryUsage[deletingCategory?.id] > 0}
+                  disabled={
+                    deletePending || categoryUsage[deletingCategory?.id] > 0
+                  }
                   className={`rounded-full px-4 py-2 text-[11px] font-medium cursor-pointer ${
                     categoryUsage[deletingCategory?.id] > 0
                       ? "bg-gray-300 text-gray-500 cursor-not-allowed"
@@ -455,6 +512,7 @@ export default function ManageProductsContent() {
     searchTerm,
     setSearchTerm,
     setProductsPage,
+    refreshProducts,
     statusFilter,
     setStatusFilter,
     typeFilter,
@@ -464,7 +522,7 @@ export default function ManageProductsContent() {
   const [search, setSearch] = useState(searchTerm || "");
   const [createState, createAction, createPending] = useActionState(
     createVendorProducts,
-    initialCreateState
+    initialCreateState,
   );
   const [categoryState, createCategoryAction, createCategoryPending] =
     useActionState(createCategory, initialCreateCategoryState);
@@ -492,9 +550,7 @@ export default function ManageProductsContent() {
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
-  const [selectedCategoryId, setSelectedCategoryId] = useState(
-    ""
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState("");
 
   const [bulkCategoryId, setBulkCategoryId] = useState("");
 
@@ -529,7 +585,9 @@ export default function ManageProductsContent() {
 
   const hasCreateErrors = useMemo(() => {
     const errors = createState?.errors || {};
-    return Object.values(errors).some((arr) => Array.isArray(arr) && arr.length);
+    return Object.values(errors).some(
+      (arr) => Array.isArray(arr) && arr.length,
+    );
   }, [createState?.errors]);
 
   const loadCategories = useCallback(async () => {
@@ -552,7 +610,7 @@ export default function ManageProductsContent() {
       setCategories(Array.isArray(data) ? data : []);
     } catch (error) {
       setCategoriesError(
-        error?.message || "Failed to load categories. Please try again."
+        error?.message || "Failed to load categories. Please try again.",
       );
       setCategories([]);
     } finally {
@@ -561,15 +619,18 @@ export default function ManageProductsContent() {
   }, []);
 
   useEffect(() => {
-    if (!createState?.message) return;
-
-    const hasData = createState.data && Object.keys(createState.data || {}).length;
-    if (hasData && !hasCreateErrors) {
+    if (createState.data && Object.keys(createState.data || {}).length > 0) {
       toast.success(createState.message);
-    } else if (hasCreateErrors) {
+      refreshProducts?.();
+    }
+    if (
+      createState.message &&
+      createState.errors &&
+      Object.keys(createState.errors || {}).length > 0
+    ) {
       toast.error(createState.message);
     }
-  }, [createState, hasCreateErrors]);
+  }, [createState, refreshProducts]);
 
   useEffect(() => {
     loadCategories();
@@ -606,7 +667,7 @@ export default function ManageProductsContent() {
               lastname,
               email
             )
-          `
+          `,
           )
           .limit(20);
 
@@ -634,8 +695,7 @@ export default function ManageProductsContent() {
       } catch (error) {
         if (!ignore) {
           setVendorError(
-            error?.message ||
-              "Failed to search vendors. Please try again."
+            error?.message || "Failed to search vendors. Please try again.",
           );
           setVendorResults([]);
         }
@@ -719,8 +779,9 @@ export default function ManageProductsContent() {
             autoMap((h) => h.includes("description") || h.includes("details")),
           stockQty:
             prev.stockQty ||
-            autoMap((h) =>
-              h.includes("stock") || h.includes("quantity") || h === "qty"
+            autoMap(
+              (h) =>
+                h.includes("stock") || h.includes("quantity") || h === "qty",
             ),
           imageUrl:
             prev.imageUrl ||
@@ -728,7 +789,7 @@ export default function ManageProductsContent() {
         }));
       } catch (error) {
         setBulkHeaderError(
-          error?.message || "Failed to read CSV header. Please try again."
+          error?.message || "Failed to read CSV header. Please try again.",
         );
         setBulkColumns([]);
       }
@@ -896,7 +957,9 @@ export default function ManageProductsContent() {
                 }}
                 className={
                   "px-4 py-2 text-xs font-medium rounded-full cursor-pointer transition-colors flex items-center gap-2 " +
-                  (isActive ? "bg-white text-[#0A0A0A] shadow-sm" : "text-[#717182]")
+                  (isActive
+                    ? "bg-white text-[#0A0A0A] shadow-sm"
+                    : "text-[#717182]")
                 }
               >
                 <span>{label}</span>
@@ -960,7 +1023,8 @@ export default function ManageProductsContent() {
                   </div>
                 ) : !vendorResults.length ? (
                   <div className="px-4 py-6 text-[11px] text-[#717182]">
-                    Start typing to search for vendors by business name or email.
+                    Start typing to search for vendors by business name or
+                    email.
                   </div>
                 ) : (
                   <ul className="divide-y divide-gray-100">
@@ -1040,7 +1104,11 @@ export default function ManageProductsContent() {
                 action={createAction}
                 className="space-y-4 text-xs text-[#0A0A0A]"
               >
-                <input type="hidden" name="vendorId" value={selectedVendor.id} />
+                <input
+                  type="hidden"
+                  name="vendorId"
+                  value={selectedVendor.id}
+                />
                 <input type="hidden" name="mode" value={createMode} />
                 <input
                   type="hidden"
@@ -1109,6 +1177,7 @@ export default function ManageProductsContent() {
                         id="product-name"
                         name="name"
                         type="text"
+                        maxLength={100}
                         defaultValue={createState?.values?.name || ""}
                         placeholder="e.g. Premium Gift Basket"
                         className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
@@ -1159,8 +1228,9 @@ export default function ManageProductsContent() {
                       <input
                         id="product-stock"
                         name="stockQty"
-                        type="text"
+                        type="number"
                         inputMode="numeric"
+                        min="0"
                         defaultValue={createState?.values?.stockQty || ""}
                         placeholder="e.g. 50"
                         className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
@@ -1175,35 +1245,6 @@ export default function ManageProductsContent() {
                       ) : (
                         <p className="text-[11px] text-[#717182]">
                           Optional. Leave blank if stock is managed elsewhere.
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-1">
-                      <label
-                        htmlFor="product-code"
-                        className="text-xs font-medium text-[#0A0A0A]"
-                      >
-                        Product ID
-                      </label>
-                      <input
-                        id="product-code"
-                        name="productCode"
-                        type="text"
-                        defaultValue={createState?.values?.productCode || ""}
-                        placeholder="Auto-generated if left blank"
-                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
-                        disabled={createPending}
-                      />
-                      {(createState?.errors?.productCode || []).length ? (
-                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.productCode.map((err, index) => (
-                            <li key={index}>{err}</li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-[11px] text-[#717182]">
-                          Optional. If omitted, a product code will be generated.
                         </p>
                       )}
                     </div>
@@ -1258,9 +1299,9 @@ export default function ManageProductsContent() {
                         </ul>
                       ) : (
                         <p className="text-[11px] text-[#717182]">
-                          Upload up to 3 images per product. Each image must be 1MB or
-                          smaller. Images are uploaded to Cloudflare and stored as URLs
-                          on the product.
+                          Upload up to 3 images per product. Each image must be
+                          1MB or smaller. Images are uploaded to Cloudflare and
+                          stored as URLs on the product.
                         </p>
                       )}
                     </div>
@@ -1272,8 +1313,9 @@ export default function ManageProductsContent() {
                       <div className="flex flex-col gap-1 text-[11px] text-[#6B7280]">
                         {imageCount <= 0 ? (
                           <p>
-                            Select images above first. If you do not choose a featured
-                            image, the first uploaded image will be used.
+                            Select images above first. If you do not choose a
+                            featured image, the first uploaded image will be
+                            used.
                           </p>
                         ) : (
                           <select
@@ -1285,21 +1327,22 @@ export default function ManageProductsContent() {
                             <option value="">
                               Use first image as featured
                             </option>
-                            {Array.from({ length: Math.min(imageCount, 3) }).map(
-                              (_, idx) => (
-                                <option key={idx} value={String(idx)}>
-                                  {`Image ${idx + 1}`}
-                                </option>
-                              )
-                            )}
+                            {Array.from({
+                              length: Math.min(imageCount, 3),
+                            }).map((_, idx) => (
+                              <option key={idx} value={String(idx)}>
+                                {`Image ${idx + 1}`}
+                              </option>
+                            ))}
                           </select>
                         )}
-                        {(createState?.errors?.featuredImageIndex || []).length ? (
+                        {(createState?.errors?.featuredImageIndex || [])
+                          .length ? (
                           <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
                             {createState.errors.featuredImageIndex.map(
                               (err, index) => (
                                 <li key={index}>{err}</li>
-                              )
+                              ),
                             )}
                           </ul>
                         ) : null}
@@ -1339,14 +1382,16 @@ export default function ManageProductsContent() {
                       ) : null}
                       {(createState?.errors?.bulkCategoryId || []).length ? (
                         <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.bulkCategoryId.map((err, index) => (
-                            <li key={index}>{err}</li>
-                          ))}
+                          {createState.errors.bulkCategoryId.map(
+                            (err, index) => (
+                              <li key={index}>{err}</li>
+                            ),
+                          )}
                         </ul>
                       ) : null}
                       <p className="text-[11px] text-[#717182]">
-                        When set, all products created from this CSV will use this
-                        category.
+                        When set, all products created from this CSV will use
+                        this category.
                       </p>
                     </div>
 
@@ -1384,8 +1429,8 @@ export default function ManageProductsContent() {
                         </ul>
                       ) : (
                         <p className="text-[11px] text-[#717182]">
-                          Export from Excel or Google Sheets as a CSV with a header row.
-                          Maximum of 200 products per upload.
+                          Export from Excel or Google Sheets as a CSV with a
+                          header row. Maximum of 200 products per upload.
                         </p>
                       )}
                     </div>
@@ -1408,7 +1453,8 @@ export default function ManageProductsContent() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[11px]">
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-[#0A0A0A]">
-                              Product Name Column <span className="text-red-500">*</span>
+                              Product Name Column{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <select
                               value={bulkMapping.name}
@@ -1432,7 +1478,8 @@ export default function ManageProductsContent() {
 
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-[#0A0A0A]">
-                              Price Column <span className="text-red-500">*</span>
+                              Price Column{" "}
+                              <span className="text-red-500">*</span>
                             </label>
                             <select
                               value={bulkMapping.price}
@@ -1561,15 +1608,15 @@ export default function ManageProductsContent() {
                   <button
                     type="submit"
                     disabled={createPending}
-                    className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {createPending ? (
                       <span className="inline-flex items-center gap-2">
                         <LoaderCircle className="size-3.5 animate-spin" />
                         <span>
                           {createMode === "bulk"
-                            ? "Creating products e2 80 a6"
-                            : "Creating product e2 80 a6"}
+                            ? "Creating products..."
+                            : "Creating product..."}
                         </span>
                       </span>
                     ) : createMode === "bulk" ? (

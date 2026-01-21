@@ -165,18 +165,21 @@ export async function signup(prevState, queryData) {
   if (!check_signup_profile) {
     const { data: signup_profile, error: signup_profileError } = await supabase
       .from("signup_profiles")
-      .insert([
-        {
-          user_id: data.user.id,
-          email,
-          firstname,
-          lastname,
-          color: hashColor,
-          role: "host",
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ])
+      .upsert(
+        [
+          {
+            user_id: data.user.id,
+            email,
+            firstname,
+            lastname,
+            color: hashColor,
+            role: "host",
+            created_at: new Date(),
+            updated_at: new Date(),
+          },
+        ],
+        { onConflict: "user_id" }
+      )
       .select("*")
       .single();
     console.log(

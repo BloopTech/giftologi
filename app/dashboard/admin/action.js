@@ -1055,33 +1055,83 @@ export async function createVendor(prevState, formData) {
     };
   }
 
-  const { data: vendor, error: vendorError } = await supabase
+  const { data: existingVendor, error: existingVendorError } = await supabase
     .from("vendors")
-    .insert([
-      {
-        profiles_id: userId,
-        business_name: businessName,
-        category,
-        description: null,
-        commission_rate: null,
-        verified: true,
-        created_by: currentProfile?.id || null,
-        updated_at: new Date().toISOString(),
-        created_at: new Date().toISOString(),
-      },
-    ])
     .select("id, business_name")
-    .single();
+    .eq("profiles_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (vendorError) {
+  if (existingVendorError) {
     return {
-      message: vendorError.message,
+      message: existingVendorError.message,
       errors: {
         ...defaultCreateVendorValues,
       },
       values: raw,
       data: {},
     };
+  }
+
+  let vendor = existingVendor;
+
+  if (vendor) {
+    const { data: updatedVendor, error: updateVendorError } = await supabase
+      .from("vendors")
+      .update({
+        business_name: businessName,
+        category,
+        verified: true,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", vendor.id)
+      .select("id, business_name")
+      .single();
+
+    if (updateVendorError) {
+      return {
+        message: updateVendorError.message,
+        errors: {
+          ...defaultCreateVendorValues,
+        },
+        values: raw,
+        data: {},
+      };
+    }
+
+    vendor = updatedVendor;
+  } else {
+    const { data: insertedVendor, error: vendorError } = await supabase
+      .from("vendors")
+      .insert([
+        {
+          profiles_id: userId,
+          business_name: businessName,
+          category,
+          description: null,
+          commission_rate: null,
+          verified: true,
+          created_by: currentProfile?.id || null,
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
+        },
+      ])
+      .select("id, business_name")
+      .single();
+
+    if (vendorError) {
+      return {
+        message: vendorError.message,
+        errors: {
+          ...defaultCreateVendorValues,
+        },
+        values: raw,
+        data: {},
+      };
+    }
+
+    vendor = insertedVendor;
   }
 
   const adminNameParts = [];

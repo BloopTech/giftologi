@@ -103,24 +103,24 @@ export default function BusinessAddressTab(props) {
               Digital Address <span className="text-red-500">*</span>
             </label>
             <input
-              name="postalCode"
+              name="digitalAddress"
               type="text"
               required
               maxLength={50}
-              value={getFieldValue("postalCode")}
-              onChange={(e) => onInputChange("postalCode", e.target.value)}
+              value={getFieldValue("digitalAddress")}
+              onChange={(e) => onInputChange("digitalAddress", e.target.value)}
               className={cx(
                 "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
-                hasError("postalCode") ? hasErrorInput : "",
+                hasError("digitalAddress") ? hasErrorInput : "",
               )}
               placeholder="GA-000-0000"
               disabled={isPending}
             />
-            {hasError("postalCode") && (
+            {hasError("digitalAddress") && (
               <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                {errorFor("postalCode").map((err, index) => (
+                {errorFor("digitalAddress").map((err, index) => (
                   <li key={index}>{err}</li>
                 ))}
               </ul>
