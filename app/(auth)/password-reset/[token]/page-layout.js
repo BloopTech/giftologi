@@ -64,6 +64,9 @@ export default function PasswordResetPageLayout(props) {
                     Reset Password
                   </h3>
                   <p className="text-sm text-primary">Reset your password</p>
+                  <p className="text-xs text-primary/70">
+                    Resetting password for <span className="font-semibold">{email}</span>
+                  </p>
                 </div>
                 <Link href="/">
                   {" "}

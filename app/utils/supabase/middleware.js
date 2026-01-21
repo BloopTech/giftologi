@@ -67,6 +67,8 @@ export async function middlewareClient(request) {
   const type = url.searchParams.get("type");
   const isPasswordResetRoute = url.pathname.startsWith("/password-reset");
   const isRecoveryFlow = isPasswordResetRoute && type === "recovery";
+  const isPasswordResetLink =
+    isPasswordResetRoute && (isRecoveryFlow || !type);
   const isForgotRoute = url.pathname === "/forgot-password";
   const isEventPublicRoute = eventPublicRoutes?.some((pattern) =>
     matchesRoutePattern(url.pathname, pattern)
@@ -101,7 +103,7 @@ export async function middlewareClient(request) {
   if (!user && hasOAuthOrVerifyCode && code) {
     // For email/password confirmation links (e.g. /?code=...), do NOT run PKCE exchange on the server.
     // Instead, treat them as plain verification and send user to login with a verified flag.
-    if (!isAuthCallbackRoute && !isRecoveryFlow) {
+    if (!isAuthCallbackRoute && !isPasswordResetLink) {
       const dest = new URL("/login", request.url);
       dest.searchParams.set("verified", "1");
       return withCookiesRedirect(dest);
@@ -141,9 +143,10 @@ export async function middlewareClient(request) {
         user = res.data.user;
 
         // Recovery links should keep the user on the reset page, but strip the code
-        if (isRecoveryFlow) {
+        if (isPasswordResetLink) {
           const cleanUrl = new URL(request.url);
           cleanUrl.searchParams.delete("code");
+          cleanUrl.searchParams.set("type", "recovery");
           return withCookiesRedirect(cleanUrl);
         }
 

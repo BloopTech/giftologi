@@ -12,8 +12,14 @@ import {
   PiTicket,
   PiStorefront,
   PiShoppingBagOpen,
+  PiCashRegister,
+  PiFolderStar,
 } from "react-icons/pi";
 import { createClient } from "../../utils/supabase/server";
+import {
+  SalesTrendSection,
+  TopCategoriesSection,
+} from "./components/charts/ChartsSection";
 
 const formatCurrency = (value) => {
   if (value === null || typeof value === "undefined") return "GHS 0.00";
@@ -331,7 +337,7 @@ export default async function VendorDashboard() {
   ).length;
 
   return (
-    <div className="flex flex-col space-y-6 w-full mb-[2rem] lg:px-10 px-5">
+    <div className="flex flex-col space-y-4 w-full mb-[2rem]">
       {/* Header */}
       <section className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex flex-col">
@@ -356,21 +362,23 @@ export default async function VendorDashboard() {
         <div className="flex flex-col space-y-2 w-full">
           <h2 className="text-[#717182] text-xs/4 font-poppins">Total Sales</h2>
           <div className="flex justify-between items-center">
-            {/* {renderMetricCount(metrics?.totalRegistries)} */}
-            <PiShoppingBagOpen className="size-4 text-[#6EA30B]" />
+            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+              {formatCurrency(totalRevenue)}
+            </span>
+            <PiCashRegister className="size-4 text-[#7DADF2]" />
           </div>
-          <div className="border-t-[2px] border-[#6EA30B]" />
+          <div className="border-t-[2px] border-[#7DADF2]" />
         </div>
-        {/* Pending Vendor Requests */}
+        {/* Total Orders */}
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
-            Total Orders
-          </h2>
+          <h2 className="text-[#717182] text-xs/4 font-poppins">Total Orders</h2>
           <div className="flex justify-between items-center">
-            {/* {renderMetricCount(metrics?.pendingVendorRequests)} */}
-            <PiStorefront className="size-4 text-[#CB7428]" />
+            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+              {formatCount(totalOrders)}
+            </span>
+            <PiShoppingBagOpen className="size-4 text-[#CBED8E]" />
           </div>
-          <div className="border-t-[2px] border-[#FFCA57]" />
+          <div className="border-t-[2px] border-[#CBED8E]" />
         </div>
         {/* Active Products */}
         <div className="flex flex-col space-y-2 w-full">
@@ -378,10 +386,12 @@ export default async function VendorDashboard() {
             Active Products
           </h2>
           <div className="flex justify-between items-center">
-            {/* {renderMetricCount(metrics?.totalOrders ?? 0)} */}
-            <PiShoppingCart className="size-4 text-[#286AD4]" />
+            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+              {formatCount(activeProducts.length)}
+            </span>
+            <PiFolderStar className="size-4 text-[#FFCA57]" />
           </div>
-          <div className="border-t-[2px] border-[#5797FF]" />
+          <div className="border-t-[2px] border-[#FFCA57]" />
         </div>
         {/* Pending Payouts */}
         <div className="flex flex-col space-y-2 w-full">
@@ -389,10 +399,12 @@ export default async function VendorDashboard() {
             Pending Payouts
           </h2>
           <div className="flex justify-between items-center">
-            {/* {renderMetricCount(metrics?.openTickets)} */}
-            <PiTicket className="size-4 text-[#AA1BC6]" />
+            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+              {formatCurrency(pendingPayoutAmount)}
+            </span>
+            <PiWallet className="size-4 text-[#FF908B]" />
           </div>
-          <div className="border-t-[2px] border-[#E357FF]" />
+          <div className="border-t-[2px] border-[#FF908B]" />
         </div>
       </section>
 
@@ -422,100 +434,7 @@ export default async function VendorDashboard() {
             </div>
           </div>
 
-          <div className="relative h-[220px]">
-            {chartData.path ? (
-              <svg
-                viewBox="0 0 500 220"
-                className="w-full h-full"
-                preserveAspectRatio="xMidYMid meet"
-              >
-                {/* Y-axis labels */}
-                {[0, 1, 2, 3, 4].map((i) => {
-                  const value = Math.round((chartData.max / 4) * (4 - i));
-                  const y = 50 + (120 / 4) * i;
-                  return (
-                    <g key={i}>
-                      <text
-                        x="35"
-                        y={y + 4}
-                        className="text-[11px] fill-[#9CA3AF]"
-                        textAnchor="end"
-                      >
-                        {value.toLocaleString()}
-                      </text>
-                      <line
-                        x1="50"
-                        y1={y}
-                        x2="450"
-                        y2={y}
-                        stroke="#E5E7EB"
-                        strokeWidth="1"
-                        strokeDasharray="4"
-                      />
-                    </g>
-                  );
-                })}
-
-                {/* Area fill */}
-                <defs>
-                  <linearGradient
-                    id="salesGradient"
-                    x1="0"
-                    y1="0"
-                    x2="0"
-                    y2="1"
-                  >
-                    <stop offset="0%" stopColor="#3B82F6" stopOpacity="0.2" />
-                    <stop offset="100%" stopColor="#3B82F6" stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <path d={chartData.areaPath} fill="url(#salesGradient)" />
-
-                {/* Line */}
-                <path
-                  d={chartData.path}
-                  fill="none"
-                  stroke="#3B82F6"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                {/* Data points */}
-                {chartData.points.map((point, i) => (
-                  <circle
-                    key={i}
-                    cx={point.x}
-                    cy={point.y}
-                    r="4"
-                    fill="#3B82F6"
-                    stroke="white"
-                    strokeWidth="2"
-                  />
-                ))}
-
-                {/* X-axis labels */}
-                {dailySeries.map((row, i) => {
-                  const x = 50 + (400 / (dailySeries.length - 1)) * i;
-                  return (
-                    <text
-                      key={row.dateKey}
-                      x={x}
-                      y="205"
-                      className="text-[11px] fill-[#9CA3AF]"
-                      textAnchor="middle"
-                    >
-                      {row.label}
-                    </text>
-                  );
-                })}
-              </svg>
-            ) : (
-              <div className="flex items-center justify-center h-full text-sm text-[#9CA3AF]">
-                No sales activity in this period.
-              </div>
-            )}
-          </div>
+          <SalesTrendSection data={dailySeries} />
         </div>
 
         {/* Low Stock Alert */}
@@ -645,48 +564,7 @@ export default async function VendorDashboard() {
             </p>
           </div>
 
-          <div className="h-[200px] flex items-end justify-between gap-2">
-            {topCategories.length ? (
-              topCategories.map((cat, i) => {
-                const maxRevenue = Math.max(
-                  ...topCategories.map((c) => c.revenue),
-                  1,
-                );
-                const height = Math.max(20, (cat.revenue / maxRevenue) * 160);
-                const colors = [
-                  "#8B5CF6",
-                  "#F59E0B",
-                  "#10B981",
-                  "#3B82F6",
-                  "#EC4899",
-                ];
-                return (
-                  <div
-                    key={cat.name}
-                    className="flex flex-col items-center flex-1"
-                  >
-                    <span className="text-xs text-[#6B7280] mb-2">
-                      {Math.round(cat.revenue / 1000)}k
-                    </span>
-                    <div
-                      className="w-full rounded-t-lg"
-                      style={{
-                        height: `${height}px`,
-                        backgroundColor: colors[i % colors.length],
-                      }}
-                    />
-                    <span className="text-[10px] text-[#6B7280] mt-2 text-center truncate w-full">
-                      {cat.name}
-                    </span>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="flex items-center justify-center w-full h-full text-sm text-[#9CA3AF]">
-                No category data available.
-              </div>
-            )}
-          </div>
+          <TopCategoriesSection data={topCategories} />
         </div>
       </section>
     </div>
