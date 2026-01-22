@@ -91,6 +91,8 @@ export const RolesProvider = ({ children }) => {
           "finance_admin",
           "operations_manager_admin",
           "customer_support_admin",
+          "store_manager_admin",
+          "marketing_admin",
         ];
 
         let profilesQuery = supabase
@@ -255,7 +257,14 @@ export const RolesProvider = ({ children }) => {
                   .from("profiles")
                   .select("id")
                   .eq("id", focusLookup.data.id)
-                  .in("role", staffRoles);
+                  .in("role", [
+                    "super_admin",
+                    "finance_admin",
+                    "operations_manager_admin",
+                    "customer_support_admin",
+                    "store_manager_admin",
+                    "marketing_admin",
+                  ]);
 
                 if (staffSearchTerm && staffSearchTerm.trim()) {
                   const term = staffSearchTerm.trim();
@@ -271,7 +280,14 @@ export const RolesProvider = ({ children }) => {
                   let rankQuery = supabase
                     .from("profiles")
                     .select("id", { count: "exact", head: true })
-                    .in("role", staffRoles)
+                    .in("role", [
+                      "super_admin",
+                      "finance_admin",
+                      "operations_manager_admin",
+                      "customer_support_admin",
+                      "store_manager_admin",
+                      "marketing_admin",
+                    ])
                     .gt("created_at", focusLookup.data.created_at);
 
                   if (staffSearchTerm && staffSearchTerm.trim()) {

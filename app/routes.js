@@ -29,6 +29,8 @@ export const roleRedirects = {
   finance_admin: "/dashboard/admin",
   operations_manager_admin: "/dashboard/admin",
   customer_support_admin: "/dashboard/admin",
+  store_manager_admin: "/dashboard/admin",
+  marketing_admin: "/dashboard/admin",
   vendor: "/dashboard/v",
   guest: "/g",
 };

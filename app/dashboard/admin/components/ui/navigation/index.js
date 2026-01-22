@@ -27,11 +27,11 @@ export default function AdminSidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [openDropdowns, setOpenDropdowns] = useState({});
-  const navigation = useNavigationData();
   const supabase = createClient();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const navigation = useNavigationData(userData?.role);
 
   useEffect(() => {
     let ignore = false;

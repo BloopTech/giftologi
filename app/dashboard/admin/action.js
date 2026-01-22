@@ -163,6 +163,8 @@ export async function manageRoles(prevState, queryData) {
     "finance_admin",
     "operations_manager_admin",
     "customer_support_admin",
+    "store_manager_admin",
+    "marketing_admin",
     "ops_hr_admin",
   ];
 
@@ -1246,6 +1248,8 @@ export async function adminGlobalSearch(prevState, formData) {
     "finance_admin",
     "operations_manager_admin",
     "customer_support_admin",
+    "store_manager_admin",
+    "marketing_admin",
   ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {

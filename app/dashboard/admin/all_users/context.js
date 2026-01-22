@@ -118,6 +118,8 @@ function useAllUsersProviderValue() {
           "finance_admin",
           "operations_manager_admin",
           "customer_support_admin",
+          "store_manager_admin",
+          "marketing_admin",
         ];
 
         let profilesQuery = supabase

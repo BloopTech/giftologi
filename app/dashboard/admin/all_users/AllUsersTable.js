@@ -252,6 +252,8 @@ export default function AllUsersTable() {
         finance_admin: "Finance Admin",
         operations_manager_admin: "Operations Manager",
         customer_support_admin: "Customer Support",
+        store_manager_admin: "Store Manager",
+        marketing_admin: "Marketing",
       };
 
       const roleLabel = roleLabelMap[row.role] || row.role || "—";
@@ -353,6 +355,8 @@ export default function AllUsersTable() {
             "finance_admin",
             "operations_manager_admin",
             "customer_support_admin",
+            "store_manager_admin",
+            "marketing_admin",
           ];
           const isStaffRole = staffRoles.includes(original.rawRole);
           const isInvite = raw.__source === "invite";

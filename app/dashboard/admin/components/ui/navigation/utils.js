@@ -13,8 +13,33 @@ import {
   PiUsers,
 } from "react-icons/pi";
 
-export const useNavigationData = () => {
-  return [
+const filterNavigationByRole = (navigation, role) => {
+  if (!role) return navigation;
+
+  const normalized = String(role || "").toLowerCase();
+  const allowedByRole = {
+    store_manager_admin: new Set(["/dashboard/admin/products"]),
+    marketing_admin: new Set([
+      "/dashboard/admin/analytics_reporting",
+      "/dashboard/admin/content_policy_pages",
+    ]),
+  };
+
+  const allowed = allowedByRole[normalized];
+  if (!allowed) return navigation;
+
+  return (navigation || [])
+    .map((group) => {
+      const filteredItems = (group.items || []).filter((item) =>
+        allowed.has(item.href)
+      );
+      return { ...group, items: filteredItems };
+    })
+    .filter((group) => group.items && group.items.length);
+};
+
+export const useNavigationData = (role) => {
+  const navigation = [
     {
       label: "",
       id: 1,
@@ -160,6 +185,8 @@ export const useNavigationData = () => {
       ],
     },
   ];
+
+  return filterNavigationByRole(navigation, role);
 };
 
 // Export a static version of the navigation for components that can't use hooks

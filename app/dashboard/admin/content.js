@@ -209,17 +209,29 @@ export default function SuperAdminDashboardContent() {
                 <p className="font-inter text-xs text-[#0A0A0A] font-medium">
                   {role === "finance_admin"
                     ? "Recent Transactions"
+                    : role === "store_manager_admin"
+                    ? "Product Overview"
+                    : role === "marketing_admin"
+                    ? "Analytics Overview"
                     : "Access to all cards and KPIs"}
                 </p>
                 <span className="text-[#717182] text-xs/4 font-poppins">
                   {role === "finance_admin"
                     ? "Displays recent transactions, pending payouts, and refund requests"
+                    : role === "store_manager_admin"
+                    ? "Track product approvals, inventory levels, and catalog updates."
+                    : role === "marketing_admin"
+                    ? "Review engagement trends and performance insights."
                     : "Monitor real-time platform metrics and performance insights."}
                 </span>
                 <div>
                   <button className="text-[10px] bg-[#6EA30B] text-white border border-[#6EA30B] hover:bg-white hover:text-[#6EA30B] rounded-full cursor-pointer px-4 py-1 flex items-center justify-center font-poppins font-medium">
                     {role === "finance_admin"
                       ? "View Transactions"
+                      : role === "store_manager_admin"
+                      ? "Manage Products"
+                      : role === "marketing_admin"
+                      ? "View Analytics"
                       : "Full Access"}
                   </button>
                 </div>
@@ -234,6 +246,10 @@ export default function SuperAdminDashboardContent() {
                   ? "View Requests (Vendor Approvals)"
                   : role === "customer_support_admin"
                   ? "Receive Support Ticket"
+                  : role === "store_manager_admin"
+                  ? "Manage Products"
+                  : role === "marketing_admin"
+                  ? "Content & Policy"
                   : "Create new staff accounts"}
               </p>
               <span className="text-[#717182] text-xs/4 font-poppins">
@@ -243,13 +259,23 @@ export default function SuperAdminDashboardContent() {
                   ? "Approve or reject vendor applications."
                   : role === "customer_support_admin"
                   ? "Receive and review incoming customer support tickets"
+                  : role === "store_manager_admin"
+                  ? "Upload, edit, and review product listings."
+                  : role === "marketing_admin"
+                  ? "Edit static pages, FAQs, and email templates."
                   : "Set up staff profiles with custom roles and permissions."}
               </span>
               <div>
                 <button
                   type="button"
                   onClick={() => {
-                    role === "super_admin" ? setAddStaffOpen(true) : null;
+                    if (role === "super_admin") {
+                      setAddStaffOpen(true);
+                    } else if (role === "store_manager_admin") {
+                      router.push("/dashboard/admin/products");
+                    } else if (role === "marketing_admin") {
+                      router.push("/dashboard/admin/content_policy_pages");
+                    }
                   }}
                   className="text-[10px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
                 >
@@ -259,6 +285,10 @@ export default function SuperAdminDashboardContent() {
                     ? "Review Requests"
                     : role === "customer_support_admin"
                     ? "New Ticket"
+                    : role === "store_manager_admin"
+                    ? "Manage Products"
+                    : role === "marketing_admin"
+                    ? "Edit Content"
                     : "Add Staff"}
                 </button>
                 <Dialog open={addStaffOpen} onOpenChange={setAddStaffOpen}>
@@ -282,6 +312,10 @@ export default function SuperAdminDashboardContent() {
                   ? "Manage Products"
                   : role === "customer_support_admin"
                   ? "Search & Filter"
+                  : role === "store_manager_admin"
+                  ? "Manage Products"
+                  : role === "marketing_admin"
+                  ? "Analytics & Reporting"
                   : "Assign or revoke permissions"}
               </p>
               <span className="text-[#717182] text-xs/4 font-poppins">
@@ -291,15 +325,25 @@ export default function SuperAdminDashboardContent() {
                   ? "View and manage product catalog and inventory."
                   : role === "customer_support_admin"
                   ? "Search by customer email, registry, or order number."
+                  : role === "store_manager_admin"
+                  ? "Review products, inventory, and catalog changes."
+                  : role === "marketing_admin"
+                  ? "Explore performance reports and audience insights."
                   : "Grant or restrict access based on roles and responsibilities."}
               </span>
               <div>
                 <button
                   className="text-[10px] cursor-pointer bg-white text-primary border border-primary hover:bg-primary hover:text-white rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
                   onClick={() => {
-                    role === "super_admin"
-                      ? router.push("/dashboard/admin/roles")
-                      : null;
+                    if (role === "super_admin") {
+                      router.push("/dashboard/admin/roles");
+                    } else if (role === "operations_manager_admin") {
+                      router.push("/dashboard/admin/products");
+                    } else if (role === "store_manager_admin") {
+                      router.push("/dashboard/admin/products");
+                    } else if (role === "marketing_admin") {
+                      router.push("/dashboard/admin/analytics_reporting");
+                    }
                   }}
                 >
                   {role === "finance_admin"
@@ -308,6 +352,10 @@ export default function SuperAdminDashboardContent() {
                     ? "Manage Products"
                     : role === "customer_support_admin"
                     ? "View Tickets"
+                    : role === "store_manager_admin"
+                    ? "Manage Products"
+                    : role === "marketing_admin"
+                    ? "View Analytics"
                     : "Manage Roles"}
                 </button>
               </div>
@@ -452,6 +500,8 @@ export default function SuperAdminDashboardContent() {
                       finance_admin: "Finance",
                       operations_manager_admin: "Operations",
                       customer_support_admin: "Customer Support",
+                      store_manager_admin: "Store Manager",
+                      marketing_admin: "Marketing",
                     };
                     const label = labelMap[role];
                     if (!label) return false;

@@ -1,6 +1,7 @@
 "use client";
 import React, {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -8,358 +9,166 @@ import React, {
 } from "react";
 import { createClient as createSupabaseClient } from "../../utils/supabase/client";
 
-const DashboardContext = createContext();
+const VendorDashboardContext = createContext();
 
-export const DashboardProvider = ({ children }) => {
-  const [currentAdmin, setCurrentAdmin] = useState(null);
-  const [loadingCurrentAdmin, setLoadingCurrentAdmin] = useState(true);
-  const [addStaffOpen, setAddStaffOpen] = useState(false);
-  const [addVendorOpen, setAddVendorOpen] = useState(false);
+const createInitialVendorData = () => ({
+  profile: null,
+  vendor: null,
+  products: [],
+  orderItems: [],
+  payouts: [],
+  categories: [],
+});
 
-  const [metrics, setMetrics] = useState({
-    totalRegistries: null,
-    pendingVendorRequests: null,
-    totalOrders: null,
-    totalPurchases: null,
-    vendorPayouts: null,
-    openTickets: null,
-    pendingEscalations: null,
-    topVendorName: null,
-    popularRegistryType: null,
-  });
-  const [loadingMetrics, setLoadingMetrics] = useState(true);
-  const [metricsError, setMetricsError] = useState(null);
+export const VendorDashboardProvider = ({ children }) => {
+  const [vendorData, setVendorData] = useState(createInitialVendorData);
+  const [loadingVendorData, setLoadingVendorData] = useState(true);
+  const [vendorError, setVendorError] = useState(null);
 
-  useEffect(() => {
-    let ignore = false;
+  const fetchVendorData = useCallback(async () => {
+    setLoadingVendorData(true);
+    setVendorError(null);
 
-    const fetchCurrentAdmin = async () => {
-      try {
-        const supabase = createSupabaseClient();
-        const { data: userResult, error: userError } =
-          await supabase.auth.getUser();
+    const supabase = createSupabaseClient();
 
-        if (userError || !userResult?.user) {
-          if (!ignore) {
-            setCurrentAdmin(null);
-          }
-          return;
-        }
+    try {
+      const { data: userResult, error: userError } = await supabase.auth.getUser();
 
-        const userId = userResult.user.id;
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("id, role, firstname, lastname, email")
-          .eq("id", userId)
-          .single();
-
-        if (!ignore) {
-          if (!error) {
-            setCurrentAdmin(data || null);
-          } else {
-            setCurrentAdmin(null);
-          }
-        }
-      } catch (_) {
-        if (!ignore) {
-          setCurrentAdmin(null);
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingCurrentAdmin(false);
-        }
+      if (userError) {
+        throw userError;
       }
-    };
 
-    fetchCurrentAdmin();
-    return () => {
-      ignore = true;
-    };
-  }, []);
+      const userId = userResult?.user?.id;
 
-  useEffect(() => {
-    let ignore = false;
+      if (!userId) {
+        setVendorData(createInitialVendorData());
+        setVendorError("You must be signed in to view the vendor dashboard.");
+        return;
+      }
 
-    const fetchMetrics = async () => {
-      setMetricsError(null);
-      setLoadingMetrics(true);
+      const [
+        { data: profileData, error: profileError },
+        { data: vendorRecord, error: vendorSelectError },
+      ] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("id, firstname, lastname, role")
+          .eq("id", userId)
+          .single(),
+        supabase
+          .from("vendors")
+          .select("id, business_name, category, verified, created_at")
+          .eq("profiles_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
 
-      try {
-        const supabase = createSupabaseClient();
+      if (profileError) {
+        throw profileError;
+      }
+
+      if (vendorSelectError && vendorSelectError.code !== "PGRST116") {
+        throw vendorSelectError;
+      }
+
+      let products = [];
+      let orderItems = [];
+      let payouts = [];
+      let categories = [];
+
+      const { data: categoriesData, error: categoriesError } = await supabase
+        .from("categories")
+        .select("id, name, slug")
+        .order("name");
+
+      if (categoriesError) {
+        console.error("Categories fetch error:", categoriesError);
+      } else {
+        categories = categoriesData || [];
+      }
+
+      if (vendorRecord?.id) {
+        const windowStart = new Date();
+        windowStart.setDate(windowStart.getDate() - 30);
+        const windowIso = windowStart.toISOString();
 
         const [
-          {
-            data: registriesData,
-            error: registriesError,
-            count: registriesCount,
-          },
-          {
-            data: vendorApplicationsData,
-            error: vendorApplicationsError,
-            count: vendorApplicationsCount,
-          },
-          { data: ordersData, error: ordersError, count: ordersCount },
-          { data: orderPaymentsData, error: orderPaymentsError },
-          {
-            data: openTicketsData,
-            error: openTicketsError,
-            count: openTicketsCount,
-          },
-          {
-            data: escalationsData,
-            error: escalationsError,
-            count: escalationsCount,
-          },
+          { data: productsData, error: productsError },
+          { data: orderItemsData, error: orderItemsError },
+          { data: payoutsData, error: payoutsError },
         ] = await Promise.all([
           supabase
-            .from("registries")
-            .select("id, event_id", { count: "exact" }),
+            .from("products")
+            .select("id, name, price, stock_qty, status, category_id, created_at")
+            .eq("vendor_id", vendorRecord.id),
           supabase
-            .from("vendor_applications")
-            .select("id", { count: "exact" })
-            .eq("status", "pending"),
+            .from("order_items")
+            .select("order_id, product_id, quantity, price, created_at")
+            .eq("vendor_id", vendorRecord.id)
+            .gte("created_at", windowIso),
           supabase
-            .from("orders")
-            .select("id, registry_id, total_amount", { count: "exact" })
-            .in("status", ["paid", "shipped", "delivered"]),
-          supabase.from("order_payments").select("amount, status"),
-          supabase
-            .from("support_tickets")
-            .select("id", { count: "exact" })
-            .eq("status", "open"),
-          supabase
-            .from("support_tickets")
-            .select("id", { count: "exact" })
-            .eq("status", "escalated"),
+            .from("vendor_payouts")
+            .select("status, total_net_amount, created_at")
+            .eq("vendor_id", vendorRecord.id),
         ]);
 
-        const { data: orderItemsData, error: orderItemsError } = await supabase
-          .from("order_items")
-          .select("vendor_id, quantity, price");
-
-        const { data: vendorsData, error: vendorsError } = await supabase
-          .from("vendors")
-          .select("id, business_name");
-
-        const { data: eventsData, error: eventsError } = await supabase
-          .from("events")
-          .select("id, type");
-
-        if (ignore) {
-          return;
-        }
-
-        if (
-          registriesError ||
-          vendorApplicationsError ||
-          ordersError ||
-          orderPaymentsError ||
-          openTicketsError ||
-          escalationsError ||
-          orderItemsError ||
-          vendorsError ||
-          eventsError
-        ) {
-          const errorMessage =
-            registriesError?.message ||
-            vendorApplicationsError?.message ||
-            ordersError?.message ||
-            orderPaymentsError?.message ||
-            openTicketsError?.message ||
-            escalationsError?.message ||
-            orderItemsError?.message ||
-            vendorsError?.message ||
-            eventsError?.message ||
-            "Failed to load metrics";
-
-          setMetricsError(errorMessage);
-        }
-
-        const totalRegistries =
-          typeof registriesCount === "number"
-            ? registriesCount
-            : registriesData?.length ?? null;
-
-        const pendingVendorRequests =
-          typeof vendorApplicationsCount === "number"
-            ? vendorApplicationsCount
-            : vendorApplicationsData?.length ?? null;
-
-        const totalOrders =
-          typeof ordersCount === "number"
-            ? ordersCount
-            : ordersData?.length ?? null;
-
-        let totalPurchases = null;
-        if (Array.isArray(ordersData)) {
-          totalPurchases = ordersData.reduce(
-            (sum, row) => sum + Number(row.total_amount || 0),
-            0
+        if (productsError || orderItemsError || payoutsError) {
+          throw (
+            productsError ||
+            orderItemsError ||
+            payoutsError ||
+            new Error("Failed to load vendor data")
           );
         }
 
-        let vendorPayouts = null;
-        if (Array.isArray(orderPaymentsData)) {
-          const successful = orderPaymentsData.filter(
-            (row) => (row.status || "").toLowerCase() === "success"
-          );
-          vendorPayouts = successful.reduce(
-            (sum, row) => sum + Number(row.amount || 0),
-            0
-          );
-        }
-
-        let topVendorName = null;
-        if (
-          !orderItemsError &&
-          !vendorsError &&
-          Array.isArray(orderItemsData) &&
-          Array.isArray(vendorsData) &&
-          orderItemsData.length &&
-          vendorsData.length
-        ) {
-          const salesByVendor = {};
-          for (const row of orderItemsData) {
-            if (!row?.vendor_id) continue;
-            const amount = Number(row.price || 0) * Number(row.quantity || 1);
-            if (!Number.isFinite(amount)) continue;
-            salesByVendor[row.vendor_id] =
-              (salesByVendor[row.vendor_id] || 0) + amount;
-          }
-
-          let topVendorId = null;
-          let topVendorSales = -Infinity;
-          for (const [vendorId, total] of Object.entries(salesByVendor)) {
-            if (total > topVendorSales) {
-              topVendorSales = total;
-              topVendorId = vendorId;
-            }
-          }
-
-          if (topVendorId) {
-            const topVendor = vendorsData.find((v) => v.id === topVendorId);
-            if (topVendor?.business_name) {
-              topVendorName = topVendor.business_name;
-            }
-          }
-        }
-
-        let popularRegistryType = null;
-        if (
-          !eventsError &&
-          Array.isArray(eventsData) &&
-          Array.isArray(registriesData) &&
-          Array.isArray(ordersData) &&
-          ordersData.length
-        ) {
-          const eventTypeById = new Map();
-          for (const ev of eventsData) {
-            if (ev?.id && ev?.type) {
-              eventTypeById.set(ev.id, ev.type);
-            }
-          }
-
-          const registryEventById = new Map();
-          for (const reg of registriesData) {
-            if (reg?.id) {
-              registryEventById.set(reg.id, reg.event_id || null);
-            }
-          }
-
-          const typeCounts = {};
-          for (const order of ordersData) {
-            const registryId = order?.registry_id;
-            if (!registryId) continue;
-            const eventId = registryEventById.get(registryId);
-            if (!eventId) continue;
-            const type = eventTypeById.get(eventId);
-            if (!type) continue;
-            typeCounts[type] = (typeCounts[type] || 0) + 1;
-          }
-
-          let maxType = null;
-          let maxCount = -Infinity;
-          for (const [type, count] of Object.entries(typeCounts)) {
-            if (count > maxCount) {
-              maxCount = count;
-              maxType = type;
-            }
-          }
-
-          if (maxType) {
-            popularRegistryType = maxType;
-          }
-        }
-
-        const openTickets =
-          typeof openTicketsCount === "number"
-            ? openTicketsCount
-            : openTicketsData?.length ?? null;
-
-        const pendingEscalations =
-          typeof escalationsCount === "number"
-            ? escalationsCount
-            : escalationsData?.length ?? null;
-
-        setMetrics({
-          totalRegistries,
-          pendingVendorRequests,
-          totalOrders,
-          totalPurchases,
-          vendorPayouts,
-          openTickets,
-          pendingEscalations,
-          topVendorName,
-          popularRegistryType,
-        });
-      } catch (error) {
-        if (!ignore) {
-          setMetricsError(error?.message || "Failed to load metrics");
-        }
-      } finally {
-        if (!ignore) {
-          setLoadingMetrics(false);
-        }
+        products = productsData || [];
+        orderItems = orderItemsData || [];
+        payouts = payoutsData || [];
       }
-    };
 
-    fetchMetrics();
-    return () => {
-      ignore = true;
-    };
+      setVendorData({
+        profile: profileData || null,
+        vendor: vendorRecord || null,
+        products,
+        orderItems,
+        payouts,
+        categories,
+      });
+    } catch (error) {
+      console.error("Vendor dashboard fetch error", error);
+      setVendorError(error?.message || "Failed to load vendor data");
+      setVendorData(createInitialVendorData());
+    } finally {
+      setLoadingVendorData(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchVendorData();
+  }, [fetchVendorData]);
 
   const value = useMemo(
     () => ({
-      currentAdmin,
-      loadingCurrentAdmin,
-      metrics,
-      loadingMetrics,
-      metricsError,
-      addStaffOpen,
-      setAddStaffOpen,
-      addVendorOpen,
-      setAddVendorOpen,
+      profile: vendorData.profile,
+      vendor: vendorData.vendor,
+      products: vendorData.products,
+      orderItems: vendorData.orderItems,
+      payouts: vendorData.payouts,
+      categories: vendorData.categories,
+      loadingVendorData,
+      vendorError,
+      refreshVendorData: fetchVendorData,
     }),
-    [
-      currentAdmin,
-      loadingCurrentAdmin,
-      metrics,
-      loadingMetrics,
-      metricsError,
-      addStaffOpen,
-      setAddStaffOpen,
-      addVendorOpen,
-      setAddVendorOpen,
-    ]
+    [vendorData, loadingVendorData, vendorError, fetchVendorData],
   );
 
   return (
-    <DashboardContext.Provider value={value}>
+    <VendorDashboardContext.Provider value={value}>
       {children}
-    </DashboardContext.Provider>
+    </VendorDashboardContext.Provider>
   );
 };
 
-export const useDashboardContext = () => useContext(DashboardContext);
+export const useVendorDashboardContext = () =>
+  useContext(VendorDashboardContext);

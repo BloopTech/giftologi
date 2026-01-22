@@ -93,6 +93,15 @@ export async function middlewareClient(request) {
     return withCookiesRedirect(new URL(dest, request.url));
   };
 
+  const roleRestrictedAdminPaths = {
+    store_manager_admin: new Set(["/dashboard/admin", "/dashboard/admin/products"]),
+    marketing_admin: new Set([
+      "/dashboard/admin",
+      "/dashboard/admin/analytics_reporting",
+      "/dashboard/admin/content_policy_pages",
+    ]),
+  };
+
   // Attempt to exchange code for a session when present and no user yet
   let {
     data: { user },
@@ -337,6 +346,17 @@ export async function middlewareClient(request) {
         url.pathname.startsWith(allowedPrefix + "/");
       if (!isAllowed) {
         return redirectToRoleDashboard(profile.role);
+      }
+    }
+    if (profile?.role && url.pathname.startsWith("/dashboard/admin")) {
+      const allowedAdminPaths = roleRestrictedAdminPaths[profile.role];
+      if (allowedAdminPaths) {
+        const isAllowed = Array.from(allowedAdminPaths).some(
+          (path) => url.pathname === path || url.pathname.startsWith(path + "/")
+        );
+        if (!isAllowed) {
+          return redirectToRoleDashboard(profile.role);
+        }
       }
     }
     // If arriving with code or at root, redirect by role

@@ -1,17 +1,13 @@
 "use client";
 
 import {
-  PiCardholder,
-  PiChartBar,
-  PiFiles,
-  PiFolders,
-  PiLog,
-  PiPackage,
-  PiReceipt,
-  PiShoppingBagOpen,
-  PiStorefront,
-  PiUsers,
-} from "react-icons/pi";
+  ChartColumn,
+  DollarSign,
+  LayoutDashboard,
+  Settings,
+  ShoppingCart,
+  Package,
+} from "lucide-react";
 
 export const useNavigationData = () => {
   return [
@@ -22,7 +18,7 @@ export const useNavigationData = () => {
         {
           name: "Dashboard",
           href: "/dashboard/v",
-          icon: PiUsers,
+          icon: LayoutDashboard,
           other_items: [],
         },
       ],
@@ -34,7 +30,7 @@ export const useNavigationData = () => {
         {
           name: "Products",
           href: "/dashboard/v/products",
-          icon: PiShoppingBagOpen,
+          icon: Package,
           other_items: [],
         },
       ],
@@ -44,9 +40,9 @@ export const useNavigationData = () => {
       id: 3,
       items: [
         {
-          name: "Payouts",
-          href: "/dashboard/v/payouts",
-          icon: PiStorefront,
+          name: "Orders",
+          href: "/dashboard/v/orders",
+          icon: ShoppingCart,
           other_items: [],
         },
       ],
@@ -56,9 +52,9 @@ export const useNavigationData = () => {
       id: 4,
       items: [
         {
-          name: "Analytics",
-          href: "/dashboard/v/analytics",
-          icon: PiPackage,
+          name: "Payouts",
+          href: "/dashboard/v/payouts",
+          icon: DollarSign,
           other_items: [],
         },
       ],
@@ -68,9 +64,21 @@ export const useNavigationData = () => {
       id: 5,
       items: [
         {
+          name: "Analytics",
+          href: "/dashboard/v/analytics",
+          icon: ChartColumn,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 6,
+      items: [
+        {
           name: "Profile",
           href: "/dashboard/v/profile",
-          icon: PiShoppingBagOpen,
+          icon: Settings,
           other_items: [],
         },
       ],
@@ -87,7 +95,7 @@ export const navigation = [
       {
         name: "Dashboard",
         href: "/dashboard/v",
-        icon: PiUsers,
+        icon: LayoutDashboard,
         other_items: [],
       },
     ],
@@ -99,7 +107,7 @@ export const navigation = [
       {
         name: "Products",
         href: "/dashboard/v/products",
-        icon: PiShoppingBagOpen,
+        icon: Package,
         other_items: [],
       },
     ],
@@ -109,9 +117,9 @@ export const navigation = [
     id: 3,
     items: [
       {
-        name: "Payouts",
-        href: "/dashboard/v/payouts",
-        icon: PiStorefront,
+        name: "Orders",
+        href: "/dashboard/v/orders",
+        icon: ShoppingCart,
         other_items: [],
       },
     ],
@@ -121,9 +129,9 @@ export const navigation = [
     id: 4,
     items: [
       {
-        name: "Analytics",
-        href: "/dashboard/v/analytics",
-        icon: PiPackage,
+        name: "Payouts",
+        href: "/dashboard/v/payouts",
+        icon: DollarSign,
         other_items: [],
       },
     ],
@@ -133,9 +141,21 @@ export const navigation = [
     id: 5,
     items: [
       {
+        name: "Analytics",
+        href: "/dashboard/v/analytics",
+        icon: ChartColumn,
+        other_items: [],
+      },
+    ],
+  },
+  {
+    label: "",
+    id: 6,
+    items: [
+      {
         name: "Profile",
         href: "/dashboard/v/profile",
-        icon: PiShoppingBagOpen,
+        icon: Settings,
         other_items: [],
       },
     ],

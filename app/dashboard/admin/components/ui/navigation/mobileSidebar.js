@@ -36,7 +36,7 @@ export default function MobileSidebar(props) {
   const pathname = usePathname();
   const [openDropdowns, setOpenDropdowns] = useState({});
 
-  const navigation = useNavigationData();
+  const navigation = useNavigationData(userData?.role);
 
   // Add state to control the switch
   const [isLiveMode, setIsLiveMode] = useState(false);

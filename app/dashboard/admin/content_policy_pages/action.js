@@ -10,6 +10,7 @@ const CONTENT_ALLOWED_ROLES = [
   "finance_admin",
   "operations_manager_admin",
   "customer_support_admin",
+  "marketing_admin",
 ];
 
 async function getCurrentAdmin(supabase) {

@@ -11,7 +11,7 @@ import { Suspense } from "react";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import Header from "./components/ui/navigation/header";
 import AdminSidebar from "./components/ui/navigation";
-import { DashboardProvider } from "./context";
+import { VendorDashboardProvider } from "./context";
 import { TooltipProvider } from "@/app/components/Tooltip";
 
 export default function RootLayout({ children }) {
@@ -20,7 +20,7 @@ export default function RootLayout({ children }) {
       <div
         className={`w-full font-poppins bg-[#FAFAFA] scroll-auto antialiased selection:bg-primary selection:text-primary dark:bg-gray-950`}
       >
-        <DashboardProvider>
+        <VendorDashboardProvider>
           <TooltipProvider>
             <div className="mx-auto w-full">
               <AdminSidebar />
@@ -39,7 +39,7 @@ export default function RootLayout({ children }) {
               </main>
             </div>
           </TooltipProvider>
-        </DashboardProvider>
+        </VendorDashboardProvider>
       </div>
     </>
   );

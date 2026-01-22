@@ -135,7 +135,9 @@ export async function approveVendorRequest(prevState, formData) {
 
   const { data: application, error: applicationError } = await supabase
     .from("vendor_applications")
-    .select("id, user_id, business_name, category, status")
+    .select(
+      "id, user_id, business_name, category, status, business_description, tax_id, website, owner_email, owner_phone, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code",
+    )
     .eq("id", applicationId)
     .single();
 
@@ -183,6 +185,15 @@ export async function approveVendorRequest(prevState, formData) {
       .update({
         business_name: application.business_name,
         category: application.category,
+        description: application.business_description || null,
+        email: application.owner_email || null,
+        phone: application.owner_phone || null,
+        website: application.website || null,
+        tax_id: application.tax_id || null,
+        address_street: application.street_address || null,
+        address_city: application.city || null,
+        address_state: application.region || null,
+        digital_address: application.digital_address || null,
         verified: true,
         updated_at: new Date().toISOString(),
       })
@@ -208,9 +219,18 @@ export async function approveVendorRequest(prevState, formData) {
           profiles_id: application.user_id,
           business_name: application.business_name,
           category: application.category,
-          description: null,
+          description: application.business_description || null,
           commission_rate: null,
           verified: true,
+          email: application.owner_email || null,
+          phone: application.owner_phone || null,
+          website: application.website || null,
+          tax_id: application.tax_id || null,
+          address_street: application.street_address || null,
+          address_city: application.city || null,
+          address_state: application.region || null,
+          digital_address: application.digital_address || null,
+          address_country: null,
           created_by: currentProfile?.id || user.id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -229,6 +249,62 @@ export async function approveVendorRequest(prevState, formData) {
     }
 
     vendor = insertedVendor;
+  }
+
+  const paymentPayload = {
+    account_name: application.bank_account_name || null,
+    bank_name: application.bank_name || null,
+    bank_account: application.bank_account_number || null,
+    bank_branch: application.bank_branch || null,
+    bank_branch_code: application.bank_branch_code || null,
+    updated_at: new Date().toISOString(),
+  };
+
+  const { data: existingPaymentInfo, error: existingPaymentError } = await supabase
+    .from("payment_info")
+    .select("id")
+    .eq("vendor_id", vendor.id)
+    .maybeSingle();
+
+  if (existingPaymentError) {
+    return {
+      message: existingPaymentError.message || "Failed to sync payment information.",
+      errors: { ...defaultApproveVendorValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (existingPaymentInfo?.id) {
+    const { error: paymentUpdateError } = await supabase
+      .from("payment_info")
+      .update(paymentPayload)
+      .eq("id", existingPaymentInfo.id)
+      .eq("vendor_id", vendor.id);
+
+    if (paymentUpdateError) {
+      return {
+        message: paymentUpdateError.message || "Failed to sync payment information.",
+        errors: { ...defaultApproveVendorValues },
+        values: raw,
+        data: {},
+      };
+    }
+  } else if (Object.values(paymentPayload).some((value) => value)) {
+    const { error: paymentInsertError } = await supabase
+      .from("payment_info")
+      .insert({ ...paymentPayload, vendor_id: vendor.id, created_at: new Date().toISOString() })
+      .select("id")
+      .single();
+
+    if (paymentInsertError) {
+      return {
+        message: paymentInsertError.message || "Failed to sync payment information.",
+        errors: { ...defaultApproveVendorValues },
+        values: raw,
+        data: {},
+      };
+    }
   }
 
   const { error: updateError } = await supabase

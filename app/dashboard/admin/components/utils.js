@@ -88,6 +88,11 @@ export const overviewModules = [
         color:
           "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
       },
+      {
+        name: "Store Manager",
+        color:
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+      },
     ],
     icons: {
       top: PiPackage,
@@ -242,6 +247,11 @@ export const overviewModules = [
         color:
           "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
       },
+      {
+        name: "Marketing",
+        color:
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+      },
     ],
     icons: {
       top: PiChartBar,
@@ -260,6 +270,11 @@ export const overviewModules = [
       },
       {
         name: "Customer Support",
+        color:
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+      },
+      {
+        name: "Marketing",
         color:
           "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
       },

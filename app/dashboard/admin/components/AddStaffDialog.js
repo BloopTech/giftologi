@@ -32,6 +32,8 @@ const initialState = {
 const ROLE_OPTIONS = [
   { label: "Super Admin", value: "super_admin" },
   { label: "Operations Manager", value: "operations_manager_admin" },
+  { label: "Store Manager", value: "store_manager_admin" },
+  { label: "Marketing", value: "marketing_admin" },
   { label: "Finance", value: "finance_admin" },
   { label: "Customer Support", value: "customer_support_admin" },
   { label: "Ops/HR", value: "ops_hr_admin" },
@@ -56,6 +58,8 @@ const ROLE_MODULES = {
     "Manage Products",
     "View Transactions",
   ],
+  store_manager_admin: ["Manage Products"],
+  marketing_admin: ["Analytics & Reporting", "Content & Policy"],
   finance_admin: ["View Payouts", "Generate Reports"],
   customer_support_admin: ["Dashboard", "Support Tickets"],
   ops_hr_admin: ["Staff Directory", "Invite Staff", "Assign Roles"],

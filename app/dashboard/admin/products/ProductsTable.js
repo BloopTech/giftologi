@@ -135,7 +135,11 @@ export default function ProductsTable() {
   } = useManageProductsContext() || {};
 
   const { currentAdmin } = useDashboardContext() || {};
-  const allowedActionRoles = ["super_admin", "operations_manager_admin"];
+  const allowedActionRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
   const canModerate =
     !!currentAdmin && allowedActionRoles.includes(currentAdmin.role);
 

@@ -124,7 +124,11 @@ export async function approveProduct(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -252,7 +256,11 @@ export async function rejectProduct(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -378,7 +386,11 @@ export async function flagProduct(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -521,7 +533,11 @@ export async function unflagProduct(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -664,7 +680,11 @@ export async function createCategory(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -796,7 +816,11 @@ export async function updateCategory(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -946,7 +970,11 @@ export async function deleteCategory(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -1164,7 +1192,11 @@ export async function createVendorProducts(prevState, formData) {
     .eq("id", user.id)
     .single();
 
-  const allowedRoles = ["super_admin", "operations_manager_admin"];
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
     return {
@@ -1175,9 +1207,10 @@ export async function createVendorProducts(prevState, formData) {
     };
   }
 
+  const vendorIdRaw = formData.get("vendorId");
   const rawBase = {
     mode: formData.get("mode") || "single",
-    vendorId: formData.get("vendorId"),
+    vendorId: typeof vendorIdRaw === "string" ? vendorIdRaw : "",
   };
 
   const parsedBase = createProductsBaseSchema.safeParse(rawBase);
