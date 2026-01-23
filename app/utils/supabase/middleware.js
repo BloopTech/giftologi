@@ -113,12 +113,12 @@ export async function middlewareClient(request) {
     // For email/password confirmation links (e.g. /?code=...), do NOT run PKCE exchange on the server.
     // Instead, treat them as plain verification and send user to login with a verified flag.
     if (!isAuthCallbackRoute && !isPasswordResetLink) {
-      if (type === "recovery" || (!type && (url.pathname === "/" || url.pathname === "/login"))) {
-        const dest = new URL("/password-reset/a", request.url);
-        dest.searchParams.set("code", code);
-        dest.searchParams.set("type", "recovery");
-        return withCookiesRedirect(dest);
-      }
+      // if (type === "recovery" || (!type && (url.pathname === "/" || url.pathname === "/login"))) {
+      //   const dest = new URL("/password-reset/a", request.url);
+      //   dest.searchParams.set("code", code);
+      //   dest.searchParams.set("type", "recovery");
+      //   return withCookiesRedirect(dest);
+      // }
       const dest = new URL("/login", request.url);
       dest.searchParams.set("verified", "1");
       return withCookiesRedirect(dest);
