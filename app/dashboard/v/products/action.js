@@ -3,10 +3,10 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import crypto from "crypto";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200),
-  product_code: z.string().min(1, "SKU is required").max(50),
   category_id: z.string().uuid("Please select a category"),
   status: z.enum(["pending", "approved", "rejected", "inactive"]),
   price: z.coerce.number().min(0.01, "Price must be greater than 0"),
@@ -14,6 +14,9 @@ const productSchema = z.object({
   stock_qty: z.coerce.number().int().min(0, "Stock must be 0 or greater"),
   description: z.string().max(2000).optional(),
 });
+
+const generateProductCode = () =>
+  `P-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
 const s3Client = new S3Client({
   region: "auto",
@@ -81,7 +84,6 @@ export async function manageProducts(prevState, formData) {
   if (action === "create") {
     const rawData = {
       name: formData.get("name"),
-      product_code: formData.get("product_code"),
       category_id: formData.get("category_id"),
       status: formData.get("status") || "pending",
       price: formData.get("price"),
@@ -106,12 +108,14 @@ export async function manageProducts(prevState, formData) {
       };
     }
 
+    const productCode = generateProductCode();
+
     const { data: newProduct, error: insertError } = await supabase
       .from("products")
       .insert({
         vendor_id: vendor.id,
         name: validation.data.name,
-        product_code: validation.data.product_code,
+        product_code: productCode,
         category_id: validation.data.category_id,
         status: validation.data.status,
         price: validation.data.price,
@@ -203,7 +207,6 @@ export async function manageProducts(prevState, formData) {
       .from("products")
       .update({
         name: validation.data.name,
-        product_code: validation.data.product_code,
         category_id: validation.data.category_id,
         status: validation.data.status,
         price: validation.data.price,

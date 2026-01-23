@@ -1,7 +1,6 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-
 import {
   PiCurrencyCircleDollar,
   PiShoppingCart,
@@ -18,344 +17,30 @@ import {
   PiChartLine,
 } from "react-icons/pi";
 import { useVendorAnalyticsContext } from "./context";
+import { RevenueLineChart, OrdersViewsBarChart, SalesPieChart } from "./charts";
+import {
+  formatCurrency,
+  formatNumber,
+  StatCard,
+  FooterStatCard,
+  TopProductRow,
+  CustomerInsightCard,
+  CATEGORY_COLORS,
+} from "./utils";
 
-const formatCurrency = (value) => {
-  if (value === null || typeof value === "undefined") return "GHS0.00";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "GHS0.00";
-  return `GHS${num.toLocaleString("en-GH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
 
-const formatNumber = (value) => {
-  if (value === null || typeof value === "undefined") return "0";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "0";
-  return num.toLocaleString();
-};
-
-const CATEGORY_COLORS = [
-  "#8B5CF6",
-  "#F59E0B",
-  "#10B981",
-  "#3B82F6",
-  "#EC4899",
-  "#14B8A6",
-  "#F97316",
-];
-
-function StatCard({ icon: Icon, iconBgColor, title, value, change, changeType, subtitle }) {
-  const isPositive = changeType === "positive";
-  const isNegative = changeType === "negative";
-
-  return (
-    <div className="flex flex-col space-y-2 p-4 bg-white rounded-xl border border-[#E5E7EB]">
-      <div className="flex items-center justify-between">
-        <span className="text-[#6B7280] text-sm font-poppins">{title}</span>
-        <div className={`p-2 rounded-full ${iconBgColor}`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-      </div>
-      <div className="flex flex-col">
-        <span className="text-[#111827] text-2xl font-semibold font-inter">
-          {value}
-        </span>
-        {change && (
-          <div className="flex items-center gap-1 mt-1">
-            {isPositive && <PiTrendUp className="w-4 h-4 text-[#10B981]" />}
-            {isNegative && <PiTrendDown className="w-4 h-4 text-[#EF4444]" />}
-            <span
-              className={`text-xs font-medium ${
-                isPositive ? "text-[#10B981]" : isNegative ? "text-[#EF4444]" : "text-[#6B7280]"
-              }`}
-            >
-              {change}
-            </span>
-            {subtitle && (
-              <span className="text-[#6B7280] text-xs ml-1">{subtitle}</span>
-            )}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function SimpleLineChart({ data, dataKey, color, height = 200 }) {
-  const maxValue = Math.max(...data.map((d) => d[dataKey]));
-  const minValue = Math.min(...data.map((d) => d[dataKey]));
-  const range = maxValue - minValue || 1;
-
-  const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = 100 - ((d[dataKey] - minValue) / range) * 80 - 10;
-    return `${x},${y}`;
-  }).join(" ");
-
-  const areaPoints = `0,100 ${points} 100,100`;
-
-  return (
-    <div className="relative" style={{ height }}>
-      <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
-        <defs>
-          <linearGradient id={`gradient-${dataKey}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.05" />
-          </linearGradient>
-        </defs>
-        <polygon
-          points={areaPoints}
-          fill={`url(#gradient-${dataKey})`}
-        />
-        <polyline
-          points={points}
-          fill="none"
-          stroke={color}
-          strokeWidth="2"
-          vectorEffect="non-scaling-stroke"
-        />
-        {data.map((d, i) => {
-          const x = (i / (data.length - 1)) * 100;
-          const y = 100 - ((d[dataKey] - minValue) / range) * 80 - 10;
-          return (
-            <circle
-              key={i}
-              cx={x}
-              cy={y}
-              r="3"
-              fill="white"
-              stroke={color}
-              strokeWidth="2"
-              vectorEffect="non-scaling-stroke"
-            />
-          );
-        })}
-      </svg>
-      <div className="absolute bottom-0 left-0 right-0 flex justify-between text-xs text-[#6B7280] mt-2">
-        {data.map((d, i) => (
-          <span key={i}>{d.week}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SimpleBarChart({ data, height = 200 }) {
-  const maxOrders = Math.max(...data.map((d) => d.orders));
-  const maxViews = Math.max(...data.map((d) => d.views));
-  const maxValue = Math.max(maxOrders, maxViews, 1);
-
-  return (
-    <div className="relative" style={{ height }}>
-      <div className="flex items-end justify-between h-full gap-4 pb-6">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1">
-            <div className="flex items-end gap-1 h-full w-full justify-center">
-              <div
-                className="w-4 bg-[#3B82F6] rounded-t"
-                style={{ height: `${(d.orders / maxValue) * 100}%` }}
-                title={`Orders: ${d.orders}`}
-              />
-              <div
-                className="w-4 bg-[#F59E0B] rounded-t"
-                style={{ height: `${(d.views / maxValue) * 20}%` }}
-                title={`Views: ${d.views}`}
-              />
-            </div>
-            <span className="text-xs text-[#6B7280] absolute bottom-0">{d.week}</span>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center justify-center gap-4 mt-2">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 bg-[#3B82F6] rounded" />
-          <span className="text-xs text-[#6B7280]">Orders</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 bg-[#F59E0B] rounded" />
-          <span className="text-xs text-[#6B7280]">Views</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PieChart({ data }) {
-  const total = data.reduce((sum, d) => sum + d.value, 0);
-  let currentAngle = 0;
-
-  if (total <= 0) {
-    return (
-      <div className="flex items-center justify-center h-48 text-sm text-[#6B7280]">
-        No sales data yet.
-      </div>
-    );
-  }
-
-  const createArcPath = (startAngle, endAngle, radius = 80) => {
-    const startRad = (startAngle - 90) * (Math.PI / 180);
-    const endRad = (endAngle - 90) * (Math.PI / 180);
-    const x1 = 100 + radius * Math.cos(startRad);
-    const y1 = 100 + radius * Math.sin(startRad);
-    const x2 = 100 + radius * Math.cos(endRad);
-    const y2 = 100 + radius * Math.sin(endRad);
-    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-    return `M 100 100 L ${x1} ${y1} A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2} Z`;
-  };
-
-  return (
-    <div className="flex items-center gap-6">
-      <div className="relative w-48 h-48">
-        <svg viewBox="0 0 200 200" className="w-full h-full">
-          {data.map((d, i) => {
-            const angle = (d.value / total) * 360;
-            const path = createArcPath(currentAngle, currentAngle + angle);
-            currentAngle += angle;
-            return (
-              <path
-                key={i}
-                d={path}
-                fill={d.color}
-                className="hover:opacity-80 transition-opacity cursor-pointer"
-              />
-            );
-          })}
-          <circle cx="100" cy="100" r="40" fill="white" />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-xs text-[#6B7280]">Total</span>
-          <span className="text-sm font-semibold text-[#111827]">
-            {formatCurrency(total)}
-          </span>
-        </div>
-      </div>
-      <div className="flex flex-col gap-2">
-        {data.map((d, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div
-              className="w-3 h-3 rounded-full"
-              style={{ backgroundColor: d.color }}
-            />
-            <span className="text-xs text-[#6B7280]">{d.name}</span>
-            <span className="text-xs font-medium text-[#111827] ml-auto">
-              {formatCurrency(d.value)}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function CustomerInsightCard({ icon: Icon, title, value, change, changeType }) {
-  const isPositive = changeType === "positive";
-  const isNegative = changeType === "negative";
-
-  return (
-    <div className="flex items-center justify-between py-3 border-b border-[#E5E7EB] last:border-b-0">
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-[#F3F4F6] rounded-lg">
-          <Icon className="w-4 h-4 text-[#6B7280]" />
-        </div>
-        <div>
-          <p className="text-[#6B7280] text-xs">{title}</p>
-          <p className="text-[#111827] text-lg font-semibold">{value}</p>
-        </div>
-      </div>
-      {change && (
-        <div className="flex items-center gap-1">
-          {isPositive && <PiTrendUp className="w-4 h-4 text-[#10B981]" />}
-          {isNegative && <PiTrendDown className="w-4 h-4 text-[#EF4444]" />}
-          <span
-            className={`text-sm font-medium ${
-              isPositive ? "text-[#10B981]" : isNegative ? "text-[#EF4444]" : "text-[#6B7280]"
-            }`}
-          >
-            {change}
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function TopProductRow({ product }) {
-  return (
-    <div className="p-4 border-b border-[#E5E7EB] last:border-b-0 hover:bg-[#F9FAFB]">
-      <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-[#6B7280] text-sm font-medium">#{product.rank}</span>
-          <div>
-            <p className="text-[#111827] text-sm font-semibold">{product.name}</p>
-            <p className="text-[#6B7280] text-xs">
-              {product.orders} orders • {formatNumber(product.views)} views
-            </p>
-          </div>
-        </div>
-        <div className="text-right">
-          <p className="text-[#10B981] text-base font-semibold">
-            {formatCurrency(product.totalSales)}
-          </p>
-          <p className="text-[#6B7280] text-xs">Total Sales</p>
-        </div>
-      </div>
-      <div className="grid grid-cols-4 gap-4">
-        <div className="flex items-center gap-2">
-          <PiShoppingCart className="w-4 h-4 text-[#6B7280]" />
-          <div>
-            <p className="text-[#6B7280] text-xs">Orders</p>
-            <p className="text-[#111827] text-sm font-medium">{product.orders}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <PiEye className="w-4 h-4 text-[#6B7280]" />
-          <div>
-            <p className="text-[#6B7280] text-xs">Views</p>
-            <p className="text-[#111827] text-sm font-medium">{formatNumber(product.views)}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <PiChartLine className="w-4 h-4 text-[#6B7280]" />
-          <div>
-            <p className="text-[#6B7280] text-xs">Conversion</p>
-            <p className="text-[#111827] text-sm font-medium">{product.conversion}%</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          <PiCurrencyCircleDollar className="w-4 h-4 text-[#6B7280]" />
-          <div>
-            <p className="text-[#6B7280] text-xs">Avg Price</p>
-            <p className="text-[#111827] text-sm font-medium">{formatCurrency(product.avgPrice)}</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FooterStatCard({ bgColor, icon: Icon, iconColor, title, value, extra }) {
-  return (
-    <div className={`flex items-center gap-4 p-4 rounded-xl ${bgColor}`}>
-      <div className={`p-3 rounded-full bg-white/20`}>
-        <Icon className={`w-6 h-6 ${iconColor}`} />
-      </div>
-      <div>
-        <p className="text-white/80 text-xs">{title}</p>
-        <div className="flex items-center gap-2">
-          <p className="text-white text-2xl font-semibold">{value}</p>
-          {extra}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function VendorAnalyticsContent() {
   const [dateFilter, setDateFilter] = useState("last_30_days");
-  const { products, orderItems, pageViews, reviews, categories, loading, error } =
-    useVendorAnalyticsContext();
+  const {
+    products,
+    orderItems,
+    pageViews,
+    reviews,
+    categories,
+    loading,
+    error,
+  } = useVendorAnalyticsContext();
 
   const stats = useMemo(() => {
     const now = new Date();
@@ -377,12 +62,22 @@ export default function VendorAnalyticsContent() {
       return Number.isFinite(date.getTime()) && date >= startDate;
     };
 
-    const filteredOrders = orderItems.filter((item) => isWithinRange(item.created_at));
-    const filteredViews = pageViews.filter((view) => isWithinRange(view.created_at));
-    const filteredReviews = reviews.filter((review) => isWithinRange(review.created_at));
+    const filteredOrders = orderItems.filter((item) =>
+      isWithinRange(item.created_at),
+    );
+    const filteredViews = pageViews.filter((view) =>
+      isWithinRange(view.created_at),
+    );
+    const filteredReviews = reviews.filter((review) =>
+      isWithinRange(review.created_at),
+    );
 
-    const productMap = new Map(products.map((product) => [product.id, product]));
-    const categoryMap = new Map(categories.map((category) => [category.id, category.name]));
+    const productMap = new Map(
+      products.map((product) => [product.id, product]),
+    );
+    const categoryMap = new Map(
+      categories.map((category) => [category.id, category.name]),
+    );
 
     const totalRevenue = filteredOrders.reduce((sum, item) => {
       const qty = Number(item.quantity || 0);
@@ -476,22 +171,31 @@ export default function VendorAnalyticsContent() {
     const categoryRevenue = new Map();
     filteredOrders.forEach((item) => {
       const product = productMap.get(item.product_id);
-      const categoryName = categoryMap.get(product?.category_id) || "Uncategorized";
+      const categoryName =
+        categoryMap.get(product?.category_id) || "Uncategorized";
       const qty = Number(item.quantity || 0);
       const price = Number(item.price || 0);
       if (!Number.isFinite(qty) || !Number.isFinite(price)) return;
-      categoryRevenue.set(categoryName, (categoryRevenue.get(categoryName) || 0) + qty * price);
+      categoryRevenue.set(
+        categoryName,
+        (categoryRevenue.get(categoryName) || 0) + qty * price,
+      );
     });
 
     const categoryTotals = Array.from(categoryRevenue.entries())
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
       .slice(0, 5);
-    const categorySum = categoryTotals.reduce((sum, item) => sum + item.value, 0);
+    const categorySum = categoryTotals.reduce(
+      (sum, item) => sum + item.value,
+      0,
+    );
     const categoryData = categoryTotals.map((item, index) => ({
       name: item.name,
       value: item.value,
-      percentage: categorySum ? Math.round((item.value / categorySum) * 100) : 0,
+      percentage: categorySum
+        ? Math.round((item.value / categorySum) * 100)
+        : 0,
       color: CATEGORY_COLORS[index % CATEGORY_COLORS.length],
     }));
 
@@ -545,7 +249,9 @@ export default function VendorAnalyticsContent() {
           name: product?.name || "Unknown Product",
           orders,
           views,
-          conversion: Number.isFinite(conversion) ? Number(conversion.toFixed(1)) : 0,
+          conversion: Number.isFinite(conversion)
+            ? Number(conversion.toFixed(1))
+            : 0,
           avgPrice: Number.isFinite(avgPrice) ? avgPrice : 0,
           totalSales: stats.totalSales,
         };
@@ -595,7 +301,10 @@ export default function VendorAnalyticsContent() {
     <div className="flex flex-col space-y-6 w-full mb-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
-        <Link href="/dashboard/v" className="text-[#6B7280] hover:text-[#111827]">
+        <Link
+          href="/dashboard/v"
+          className="text-[#6B7280] hover:text-[#111827]"
+        >
           Vendor Portal
         </Link>
         <span className="text-[#6B7280]">/</span>
@@ -634,14 +343,16 @@ export default function VendorAnalyticsContent() {
       )}
 
       {loading && (
-        <div className="text-xs text-[#6B7280]">Refreshing analytics data...</div>
+        <div className="text-xs text-[#6B7280]">
+          Refreshing analytics data...
+        </div>
       )}
 
       {/* Summary Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={PiCurrencyCircleDollar}
-          iconBgColor="bg-[#10B981]"
+          iconColor="text-[#10B981]"
           title="Total Revenue"
           value={formatCurrency(totalRevenue)}
           subtitle="Selected period"
@@ -649,23 +360,23 @@ export default function VendorAnalyticsContent() {
 
         <StatCard
           icon={PiShoppingCart}
-          iconBgColor="bg-[#3B82F6]"
+          iconColor="text-[#3B82F6]"
           title="Total Orders"
           value={formatNumber(totalOrders)}
           subtitle="Selected period"
         />
 
         <StatCard
-          icon={PiReceipt}
-          iconBgColor="bg-[#8B5CF6]"
+          icon={PiTrendUp}
+          iconColor="text-[#8B5CF6]"
           title="Avg Order Value"
           value={formatCurrency(avgOrderValue)}
           subtitle="Selected period"
         />
 
         <StatCard
-          icon={PiTrendUp}
-          iconBgColor="bg-[#F59E0B]"
+          icon={PiUsers}
+          iconColor="text-[#F59E0B]"
           title="Conversion Rate"
           value={`${conversionRate.toFixed(1)}%`}
           subtitle="Selected period"
@@ -682,12 +393,7 @@ export default function VendorAnalyticsContent() {
           <p className="text-[#6B7280] text-sm mb-4">
             Weekly revenue over the selected period
           </p>
-          <SimpleLineChart
-            data={revenueData}
-            dataKey="revenue"
-            color="#10B981"
-            height={180}
-          />
+          <RevenueLineChart data={revenueData} height={220} />
         </div>
 
         {/* Orders & Views Chart */}
@@ -698,7 +404,7 @@ export default function VendorAnalyticsContent() {
           <p className="text-[#6B7280] text-sm mb-4">
             Weekly orders and product views
           </p>
-          <SimpleBarChart data={ordersViewsData} height={180} />
+          <OrdersViewsBarChart data={ordersViewsData} height={220} />
         </div>
       </div>
 
@@ -712,7 +418,7 @@ export default function VendorAnalyticsContent() {
           <p className="text-[#6B7280] text-sm mb-4">
             Revenue distribution across product categories
           </p>
-          <PieChart data={categoryData} />
+          <SalesPieChart data={categoryData} height={280} />
         </div>
 
         {/* Customer Insights */}
@@ -785,28 +491,37 @@ export default function VendorAnalyticsContent() {
       {/* Footer Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <FooterStatCard
-          bgColor="bg-[#8B5CF6]"
+          bgColor="bg-gradient from-[#EFF6FF] to-[#DBEAFE]"
           icon={PiPackage}
-          iconColor="text-white"
+          iconColor="text-[#155DFC]"
           title="Total Products"
           value={formatNumber(totalProducts)}
+          titleColor="text-[#193CB8]"
+          valueColor="text-[#1C398E]"
+          border="border border-[#BEDBFF]"
         />
 
         <FooterStatCard
-          bgColor="bg-[#F59E0B]"
+          bgColor="bg-gradient from-[#FAF5FF] to-[#F3E8FF]"
           icon={PiUsers}
-          iconColor="text-white"
+          iconColor="text-[#9810FA]"
           title="Total Customers"
           value={formatNumber(totalCustomers)}
+          titleColor="text-[#6E11B0]"
+          valueColor="text-[#59168B]"
+          border="border border-[#E9D4FF]"
         />
 
         <FooterStatCard
-          bgColor="bg-[#10B981]"
+          bgColor="bg-gradient from-[#FFF7ED] to-[#FFEDD4]"
           icon={PiStarFill}
-          iconColor="text-white"
+          iconColor="text-[#F54900]"
           title="Avg Rating"
           value={avgRating.toFixed(1)}
-          extra={<PiStarFill className="w-5 h-5 text-[#FCD34D]" />}
+          extra={<PiStarFill className="w-5 h-5 text-[#FF6900]" />}
+          titleColor="text-[#9F2D00]"
+          valueColor="text-[#7E2A0C]"
+          border="border border-[#FFD6A7]"
         />
       </div>
     </div>

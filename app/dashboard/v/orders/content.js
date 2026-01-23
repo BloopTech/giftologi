@@ -30,107 +30,15 @@ import {
   DialogClose,
   DialogFooter,
 } from "../../../components/Dialog";
+import {
+  formatCurrency,
+  formatDate,
+  formatShortDate,
+  StatCard,
+  StatusBadge,
+  getStatusConfig,
+} from "./utils";
 
-const formatCurrency = (value) => {
-  if (value === null || typeof value === "undefined") return "GHS0.00";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "GHS0.00";
-  return `GHS${num.toLocaleString("en-GH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return "—";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).replace(/\//g, "-") + " " + date.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const formatShortDate = (dateString) => {
-  if (!dateString) return "—";
-  const date = new Date(dateString);
-  return date.toLocaleDateString("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).replace(/\//g, "-");
-};
-
-const getStatusConfig = (status) => {
-  const s = (status || "").toLowerCase();
-  const configs = {
-    pending: {
-      label: "Pending",
-      className: "bg-[#FEF3C7] text-[#D97706]",
-      dotColor: "bg-[#F59E0B]",
-    },
-    confirmed: {
-      label: "Confirmed",
-      className: "bg-[#DBEAFE] text-[#2563EB]",
-      dotColor: "bg-[#3B82F6]",
-    },
-    processing: {
-      label: "Processing",
-      className: "bg-[#E0E7FF] text-[#4F46E5]",
-      dotColor: "bg-[#6366F1]",
-    },
-    shipped: {
-      label: "Shipped",
-      className: "bg-[#D1FAE5] text-[#059669]",
-      dotColor: "bg-[#10B981]",
-    },
-    delivered: {
-      label: "Delivered",
-      className: "bg-[#D1FAE5] text-[#059669]",
-      dotColor: "bg-[#10B981]",
-    },
-    cancelled: {
-      label: "Cancelled",
-      className: "bg-[#FEE2E2] text-[#DC2626]",
-      dotColor: "bg-[#EF4444]",
-    },
-  };
-  return configs[s] || { label: status || "Unknown", className: "bg-[#F3F4F6] text-[#6B7280]", dotColor: "bg-[#9CA3AF]" };
-};
-
-function StatCard({ icon: Icon, iconBgColor, title, value, indicator }) {
-  return (
-    <div className="flex flex-col space-y-2 p-4 bg-white rounded-xl border border-[#E5E7EB]">
-      <div className="flex items-center justify-between">
-        <span className="text-[#6B7280] text-sm font-poppins">{title}</span>
-        {indicator && (
-          <div className={`w-2 h-2 rounded-full ${indicator}`} />
-        )}
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-[#111827] text-2xl font-semibold font-inter">
-          {value}
-        </span>
-        <div className={`p-2 rounded-full ${iconBgColor}`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  const config = getStatusConfig(status);
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${config.className}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
-      {config.label}
-    </span>
-  );
-}
 
 function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
   const [state, formAction, isPending] = useActionState(manageOrders, {
@@ -141,7 +49,9 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
   });
   const formRef = useRef(null);
 
-  const [selectedStatus, setSelectedStatus] = useState(order?.status || "pending");
+  const [selectedStatus, setSelectedStatus] = useState(
+    order?.status || "pending",
+  );
 
   useEffect(() => {
     if (order?.status) {
@@ -158,7 +68,8 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
   if (!order) return null;
 
   const customerName = order.customer
-    ? `${order.customer.firstname || ""} ${order.customer.lastname || ""}`.trim() || "Unknown Customer"
+    ? `${order.customer.firstname || ""} ${order.customer.lastname || ""}`.trim() ||
+      "Unknown Customer"
     : "Unknown Customer";
 
   const registryOwnerName = order.registryOwner
@@ -200,11 +111,15 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
             <div className="bg-[#F9FAFB] rounded-lg p-4 space-y-2">
               <div className="flex justify-between">
                 <span className="text-[#6B7280] text-sm">Product Name:</span>
-                <span className="text-[#111827] text-sm font-medium">{order.product?.name || "—"}</span>
+                <span className="text-[#111827] text-sm font-medium">
+                  {order.product?.name || "—"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#6B7280] text-sm">SKU:</span>
-                <span className="text-[#111827] text-sm">{order.product?.product_code || "—"}</span>
+                <span className="text-[#111827] text-sm">
+                  {order.product?.product_code || "—"}
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-[#6B7280] text-sm">Quantity:</span>
@@ -212,11 +127,17 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
               </div>
               <div className="flex justify-between">
                 <span className="text-[#6B7280] text-sm">Unit Price:</span>
-                <span className="text-[#111827] text-sm">{formatCurrency(order.price)}</span>
+                <span className="text-[#111827] text-sm">
+                  {formatCurrency(order.price)}
+                </span>
               </div>
               <div className="flex justify-between pt-2 border-t border-[#E5E7EB]">
-                <span className="text-[#6B7280] text-sm font-medium">Total Amount:</span>
-                <span className="text-[#111827] text-sm font-semibold">{formatCurrency(order.totalAmount)}</span>
+                <span className="text-[#6B7280] text-sm font-medium">
+                  Total Amount:
+                </span>
+                <span className="text-[#111827] text-sm font-semibold">
+                  {formatCurrency(order.totalAmount)}
+                </span>
               </div>
             </div>
           </div>
@@ -251,14 +172,20 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
               <div className="mt-3 pt-3 border-t border-[#E5E7EB] space-y-2">
                 <div className="text-sm">
                   <span className="text-[#6B7280]">Registry:</span>
-                  <p className="text-[#111827] font-medium">{order.registry.title || "—"}</p>
+                  <p className="text-[#111827] font-medium">
+                    {order.registry.title || "—"}
+                  </p>
                 </div>
                 {registryOwnerName && (
                   <div className="text-sm">
                     <span className="text-[#6B7280]">Gift Giver:</span>
-                    <p className="text-[#111827] font-medium">{registryOwnerName}</p>
+                    <p className="text-[#111827] font-medium">
+                      {registryOwnerName}
+                    </p>
                     {order.registryOwner?.email && (
-                      <p className="text-[#6B7280] text-xs">{order.registryOwner.email}</p>
+                      <p className="text-[#6B7280] text-xs">
+                        {order.registryOwner.email}
+                      </p>
                     )}
                   </div>
                 )}
@@ -273,13 +200,17 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
               Shipping Address
             </h3>
             <div className="bg-[#F9FAFB] rounded-lg p-4">
-              <p className="text-[#6B7280] text-sm">Shipping details are not available for this order.</p>
+              <p className="text-[#6B7280] text-sm">
+                Shipping details are not available for this order.
+              </p>
             </div>
           </div>
 
           {/* Update Order Status */}
           <div className="space-y-3">
-            <h3 className="text-[#111827] text-sm font-semibold">Update Order Status</h3>
+            <h3 className="text-[#111827] text-sm font-semibold">
+              Update Order Status
+            </h3>
             <form ref={formRef} action={formAction}>
               <input type="hidden" name="action" value="update_status" />
               <input type="hidden" name="orderItemId" value={order.id} />
@@ -349,7 +280,8 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
 }
 
 export default function VendorOrdersContent() {
-  const { orders, stats, loading, error, refreshData } = useVendorOrdersContext();
+  const { orders, stats, loading, error, refreshData } =
+    useVendorOrdersContext();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -366,7 +298,8 @@ export default function VendorOrdersContent() {
         .includes(searchQuery.toLowerCase());
 
     const matchesStatus =
-      statusFilter === "all" || order.status?.toLowerCase() === statusFilter.toLowerCase();
+      statusFilter === "all" ||
+      order.status?.toLowerCase() === statusFilter.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
@@ -382,7 +315,17 @@ export default function VendorOrdersContent() {
 
   const handleExport = () => {
     const csvContent = [
-      ["Order ID", "Product", "SKU", "Customer", "Registry", "Quantity", "Amount", "Date", "Status"],
+      [
+        "Order ID",
+        "Product",
+        "SKU",
+        "Customer",
+        "Registry",
+        "Quantity",
+        "Amount",
+        "Date",
+        "Status",
+      ],
       ...filteredOrders.map((order) => [
         order.orderCode,
         order.product?.name || "",
@@ -413,7 +356,10 @@ export default function VendorOrdersContent() {
         <div className="h-8 w-48 rounded-lg bg-[#E5E7EB] animate-pulse" />
         <div className="grid grid-cols-4 gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-24 rounded-xl bg-[#E5E7EB] animate-pulse" />
+            <div
+              key={i}
+              className="h-24 rounded-xl bg-[#E5E7EB] animate-pulse"
+            />
           ))}
         </div>
         <div className="h-96 w-full rounded-xl bg-[#E5E7EB] animate-pulse" />
@@ -434,7 +380,10 @@ export default function VendorOrdersContent() {
     <div className="flex flex-col space-y-6 w-full mb-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
-        <Link href="/dashboard/v" className="text-[#6B7280] hover:text-[#111827]">
+        <Link
+          href="/dashboard/v"
+          className="text-[#6B7280] hover:text-[#111827]"
+        >
           Vendor Portal
         </Link>
         <span className="text-[#6B7280]">/</span>
@@ -445,31 +394,28 @@ export default function VendorOrdersContent() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={PiClock}
-          iconBgColor="bg-[#F59E0B]"
+          iconColor="text-[#F59E0B]"
           title="Pending Orders"
           value={stats.pending}
           indicator="bg-[#F59E0B]"
         />
         <StatCard
-          icon={PiSpinner}
-          iconBgColor="bg-[#6366F1]"
+          icon={PiPackage}
+          iconColor="text-[#6366F1]"
           title="In Progress"
           value={stats.confirmed + stats.processing}
-          indicator="bg-[#6366F1]"
         />
         <StatCard
           icon={PiTruck}
-          iconBgColor="bg-[#3B82F6]"
+          iconColor="text-[#9810FA]"
           title="Shipped"
           value={stats.shipped}
-          indicator="bg-[#3B82F6]"
         />
         <StatCard
           icon={PiCheckCircle}
-          iconBgColor="bg-[#10B981]"
+          iconColor="text-[#10B981]"
           title="Delivered"
           value={stats.delivered}
-          indicator="bg-[#10B981]"
         />
       </div>
 
@@ -516,7 +462,9 @@ export default function VendorOrdersContent() {
               <option value="all">All Status ({orders.length})</option>
               <option value="pending">Pending ({stats.pending})</option>
               <option value="confirmed">Confirmed ({stats.confirmed})</option>
-              <option value="processing">Processing ({stats.processing})</option>
+              <option value="processing">
+                Processing ({stats.processing})
+              </option>
               <option value="shipped">Shipped ({stats.shipped})</option>
               <option value="delivered">Delivered ({stats.delivered})</option>
               <option value="cancelled">Cancelled ({stats.cancelled})</option>
@@ -576,7 +524,8 @@ export default function VendorOrdersContent() {
               ) : (
                 filteredOrders.map((order) => {
                   const customerName = order.customer
-                    ? `${order.customer.firstname || ""} ${order.customer.lastname || ""}`.trim() || "—"
+                    ? `${order.customer.firstname || ""} ${order.customer.lastname || ""}`.trim() ||
+                      "—"
                     : "—";
 
                   return (
@@ -598,9 +547,13 @@ export default function VendorOrdersContent() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col">
-                          <span className="text-[#111827] text-sm">{customerName}</span>
+                          <span className="text-[#111827] text-sm">
+                            {customerName}
+                          </span>
                           {order.customer?.email && (
-                            <span className="text-[#6B7280] text-xs">{order.customer.email}</span>
+                            <span className="text-[#6B7280] text-xs">
+                              {order.customer.email}
+                            </span>
                           )}
                         </div>
                       </td>
@@ -610,7 +563,9 @@ export default function VendorOrdersContent() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="text-[#111827] text-sm">{order.quantity}</span>
+                        <span className="text-[#111827] text-sm">
+                          {order.quantity}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <span className="text-[#111827] text-sm font-medium">

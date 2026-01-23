@@ -991,16 +991,7 @@ export async function createVendorApplication(prevState, formData) {
 
   const allowedRoles = ["super_admin", "operations_manager_admin"];
 
-  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
-    return {
-      message: "You are not authorized to create vendor applications.",
-      errors: { ...defaultCreateVendorApplicationValues },
-      values: {},
-      data: {},
-    };
-  }
-
-  const raw = {
+    const raw = {
     vendorUserId: formData.get("vendorUserId") || "",
     businessName: formData.get("businessName") || "",
     category: formData.get("category") || "",
@@ -1035,6 +1026,15 @@ export async function createVendorApplication(prevState, formData) {
     financialVerificationNotes:
       formData.get("financialVerificationNotes") || "",
   };
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to create vendor applications.",
+      errors: { ...defaultCreateVendorApplicationValues },
+      values: raw,
+      data: {},
+    };
+  }
 
   const parsed = createVendorApplicationSchema.safeParse(raw);
 
@@ -1370,15 +1370,6 @@ export async function updateVendorApplication(prevState, formData) {
 
   const allowedRoles = ["super_admin", "operations_manager_admin"];
 
-  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
-    return {
-      message: "You are not authorized to update vendor applications.",
-      errors: { ...defaultUpdateVendorApplicationValues },
-      values: {},
-      data: {},
-    };
-  }
-
   const raw = {
     applicationId: formData.get("applicationId") || "",
     businessName: formData.get("businessName") || "",
@@ -1414,6 +1405,15 @@ export async function updateVendorApplication(prevState, formData) {
     financialVerificationNotes:
       formData.get("financialVerificationNotes") || "",
   };
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to update vendor applications.",
+      errors: { ...defaultUpdateVendorApplicationValues },
+      values: raw,
+      data: {},
+    };
+  }
 
   const parsed = updateVendorApplicationSchema.safeParse(raw);
 

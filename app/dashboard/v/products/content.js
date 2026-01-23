@@ -28,374 +28,15 @@ import {
   DialogClose,
   DialogFooter,
 } from "../../../components/Dialog";
-
-const formatCurrency = (value) => {
-  if (value === null || typeof value === "undefined") return "GHS0.00";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "GHS0.00";
-  return `GHS${num.toLocaleString("en-GH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
-
-const formatCount = (value) => {
-  if (value === null || typeof value === "undefined") return "0";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "0";
-  return num.toLocaleString();
-};
-
-const getStatusBadge = (status) => {
-  const s = (status || "").toLowerCase();
-  if (s === "approved" || s === "active") {
-    return { label: "Active", className: "bg-[#D1FAE5] text-[#059669]" };
-  }
-  if (s === "pending") {
-    return { label: "Pending", className: "bg-[#FEF3C7] text-[#D97706]" };
-  }
-  if (s === "rejected") {
-    return { label: "Rejected", className: "bg-[#FEE2E2] text-[#DC2626]" };
-  }
-  if (s === "inactive") {
-    return { label: "Inactive", className: "bg-[#F3F4F6] text-[#6B7280]" };
-  }
-  if (s === "out_of_stock") {
-    return { label: "Out of Stock", className: "bg-[#FEE2E2] text-[#DC2626]" };
-  }
-  return {
-    label: status || "Unknown",
-    className: "bg-[#F3F4F6] text-[#6B7280]",
-  };
-};
-
-const getStockStatus = (stock) => {
-  const qty = Number(stock || 0);
-  if (qty === 0) return { label: "Out of Stock", color: "text-[#DC2626]" };
-  if (qty <= 5) return { label: `${qty}`, color: "text-[#D97706]" };
-  return { label: `${qty}`, color: "text-[#111827]" };
-};
-
-const calculateMargin = (price, costPrice) => {
-  const p = Number(price || 0);
-  const c = Number(costPrice || 0);
-  if (p === 0 || c === 0) return null;
-  const margin = ((p - c) / p) * 100;
-  return margin.toFixed(0);
-};
-
-function StatCard({ icon: Icon, iconColor, title, value }) {
-  return (
-    <div className="flex flex-col space-y-2 p-4 bg-white rounded-xl border border-[#E5E7EB]">
-      <div className="flex items-center justify-between">
-        <span className="text-[#6B7280] text-sm font-poppins">{title}</span>
-
-        <Icon className={`w-5 h-5 text-[${iconColor}]`} />
-      </div>
-      <div className="flex items-center justify-between">
-        <span className="text-[#111827] text-2xl font-semibold font-inter">
-          {value}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function AddProductDialog({ open, onOpenChange, categories, onSuccess }) {
-  const [state, formAction, isPending] = useActionState(manageProducts, {
-    success: false,
-    message: "",
-    errors: {},
-    values: {},
-  });
-
-  const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
-  const formRef = useRef(null);
-
-  useEffect(() => {
-    if (state.success) {
-      onSuccess?.();
-      onOpenChange(false);
-      setImagePreview(null);
-      formRef.current?.reset();
-    }
-  }, [state.success, onSuccess, onOpenChange]);
-
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInputRef.current.files = dt.files;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const removeImage = () => {
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-[#111827] text-lg font-semibold">
-            Add New Product
-          </DialogTitle>
-          <DialogDescription className="text-[#6B7280] text-sm">
-            Enter the details for your new product
-          </DialogDescription>
-        </DialogHeader>
-
-        <form ref={formRef} action={formAction} className="mt-4 space-y-4">
-          <input type="hidden" name="action" value="create" />
-
-          {state.message && !state.success && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {state.message}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Product Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                placeholder="e.g., Ceramic Vase Set"
-                defaultValue={state.values?.name || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              {state.errors?.name && (
-                <span className="text-red-500 text-xs">
-                  {state.errors.name}
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                SKU <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="product_code"
-                placeholder="e.g., CVS-001"
-                defaultValue={state.values?.product_code || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              {state.errors?.product_code && (
-                <span className="text-red-500 text-xs">
-                  {state.errors.product_code}
-                </span>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Category <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="category_id"
-                defaultValue={state.values?.category_id || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-              >
-                <option value="">Select category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-              {state.errors?.category_id && (
-                <span className="text-red-500 text-xs">
-                  {state.errors.category_id}
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="status"
-                defaultValue={state.values?.status || "pending"}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-              >
-                <option value="pending">Pending</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Selling Price <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="price"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                defaultValue={state.values?.price || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              {state.errors?.price && (
-                <span className="text-red-500 text-xs">
-                  {state.errors.price}
-                </span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Cost Price
-              </label>
-              <input
-                type="number"
-                name="cost_price"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                defaultValue={state.values?.cost_price || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[#374151] text-sm font-medium">
-              Initial Stock <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              name="stock_qty"
-              min="0"
-              placeholder="0"
-              defaultValue={state.values?.stock_qty || "0"}
-              className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-            {state.errors?.stock_qty && (
-              <span className="text-red-500 text-xs">
-                {state.errors.stock_qty}
-              </span>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[#374151] text-sm font-medium">
-              Description
-            </label>
-            <textarea
-              name="description"
-              rows={3}
-              placeholder="Product description..."
-              defaultValue={state.values?.description || ""}
-              className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[#374151] text-sm font-medium">
-              Product Image
-            </label>
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              className="relative border-2 border-dashed border-[#D1D5DB] rounded-lg p-6 text-center hover:border-primary/50 transition-colors"
-            >
-              {imagePreview ? (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="max-h-32 mx-auto rounded-lg object-contain"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                  >
-                    <PiX className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <PiUploadSimple className="w-8 h-8 mx-auto text-[#9CA3AF] mb-2" />
-                  <p className="text-[#6B7280] text-sm">
-                    Drag & drop an image here, or{" "}
-                    <label className="text-primary cursor-pointer hover:underline">
-                      Browse
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        name="image"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB]">
-            <DialogClose asChild>
-              <button
-                type="button"
-                className="px-4 py-2 text-sm font-medium text-[#374151] bg-white border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB]"
-              >
-                Cancel
-              </button>
-            </DialogClose>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isPending ? "Adding..." : "Add Product"}
-            </button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+import {
+  formatCount,
+  formatCurrency,
+  getStatusBadge,
+  getStockStatus,
+  calculateMargin,
+  StatCard,
+} from "./utils";
+import { AddProductDialog } from "../components/addProductDialog";
 
 function ProductActionsMenu({ product, onEdit, onDelete }) {
   const [open, setOpen] = useState(false);
@@ -404,7 +45,7 @@ function ProductActionsMenu({ product, onEdit, onDelete }) {
     <div className="relative">
       <button
         onClick={() => setOpen(!open)}
-        className="p-1.5 rounded-lg hover:bg-[#F3F4F6] transition-colors"
+        className="cursor-pointer p-1.5 rounded-lg hover:bg-[#F3F4F6] transition-colors"
       >
         <PiDotsThreeVertical className="w-5 h-5 text-[#6B7280]" />
       </button>
@@ -418,7 +59,7 @@ function ProductActionsMenu({ product, onEdit, onDelete }) {
                 onEdit?.(product);
                 setOpen(false);
               }}
-              className="w-full px-3 py-2 text-left text-sm text-[#374151] hover:bg-[#F3F4F6] flex items-center gap-2"
+              className="cursor-pointer w-full px-3 py-2 text-left text-sm text-[#374151] hover:bg-[#F3F4F6] flex items-center gap-2"
             >
               <PiPencilSimple className="w-4 h-4" />
               Edit
@@ -428,7 +69,7 @@ function ProductActionsMenu({ product, onEdit, onDelete }) {
                 onDelete?.(product);
                 setOpen(false);
               }}
-              className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+              className="cursor-pointer w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
             >
               <PiTrash className="w-4 h-4" />
               Delete
@@ -557,7 +198,7 @@ export default function VendorProductsContent() {
           </div>
           <button
             onClick={() => setAddDialogOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-full hover:bg-primary/90 transition-colors"
+            className="cursor-pointer inline-flex items-center gap-2 px-4 py-2.5 bg-primary text-white text-sm font-medium rounded-full hover:bg-primary/90 transition-colors"
           >
             <PiPlus className="w-4 h-4" />
             Add New Products
@@ -663,7 +304,7 @@ export default function VendorProductsContent() {
                         statusFilter === "all" && (
                           <button
                             onClick={() => setAddDialogOpen(true)}
-                            className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90"
+                            className="cursor-pointer mt-2 inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90"
                           >
                             <PiPlus className="w-4 h-4" />
                             Add Product
@@ -751,6 +392,7 @@ export default function VendorProductsContent() {
         onOpenChange={setAddDialogOpen}
         categories={categories}
         onSuccess={refreshData}
+        variant="vendor_products"
       />
     </div>
   );

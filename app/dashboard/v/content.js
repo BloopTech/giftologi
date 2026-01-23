@@ -1,6 +1,11 @@
 "use client";
-
-import React, { useMemo, useState, useEffect, useActionState, useRef } from "react";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useActionState,
+  useRef,
+} from "react";
 import Link from "next/link";
 import {
   PiCashRegister,
@@ -18,394 +23,15 @@ import {
   SalesTrendSection,
   TopCategoriesSection,
 } from "./components/charts/ChartsSection";
-import { manageVendor } from "./action";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogClose,
-  DialogFooter,
-} from "../../components/Dialog";
-
-const formatCurrency = (value) => {
-  if (value === null || typeof value === "undefined") return "GHS 0.00";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "GHS 0.00";
-  return `GHS ${num.toLocaleString("en-GH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
-
-const formatCount = (value) => {
-  if (value === null || typeof value === "undefined") return "0";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "0";
-  return num.toLocaleString();
-};
-
-const buildDailySeries = (orderItems, days = 7) => {
-  const now = new Date();
-  const start = new Date(now);
-  start.setDate(start.getDate() - (days - 1));
-
-  const map = new Map();
-
-  (orderItems || []).forEach((row) => {
-    const created = row?.created_at;
-    if (!created) return;
-    const date = new Date(created);
-    if (Number.isNaN(date.getTime())) return;
-    const key = date.toISOString().slice(0, 10);
-    const entry = map.get(key) || { revenue: 0, orders: new Set() };
-    const qty = Number(row.quantity || 0);
-    const price = Number(row.price || 0);
-    if (Number.isFinite(qty) && Number.isFinite(price)) {
-      entry.revenue += qty * price;
-    }
-    if (row.order_id) {
-      entry.orders.add(row.order_id);
-    }
-    map.set(key, entry);
-  });
-
-  return Array.from({ length: days }, (_, index) => {
-    const day = new Date(start);
-    day.setDate(start.getDate() + index);
-    const key = day.toISOString().slice(0, 10);
-    const entry = map.get(key);
-    const label = day.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-
-    return {
-      dateKey: key,
-      label,
-      revenue: entry ? entry.revenue : 0,
-      orders: entry ? entry.orders.size : 0,
-    };
-  });
-};
-
-const getStatusColor = (status) => {
-  const s = (status || "").toLowerCase();
-  if (s === "pending") return "bg-[#FEF3C7] text-[#D97706]";
-  if (s === "confirmed" || s === "paid") return "bg-[#D1FAE5] text-[#059669]";
-  if (s === "shipped") return "bg-[#DBEAFE] text-[#2563EB]";
-  if (s === "delivered") return "bg-[#D1FAE5] text-[#059669]";
-  if (s === "cancelled") return "bg-[#FEE2E2] text-[#DC2626]";
-  return "bg-[#F3F4F6] text-[#6B7280]";
-};
-
-const getStatusLabel = (status) => {
-  const s = (status || "").toLowerCase();
-  if (s === "pending") return "Pending";
-  if (s === "confirmed" || s === "paid") return "Confirmed";
-  if (s === "shipped") return "Shipped";
-  if (s === "delivered") return "Delivered";
-  if (s === "cancelled") return "Cancelled";
-  return status || "Unknown";
-};
-
-const formatTimeAgo = (dateStr) => {
-  if (!dateStr) return "";
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now - date;
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffHours < 1) return "Just now";
-  if (diffHours < 24) return `${diffHours} hours ago`;
-  if (diffDays === 1) return "1 day ago";
-  return `${diffDays} days ago`;
-};
-
-function AddProductDialog({ open, onOpenChange, categories, onSuccess }) {
-  const [state, formAction, isPending] = useActionState(manageVendor, {
-    success: false,
-    message: "",
-    errors: {},
-    values: {},
-  });
-
-  const [imagePreview, setImagePreview] = useState(null);
-  const fileInputRef = useRef(null);
-  const formRef = useRef(null);
-
-  useEffect(() => {
-    if (state.success) {
-      onSuccess?.();
-      onOpenChange(false);
-      setImagePreview(null);
-      formRef.current?.reset();
-    }
-  }, [state.success, onSuccess, onOpenChange]);
-
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) {
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInputRef.current.files = dt.files;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDragOver = (e) => {
-    e.preventDefault();
-  };
-
-  const removeImage = () => {
-    setImagePreview(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="text-[#111827] text-lg font-semibold">
-            Add New Product
-          </DialogTitle>
-          <DialogDescription className="text-[#6B7280] text-sm">
-            Enter the details for your new product
-          </DialogDescription>
-        </DialogHeader>
-
-        <form ref={formRef} action={formAction} className="mt-4 space-y-4">
-          <input type="hidden" name="action" value="create_product" />
-
-          {state.message && !state.success && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {state.message}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Product Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="name"
-                placeholder="e.g., Ceramic Vase Set"
-                defaultValue={state.values?.name || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              {state.errors?.name && (
-                <span className="text-red-500 text-xs">{state.errors.name}</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                SKU <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="product_code"
-                placeholder="e.g., CVS-001"
-                defaultValue={state.values?.product_code || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              {state.errors?.product_code && (
-                <span className="text-red-500 text-xs">{state.errors.product_code}</span>
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Category <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="category_id"
-                defaultValue={state.values?.category_id || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-              >
-                <option value="">Select category</option>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
-              {state.errors?.category_id && (
-                <span className="text-red-500 text-xs">{state.errors.category_id}</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Status <span className="text-red-500">*</span>
-              </label>
-              <select
-                name="status"
-                defaultValue={state.values?.status || "pending"}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-              >
-                <option value="pending">Pending</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Selling Price <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="number"
-                name="price"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                defaultValue={state.values?.price || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-              {state.errors?.price && (
-                <span className="text-red-500 text-xs">{state.errors.price}</span>
-              )}
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">
-                Cost Price
-              </label>
-              <input
-                type="number"
-                name="cost_price"
-                step="0.01"
-                min="0"
-                placeholder="0.00"
-                defaultValue={state.values?.cost_price || ""}
-                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[#374151] text-sm font-medium">
-              Initial Stock <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="number"
-              name="stock_qty"
-              min="0"
-              placeholder="0"
-              defaultValue={state.values?.stock_qty || "0"}
-              className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            />
-            {state.errors?.stock_qty && (
-              <span className="text-red-500 text-xs">{state.errors.stock_qty}</span>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[#374151] text-sm font-medium">
-              Description
-            </label>
-            <textarea
-              name="description"
-              rows={3}
-              placeholder="Product description..."
-              defaultValue={state.values?.description || ""}
-              className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-            />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[#374151] text-sm font-medium">
-              Product Image
-            </label>
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              className="relative border-2 border-dashed border-[#D1D5DB] rounded-lg p-6 text-center hover:border-primary/50 transition-colors"
-            >
-              {imagePreview ? (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="max-h-32 mx-auto rounded-lg object-contain"
-                  />
-                  <button
-                    type="button"
-                    onClick={removeImage}
-                    className="absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
-                  >
-                    <PiX className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <PiUploadSimple className="w-8 h-8 mx-auto text-[#9CA3AF] mb-2" />
-                  <p className="text-[#6B7280] text-sm">
-                    Drag & drop an image here, or{" "}
-                    <label className="text-primary cursor-pointer hover:underline">
-                      Browse
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        name="image"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB]">
-            <DialogClose asChild>
-              <button
-                type="button"
-                className="px-4 py-2 text-sm font-medium text-[#374151] bg-white border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB]"
-              >
-                Cancel
-              </button>
-            </DialogClose>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isPending ? "Adding..." : "Add Product"}
-            </button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+  formatCurrency,
+  formatCount,
+  formatTimeAgo,
+  getStatusColor,
+  getStatusLabel,
+  buildDailySeries,
+} from "./components/utils";
+import { AddProductDialog } from "./components/addProductDialog";
 
 export default function VendorDashboardContent() {
   const {
@@ -422,7 +48,9 @@ export default function VendorDashboardContent() {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const derivedData = useMemo(() => {
-    const productById = new Map(products.map((product) => [product.id, product]));
+    const productById = new Map(
+      products.map((product) => [product.id, product]),
+    );
     const ordersSet = new Set();
     let totalRevenue = 0;
 
@@ -443,7 +71,10 @@ export default function VendorDashboardContent() {
       const status = (product.status || "").toLowerCase();
       const stock = Number(product.stock_qty || 0);
       return (
-        status === "approved" && Number.isFinite(stock) && stock > 0 && stock <= 5
+        status === "approved" &&
+        Number.isFinite(stock) &&
+        stock > 0 &&
+        stock <= 5
       );
     });
 
@@ -515,7 +146,8 @@ export default function VendorDashboardContent() {
           orderId: row.order_id || "—",
           createdAt: row.created_at,
           quantity: Number.isFinite(qty) ? qty : 0,
-          total: Number.isFinite(qty) && Number.isFinite(price) ? qty * price : 0,
+          total:
+            Number.isFinite(qty) && Number.isFinite(price) ? qty * price : 0,
         };
       });
 
@@ -545,7 +177,9 @@ export default function VendorDashboardContent() {
   if (vendorError) {
     return (
       <div className="flex flex-col space-y-2 w-full mb-8">
-        <h1 className="text-[#0A0A0A] font-semibold font-inter">Vendor Dashboard</h1>
+        <h1 className="text-[#0A0A0A] font-semibold font-inter">
+          Vendor Dashboard
+        </h1>
         <p className="text-[#717182] text-sm font-poppins">{vendorError}</p>
       </div>
     );
@@ -615,7 +249,9 @@ export default function VendorDashboardContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">Total Orders</h2>
+          <h2 className="text-[#717182] text-xs/4 font-poppins">
+            Total Orders
+          </h2>
           <div className="flex justify-between items-center">
             <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
               {formatCount(totalOrders)}
@@ -626,7 +262,9 @@ export default function VendorDashboardContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">Active Products</h2>
+          <h2 className="text-[#717182] text-xs/4 font-poppins">
+            Active Products
+          </h2>
           <div className="flex justify-between items-center">
             <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
               {formatCount(activeProducts.length)}
@@ -637,7 +275,9 @@ export default function VendorDashboardContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">Pending Payouts</h2>
+          <h2 className="text-[#717182] text-xs/4 font-poppins">
+            Pending Payouts
+          </h2>
           <div className="flex justify-between items-center">
             <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
               {formatCurrency(pendingPayoutAmount)}
@@ -661,13 +301,13 @@ export default function VendorDashboardContent() {
               </p>
             </div>
             <div className="flex items-center gap-1 bg-[#F3F4F6] rounded-full p-1">
-              <button className="px-3 py-1.5 text-xs font-medium rounded-full bg-[#111827] text-white">
+              <button className="cursor-pointer px-3 py-1.5 text-xs font-medium rounded-full bg-[#111827] text-white">
                 7D
               </button>
-              <button className="px-3 py-1.5 text-xs font-medium rounded-full text-[#6B7280] hover:bg-white">
+              <button className="cursor-pointer px-3 py-1.5 text-xs font-medium rounded-full text-[#6B7280] hover:bg-white">
                 30D
               </button>
-              <button className="px-3 py-1.5 text-xs font-medium rounded-full text-[#6B7280] hover:bg-white">
+              <button className="cursor-pointer px-3 py-1.5 text-xs font-medium rounded-full text-[#6B7280] hover:bg-white">
                 90D
               </button>
             </div>
@@ -778,7 +418,7 @@ export default function VendorDashboardContent() {
                     <span className="text-[#111827] text-sm font-semibold">
                       {formatCurrency(item.total)}
                     </span>
-                    <button className="p-2 rounded-full hover:bg-[#F3F4F6] transition-colors">
+                    <button className="cursor-pointer p-2 rounded-full hover:bg-[#F3F4F6] transition-colors">
                       <PiEye className="w-4 h-4 text-[#6B7280]" />
                     </button>
                   </div>

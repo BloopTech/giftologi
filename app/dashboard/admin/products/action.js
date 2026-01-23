@@ -646,6 +646,7 @@ const defaultCreateProductValues = {
 
 const defaultCreateCategoryValues = {
   name: [],
+  subcategories: [],
 };
 
 const defaultUpdateCategoryValues = {
@@ -656,6 +657,8 @@ const defaultDeleteCategoryValues = {};
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(1, { message: "Category name is required" }),
+  parentCategoryId: z.string().trim().optional().or(z.literal("")),
+  subcategories: z.string().trim().optional().or(z.literal("")),
 });
 
 export async function createCategory(prevState, formData) {
@@ -697,6 +700,8 @@ export async function createCategory(prevState, formData) {
 
   const raw = {
     name: formData.get("name") || "",
+    parentCategoryId: formData.get("parentCategoryId") || "",
+    subcategories: formData.get("subcategories") || "",
   };
 
   const parsed = createCategorySchema.safeParse(raw);
@@ -713,8 +718,52 @@ export async function createCategory(prevState, formData) {
     };
   }
 
-  const { name } = parsed.data;
-  const slug = slugifyCategory(name);
+  const { name, parentCategoryId, subcategories } = parsed.data;
+
+  let parentCategory = null;
+  const trimmedParentCategoryId =
+    typeof parentCategoryId === "string" ? parentCategoryId.trim() : "";
+
+  if (trimmedParentCategoryId) {
+    const parentUuidParse = z.string().uuid().safeParse(trimmedParentCategoryId);
+
+    if (!parentUuidParse.success) {
+      return {
+        message: "Select a valid parent category.",
+        errors: {
+          ...defaultCreateCategoryValues,
+          parentCategoryId: ["Select a valid parent category."],
+        },
+        values: raw,
+        data: {},
+      };
+    }
+
+    const { data: parent, error: parentError } = await supabase
+      .from("categories")
+      .select("id, slug")
+      .eq("id", parentUuidParse.data)
+      .maybeSingle();
+
+    if (parentError || !parent) {
+      return {
+        message: parentError?.message || "Select a valid parent category.",
+        errors: {
+          ...defaultCreateCategoryValues,
+          parentCategoryId: ["Select a valid parent category."],
+        },
+        values: raw,
+        data: {},
+      };
+    }
+
+    parentCategory = parent;
+  }
+
+  const baseSlug = slugifyCategory(name);
+  const slug = parentCategory?.slug
+    ? `${parentCategory.slug}-${baseSlug}`
+    : baseSlug;
 
   const { data: existingCategory, error: existingError } = await supabase
     .from("categories")
@@ -751,6 +800,7 @@ export async function createCategory(prevState, formData) {
       {
         name,
         slug,
+        parent_category_id: parentCategory?.id || null,
         created_at: nowIso,
         updated_at: nowIso,
       },
@@ -765,6 +815,74 @@ export async function createCategory(prevState, formData) {
       values: raw,
       data: {},
     };
+  }
+
+  const rawSubcategories = typeof subcategories === "string" ? subcategories : "";
+  const parsedSubcategoryNames = rawSubcategories
+    .split(/\r?\n|,/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const uniqueSubcategoryNames = Array.from(new Set(parsedSubcategoryNames));
+
+  if (uniqueSubcategoryNames.length) {
+    const childRows = uniqueSubcategoryNames.map((childName) => {
+      const childSlug = `${slug}-${slugifyCategory(childName)}`;
+      return {
+        name: childName,
+        slug: childSlug,
+        parent_category_id: category.id,
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+    });
+
+    const childSlugs = childRows.map((row) => row.slug);
+
+    const { data: existingChildren, error: existingChildError } = await supabase
+      .from("categories")
+      .select("slug")
+      .in("slug", childSlugs);
+
+    if (existingChildError) {
+      await supabase.from("categories").delete().eq("id", category.id);
+
+      return {
+        message: existingChildError.message,
+        errors: { ...defaultCreateCategoryValues },
+        values: raw,
+        data: {},
+      };
+    }
+
+    if (Array.isArray(existingChildren) && existingChildren.length) {
+      await supabase.from("categories").delete().eq("id", category.id);
+
+      return {
+        message: "One or more subcategories already exist.",
+        errors: {
+          ...defaultCreateCategoryValues,
+          subcategories: ["One or more subcategories already exist."],
+        },
+        values: raw,
+        data: {},
+      };
+    }
+
+    const { error: insertChildrenError } = await supabase
+      .from("categories")
+      .insert(childRows);
+
+    if (insertChildrenError) {
+      await supabase.from("categories").delete().eq("id", category.id);
+
+      return {
+        message: insertChildrenError.message,
+        errors: { ...defaultCreateCategoryValues },
+        values: raw,
+        data: {},
+      };
+    }
   }
 
   const adminNameParts = [];
@@ -857,7 +975,7 @@ export async function updateCategory(prevState, formData) {
 
   const { data: existingCategory, error: fetchError } = await supabase
     .from("categories")
-    .select("id, name, slug")
+    .select("id, name, slug, parent_category_id")
     .eq("id", categoryId)
     .single();
 
@@ -870,7 +988,28 @@ export async function updateCategory(prevState, formData) {
     };
   }
 
-  const newSlug = slugifyCategory(name);
+  let slugPrefix = "";
+
+  if (existingCategory?.parent_category_id) {
+    const { data: parentCategory, error: parentError } = await supabase
+      .from("categories")
+      .select("slug")
+      .eq("id", existingCategory.parent_category_id)
+      .maybeSingle();
+
+    if (parentError) {
+      return {
+        message: parentError.message,
+        errors: { ...defaultUpdateCategoryValues },
+        values: { name },
+        data: {},
+      };
+    }
+
+    slugPrefix = parentCategory?.slug ? `${parentCategory.slug}-` : "";
+  }
+
+  const newSlug = `${slugPrefix}${slugifyCategory(name)}`;
   const { data: slugConflict, error: slugError } = await supabase
     .from("categories")
     .select("id")
@@ -1029,6 +1168,30 @@ export async function deleteCategory(prevState, formData) {
   if (productsUsingCategory && productsUsingCategory.length > 0) {
     return {
       message: "Cannot delete category because it is being used by products.",
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: childCategory, error: childError } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("parent_category_id", categoryId)
+    .limit(1);
+
+  if (childError) {
+    return {
+      message: childError.message,
+      errors: { ...defaultDeleteCategoryValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  if (Array.isArray(childCategory) && childCategory.length > 0) {
+    return {
+      message: "Cannot delete category because it has subcategories.",
       errors: { ...defaultDeleteCategoryValues },
       values: {},
       data: {},

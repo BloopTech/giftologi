@@ -15,104 +15,16 @@ import {
   PiCheckCircle,
 } from "react-icons/pi";
 import { useVendorPayoutsContext } from "./context";
-
-const formatCurrency = (value) => {
-  if (value === null || typeof value === "undefined") return "GHS0.00";
-  const num = Number(value);
-  if (!Number.isFinite(num)) return "GHS0.00";
-  return `GHS${num.toLocaleString("en-GH", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-};
-
-const formatDate = (dateString) => {
-  if (!dateString) return "—";
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toISOString().split("T")[0];
-};
-
-const buildMaskedEnding = (value) => {
-  if (!value) return "";
-  const safe = String(value);
-  return safe.slice(-4);
-};
-
-const getPayoutDisplayId = (id) => {
-  if (!id) return "—";
-  const trimmed = String(id).replace(/-/g, "");
-  return `PAY-${trimmed.slice(-6).toUpperCase()}`;
-};
-
-const getTransactionDisplayId = (id) => {
-  if (!id) return "—";
-  const trimmed = String(id).replace(/-/g, "");
-  return `TXN-${trimmed.slice(-6).toUpperCase()}`;
-};
-
-const getStatusConfig = (status) => {
-  const s = (status || "").toLowerCase();
-  const configs = {
-    pending: {
-      label: "Pending",
-      className: "bg-[#FEF3C7] text-[#D97706]",
-      dotColor: "bg-[#F59E0B]",
-    },
-    completed: {
-      label: "Completed",
-      className: "bg-[#D1FAE5] text-[#059669]",
-      dotColor: "bg-[#10B981]",
-    },
-    processing: {
-      label: "Processing",
-      className: "bg-[#DBEAFE] text-[#2563EB]",
-      dotColor: "bg-[#3B82F6]",
-    },
-    failed: {
-      label: "Failed",
-      className: "bg-[#FEE2E2] text-[#DC2626]",
-      dotColor: "bg-[#EF4444]",
-    },
-  };
-  return configs[s] || { label: status || "Unknown", className: "bg-[#F3F4F6] text-[#6B7280]", dotColor: "bg-[#9CA3AF]" };
-};
-
-function StatCard({ icon: Icon, iconBgColor, title, value, subtitle, indicator }) {
-  return (
-    <div className="flex flex-col space-y-2 p-4 bg-white rounded-xl border border-[#E5E7EB]">
-      <div className="flex items-center justify-between">
-        <span className="text-[#6B7280] text-sm font-poppins">{title}</span>
-        {indicator && (
-          <div className={`w-2 h-2 rounded-full ${indicator}`} />
-        )}
-      </div>
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="text-[#111827] text-2xl font-semibold font-inter">
-            {value}
-          </span>
-          {subtitle && (
-            <span className="text-[#6B7280] text-xs mt-0.5">{subtitle}</span>
-          )}
-        </div>
-        <div className={`p-2 rounded-full ${iconBgColor}`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  const config = getStatusConfig(status);
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-full ${config.className}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${config.dotColor}`} />
-      {config.label}
-    </span>
-  );
-}
+import {
+  formatCurrency,
+  formatDate,
+  buildMaskedEnding,
+  getPayoutDisplayId,
+  getStatusConfig,
+  getTransactionDisplayId,
+  StatCard,
+  StatusBadge,
+} from "./utils";
 
 export default function VendorPayoutsContent() {
   const [dateFilter, setDateFilter] = useState("last_30_days");
@@ -153,14 +65,17 @@ export default function VendorPayoutsContent() {
     );
 
     const commissionRate = Number(vendorCommissionRate || 0);
-    const commissionFactor = Number.isFinite(commissionRate) ? commissionRate / 100 : 0;
+    const commissionFactor = Number.isFinite(commissionRate)
+      ? commissionRate / 100
+      : 0;
 
     const payoutRows = filteredPayouts.map((payout) => {
       const fromDate = formatDate(payout.from_date);
       const toDate = formatDate(payout.to_date);
-      const period = payout.from_date || payout.to_date
-        ? `${fromDate} - ${toDate}`
-        : formatDate(payout.created_at);
+      const period =
+        payout.from_date || payout.to_date
+          ? `${fromDate} - ${toDate}`
+          : formatDate(payout.created_at);
 
       return {
         id: payout.id,
@@ -176,12 +91,16 @@ export default function VendorPayoutsContent() {
     const transactionRows = filteredTransactions.map((txn) => {
       const quantity = Number(txn.quantity || 0);
       const price = Number(txn.price || 0);
-      const saleAmount = Number.isFinite(quantity) && Number.isFinite(price)
-        ? quantity * price
-        : 0;
+      const saleAmount =
+        Number.isFinite(quantity) && Number.isFinite(price)
+          ? quantity * price
+          : 0;
       const commission = saleAmount * commissionFactor;
       const netAmount = saleAmount - commission;
-      const status = txn.vendor_payouts?.status || txn.vendor_status || txn.fulfillment_status;
+      const status =
+        txn.vendor_payouts?.status ||
+        txn.vendor_status ||
+        txn.fulfillment_status;
 
       return {
         id: txn.id,
@@ -198,22 +117,36 @@ export default function VendorPayoutsContent() {
 
     const totalEarnings = payoutRows.reduce((sum, row) => sum + row.amount, 0);
     const pendingPayouts = payoutRows
-      .filter((row) => ["pending", "processing"].includes(String(row.status || "").toLowerCase()))
+      .filter((row) =>
+        ["pending", "processing"].includes(
+          String(row.status || "").toLowerCase(),
+        ),
+      )
       .reduce((sum, row) => sum + row.amount, 0);
 
     const nextPending = payoutRows
       .filter((row) => String(row.status || "").toLowerCase() === "pending")
       .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))[0];
 
-    const totalSales = transactionRows.reduce((sum, row) => sum + row.saleAmount, 0);
-    const totalCommission = transactionRows.reduce((sum, row) => sum + row.commission, 0);
-    const netEarnings = transactionRows.reduce((sum, row) => sum + row.netAmount, 0);
+    const totalSales = transactionRows.reduce(
+      (sum, row) => sum + row.saleAmount,
+      0,
+    );
+    const totalCommission = transactionRows.reduce(
+      (sum, row) => sum + row.commission,
+      0,
+    );
+    const netEarnings = transactionRows.reduce(
+      (sum, row) => sum + row.netAmount,
+      0,
+    );
 
-    const paymentMethod = paymentInfo?.bank_name || paymentInfo?.bank_account
-      ? "Bank Transfer"
-      : paymentInfo?.momo_number
-      ? `MoMo${paymentInfo?.momo_network ? ` (${paymentInfo.momo_network})` : ""}`
-      : "Not set";
+    const paymentMethod =
+      paymentInfo?.bank_name || paymentInfo?.bank_account
+        ? "Bank Transfer"
+        : paymentInfo?.momo_number
+          ? `MoMo${paymentInfo?.momo_network ? ` (${paymentInfo.momo_network})` : ""}`
+          : "Not set";
 
     return {
       commissionRate: Number.isFinite(commissionRate) ? commissionRate : 0,
@@ -244,7 +177,15 @@ export default function VendorPayoutsContent() {
 
   const handleExport = () => {
     const csvContent = [
-      ["Payout ID", "Period", "Orders", "Amount", "Scheduled Date", "Payment Method", "Status"],
+      [
+        "Payout ID",
+        "Period",
+        "Orders",
+        "Amount",
+        "Scheduled Date",
+        "Payment Method",
+        "Status",
+      ],
       ...payoutRows.map((payout) => [
         payout.displayId,
         payout.period,
@@ -271,7 +212,10 @@ export default function VendorPayoutsContent() {
     <div className="flex flex-col space-y-6 w-full mb-8">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm">
-        <Link href="/dashboard/v" className="text-[#6B7280] hover:text-[#111827]">
+        <Link
+          href="/dashboard/v"
+          className="text-[#6B7280] hover:text-[#111827]"
+        >
           Vendor Portal
         </Link>
         <span className="text-[#6B7280]">/</span>
@@ -292,24 +236,23 @@ export default function VendorPayoutsContent() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={PiCurrencyCircleDollar}
-          iconBgColor="bg-[#10B981]"
+          iconColor="text-[#10B981]"
           title="Total Earnings"
           value={formatCurrency(totalEarnings)}
-          subtitle="Selected period"
+          subtitle="Last 30 days"
         />
 
         <StatCard
           icon={PiClock}
-          iconBgColor="bg-[#F59E0B]"
+          iconColor="text-[#F59E0B]"
           title="Pending Payouts"
           value={formatCurrency(pendingPayouts)}
           subtitle="Awaiting transfer"
-          indicator="bg-[#F59E0B]"
         />
 
         <StatCard
           icon={PiCalendar}
-          iconBgColor="bg-[#3B82F6]"
+          iconColor="text-[#3B82F6]"
           title="Next Payout"
           value={nextPayoutDate}
           subtitle="Scheduled date"
@@ -317,7 +260,7 @@ export default function VendorPayoutsContent() {
 
         <StatCard
           icon={PiPercent}
-          iconBgColor="bg-[#6B7280]"
+          iconColor="text-[#6B7280]"
           title="Commission Rate"
           value={`${commissionRate}%`}
           subtitle="Platform fee"
@@ -329,7 +272,9 @@ export default function VendorPayoutsContent() {
         <h2 className="text-[#111827] text-base font-semibold font-inter mb-1">
           Payment Information
         </h2>
-        <p className="text-[#6B7280] text-sm mb-4">Your registered payment method</p>
+        <p className="text-[#6B7280] text-sm mb-4">
+          Your registered payment method
+        </p>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -337,21 +282,33 @@ export default function VendorPayoutsContent() {
               <PiBank className="w-5 h-5 text-[#374151]" />
             </div>
             <div>
-              <p className="text-[#111827] text-sm font-medium">{paymentMethod}</p>
-              <p className="text-[#6B7280] text-xs">
-                Account ending in ***{buildMaskedEnding(paymentInfo?.bank_account || paymentInfo?.momo_number)}
+              <p className="text-[#111827] text-sm font-medium">
+                {paymentMethod}
               </p>
               <p className="text-[#6B7280] text-xs">
-                {paymentInfo?.bank_name || paymentInfo?.momo_network || "Not set"}
+                Account ending in ***
+                {buildMaskedEnding(
+                  paymentInfo?.bank_account || paymentInfo?.momo_number,
+                )}
+              </p>
+              <p className="text-[#6B7280] text-xs">
+                {paymentInfo?.bank_name ||
+                  paymentInfo?.momo_network ||
+                  "Not set"}
                 {paymentInfo?.routing_number
                   ? ` • Routing ***${buildMaskedEnding(paymentInfo.routing_number)}`
                   : ""}
               </p>
             </div>
           </div>
-          <button className="px-4 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition-colors">
-            Update Payment Method
-          </button>
+          <div>
+            <Link
+              href="/dashboard/v/profile"
+              className="px-4 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition-colors"
+            >
+              Update Payment Method
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -441,10 +398,14 @@ export default function VendorPayoutsContent() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[#6B7280] text-sm">{payout.period}</span>
+                      <span className="text-[#6B7280] text-sm">
+                        {payout.period}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <span className="text-[#111827] text-sm">{payout.orders}</span>
+                      <span className="text-[#111827] text-sm">
+                        {payout.orders}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-[#10B981] text-sm font-semibold">
@@ -452,12 +413,16 @@ export default function VendorPayoutsContent() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[#6B7280] text-sm">{payout.scheduledDate}</span>
+                      <span className="text-[#6B7280] text-sm">
+                        {payout.scheduledDate}
+                      </span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <PiBank className="w-4 h-4 text-[#6B7280]" />
-                        <span className="text-[#6B7280] text-sm">{paymentMethod}</span>
+                        <span className="text-[#6B7280] text-sm">
+                          {paymentMethod}
+                        </span>
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center">
@@ -553,11 +518,15 @@ export default function VendorPayoutsContent() {
                         href={`/dashboard/v/orders?id=${txn.orderId}`}
                         className="text-primary text-sm hover:underline"
                       >
-                        {txn.orderId ? `ORD-${String(txn.orderId).slice(-4)}` : "—"}
+                        {txn.orderId
+                          ? `ORD-${String(txn.orderId).slice(-4)}`
+                          : "—"}
                       </Link>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[#111827] text-sm">{txn.product}</span>
+                      <span className="text-[#111827] text-sm">
+                        {txn.product}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-[#111827] text-sm">
@@ -589,7 +558,7 @@ export default function VendorPayoutsContent() {
 
         {/* Transactions Summary Footer */}
         <div className="p-4 border-t border-[#E5E7EB] bg-[#F9FAFB]">
-          <div className="flex flex-wrap items-center gap-8">
+          <div className="flex flex-wrap items-center justify-between">
             <div>
               <span className="text-[#6B7280] text-sm">Total Sales</span>
               <p className="text-[#111827] text-lg font-semibold">
@@ -623,8 +592,9 @@ export default function VendorPayoutsContent() {
               Payout Schedule
             </h3>
             <p className="text-[#6B7280] text-sm mb-3">
-              Payouts are processed bi-monthly on the 15th and last day of each month. 
-              Orders must be delivered and confirmed before being included in a payout batch.
+              Payouts are processed bi-monthly on the 15th and last day of each
+              month. Orders must be delivered and confirmed before being
+              included in a payout batch.
             </p>
             <ul className="space-y-1.5 text-[#6B7280] text-sm">
               <li className="flex items-center gap-2">

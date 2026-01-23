@@ -79,7 +79,7 @@ export const VendorDashboardProvider = ({ children }) => {
 
       const { data: categoriesData, error: categoriesError } = await supabase
         .from("categories")
-        .select("id, name, slug")
+        .select("id, name, slug, parent_category_id")
         .order("name");
 
       if (categoriesError) {
