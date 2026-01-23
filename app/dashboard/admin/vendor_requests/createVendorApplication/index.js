@@ -290,14 +290,23 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
 
   // Merge server state values with local form values for persistence
   const getFieldValue = (fieldName) => {
-    // Prioritize server state values (from validation errors) over local state
-    if (state?.values?.[fieldName] !== undefined && state?.values?.[fieldName] !== null) {
-      return state.values[fieldName];
+    const hasFormValue = Object.prototype.hasOwnProperty.call(
+      formValues,
+      fieldName,
+    );
+    if (hasFormValue) {
+      return formValues[fieldName] ?? "";
     }
-    // Fall back to local form state for tab persistence
-    if (formValues[fieldName] !== undefined && formValues[fieldName] !== null) {
-      return formValues[fieldName];
+
+    const stateValues = state?.values || {};
+    const hasStateValue = Object.prototype.hasOwnProperty.call(
+      stateValues,
+      fieldName,
+    );
+    if (hasStateValue) {
+      return stateValues[fieldName] ?? "";
     }
+
     // Finally, fall back to selected vendor defaults for specific fields
     if (fieldName === "businessName" && selectedVendor?.businessName) {
       return selectedVendor.businessName;

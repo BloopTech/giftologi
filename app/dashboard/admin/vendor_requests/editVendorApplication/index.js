@@ -210,12 +210,23 @@ export default function EditVendorApplicationDialog({
   const hasError = (key) => (errorFor(key)?.length ?? 0) > 0;
 
   const getFieldValue = (fieldName) => {
-    if (state?.values?.[fieldName] !== undefined && state?.values?.[fieldName] !== null) {
-      return state.values[fieldName];
+    const hasFormValue = Object.prototype.hasOwnProperty.call(
+      formValues,
+      fieldName,
+    );
+    if (hasFormValue) {
+      return formValues[fieldName] ?? "";
     }
-    if (formValues[fieldName] !== undefined && formValues[fieldName] !== null) {
-      return formValues[fieldName];
+
+    const stateValues = state?.values || {};
+    const hasStateValue = Object.prototype.hasOwnProperty.call(
+      stateValues,
+      fieldName,
+    );
+    if (hasStateValue) {
+      return stateValues[fieldName] ?? "";
     }
+
     return "";
   };
 
