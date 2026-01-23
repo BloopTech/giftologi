@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { Eye, EyeOff, LoaderCircle, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,6 +10,9 @@ export default function FormInput(props) {
   const { state, formAction, isPending } = props;
 
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isResendLoading, setIsResendLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState(null);
+  const emailRef = useRef(null);
 
   const handleGoogleSignIn = async () => {
     try {
@@ -33,6 +36,47 @@ export default function FormInput(props) {
     }
   };
 
+  const handleResendConfirmation = async () => {
+    const email =
+      emailRef.current?.value?.trim() ||
+      state?.values?.email ||
+      state?.data?.email;
+
+    if (!email) {
+      setResendStatus({
+        type: "error",
+        message: "Enter your email to resend the confirmation link.",
+      });
+      return;
+    }
+
+    setIsResendLoading(true);
+    setResendStatus(null);
+
+    try {
+      const supabase = createSupabaseClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+      });
+
+      if (error) {
+        setResendStatus({
+          type: "error",
+          message: error.message || "Failed to resend confirmation email.",
+        });
+        return;
+      }
+
+      setResendStatus({
+        type: "success",
+        message: "Confirmation email sent. Check your inbox.",
+      });
+    } finally {
+      setIsResendLoading(false);
+    }
+  };
+
   return (
     <div className="flex flex-col space-y-4 w-full items-center justify-center font-poppins">
       <form
@@ -45,6 +89,7 @@ export default function FormInput(props) {
               <input
                 type="email"
                 name="email"
+                ref={emailRef}
                 defaultValue={state?.values?.email || ""}
                 className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
                   Object.keys(state?.errors).length !== 0 &&
@@ -151,6 +196,29 @@ export default function FormInput(props) {
               >
                 Forgot Password
               </Link>
+            </div>
+            <div className="text-xs text-center">
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={isPending || isResendLoading}
+                className="text-primary underline disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {isResendLoading
+                  ? "Sending confirmation email..."
+                  : "Resend confirmation email"}
+              </button>
+              {resendStatus?.message ? (
+                <p
+                  className={`mt-2 text-xs font-medium ${
+                    resendStatus.type === "success"
+                      ? "text-green-600"
+                      : "text-red-500"
+                  }`}
+                >
+                  {resendStatus.message}
+                </p>
+              ) : null}
             </div>
           </div>
           <h2 className="text-primary w-full text-sm text-center border-b leading-[0.1em] mt-[10px] mx-0 mb-[20px] ">

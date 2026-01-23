@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 // import { PhoneInput } from "react-simple-phone-input";
 // import "react-simple-phone-input/dist/style.css";
 import { Eye, EyeOff, LoaderCircle, OctagonAlert } from "lucide-react";
@@ -14,6 +14,9 @@ export default function FormInput(props) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === "dark";
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isResendLoading, setIsResendLoading] = useState(false);
+  const [resendStatus, setResendStatus] = useState(null);
+  const emailRef = useRef(null);
 
   const handleGoogleSignUp = async () => {
     try {
@@ -34,6 +37,47 @@ export default function FormInput(props) {
       console.error("Google sign-up unexpected error:", e);
     } finally {
       setIsGoogleLoading(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    const email =
+      emailRef.current?.value?.trim() ||
+      state?.values?.email ||
+      state?.data?.email;
+
+    if (!email) {
+      setResendStatus({
+        type: "error",
+        message: "Enter your email to resend the confirmation link.",
+      });
+      return;
+    }
+
+    setIsResendLoading(true);
+    setResendStatus(null);
+
+    try {
+      const supabase = createSupabaseClient();
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email,
+      });
+
+      if (error) {
+        setResendStatus({
+          type: "error",
+          message: error.message || "Failed to resend confirmation email.",
+        });
+        return;
+      }
+
+      setResendStatus({
+        type: "success",
+        message: "Confirmation email sent. Check your inbox.",
+      });
+    } finally {
+      setIsResendLoading(false);
     }
   };
 
@@ -115,6 +159,7 @@ export default function FormInput(props) {
               <input
                 type="email"
                 name="email"
+                ref={emailRef}
                 defaultValue={state?.values?.email || ""}
                 className={`w-full border border-gray-200 bg-white rounded-md p-2 form-input focus:outline-none focus:ring-2  ${
                   Object.keys(state?.errors).length !== 0 &&
@@ -208,6 +253,29 @@ export default function FormInput(props) {
                 "Sign Up"
               )}
             </button>
+          </div>
+          <div className="w-full text-center">
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={isPending || isResendLoading}
+              className="text-xs text-primary underline disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {isResendLoading
+                ? "Sending confirmation email..."
+                : "Resend confirmation email"}
+            </button>
+            {resendStatus?.message ? (
+              <p
+                className={`mt-2 text-xs font-medium ${
+                  resendStatus.type === "success"
+                    ? "text-green-600"
+                    : "text-red-500"
+                }`}
+              >
+                {resendStatus.message}
+              </p>
+            ) : null}
           </div>
           <h2 className="text-primary w-full text-sm text-center border-b leading-[0.1em] mt-[10px] mx-0 mb-[20px] ">
             <span className="bg-[#FFFCEF] text-primary px-5 py-0 mt-1">OR</span>

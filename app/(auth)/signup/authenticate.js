@@ -115,16 +115,9 @@ export async function signup(prevState, queryData) {
       lower.includes("already registered") || lower.includes("already exists");
 
     if (isAlreadyRegistered) {
-      try {
-        await supabase.auth.resend({
-          type: "signup",
-          email,
-        });
-      } catch (_) {}
-
       return {
         message:
-          "Your account already exists but is not active. We've sent you a new confirmation email.",
+          "This email already exists. Please check your inbox to confirm or use Forgot Password to reset.",
         errors: {},
         values: {
           firstname: getFirstName,
@@ -134,7 +127,7 @@ export async function signup(prevState, queryData) {
         },
         data: {
           email: getBusinessEmail,
-          resent: true,
+          resent: false,
         },
       };
     }

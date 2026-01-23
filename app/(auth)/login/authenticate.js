@@ -70,15 +70,8 @@ export async function login(prevState, queryData) {
       lower.includes("not confirmed") || lower.includes("confirm your email");
 
     if (looksUnconfirmed) {
-      try {
-        await supabase.auth.resend({
-          type: "signup",
-          email,
-        });
-      } catch (_) {}
-
       const resendMessage =
-        "Your email is not confirmed. We've sent you a new confirmation email.";
+        "Your email is not confirmed. Please check your inbox or use Forgot Password to resend.";
 
       return {
         message: resendMessage,
@@ -92,7 +85,7 @@ export async function login(prevState, queryData) {
         },
         data: {
           email: getBusinessEmail,
-          resent: true,
+          resent: false,
         },
       };
     }
@@ -142,8 +135,7 @@ const defaultOTPValues = {
 };
 
 export async function otpVerification(prevState, queryData) {
-  const t = await getTranslations("otp.zod");
-  const translateApiError = await getApiErrorTranslations();
+
 
   const otpSchema = z.object({
     otp: z
@@ -178,138 +170,11 @@ export async function otpVerification(prevState, queryData) {
     email: getBusinessEmail,
   };
 
-  const response = await fetch(
-    `https://auth-ms.test.vmt-pay.com/api/v1/auth/verify-otp/`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-  console.log("res..................", response);
-  const res = await response.json();
+  
 
-  if (res?.status === "error") {
-    // Translate API error message
-    const translatedMessage = translateApiError(res?.message);
-
-    // Handle user_message which could be a string or an object
-    let translatedUserMessage;
-    if (res?.errors?.user_message) {
-      translatedUserMessage = translateApiError(res.errors.user_message);
-    }
-
-    return {
-      message: translatedMessage,
-      errors: {
-        ...defaultOTPValues,
-        credentials: translatedUserMessage || translatedMessage,
-      },
-      values: {
-        otp: getOTP,
-      },
-      data: {},
-    };
-  }
-
-  return {
-    message: res?.message,
-    errors: {},
-    data: res?.data,
-    values: {},
-  };
 }
 
 const defaultOTP2FAValues = {
   otp: [],
 };
 
-export async function otp2FAVerification(prevState, queryData) {
-  const t = await getTranslations("otp2FA.zod");
-  const translateApiError = await getApiErrorTranslations();
-
-  const otp2FASchema = z.object({
-    otp: z
-      .string()
-      .trim()
-      .min(1, { message: "OTP is required" })
-      .max(6, { message: "OTP must be at least 6 characters long" }),
-  });
-
-  const getOTP = queryData.get("otp");
-  const getBusinessEmail = queryData.get("email");
-
-  const validatedFields = otp2FASchema.safeParse({
-    otp: getOTP,
-  });
-
-  if (!validatedFields.success) {
-    return {
-      message: validatedFields?.error?.issues[0]?.message,
-      errors: validatedFields.error.flatten().fieldErrors,
-      values: {
-        otp: getOTP,
-      },
-      data: {},
-    };
-  }
-
-  const { otp } = validatedFields.data;
-
-  const payload = {
-    otp,
-    email: getBusinessEmail,
-  };
-
-  const response = await fetch(
-    `https://auth-ms.test.vmt-pay.com/api/v1/auth/web/login/2fa-confirm/`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload),
-    }
-  );
-  console.log("res..................", response);
-  const res = await response.json();
-  console.log("res 2FA..................", res);
-
-  if (res?.status === "error") {
-    return {
-      message: res?.message,
-      errors: {
-        ...defaultOTP2FAValues,
-        credentials: res?.errors?.user_message || res?.message,
-      },
-      values: {
-        otp: getOTP,
-      },
-      data: {},
-    };
-  }
-
-  const token = res?.data?.access;
-  console.log("business", res?.data);
-
-  if (token) {
-    // Store authentication data in Iron Session
-    // This replaces all the cookie handling with encrypted, stateless sessions
-    const session_time = 20 * 60 * 1000; // 20 minutes to match token expiry
-
-    // Set authentication data in Iron Session
-  }
-
-  revalidatePath("/", "layout");
-  redirect("/dashboard");
-
-  return {
-    message: res?.message,
-    errors: {},
-    data: res?.data,
-    values: {},
-    status_code: res?.status_code,
-  };
-}
