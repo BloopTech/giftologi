@@ -10,6 +10,12 @@ import {
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
+import { createMetadata, getPageSeo } from "./utils/seo";
+
+export async function generateMetadata() {
+  const pageSeo = await getPageSeo("home");
+  return createMetadata(pageSeo);
+}
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -50,11 +56,6 @@ const inter = Inter({
   weight: ["400", "500", "600", "700", "800", "900"],
   subsets: ["latin"],
 });
-
-export const metadata = {
-  title: "Giftologi",
-  description: "Giftologi",
-};
 
 export default function RootLayout({ children }) {
   return (
