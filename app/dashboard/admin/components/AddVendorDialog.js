@@ -1,7 +1,7 @@
 "use client";
 import React, { useActionState, useEffect, useState } from "react";
 import { createVendor } from "../action";
-import { VENDOR_CATEGORIES } from "../vendorCategories";
+import { fetchVendorCategories } from "../vendorCategories";
 import { toast } from "sonner";
 import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle, Copy } from "lucide-react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
@@ -51,6 +51,9 @@ export default function AddVendorDialog({ onClose }) {
 
   const [password, setPassword] = useState(state?.values?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(null);
 
   // useEffect(() => {
   //   setPassword(state?.values?.password ?? "");
@@ -109,6 +112,39 @@ export default function AddVendorDialog({ onClose }) {
       onClose?.();
     }
   }, [state?.message, state?.errors, state?.data, state?.email, onClose]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      setCategoriesError(null);
+
+      try {
+        const data = await fetchVendorCategories();
+        if (!ignore) {
+          setCategories(data || []);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setCategories([]);
+          setCategoriesError(
+            error?.message || "Unable to load vendor categories.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const errorFor = (key) => state?.errors?.[key] ?? [];
   const hasError = (key) => (errorFor(key)?.length ?? 0) > 0;
@@ -179,16 +215,26 @@ export default function AddVendorDialog({ onClose }) {
               focusInput,
               hasError("category") ? hasErrorInput : ""
             )}
-            disabled={isPending}
+            disabled={isPending || categoriesLoading}
           >
             <option value="" disabled>
               Select category
             </option>
-            {VENDOR_CATEGORIES.map((cat) => (
-              <option key={cat} value={cat}>
-                {cat}
+            {categoriesLoading ? (
+              <option value="" disabled>
+                Loading categories...
               </option>
-            ))}
+            ) : categoriesError ? (
+              <option value="" disabled>
+                Unable to load categories
+              </option>
+            ) : (
+              categories.map((cat) => (
+                <option key={cat.id || cat.name} value={cat.name}>
+                  {cat.name}
+                </option>
+              ))
+            )}
           </select>
           {hasError("category") ? (
             <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">

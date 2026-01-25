@@ -2,12 +2,21 @@
 import React from "react";
 import Link from "next/link";
 import { FileUploadArea } from "./utils";
+import { DOCUMENT_UPLOAD_OPTIONS } from "../../dashboard/v/profile/documentTypes";
 
 
 
 
 // Step 5: Documents
-export function DocumentsStep({ formData, setFormData }) {
+export function DocumentsStep({
+  formData,
+  setFormData,
+  documents,
+  onUpload,
+  uploadingDocumentType,
+  documentErrors,
+  disabled,
+}) {
   const handleCheckboxChange = (field) => {
     setFormData((prev) => ({ ...prev, [field]: !prev[field] }));
   };
@@ -30,29 +39,19 @@ export function DocumentsStep({ formData, setFormData }) {
           </p>
         </div>
 
-        <FileUploadArea
-          label="Business License"
-          required
-          fileKey="businessLicense"
-          formData={formData}
-          setFormData={setFormData}
-        />
-
-        <FileUploadArea
-          label="Tax Certificate / Reseller Permit"
-          required
-          fileKey="taxCertificate"
-          formData={formData}
-          setFormData={setFormData}
-        />
-
-        <FileUploadArea
-          label="W-9 Form"
-          required
-          fileKey="w9Form"
-          formData={formData}
-          setFormData={setFormData}
-        />
+        {DOCUMENT_UPLOAD_OPTIONS.map((option) => (
+          <FileUploadArea
+            key={option.value}
+            label={option.label}
+            required
+            documentType={option.value}
+            documents={documents}
+            onUpload={onUpload}
+            uploadingDocumentType={uploadingDocumentType}
+            error={documentErrors?.[option.value]}
+            disabled={disabled}
+          />
+        ))}
 
         <div className="pt-4 border-t border-gray-200">
           <h4 className="text-sm font-semibold text-gray-900 mb-4">
@@ -65,6 +64,7 @@ export function DocumentsStep({ formData, setFormData }) {
                 type="checkbox"
                 checked={formData.agreeTerms || false}
                 onChange={() => handleCheckboxChange("agreeTerms")}
+                disabled={disabled}
                 className="w-4 h-4 mt-0.5 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C]"
               />
               <span className="text-sm text-gray-600">
@@ -87,6 +87,7 @@ export function DocumentsStep({ formData, setFormData }) {
                 type="checkbox"
                 checked={formData.agreeCommission || false}
                 onChange={() => handleCheckboxChange("agreeCommission")}
+                disabled={disabled}
                 className="w-4 h-4 mt-0.5 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C]"
               />
               <span className="text-sm text-gray-600">

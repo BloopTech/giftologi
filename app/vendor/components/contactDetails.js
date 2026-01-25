@@ -1,12 +1,14 @@
 "use client";
-import React from "react";
-import { MapPin } from "lucide-react";
+import React, { useState } from "react";
+import { Eye, EyeOff, MapPin } from "lucide-react";
 
 
 
 
-// Step 2: Contact Details
-export function ContactDetailsStep({ formData, setFormData }) {
+// Step 1: Contact Details
+export function ContactDetailsStep({ formData, setFormData, disabled }) {
+  const [showPassword, setShowPassword] = useState(false);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -16,7 +18,7 @@ export function ContactDetailsStep({ formData, setFormData }) {
     <div className="p-6">
       <div className="mb-6">
         <h3 className="text-base font-semibold text-gray-900">
-          Step 2 of 5: Contact Details
+          Step 1 of 5: Contact Details
         </h3>
       </div>
 
@@ -33,7 +35,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
               name="firstName"
               value={formData.firstName || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -45,7 +48,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
               name="lastName"
               value={formData.lastName || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
         </div>
@@ -60,7 +64,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
               name="email"
               value={formData.email || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -73,9 +78,47 @@ export function ContactDetailsStep({ formData, setFormData }) {
               value={formData.phoneNumber || ""}
               onChange={handleChange}
               placeholder="(000) 123-4567"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
+        </div>
+
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+          Create a password now so you can save your application and return later.
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Create Password <span className="text-red-500">*</span>
+          </label>
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              name="password"
+              value={formData.password || ""}
+              onChange={handleChange}
+              disabled={disabled}
+              placeholder="At least 8 characters"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((prev) => !prev)}
+              className="absolute inset-y-0 right-3 flex items-center text-gray-500"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">
+            Use at least one uppercase letter, one lowercase letter, and one
+            special character.
+          </p>
         </div>
 
         <div>
@@ -88,7 +131,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
             value={formData.position || ""}
             onChange={handleChange}
             placeholder="e.g., Owner, Manager"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+            disabled={disabled}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
@@ -110,7 +154,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
                 name="address"
                 value={formData.address || ""}
                 onChange={handleChange}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+                disabled={disabled}
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
               />
             </div>
 
@@ -124,7 +169,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
                   name="city"
                   value={formData.city || ""}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
               <div>
@@ -136,7 +182,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
                   name="region"
                   value={formData.region || ""}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
             </div>
@@ -151,7 +198,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
                   name="zipCode"
                   value={formData.zipCode || ""}
                   onChange={handleChange}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
               <div>
@@ -164,7 +212,8 @@ export function ContactDetailsStep({ formData, setFormData }) {
                   value={formData.country || ""}
                   onChange={handleChange}
                   placeholder="Ghana"
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
             </div>

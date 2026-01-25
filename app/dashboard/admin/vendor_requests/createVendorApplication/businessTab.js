@@ -1,6 +1,5 @@
 "use client";
 import React from "react";
-import { VENDOR_CATEGORIES } from "../../vendorCategories";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 
 export default function BusinessTab(props) {
@@ -9,6 +8,9 @@ export default function BusinessTab(props) {
     hasError,
     errorFor,
     isPending,
+    categories = [],
+    categoriesLoading = false,
+    categoriesError = null,
     selectedVendor,
     getFieldValue,
     onInputChange,
@@ -67,16 +69,26 @@ export default function BusinessTab(props) {
                   focusInput,
                   hasError("category") ? hasErrorInput : "",
                 )}
-                disabled={isPending || disableIdentityFields}
+                disabled={isPending || disableIdentityFields || categoriesLoading}
               >
                 <option value="" disabled>
                   Select category
                 </option>
-                {VENDOR_CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                {categoriesLoading ? (
+                  <option value="" disabled>
+                    Loading categories...
                   </option>
-                ))}
+                ) : categoriesError ? (
+                  <option value="" disabled>
+                    Unable to load categories
+                  </option>
+                ) : (
+                  categories.map((cat) => (
+                    <option key={cat.id || cat.name} value={cat.name}>
+                      {cat.name}
+                    </option>
+                  ))
+                )}
               </select>
               {hasError("category") && (
                 <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">

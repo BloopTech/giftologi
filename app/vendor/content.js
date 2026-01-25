@@ -32,14 +32,14 @@ function VendorHeader() {
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href="/vendor/track-application"
-            className="px-5 py-2 border border-gray-300 rounded-full text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+            href="/dashboard/v/profile"
+            className="px-5 py-2 border border-[#BBA96C] rounded-full text-sm font-medium text-gray-700 hover:bg-[#BBA96C] hover:text-white transition-colors"
           >
-            Track Application
+            Vendor Profile
           </Link>
           <Link
             href="/login"
-            className="px-5 py-2 bg-[#BBA96C] text-white rounded-full text-sm font-medium hover:bg-[#a89558] transition-colors"
+            className="px-5 py-2 bg-[#BBA96C] border border-[#BBA96C] text-white rounded-full text-sm font-medium hover:bg-white hover:text-gray-700 transition-colors"
           >
             Log in
           </Link>
@@ -69,7 +69,7 @@ function HeroSection({ onOpenModal }) {
         <div className="flex items-center justify-center gap-4 mb-8">
           <button
             onClick={onOpenModal}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#BBA96C] text-white rounded-full font-medium hover:bg-[#a89558] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#BBA96C] text-white rounded-full font-medium hover:bg-white hover:text-[#a89558] border border-[#a89558] transition-colors cursor-pointer"
           >
             Start Your Application
             <ArrowRight className="w-4 h-4" />
@@ -266,7 +266,7 @@ function CTASection({ onOpenModal }) {
           </p>
           <button
             onClick={onOpenModal}
-            className="inline-flex items-center gap-2 px-8 py-3 bg-[#BBA96C] text-white rounded-full font-medium hover:bg-[#a89558] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-8 py-3 bg-[#BBA96C] text-white rounded-full font-medium hover:bg-white hover:text-[#a89558] border border-[#a89558] transition-colors cursor-pointer"
           >
             Apply Now
             <ArrowRight className="w-4 h-4" />

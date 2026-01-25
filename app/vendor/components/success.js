@@ -122,10 +122,10 @@ export function SuccessScreen({ applicationId, email, onClose }) {
       </div>
 
       <Link
-        href="/vendor/track-application"
+        href="/dashboard/v/profile"
         className="inline-flex items-center gap-2 px-6 py-3 bg-[#3B82F6] text-white rounded-full text-sm font-medium hover:bg-[#2563EB] transition-colors"
       >
-        Track Application Status
+        View Vendor Profile
         <ArrowRight className="w-4 h-4" />
       </Link>
     </div>

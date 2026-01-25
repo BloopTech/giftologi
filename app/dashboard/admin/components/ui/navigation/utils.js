@@ -74,6 +74,12 @@ export const useNavigationData = (role) => {
           icon: PiStorefront,
           other_items: [],
         },
+        {
+          name: "Vendor Categories",
+          href: "/dashboard/admin/vendor_categories",
+          icon: PiFolders,
+          other_items: [],
+        },
       ],
     },
     {

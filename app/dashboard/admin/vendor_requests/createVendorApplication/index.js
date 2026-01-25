@@ -23,6 +23,7 @@ import DocumentsNotesTab from "./notesTab";
 import FinancialTabs from "./financialTab";
 import FinancialNotesTab from "./financialNotesTab";
 import { useVendorRequestsContext } from "../context";
+import { fetchVendorCategories } from "../../vendorCategories";
 
 const TABS = [
   { id: "business", label: "Business" },
@@ -106,6 +107,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
   const [vendorError, setVendorError] = useState(null);
   const [selectedVendor, setSelectedVendor] = useState(null);
   const [usedUserIds, setUsedUserIds] = useState(() => new Set());
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(null);
 
   // Form state to persist values across tabs
   const [formValues, setFormValues] = useState({});
@@ -135,6 +139,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
       setActiveTab("business");
       setVendors([]);
       setUsedUserIds(new Set());
+      setCategories([]);
+      setCategoriesLoading(true);
+      setCategoriesError(null);
       setFormValues({});
       setDocFiles({
         businessRegistrationCertificate: null,
@@ -180,6 +187,40 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
     };
 
     fetchUsedUserIds();
+
+    return () => {
+      ignore = true;
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    let ignore = false;
+
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      setCategoriesError(null);
+
+      try {
+        const data = await fetchVendorCategories();
+        if (!ignore) {
+          setCategories(data || []);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setCategories([]);
+          setCategoriesError(
+            error?.message || "Unable to load vendor categories.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    loadCategories();
 
     return () => {
       ignore = true;
@@ -708,6 +749,9 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
                   hasError={hasError}
                   errorFor={errorFor}
                   isPending={isPending}
+                  categories={categories}
+                  categoriesLoading={categoriesLoading}
+                  categoriesError={categoriesError}
                   selectedVendor={selectedVendor}
                   getFieldValue={getFieldValue}
                   onInputChange={handleInputChange}

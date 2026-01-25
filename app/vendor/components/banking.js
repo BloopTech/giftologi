@@ -3,7 +3,7 @@ import React from "react";
 import { Info } from "lucide-react";
 
 // Step 4: Banking
-export function BankingStep({ formData, setFormData }) {
+export function BankingStep({ formData, setFormData, disabled }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -44,7 +44,8 @@ export function BankingStep({ formData, setFormData }) {
             name="accountHolderName"
             value={formData.accountHolderName || ""}
             onChange={handleChange}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+            disabled={disabled}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
@@ -58,7 +59,8 @@ export function BankingStep({ formData, setFormData }) {
             value={formData.bankName || ""}
             onChange={handleChange}
             placeholder="e.g., CAL Bank"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+            disabled={disabled}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
@@ -72,7 +74,8 @@ export function BankingStep({ formData, setFormData }) {
               name="accountNumber"
               value={formData.accountNumber || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -84,7 +87,8 @@ export function BankingStep({ formData, setFormData }) {
               name="routingNumber"
               value={formData.routingNumber || ""}
               onChange={handleChange}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
         </div>
@@ -101,7 +105,8 @@ export function BankingStep({ formData, setFormData }) {
                 value="checking"
                 checked={formData.accountType === "checking"}
                 onChange={handleChange}
-                className="w-4 h-4 border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C]"
+                disabled={disabled}
+                className="w-4 h-4 border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C] disabled:opacity-50"
               />
               <span className="text-sm text-gray-700">Checking</span>
             </label>
@@ -112,7 +117,8 @@ export function BankingStep({ formData, setFormData }) {
                 value="savings"
                 checked={formData.accountType === "savings"}
                 onChange={handleChange}
-                className="w-4 h-4 border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C]"
+                disabled={disabled}
+                className="w-4 h-4 border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C] disabled:opacity-50"
               />
               <span className="text-sm text-gray-700">Savings</span>
             </label>

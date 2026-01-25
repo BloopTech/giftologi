@@ -29,6 +29,7 @@ import FinancialTabs from "../createVendorApplication/financialTab";
 import FinancialNotesTab from "../createVendorApplication/financialNotesTab";
 
 import { updateVendorApplication } from "../action";
+import { fetchVendorCategories } from "../../vendorCategories";
 
 const TABS = [
   { id: "business", label: "Business" },
@@ -163,6 +164,9 @@ export default function EditVendorApplicationDialog({
     bankStatement: null,
     proofOfBusinessAddress: null,
   });
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState(null);
   const [, setTabScrollOffset] = useState(0);
 
   const initialValues = useMemo(
@@ -179,6 +183,9 @@ export default function EditVendorApplicationDialog({
     if (!open) return;
     setActiveTab("business");
     setFormValues(initialValues);
+    setCategories([]);
+    setCategoriesLoading(true);
+    setCategoriesError(null);
     setDocFiles({
       businessRegistrationCertificate: null,
       taxClearanceCertificate: null,
@@ -194,6 +201,40 @@ export default function EditVendorApplicationDialog({
       proofOfBusinessAddress: "",
     });
   }, [open, initialValues]);
+
+  useEffect(() => {
+    if (!open) return;
+    let ignore = false;
+
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      setCategoriesError(null);
+
+      try {
+        const data = await fetchVendorCategories();
+        if (!ignore) {
+          setCategories(data || []);
+        }
+      } catch (error) {
+        if (!ignore) {
+          setCategories([]);
+          setCategoriesError(
+            error?.message || "Unable to load vendor categories.",
+          );
+        }
+      } finally {
+        if (!ignore) {
+          setCategoriesLoading(false);
+        }
+      }
+    };
+
+    loadCategories();
+
+    return () => {
+      ignore = true;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!state) return;
@@ -430,6 +471,9 @@ export default function EditVendorApplicationDialog({
             hasError={hasError}
             errorFor={errorFor}
             isPending={isPending || isPendingTransition}
+            categories={categories}
+            categoriesLoading={categoriesLoading}
+            categoriesError={categoriesError}
             selectedVendor={null}
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}

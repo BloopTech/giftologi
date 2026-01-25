@@ -4,19 +4,21 @@ import React from "react";
 
 
 // Step 3: Products
-export function ProductsStep({ formData, setFormData }) {
-  const productCategories = [
-    "Home Decor",
-    "Kitchen & Dining",
-    "Bedding & Bath",
-    "Furniture",
-    "Lighting",
-    "Baby & Kids",
-    "Electronics",
-    "Outdoor & Garden",
-    "Toys & Games",
-    "Books & Media",
-  ];
+export function ProductsStep({
+  formData,
+  setFormData,
+  disabled,
+  categories = [],
+  categoriesLoading = false,
+  categoriesError = null,
+}) {
+  const productCategories = Array.isArray(categories)
+    ? categories
+        .map((category) =>
+          typeof category === "string" ? category : category?.name,
+        )
+        .filter(Boolean)
+    : [];
 
   const shippingMethods = [
     "Standard Shipping",
@@ -64,23 +66,35 @@ export function ProductsStep({ formData, setFormData }) {
               (Select all that apply)
             </span>
           </label>
+          {categoriesLoading ? (
+            <p className="text-sm text-gray-500">Loading categories...</p>
+          ) : categoriesError ? (
+            <p className="text-sm text-red-600">Unable to load categories.</p>
+          ) : null}
           <div className="grid grid-cols-2 gap-2">
-            {productCategories.map((category) => (
-              <label
-                key={category}
-                className="flex items-center gap-2 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={(formData.productCategories || []).includes(
-                    category,
-                  )}
-                  onChange={() => handleCategoryChange(category)}
-                  className="w-4 h-4 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C]"
-                />
-                <span className="text-sm text-gray-700">{category}</span>
-              </label>
-            ))}
+            {productCategories.length ? (
+              productCategories.map((category) => (
+                <label
+                  key={category}
+                  className="flex items-center gap-2 cursor-pointer"
+                >
+                  <input
+                    type="checkbox"
+                    checked={(formData.productCategories || []).includes(
+                      category,
+                    )}
+                    onChange={() => handleCategoryChange(category)}
+                    disabled={disabled}
+                    className="w-4 h-4 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C] disabled:opacity-50"
+                  />
+                  <span className="text-sm text-gray-700">{category}</span>
+                </label>
+              ))
+            ) : (
+              <p className="text-sm text-gray-500">
+                No categories available yet.
+              </p>
+            )}
           </div>
         </div>
 
@@ -95,7 +109,8 @@ export function ProductsStep({ formData, setFormData }) {
               value={formData.estimatedProducts || ""}
               onChange={handleChange}
               placeholder="e.g., 50"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -108,7 +123,8 @@ export function ProductsStep({ formData, setFormData }) {
               value={formData.averagePrice || ""}
               onChange={handleChange}
               placeholder="$0.00"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+              disabled={disabled}
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
         </div>
@@ -123,7 +139,8 @@ export function ProductsStep({ formData, setFormData }) {
             value={formData.shipsFrom || ""}
             onChange={handleChange}
             placeholder="e.g., Tema, Greater Accra"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C]"
+            disabled={disabled}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
@@ -144,7 +161,8 @@ export function ProductsStep({ formData, setFormData }) {
                   type="checkbox"
                   checked={(formData.shippingMethods || []).includes(method)}
                   onChange={() => handleShippingChange(method)}
-                  className="w-4 h-4 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C]"
+                  disabled={disabled}
+                  className="w-4 h-4 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C] disabled:opacity-50"
                 />
                 <span className="text-sm text-gray-700">{method}</span>
               </label>
@@ -162,7 +180,8 @@ export function ProductsStep({ formData, setFormData }) {
             onChange={handleChange}
             placeholder="Describe the types of products you'll be selling..."
             rows={3}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] resize-none"
+            disabled={disabled}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] resize-none disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
       </div>

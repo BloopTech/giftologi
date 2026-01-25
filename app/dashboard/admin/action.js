@@ -187,9 +187,8 @@ export async function manageRoles(prevState, queryData) {
       userId = existingProfile.id;
       reactivatedFromDeleted = true;
 
-      try {
-        await supabase.auth.resetPasswordForEmail(email);
-      } catch (_) {}
+      // No automatic password reset email to avoid triggering Supabase limits.
+      // Admins should ask the staff member to use "Forgot Password" if needed.
     } else if (isStaffRole) {
       return {
         message: "Email already exists",
@@ -236,14 +235,15 @@ export async function manageRoles(prevState, queryData) {
       const message = authError.message || "Unable to create staff user.";
 
       if (message.toLowerCase().includes("registered")) {
-        await supabase.auth.resetPasswordForEmail(email);
-
         return {
           message:
-            "This email is already registered. We've sent them a new email so they can finish setting up their account.",
+            "This email is already registered. Ask them to log in or use Forgot Password to regain access.",
           errors: {},
           values: {},
-          data: {},
+          data: {
+            email: getBusinessEmail,
+            needsManualReset: true,
+          },
         };
       }
 
@@ -354,8 +354,12 @@ export async function manageRoles(prevState, queryData) {
 
   revalidatePath("/dashboard/admin");
 
+  const successMessage = reactivatedFromDeleted
+    ? "Staff member reactivated. Ask them to log in or use Forgot Password to regain access."
+    : "Staff member created.";
+
   return {
-    message: "Staff member created.",
+    message: successMessage,
     errors: {},
     data: {
       user: authData?.user || null,

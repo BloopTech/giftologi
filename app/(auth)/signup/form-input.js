@@ -81,6 +81,8 @@ export default function FormInput(props) {
     }
   };
 
+  const canShowResend = Boolean(state?.data?.email);
+
   return (
     <div className="flex flex-col space-y-4 w-full items-center justify-center font-poppins">
       <form
@@ -254,29 +256,31 @@ export default function FormInput(props) {
               )}
             </button>
           </div>
-          <div className="w-full text-center">
-            <button
-              type="button"
-              onClick={handleResendConfirmation}
-              disabled={isPending || isResendLoading}
-              className="text-xs text-primary underline disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isResendLoading
-                ? "Sending confirmation email..."
-                : "Resend confirmation email"}
-            </button>
-            {resendStatus?.message ? (
-              <p
-                className={`mt-2 text-xs font-medium ${
-                  resendStatus.type === "success"
-                    ? "text-green-600"
-                    : "text-red-500"
-                }`}
+          {canShowResend ? (
+            <div className="w-full text-center">
+              <button
+                type="button"
+                onClick={handleResendConfirmation}
+                disabled={isPending || isResendLoading}
+                className="text-xs text-primary underline disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {resendStatus.message}
-              </p>
-            ) : null}
-          </div>
+                {isResendLoading
+                  ? "Sending confirmation email..."
+                  : "Resend confirmation email"}
+              </button>
+              {resendStatus?.message ? (
+                <p
+                  className={`mt-2 text-xs font-medium ${
+                    resendStatus.type === "success"
+                      ? "text-green-600"
+                      : "text-red-500"
+                  }`}
+                >
+                  {resendStatus.message}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <h2 className="text-primary w-full text-sm text-center border-b leading-[0.1em] mt-[10px] mx-0 mb-[20px] ">
             <span className="bg-[#FFFCEF] text-primary px-5 py-0 mt-1">OR</span>
           </h2>
