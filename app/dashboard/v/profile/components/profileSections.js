@@ -14,6 +14,7 @@ import {
   PiBell,
   PiMapPin,
   PiFileText,
+  PiUsersThree,
 } from "react-icons/pi";
 
 import {
@@ -104,8 +105,30 @@ export function ProfileHeader({
 export function BusinessInformationSection({
   vendorSummary,
   isVerifiedVendor,
+  categories = [],
+  categoriesLoading = false,
+  categoriesError = null,
   errors = {},
 }) {
+  const selectedCategories = Array.isArray(vendorSummary.categories)
+    ? vendorSummary.categories
+    : [];
+  const categoryOptions = Array.isArray(categories) ? categories : [];
+  const mergedCategories = [...categoryOptions];
+  const categoryNameSet = new Set(
+    categoryOptions.map((category) => category?.name).filter(Boolean),
+  );
+
+  selectedCategories.forEach((name) => {
+    if (!categoryNameSet.has(name)) {
+      mergedCategories.push({ id: `legacy-${name}`, name, isInactive: true });
+    }
+  });
+
+  const categoryContainerClass = `rounded-lg border px-3 py-3 bg-white space-y-2 ${
+    errors.category ? "border-[#FCA5A5]" : "border-[#D1D5DB]"
+  }`;
+
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
       <SectionHeader icon={PiBuilding} title="Business Information" />
@@ -121,6 +144,45 @@ export function BusinessInformationSection({
           required
           error={errors.business_name}
         />
+        <div className="md:col-span-2">
+          <label className="text-[#374151] text-sm font-medium">
+            Categories <span className="text-red-500">*</span>
+          </label>
+          <div className={categoryContainerClass}>
+            {categoriesLoading ? (
+              <p className="text-sm text-[#6B7280]">Loading categories...</p>
+            ) : categoriesError ? (
+              <p className="text-sm text-[#B91C1C]">{categoriesError}</p>
+            ) : mergedCategories.length === 0 ? (
+              <p className="text-sm text-[#6B7280]">No categories available.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {mergedCategories.map((category) => (
+                  <label
+                    key={category.id || category.name}
+                    className="flex items-center gap-2 text-sm text-[#374151]"
+                  >
+                    <input
+                      type="checkbox"
+                      name="category"
+                      value={category.name}
+                      defaultChecked={selectedCategories.includes(category.name)}
+                      disabled={categoriesLoading}
+                      className="h-4 w-4 rounded border-[#D1D5DB] text-[#111827] focus:ring-[#111827]"
+                    />
+                    <span>
+                      {category.name}
+                      {category.isInactive ? " (inactive)" : ""}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+          {errors.category && (
+            <p className="text-xs text-red-600 mt-1">{errors.category}</p>
+          )}
+        </div>
         {isVerifiedVendor ? (
           <LockedField
             label="Legal Name"
@@ -167,6 +229,13 @@ export function BusinessInformationSection({
           />
         )}
         <FormField
+          label="Years in Business"
+          name="yearsInBusiness"
+          type="number"
+          value={vendorSummary.yearsInBusiness}
+          error={errors.years_in_business}
+        />
+        <FormField
           label="Email Address"
           name="email"
           value={vendorSummary.email}
@@ -210,6 +279,89 @@ export function BusinessInformationSection({
           value={vendorSummary.description}
           placeholder="Tell customers about your business..."
           error={errors.description}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function BusinessReferencesSection({ vendorSummary, errors = {} }) {
+  const references = vendorSummary.references || {};
+  const referenceRows = [
+    { key: "ref1", label: "Reference 1", data: references.ref1 || {} },
+    { key: "ref2", label: "Reference 2", data: references.ref2 || {} },
+  ];
+
+  return (
+    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+      <SectionHeader icon={PiUsersThree} title="Business References" />
+      <p className="text-[#6B7280] text-sm mb-4">
+        Provide two business references we can contact if needed.
+      </p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {referenceRows.map((reference) => (
+          <div
+            key={reference.key}
+            className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-4 space-y-3"
+          >
+            <p className="text-sm font-semibold text-[#374151]">
+              {reference.label}
+            </p>
+            <FormField
+              label="Name"
+              name={`${reference.key}Name`}
+              value={reference.data.name || ""}
+              error={errors[`${reference.key}_name`]}
+            />
+            <FormField
+              label="Company"
+              name={`${reference.key}Company`}
+              value={reference.data.company || ""}
+              error={errors[`${reference.key}_company`]}
+            />
+            <FormField
+              label="Phone"
+              name={`${reference.key}Phone`}
+              value={reference.data.phone || ""}
+              error={errors[`${reference.key}_phone`]}
+            />
+            <FormField
+              label="Email"
+              name={`${reference.key}Email`}
+              type="email"
+              value={reference.data.email || ""}
+              error={errors[`${reference.key}_email`]}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function VerificationNotesSection({ vendorSummary, errors = {} }) {
+  return (
+    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+      <SectionHeader icon={PiShieldCheck} title="Verification Notes" />
+      <p className="text-[#6B7280] text-sm mb-4">
+        Provide any context to help us verify your documentation and payouts.
+      </p>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <TextAreaField
+          label="Verification Notes"
+          name="verificationNotes"
+          value={vendorSummary.verificationNotes}
+          placeholder="Internal notes for document verification."
+          error={errors.verification_notes}
+        />
+        <TextAreaField
+          label="Financial Verification Notes"
+          name="financialVerificationNotes"
+          value={vendorSummary.financialVerificationNotes}
+          placeholder="Bank account verification requirements or notes."
+          error={errors.financial_verification_notes}
         />
       </div>
     </div>

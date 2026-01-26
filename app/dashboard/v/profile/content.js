@@ -15,6 +15,8 @@ import {
   ProfileHeader,
   BusinessInformationSection,
   BusinessAddressSection,
+  BusinessReferencesSection,
+  VerificationNotesSection,
   PaymentInformationSection,
   NotificationPreferencesSection,
   DocumentsSection,
@@ -151,6 +153,9 @@ export default function VendorProfileContent() {
     documents,
     application,
     supportContact,
+    categories,
+    categoriesLoading,
+    categoriesError,
     loading,
     error,
     refreshData,
@@ -163,12 +168,15 @@ export default function VendorProfileContent() {
     message: "",
     errors: {},
   });
-  const [logoState, logoAction, isLogoPending] = useActionState(saveVendorLogo, {
-    success: false,
-    message: "",
-    errors: {},
-    data: {},
-  });
+  const [logoState, logoAction, isLogoPending] = useActionState(
+    saveVendorLogo,
+    {
+      success: false,
+      message: "",
+      errors: {},
+      data: {},
+    },
+  );
   const [documentState, documentAction, documentPending] = useActionState(
     uploadVendorDocument,
     { success: false, message: "", errors: {} },
@@ -186,7 +194,9 @@ export default function VendorProfileContent() {
     type: getNextDocumentType(usedTypes),
     file: null,
   });
-  const [documentQueue, setDocumentQueue] = useState(() => [createDocumentRow()]);
+  const [documentQueue, setDocumentQueue] = useState(() => [
+    createDocumentRow(),
+  ]);
 
   const handleAddDocumentRow = () => {
     setDocumentQueue((prev) => {
@@ -218,7 +228,9 @@ export default function VendorProfileContent() {
         }
       }
 
-      return prev.map((row) => (row.id === id ? { ...row, [field]: value } : row));
+      return prev.map((row) =>
+        row.id === id ? { ...row, [field]: value } : row,
+      );
     });
   };
 
@@ -260,6 +272,71 @@ export default function VendorProfileContent() {
 
   const vendorSummary = useMemo(() => {
     const draft = application?.draft_data || {};
+    const coerceCategories = (value, depth = 0) => {
+      if (value === null || value === undefined || depth > 4) return [];
+      if (Array.isArray(value)) {
+        return value.flatMap((item) => coerceCategories(item, depth + 1));
+      }
+      if (typeof value === "string") {
+        const trimmed = value.trim();
+        if (!trimmed) return [];
+
+        const postgresArrayMatch = trimmed.startsWith("{") && trimmed.endsWith("}");
+        if (postgresArrayMatch) {
+          const inner = trimmed.slice(1, -1);
+          if (!inner) return [];
+          return inner
+            .split(",")
+            .map((segment) => segment.replace(/^"|"$/g, "").trim())
+            .filter(Boolean);
+        }
+
+        const candidates = [trimmed];
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          candidates.push(trimmed.slice(1, -1));
+        }
+
+        for (const candidate of candidates) {
+          if (candidate.startsWith("[") && candidate.endsWith("]")) {
+            try {
+              const parsed = JSON.parse(candidate);
+              if (Array.isArray(parsed)) {
+                return coerceCategories(parsed, depth + 1);
+              }
+            } catch (err) {
+              // Ignore JSON parse failures and continue
+            }
+          }
+        }
+
+        return [trimmed];
+      }
+      return [];
+    };
+    const normalizeCategories = (value) => {
+      const seen = new Set();
+      const normalized = [];
+      coerceCategories(value).forEach((item) => {
+        const label = String(item || "").trim();
+        if (label && !seen.has(label)) {
+          seen.add(label);
+          normalized.push(label);
+        }
+      });
+      return normalized;
+    };
+    const vendorCategories = normalizeCategories(vendor?.category);
+    const applicationCategories = normalizeCategories(application?.category);
+    const draftCategories = normalizeCategories(draft.category);
+    const categories =
+      vendorCategories.length > 0
+        ? vendorCategories
+        : applicationCategories.length > 0
+          ? applicationCategories
+          : draftCategories;
+    const [appRef1, appRef2] = Array.isArray(application?.business_references)
+      ? application.business_references
+      : [];
     return {
       businessName:
         vendor?.business_name ||
@@ -300,6 +377,29 @@ export default function VendorProfileContent() {
         "",
       website: vendor?.website || application?.website || draft.website || "",
       taxId: vendor?.tax_id || application?.tax_id || draft.taxId || "",
+      categories,
+      yearsInBusiness:
+        application?.years_in_business ?? draft.yearsInBusiness ?? "",
+      references: {
+        ref1: {
+          name: appRef1?.name ?? draft.ref1Name ?? "",
+          company: appRef1?.company ?? draft.ref1Company ?? "",
+          phone: appRef1?.phone ?? draft.ref1Phone ?? "",
+          email: appRef1?.email ?? draft.ref1Email ?? "",
+        },
+        ref2: {
+          name: appRef2?.name ?? draft.ref2Name ?? "",
+          company: appRef2?.company ?? draft.ref2Company ?? "",
+          phone: appRef2?.phone ?? draft.ref2Phone ?? "",
+          email: appRef2?.email ?? draft.ref2Email ?? "",
+        },
+      },
+      verificationNotes:
+        application?.verification_notes ?? draft.verificationNotes ?? "",
+      financialVerificationNotes:
+        application?.financial_verification_notes ??
+        draft.financialVerificationNotes ??
+        "",
       memberSince: formatMemberSince(vendor?.created_at),
       isVerified: !!vendor?.verified,
       address: {
@@ -310,7 +410,8 @@ export default function VendorProfileContent() {
           draft.streetAddress ||
           "",
         city: vendor?.address_city || application?.city || draft.city || "",
-        state: vendor?.address_state || application?.region || draft.region || "",
+        state:
+          vendor?.address_state || application?.region || draft.region || "",
         digitalAddress:
           vendor?.digital_address ||
           application?.digital_address ||
@@ -332,12 +433,19 @@ export default function VendorProfileContent() {
       const last4 = stringValue.slice(-4);
       return last4 ? `****${last4}` : "";
     };
+    const rawAccountNumber =
+      paymentInfo?.bank_account ||
+      paymentInfo?.bank_account_number ||
+      application?.bank_account_number ||
+      application?.bank_account ||
+      draft.bankAccountNumber ||
+      "";
     const accountNumberMasked =
       paymentInfo?.bank_account_masked ||
       (paymentInfo?.bank_account_last4
         ? `****${paymentInfo.bank_account_last4}`
         : "") ||
-      maskAccount(application?.bank_account_number || draft.accountNumber);
+      maskAccount(rawAccountNumber);
 
     return {
       accountName:
@@ -346,13 +454,16 @@ export default function VendorProfileContent() {
         draft.accountHolderName ||
         "",
       bankName:
-        paymentInfo?.bank_name || application?.bank_name || draft.bankName || "",
+        paymentInfo?.bank_name ||
+        application?.bank_name ||
+        draft.bankName ||
+        "",
       bankBranch:
         paymentInfo?.bank_branch ||
         application?.bank_branch ||
         draft.bankBranch ||
         "",
-      accountNumber: "",
+      accountNumber: rawAccountNumber,
       accountNumberMasked,
       routingNumber:
         paymentInfo?.routing_number ||
@@ -467,7 +578,10 @@ export default function VendorProfileContent() {
   }
 
   return (
-    <section aria-label="Vendor profile settings" className="flex flex-col space-y-6 w-full mb-8">
+    <section
+      aria-label="Vendor profile settings"
+      className="flex flex-col space-y-6 w-full mb-8"
+    >
       {/* Breadcrumb */}
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
         <Link
@@ -498,12 +612,13 @@ export default function VendorProfileContent() {
         </div>
       )}
 
-      <form
-        id="vendorLogoForm"
-        action={logoAction}
-        className="hidden"
-      >
-        <input type="hidden" name="vendor_id" value={vendor?.id || ""} readOnly />
+      <form id="vendorLogoForm" action={logoAction} className="hidden">
+        <input
+          type="hidden"
+          name="vendor_id"
+          value={vendor?.id || ""}
+          readOnly
+        />
         <input
           id="vendor_logo_file"
           name="logo_file"
@@ -532,7 +647,12 @@ export default function VendorProfileContent() {
           value={notificationPreferences?.id || ""}
         />
         {Object.entries(notificationFields).map(([key, value]) => (
-          <input key={key} type="hidden" name={key} value={value ? "true" : "false"} />
+          <input
+            key={key}
+            type="hidden"
+            name={key}
+            value={value ? "true" : "false"}
+          />
         ))}
         <ProfileHeader
           vendorSummary={vendorSummary}
@@ -556,9 +676,23 @@ export default function VendorProfileContent() {
         <BusinessInformationSection
           vendorSummary={vendorSummary}
           isVerifiedVendor={isVerifiedVendor}
+          categories={categories}
+          categoriesLoading={categoriesLoading}
+          categoriesError={categoriesError}
           errors={formErrors}
         />
-        <BusinessAddressSection vendorSummary={vendorSummary} errors={formErrors} />
+        <BusinessAddressSection
+          vendorSummary={vendorSummary}
+          errors={formErrors}
+        />
+        <BusinessReferencesSection
+          vendorSummary={vendorSummary}
+          errors={formErrors}
+        />
+        <VerificationNotesSection
+          vendorSummary={vendorSummary}
+          errors={formErrors}
+        />
         <PaymentInformationSection
           paymentSummary={paymentSummary}
           isVerifiedVendor={isVerifiedVendor}

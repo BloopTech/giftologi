@@ -121,9 +121,11 @@ const buildApplicationPayloadFromProfile = ({
   vendorPayload = {},
   compliancePayload = {},
   paymentPayload = {},
+  applicationPayload = {},
 }) => {
   const payload = {};
   setIfValue(payload, "business_name", vendorPayload.business_name);
+  setIfValue(payload, "category", applicationPayload.category);
   setIfValue(payload, "business_type", compliancePayload.business_type);
   setIfValue(
     payload,
@@ -137,6 +139,14 @@ const buildApplicationPayloadFromProfile = ({
   setIfValue(payload, "city", vendorPayload.address_city);
   setIfValue(payload, "region", vendorPayload.address_state);
   setIfValue(payload, "digital_address", vendorPayload.digital_address);
+  setIfValue(payload, "years_in_business", applicationPayload.years_in_business);
+  setIfValue(payload, "business_references", applicationPayload.business_references);
+  setIfValue(payload, "verification_notes", applicationPayload.verification_notes);
+  setIfValue(
+    payload,
+    "financial_verification_notes",
+    applicationPayload.financial_verification_notes,
+  );
   setIfValue(payload, "bank_account_name", paymentPayload.account_name);
   setIfValue(payload, "bank_name", paymentPayload.bank_name);
   setIfValue(payload, "bank_account_number", paymentPayload.bank_account);
@@ -155,9 +165,13 @@ const buildDraftDataFromProfile = ({
   vendorPayload = {},
   compliancePayload = {},
   paymentPayload = {},
+  applicationPayload = {},
 }) => {
   const draft = {};
   setIfValue(draft, "businessName", vendorPayload.business_name);
+  if (Array.isArray(applicationPayload.category) && applicationPayload.category.length) {
+    draft.category = applicationPayload.category;
+  }
   setIfValue(draft, "businessType", compliancePayload.business_type);
   setIfValue(
     draft,
@@ -171,6 +185,24 @@ const buildDraftDataFromProfile = ({
   setIfValue(draft, "city", vendorPayload.address_city);
   setIfValue(draft, "region", vendorPayload.address_state);
   setIfValue(draft, "digitalAddress", vendorPayload.digital_address);
+  setIfValue(draft, "yearsInBusiness", applicationPayload.years_in_business);
+  setIfValue(draft, "verificationNotes", applicationPayload.verification_notes);
+  setIfValue(
+    draft,
+    "financialVerificationNotes",
+    applicationPayload.financial_verification_notes,
+  );
+  if (Array.isArray(applicationPayload.business_references)) {
+    const [ref1, ref2] = applicationPayload.business_references;
+    setIfValue(draft, "ref1Name", ref1?.name);
+    setIfValue(draft, "ref1Company", ref1?.company);
+    setIfValue(draft, "ref1Phone", ref1?.phone);
+    setIfValue(draft, "ref1Email", ref1?.email);
+    setIfValue(draft, "ref2Name", ref2?.name);
+    setIfValue(draft, "ref2Company", ref2?.company);
+    setIfValue(draft, "ref2Phone", ref2?.phone);
+    setIfValue(draft, "ref2Email", ref2?.email);
+  }
   setIfValue(draft, "accountHolderName", paymentPayload.account_name);
   setIfValue(draft, "bankName", paymentPayload.bank_name);
   setIfValue(draft, "accountNumber", paymentPayload.bank_account);
@@ -188,6 +220,7 @@ const ensureVendorApplication = async ({
   vendorPayload = {},
   compliancePayload = {},
   paymentPayload = {},
+  applicationPayload = {},
 }) => {
   const { data: existing, error: existingError } = await supabase
     .from("vendor_applications")
@@ -201,20 +234,22 @@ const ensureVendorApplication = async ({
     return { application: null, error: existingError };
   }
 
-  const normalizedStatus = (existing?.status || "").toLowerCase();
-  if (existing?.id && ["pending", "approved"].includes(normalizedStatus)) {
-    return { application: existing, error: null, created: false };
-  }
+  const nextStatus =
+    typeof existing?.status === "string" && existing.status.trim()
+      ? existing.status
+      : "draft";
 
-  const applicationPayload = buildApplicationPayloadFromProfile({
+  const applicationPayloadFromProfile = buildApplicationPayloadFromProfile({
     vendorPayload,
     compliancePayload,
     paymentPayload,
+    applicationPayload,
   });
   const draftData = buildDraftDataFromProfile({
     vendorPayload,
     compliancePayload,
     paymentPayload,
+    applicationPayload,
   });
   const mergedDraft = {
     ...(existing?.draft_data || {}),
@@ -222,10 +257,10 @@ const ensureVendorApplication = async ({
   };
 
   const basePayload = {
-    status: "draft",
+    status: nextStatus,
     draft_data: mergedDraft,
     updated_at: now,
-    ...applicationPayload,
+    ...applicationPayloadFromProfile,
   };
 
   if (existing?.id) {
@@ -617,6 +652,9 @@ export async function getDefaultDocumentUploadState() {
 const vendorSchema = z.object({
   business_name: z.string().min(1, "Business name is required").max(120),
   legal_name: z.string().min(1, "Legal name is required").max(120),
+  category: z
+    .array(z.string().trim().min(1))
+    .min(1, "Select at least one category"),
   business_type: z.string().min(1, "Business type is required").max(120),
   business_registration_number: z
     .string()
@@ -641,6 +679,33 @@ const paymentSchema = z.object({
   bank_branch: z.string().optional().or(z.literal("")),
   routing_number: z.string().optional().or(z.literal("")),
   account_type: z.string().optional().or(z.literal("")),
+});
+
+const applicationDetailsSchema = z.object({
+  years_in_business: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => {
+      if (!value) return null;
+      const num = Number(value);
+      return Number.isNaN(num) ? null : num;
+    })
+    .refine(
+      (value) => value === null || (typeof value === "number" && value >= 0),
+      { message: "Years in business must be a non-negative number" },
+    ),
+  ref1_name: z.string().trim().optional().or(z.literal("")),
+  ref1_company: z.string().trim().optional().or(z.literal("")),
+  ref1_phone: z.string().trim().optional().or(z.literal("")),
+  ref1_email: z.string().trim().optional().or(z.literal("")),
+  ref2_name: z.string().trim().optional().or(z.literal("")),
+  ref2_company: z.string().trim().optional().or(z.literal("")),
+  ref2_phone: z.string().trim().optional().or(z.literal("")),
+  ref2_email: z.string().trim().optional().or(z.literal("")),
+  verification_notes: z.string().trim().optional().or(z.literal("")),
+  financial_verification_notes: z.string().trim().optional().or(z.literal("")),
 });
 
 const applicationSubmissionSchema = vendorSchema.extend({
@@ -694,9 +759,25 @@ export async function manageProfile(prevState, queryData) {
     };
   }
 
+  const getFormValue = (...keys) => {
+    for (const key of keys) {
+      const value = queryData.get(key);
+      if (value !== null && value !== undefined) return value;
+    }
+    return null;
+  };
+  const rawCategoryValues = [
+    ...queryData.getAll("category"),
+    ...queryData.getAll("category[]"),
+  ];
+  const normalizedCategories = rawCategoryValues
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
   const rawVendor = {
     business_name: queryData.get("business_name")?.trim() || "",
     legal_name: queryData.get("legal_name")?.trim() || "",
+    category: normalizedCategories,
     business_type: queryData.get("business_type")?.trim() || "",
     business_registration_number:
       queryData.get("business_registration_number")?.trim() || "",
@@ -710,6 +791,26 @@ export async function manageProfile(prevState, queryData) {
     address_state: queryData.get("address_state")?.trim() || "",
     digital_address: queryData.get("digital_address")?.trim() || "",
     address_country: queryData.get("address_country")?.trim() || "",
+  };
+
+  const rawApplication = {
+    years_in_business:
+      getFormValue("years_in_business", "yearsInBusiness")?.trim() || "",
+    ref1_name: getFormValue("ref1_name", "ref1Name")?.trim() || "",
+    ref1_company: getFormValue("ref1_company", "ref1Company")?.trim() || "",
+    ref1_phone: getFormValue("ref1_phone", "ref1Phone")?.trim() || "",
+    ref1_email: getFormValue("ref1_email", "ref1Email")?.trim() || "",
+    ref2_name: getFormValue("ref2_name", "ref2Name")?.trim() || "",
+    ref2_company: getFormValue("ref2_company", "ref2Company")?.trim() || "",
+    ref2_phone: getFormValue("ref2_phone", "ref2Phone")?.trim() || "",
+    ref2_email: getFormValue("ref2_email", "ref2Email")?.trim() || "",
+    verification_notes:
+      getFormValue("verification_notes", "verificationNotes")?.trim() || "",
+    financial_verification_notes:
+      getFormValue(
+        "financial_verification_notes",
+        "financialVerificationNotes",
+      )?.trim() || "",
   };
 
   const rawPayment = {
@@ -735,36 +836,45 @@ export async function manageProfile(prevState, queryData) {
   const vendorValidation = vendorSchema.safeParse(rawVendor);
   const paymentValidation = paymentSchema.safeParse(rawPayment);
   const notificationValidation = notificationSchema.safeParse(rawNotifications);
+  const applicationDetailsValidation = applicationDetailsSchema.safeParse(
+    rawApplication,
+  );
 
-  if (!vendorValidation.success || !paymentValidation.success || !notificationValidation.success) {
+  if (
+    !vendorValidation.success ||
+    !paymentValidation.success ||
+    !notificationValidation.success ||
+    !applicationDetailsValidation.success
+  ) {
     const errors = {};
 
-    if (!vendorValidation.success) {
-      vendorValidation.error.errors.forEach((err) => {
-        const field = err.path[0];
-        errors[field] = err.message;
-      });
-    }
+    const extractErrors = (validation) => {
+      if (validation.success) return [];
+      return validation.error?.errors || validation.error?.issues || [];
+    };
 
-    if (!paymentValidation.success) {
-      paymentValidation.error.errors.forEach((err) => {
-        const field = err.path[0];
-        errors[field] = err.message;
-      });
-    }
-
-    if (!notificationValidation.success) {
-      notificationValidation.error.errors.forEach((err) => {
-        const field = err.path[0];
-        errors[field] = err.message;
-      });
-    }
+    extractErrors(vendorValidation).forEach((err) => {
+      const field = err.path?.[0];
+      if (field) errors[field] = err.message;
+    });
+    extractErrors(paymentValidation).forEach((err) => {
+      const field = err.path?.[0];
+      if (field) errors[field] = err.message;
+    });
+    extractErrors(notificationValidation).forEach((err) => {
+      const field = err.path?.[0];
+      if (field) errors[field] = err.message;
+    });
+    extractErrors(applicationDetailsValidation).forEach((err) => {
+      const field = err.path?.[0];
+      if (field) errors[field] = err.message;
+    });
 
     return {
       success: false,
       message: "Please fix the errors below.",
       errors,
-      values: { ...rawVendor, ...rawPayment },
+      values: { ...rawVendor, ...rawPayment, ...rawApplication },
     };
   }
 
@@ -773,6 +883,7 @@ export async function manageProfile(prevState, queryData) {
   const {
     business_name,
     legal_name,
+    category,
     business_type,
     business_registration_number,
     email,
@@ -789,6 +900,7 @@ export async function manageProfile(prevState, queryData) {
   const vendorPayload = {
     business_name,
     legal_name,
+    category,
     email,
     phone,
     website: website || null,
@@ -804,6 +916,46 @@ export async function manageProfile(prevState, queryData) {
   const compliancePayload = {
     business_type: business_type || null,
     business_registration_number: business_registration_number || null,
+  };
+  const {
+    years_in_business,
+    ref1_name,
+    ref1_company,
+    ref1_phone,
+    ref1_email,
+    ref2_name,
+    ref2_company,
+    ref2_phone,
+    ref2_email,
+    verification_notes,
+    financial_verification_notes,
+  } = applicationDetailsValidation.data;
+  const businessReferences = [];
+
+  if (ref1_name || ref1_company || ref1_phone || ref1_email) {
+    businessReferences.push({
+      name: ref1_name || null,
+      company: ref1_company || null,
+      phone: ref1_phone || null,
+      email: ref1_email || null,
+    });
+  }
+
+  if (ref2_name || ref2_company || ref2_phone || ref2_email) {
+    businessReferences.push({
+      name: ref2_name || null,
+      company: ref2_company || null,
+      phone: ref2_phone || null,
+      email: ref2_email || null,
+    });
+  }
+
+  const applicationPayload = {
+    category,
+    years_in_business,
+    business_references: businessReferences.length ? businessReferences : null,
+    verification_notes,
+    financial_verification_notes,
   };
 
   let existingVendor = null;
@@ -940,11 +1092,12 @@ export async function manageProfile(prevState, queryData) {
   setIfValue(paymentInfoPayload, "bank_branch_code", paymentPayload.bank_branch_code);
 
   if (rawBankAccount) {
+    const uniqueSecretName = `vendor_payment_${vendorId}_${Date.now()}`;
     const { data: secretId, error: secretError } = await supabase.rpc(
       "create_payment_secret",
       {
         raw_value: rawBankAccount,
-        secret_name: `vendor_payment_${vendorId}`,
+        secret_name: uniqueSecretName,
         secret_description: `Bank account for vendor ${vendorId}`,
       },
     );
@@ -1051,6 +1204,7 @@ export async function manageProfile(prevState, queryData) {
         vendorPayload,
         compliancePayload,
         paymentPayload,
+        applicationPayload,
       });
 
     if (applicationError) {
@@ -1076,11 +1230,12 @@ export async function manageProfile(prevState, queryData) {
           applicationNotice =
             "Profile updated. Complete all required business and payout fields to submit your application.";
         } else {
-          const applicationPayload = {
+          const submissionPayload = {
             status: "pending",
             submitted_at: now,
             updated_at: now,
             business_name: vendorPayload.business_name,
+            category: applicationPayload.category,
             business_type: compliancePayload.business_type,
             business_registration_number:
               compliancePayload.business_registration_number,
@@ -1091,6 +1246,11 @@ export async function manageProfile(prevState, queryData) {
             city: vendorPayload.address_city,
             region: vendorPayload.address_state,
             digital_address: vendorPayload.digital_address,
+            years_in_business: applicationPayload.years_in_business,
+            business_references: applicationPayload.business_references,
+            verification_notes: applicationPayload.verification_notes,
+            financial_verification_notes:
+              applicationPayload.financial_verification_notes,
             bank_account_name: paymentPayload.account_name,
             bank_name: paymentPayload.bank_name,
             bank_account_number: paymentPayload.bank_account,
@@ -1109,7 +1269,7 @@ export async function manageProfile(prevState, queryData) {
           if (submissionId) {
             const { error: updateError } = await supabase
               .from("vendor_applications")
-              .update(applicationPayload)
+              .update(submissionPayload)
               .eq("id", submissionId)
               .eq("user_id", user.id);
 
