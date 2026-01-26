@@ -1,14 +1,16 @@
 "use client";
-import React, { useActionState, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { PiFloppyDisk } from "react-icons/pi";
 
 import { useVendorProfileContext } from "./context";
-import {
-  manageProfile,
-  uploadVendorDocument,
-  defaultDocumentUploadState,
-} from "./action";
+import { manageProfile, uploadVendorDocument } from "./action";
 import {
   ProfileHeader,
   BusinessInformationSection,
@@ -79,12 +81,53 @@ export default function VendorProfileContent() {
   });
   const [documentState, documentAction, documentPending] = useActionState(
     uploadVendorDocument,
-    defaultDocumentUploadState,
+    { success: false, message: "", errors: {} },
   );
-  const [selectedDocumentType, setSelectedDocumentType] = useState(
-    DOCUMENT_UPLOAD_OPTIONS[0]?.value || "",
-  );
-  const fileInputRef = useRef(null);
+  const getNextDocumentType = (usedTypes = []) =>
+    DOCUMENT_UPLOAD_OPTIONS.find((option) => !usedTypes.includes(option.value))
+      ?.value ||
+    DOCUMENT_UPLOAD_OPTIONS[0]?.value ||
+    "";
+  const createDocumentRow = (usedTypes = []) => ({
+    id: crypto.randomUUID(),
+    type: getNextDocumentType(usedTypes),
+    file: null,
+  });
+  const [documentQueue, setDocumentQueue] = useState(() => [createDocumentRow()]);
+
+  const handleAddDocumentRow = () => {
+    setDocumentQueue((prev) => {
+      const usedTypes = prev.map((row) => row.type).filter(Boolean);
+      const uniqueUsedTypes = new Set(usedTypes);
+
+      if (uniqueUsedTypes.size >= DOCUMENT_UPLOAD_OPTIONS.length) {
+        return prev;
+      }
+
+      return [...prev, createDocumentRow([...uniqueUsedTypes])];
+    });
+  };
+
+  const handleRemoveDocumentRow = (id) => {
+    setDocumentQueue((prev) => prev.filter((row) => row.id !== id));
+  };
+
+  const handleDocumentRowChange = (id, field, value) => {
+    setDocumentQueue((prev) => {
+      if (field === "type") {
+        const usedTypes = prev
+          .filter((row) => row.id !== id)
+          .map((row) => row.type)
+          .filter(Boolean);
+
+        if (usedTypes.includes(value)) {
+          return prev;
+        }
+      }
+
+      return prev.map((row) => (row.id === id ? { ...row, [field]: value } : row));
+    });
+  };
 
   useEffect(() => {
     setNotifications(mapNotificationSettings(notificationPreferences));
@@ -194,6 +237,14 @@ export default function VendorProfileContent() {
     () => (Array.isArray(documents) ? documents : []),
     [documents],
   );
+  const selectedDocumentTypes = useMemo(
+    () => documentQueue.map((row) => row.type).filter(Boolean),
+    [documentQueue],
+  );
+  const isDocumentTypeLimitReached = useMemo(
+    () => new Set(selectedDocumentTypes).size >= DOCUMENT_UPLOAD_OPTIONS.length,
+    [selectedDocumentTypes],
+  );
 
   const notificationFields = useMemo(
     () => ({
@@ -208,6 +259,12 @@ export default function VendorProfileContent() {
     }),
     [notifications],
   );
+
+  const accountNameRef = useRef(null);
+  const bankNameRef = useRef(null);
+  const bankBranchRef = useRef(null);
+  const accountNumberRef = useRef(null);
+  const routingNumberRef = useRef(null);
 
   const formKey = useMemo(
     () =>
@@ -245,6 +302,18 @@ export default function VendorProfileContent() {
       ? { label: "WhatsApp", href: supportWhatsapp, external: true }
       : null,
   ].filter(Boolean);
+
+  const handleEditPayment = () => {
+    const target =
+      accountNameRef.current ||
+      bankNameRef.current ||
+      bankBranchRef.current ||
+      accountNumberRef.current;
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.focus();
+    }
+  };
 
   return (
     <section aria-label="Vendor profile settings" className="flex flex-col space-y-6 w-full mb-8">
@@ -314,6 +383,14 @@ export default function VendorProfileContent() {
           isVerifiedVendor={isVerifiedVendor}
           requestLinks={requestLinks}
           errors={formErrors}
+          onEditPayment={handleEditPayment}
+          paymentFieldRefs={{
+            accountName: accountNameRef,
+            bankName: bankNameRef,
+            bankBranch: bankBranchRef,
+            accountNumber: accountNumberRef,
+            routingNumber: routingNumberRef,
+          }}
         />
         <NotificationPreferencesSection
           notifications={notifications}
@@ -342,10 +419,13 @@ export default function VendorProfileContent() {
         documentState={documentState}
         documentAction={documentAction}
         documentPending={documentPending}
-        selectedDocumentType={selectedDocumentType}
-        setSelectedDocumentType={setSelectedDocumentType}
-        fileInputRef={fileInputRef}
         isApplicationApproved={isApplicationApproved}
+        documentQueue={documentQueue}
+        selectedDocumentTypes={selectedDocumentTypes}
+        isDocumentTypeLimitReached={isDocumentTypeLimitReached}
+        onAddDocumentRow={handleAddDocumentRow}
+        onRemoveDocumentRow={handleRemoveDocumentRow}
+        onDocumentRowChange={handleDocumentRowChange}
       />
     </section>
   );

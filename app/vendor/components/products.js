@@ -61,7 +61,7 @@ export function ProductsStep({
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
-            Product Categories <span className="text-red-500">*</span>{" "}
+            Vendor Categories <span className="text-red-500">*</span>{" "}
             <span className="font-normal text-gray-500">
               (Select all that apply)
             </span>

@@ -23,6 +23,7 @@ export function FormField({
   type = 'text',
   readOnly = false,
   error,
+  inputRef,
 }) {
   const errorId = error && name ? `${name}-error` : undefined;
   const inputClasses = `w-full ${Icon ? 'pl-9' : 'pl-3'} pr-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
@@ -40,6 +41,7 @@ export function FormField({
     : {
         defaultValue: inputValue,
       };
+  const refProp = inputRef ? { ref: inputRef } : {};
 
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
@@ -59,6 +61,7 @@ export function FormField({
           aria-describedby={errorId}
           tabIndex={readOnly ? -1 : 0}
           className={inputClasses}
+          {...refProp}
           {...inputProps}
         />
       </div>

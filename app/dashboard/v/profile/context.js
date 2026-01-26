@@ -90,7 +90,7 @@ export const VendorProfileProvider = ({ children }) => {
           ? supabase
               .from("payment_info")
               .select(
-                "id, vendor_id, bank_name, bank_account, bank_branch, momo_number, momo_network, account_name, account_type, routing_number",
+                "id, vendor_id, bank_name, bank_account_masked, bank_account_last4, bank_branch, momo_number, momo_network, account_name, account_type, routing_number",
               )
               .eq("vendor_id", vendorRecord.id)
               .order("created_at", { ascending: false })

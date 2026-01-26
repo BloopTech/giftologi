@@ -251,6 +251,8 @@ export function PaymentInformationSection({
   isVerifiedVendor,
   requestLinks,
   errors = {},
+  onEditPayment,
+  paymentFieldRefs = {},
 }) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
@@ -304,29 +306,34 @@ export function PaymentInformationSection({
             name: "account_name",
             value: paymentSummary.accountName,
             required: true,
+            inputRef: paymentFieldRefs.accountName,
           },
           {
             label: "Bank Name",
             name: "bank_name",
             value: paymentSummary.bankName,
             required: true,
+            inputRef: paymentFieldRefs.bankName,
           },
           {
             label: "Bank Branch",
             name: "bank_branch",
             value: paymentSummary.bankBranch,
             required: true,
+            inputRef: paymentFieldRefs.bankBranch,
           },
           {
             label: "Account Number",
             name: "bank_account",
             value: paymentSummary.accountNumber,
             required: true,
+            inputRef: paymentFieldRefs.accountNumber,
           },
           {
             label: "Branch Code (optional)",
             name: "routing_number",
             value: paymentSummary.routingNumber,
+            inputRef: paymentFieldRefs.routingNumber,
           },
         ].map((field) =>
           isVerifiedVendor ? (
@@ -366,6 +373,10 @@ export function PaymentInformationSection({
         ) : (
           <button
             type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              onEditPayment?.();
+            }}
             className="cursor-pointer w-full py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
           >
             Update Payment Method
@@ -440,11 +451,14 @@ export function DocumentsSection({
   documentList,
   documentState,
   documentAction,
-  selectedDocumentType,
-  setSelectedDocumentType,
   documentPending,
   isApplicationApproved,
-  fileInputRef,
+  documentQueue,
+  selectedDocumentTypes,
+  isDocumentTypeLimitReached,
+  onAddDocumentRow,
+  onRemoveDocumentRow,
+  onDocumentRowChange,
 }) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
@@ -477,43 +491,80 @@ export function DocumentsSection({
           </div>
         )}
 
-        <form action={documentAction} className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">Document Type</label>
-              <select
-                name="document_type"
-                value={selectedDocumentType}
-                onChange={(event) => setSelectedDocumentType(event.target.value)}
-                disabled={documentPending || isApplicationApproved}
-                className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
-              >
-                {DOCUMENT_UPLOAD_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+        <form
+          action={documentAction}
+          className="space-y-3"
+        >
+          {documentQueue.map((row, idx) => (
+            <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">Document Type</label>
+                <select
+                  name={`document_type_${idx}`}
+                  value={row.type}
+                  onChange={(e) => onDocumentRowChange(row.id, "type", e.target.value)}
+                  disabled={documentPending || isApplicationApproved}
+                  className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
+                >
+                  {DOCUMENT_UPLOAD_OPTIONS.map((option) => {
+                    const isSelectedElsewhere =
+                      selectedDocumentTypes?.includes(option.value) && option.value !== row.type;
+                    return (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                        disabled={isSelectedElsewhere}
+                      >
+                        {option.label}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[#374151] text-sm font-medium">Select File</label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                name="document_file"
-                accept={DOCUMENT_ACCEPT_TYPES}
-                disabled={documentPending || isApplicationApproved}
-                className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] file:mr-3 file:rounded-full file:border file:border-[#D1D5DB] file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[#111827] hover:border-[#9CA3AF] disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
-              />
-              {documentState?.errors?.document_file && (
-                <p className="text-xs text-red-600">{documentState.errors.document_file}</p>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">Select File</label>
+                <input
+                  type="file"
+                  name={`document_file_${idx}`}
+                  accept={DOCUMENT_ACCEPT_TYPES}
+                  disabled={documentPending || isApplicationApproved}
+                  onChange={(e) => onDocumentRowChange(row.id, "file", e.target.files?.[0] || null)}
+                  className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] file:mr-3 file:rounded-full file:border file:border-[#D1D5DB] file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[#111827] hover:border-[#9CA3AF] disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
+                />
+              </div>
+
+              {documentQueue.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveDocumentRow(row.id)}
+                  disabled={documentPending || isApplicationApproved}
+                  className="cursor-pointer flex items-center justify-center w-9 h-9 rounded-lg border border-[#FECACA] bg-[#FEF2F2] text-[#991B1B] hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:opacity-60"
+                  aria-label="Remove document row"
+                >
+                  &times;
+                </button>
               )}
             </div>
+          ))}
+
+          {documentState?.errors?.document_file && (
+            <p className="text-xs text-red-600">{documentState.errors.document_file}</p>
+          )}
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={onAddDocumentRow}
+              disabled={documentPending || isApplicationApproved || isDocumentTypeLimitReached}
+              className="cursor-pointer inline-flex items-center gap-1 rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm font-medium text-[#374151] hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <span className="text-lg leading-none">+</span> Add Document
+            </button>
           </div>
 
           <p className="text-xs text-[#6B7280]">
-            Files must be {MAX_VENDOR_DOC_FILE_SIZE_MB}MB or smaller. Supported formats: {" "}
+            Files must be {MAX_VENDOR_DOC_FILE_SIZE_MB}MB or smaller. Supported formats:{" "}
             {DOCUMENT_ACCEPT_TYPES.replace(/\./g, "").toUpperCase()}.
           </p>
 
@@ -527,7 +578,7 @@ export function DocumentsSection({
               ? "Documents locked after approval"
               : documentPending
                 ? "Uploading..."
-                : "Upload Document"}
+                : "Upload Documents"}
           </button>
         </form>
       </div>

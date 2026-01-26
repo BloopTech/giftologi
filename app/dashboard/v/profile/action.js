@@ -131,38 +131,6 @@ export async function uploadVendorDocument(prevState, formData) {
     };
   }
 
-  const raw = { document_type: formData.get("document_type") || "" };
-  const validation = documentUploadSchema.safeParse(raw);
-
-  if (!validation.success) {
-    return {
-      success: false,
-      message: validation.error.issues?.[0]?.message || "Select a valid document type.",
-      errors: { document_type: validation.error.issues?.[0]?.message },
-    };
-  }
-
-  const file = formData.get("document_file");
-  if (!isFileLike(file)) {
-    return {
-      success: false,
-      message: "Select a file to upload.",
-      errors: { document_file: "Please choose a document to upload." },
-    };
-  }
-
-  if (typeof file.size === "number" && file.size > MAX_VENDOR_DOC_FILE_SIZE_BYTES) {
-    return {
-      success: false,
-      message: `Files must be ${MAX_VENDOR_DOC_FILE_SIZE_MB}MB or smaller.`,
-      errors: {
-        document_file: `File exceeds ${MAX_VENDOR_DOC_FILE_SIZE_MB}MB.`,
-      },
-    };
-  }
-
-  const documentType = validation.data.document_type;
-
   const { data: vendorRecord, error: vendorError } = await supabase
     .from("vendors")
     .select("id, verified")
@@ -203,51 +171,95 @@ export async function uploadVendorDocument(prevState, formData) {
     };
   }
 
-  const prefix = `vendor-kyc/${user.id}/${documentType}`;
-  let documentUrl;
+  const uploadedTitles = [];
+  const uploadErrors = [];
+  let currentDocuments = applicationRecord.documents;
 
-  try {
-    documentUrl = await uploadDocumentToR2(file, prefix);
-  } catch (error) {
-    console.error("Vendor document upload failed", error);
+  for (let idx = 0; ; idx++) {
+    const docType = formData.get(`document_type_${idx}`);
+    const docFile = formData.get(`document_file_${idx}`);
+
+    if (docType === null && docFile === null) break;
+    if (!docType) continue;
+
+    const validation = documentUploadSchema.safeParse({ document_type: docType });
+    if (!validation.success) {
+      uploadErrors.push(`Row ${idx + 1}: ${validation.error.issues?.[0]?.message || "Invalid document type."}`);
+      continue;
+    }
+
+    if (!isFileLike(docFile)) {
+      uploadErrors.push(`Row ${idx + 1}: Please choose a file.`);
+      continue;
+    }
+
+    if (typeof docFile.size === "number" && docFile.size > MAX_VENDOR_DOC_FILE_SIZE_BYTES) {
+      uploadErrors.push(`Row ${idx + 1}: File exceeds ${MAX_VENDOR_DOC_FILE_SIZE_MB}MB.`);
+      continue;
+    }
+
+    const prefix = `vendor-kyc/${user.id}/${docType}`;
+    let documentUrl;
+
+    try {
+      documentUrl = await uploadDocumentToR2(docFile, prefix);
+    } catch (error) {
+      console.error("Vendor document upload failed", error);
+      uploadErrors.push(`Row ${idx + 1}: Upload failed.`);
+      continue;
+    }
+
+    if (!documentUrl) {
+      uploadErrors.push(`Row ${idx + 1}: Invalid document.`);
+      continue;
+    }
+
+    const title = DOCUMENT_TITLE_LOOKUP[docType] || "Document";
+    currentDocuments = mergeDocument(currentDocuments, title, documentUrl);
+    uploadedTitles.push(title);
+  }
+
+  if (uploadedTitles.length === 0 && uploadErrors.length === 0) {
     return {
       success: false,
-      message: "Failed to upload the document. Please try again.",
+      message: "No documents selected.",
+      errors: { document_file: "Please add at least one document to upload." },
+    };
+  }
+
+  if (uploadedTitles.length > 0) {
+    const { error: updateError } = await supabase
+      .from("vendor_applications")
+      .update({ documents: currentDocuments, updated_at: new Date().toISOString() })
+      .eq("id", applicationRecord.id)
+      .eq("user_id", user.id);
+
+    if (updateError) {
+      return {
+        success: false,
+        message: updateError.message || "Failed to save documents.",
+        errors: {},
+      };
+    }
+
+    revalidatePath("/dashboard/v/profile");
+    revalidatePath("/dashboard/v");
+  }
+
+  if (uploadErrors.length > 0) {
+    return {
+      success: uploadedTitles.length > 0,
+      message:
+        uploadedTitles.length > 0
+          ? `Uploaded: ${uploadedTitles.join(", ")}. Errors: ${uploadErrors.join(" ")}`
+          : uploadErrors.join(" "),
       errors: {},
     };
   }
-
-  if (!documentUrl) {
-    return {
-      success: false,
-      message: "Invalid document selected.",
-      errors: { document_file: "Please choose a different document." },
-    };
-  }
-
-  const title = DOCUMENT_TITLE_LOOKUP[documentType] || "Document";
-  const documents = mergeDocument(applicationRecord.documents, title, documentUrl);
-
-  const { error: updateError } = await supabase
-    .from("vendor_applications")
-    .update({ documents, updated_at: new Date().toISOString() })
-    .eq("id", applicationRecord.id)
-    .eq("user_id", user.id);
-
-  if (updateError) {
-    return {
-      success: false,
-      message: updateError.message || "Failed to save document.",
-      errors: {},
-    };
-  }
-
-  revalidatePath("/dashboard/v/profile");
-  revalidatePath("/dashboard/v");
 
   return {
     success: true,
-    message: `${title} uploaded successfully.`,
+    message: `${uploadedTitles.join(", ")} uploaded successfully.`,
     errors: {},
   };
 }
@@ -274,11 +286,13 @@ const documentUploadSchema = z.object({
     }),
 });
 
-export const defaultDocumentUploadState = {
-  success: false,
-  message: "",
-  errors: {},
-};
+export async function getDefaultDocumentUploadState() {
+  return {
+    success: false,
+    message: "",
+    errors: {},
+  };
+}
 
 const vendorSchema = z.object({
   business_name: z.string().min(1, "Business name is required").max(120),
