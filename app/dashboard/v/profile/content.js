@@ -10,7 +10,7 @@ import Link from "next/link";
 import { PiFloppyDisk } from "react-icons/pi";
 
 import { useVendorProfileContext } from "./context";
-import { manageProfile, uploadVendorDocument } from "./action";
+import { manageProfile, saveVendorLogo, uploadVendorDocument } from "./action";
 import {
   ProfileHeader,
   BusinessInformationSection,
@@ -79,10 +79,19 @@ export default function VendorProfileContent() {
     message: "",
     errors: {},
   });
+  const [logoState, logoAction, isLogoPending] = useActionState(saveVendorLogo, {
+    success: false,
+    message: "",
+    errors: {},
+    data: {},
+  });
   const [documentState, documentAction, documentPending] = useActionState(
     uploadVendorDocument,
     { success: false, message: "", errors: {} },
   );
+  const [logoPreview, setLogoPreview] = useState(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [isLogoSaved, setIsLogoSaved] = useState(false);
   const getNextDocumentType = (usedTypes = []) =>
     DOCUMENT_UPLOAD_OPTIONS.find((option) => !usedTypes.includes(option.value))
       ?.value ||
@@ -138,6 +147,26 @@ export default function VendorProfileContent() {
       refreshData?.();
     }
   }, [documentState?.success, documentState?.message, refreshData]);
+
+  useEffect(() => {
+    if (vendor?.logo_url) {
+      setLogoPreview(vendor.logo_url);
+      setIsLogoSaved(true);
+      return;
+    }
+
+    setLogoPreview(null);
+    setIsLogoSaved(false);
+  }, [vendor?.logo_url]);
+
+  useEffect(() => {
+    if (logoState?.success && logoState?.data?.logo_url) {
+      setLogoPreview(logoState.data.logo_url);
+      setLogoFile(null);
+      setIsLogoSaved(true);
+      refreshData?.();
+    }
+  }, [logoState?.success, logoState?.data?.logo_url, refreshData]);
 
   const vendorSummary = useMemo(() => {
     const draft = application?.draft_data || {};
@@ -298,6 +327,20 @@ export default function VendorProfileContent() {
     setNotifications((prev) => ({ ...prev, [key]: value }));
   };
 
+  const handleLogoChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setLogoFile(file);
+    setIsLogoSaved(false);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setLogoPreview(e.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const isVerifiedVendor = vendorSummary.isVerified;
   const applicationStatus = application?.status?.toLowerCase?.() || "";
   const isApplicationApproved = applicationStatus === "approved";
@@ -366,6 +409,23 @@ export default function VendorProfileContent() {
       )}
 
       <form
+        id="vendorLogoForm"
+        action={logoAction}
+        encType="multipart/form-data"
+        className="hidden"
+      >
+        <input type="hidden" name="vendor_id" value={vendor?.id || ""} readOnly />
+        <input
+          id="vendor_logo_file"
+          name="logo_file"
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={handleLogoChange}
+        />
+      </form>
+
+      <form
         key={formKey}
         action={formAction}
         className="flex flex-col space-y-6 w-full"
@@ -385,7 +445,25 @@ export default function VendorProfileContent() {
         {Object.entries(notificationFields).map(([key, value]) => (
           <input key={key} type="hidden" name={key} value={value ? "true" : "false"} />
         ))}
-        <ProfileHeader vendorSummary={vendorSummary} vendor={vendor} />
+        <ProfileHeader
+          vendorSummary={vendorSummary}
+          vendor={vendor}
+          logoPreview={logoPreview}
+          logoState={logoState}
+          canSaveLogo={Boolean(logoFile) && !isLogoSaved}
+          isLogoPending={isLogoPending}
+        />
+        {logoState?.message && (
+          <div
+            className={`rounded-xl border px-4 py-3 text-sm ${
+              logoState.success
+                ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]"
+                : "border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]"
+            }`}
+          >
+            {logoState.message}
+          </div>
+        )}
         <BusinessInformationSection
           vendorSummary={vendorSummary}
           isVerifiedVendor={isVerifiedVendor}

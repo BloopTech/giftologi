@@ -93,6 +93,24 @@ const isFileLike = (value) => {
   );
 };
 
+const MAX_VENDOR_LOGO_FILE_SIZE_MB = 5;
+const MAX_VENDOR_LOGO_FILE_SIZE_BYTES =
+  MAX_VENDOR_LOGO_FILE_SIZE_MB * 1024 * 1024;
+
+const isValidImageFile = (file) => {
+  if (!isFileLike(file)) return false;
+  const fileType = typeof file.type === "string" ? file.type : "";
+  if (!fileType.startsWith("image/")) return false;
+  if (typeof file.size === "number" && file.size <= 0) return false;
+  if (
+    typeof file.size === "number" &&
+    file.size > MAX_VENDOR_LOGO_FILE_SIZE_BYTES
+  ) {
+    return false;
+  }
+  return true;
+};
+
 async function uploadDocumentToR2(file, keyPrefix) {
   if (!isFileLike(file)) return null;
   const buffer = await file.arrayBuffer();
@@ -114,6 +132,130 @@ async function uploadDocumentToR2(file, keyPrefix) {
   const baseUrl = process.env.CLOUDFLARE_R2_PUBLIC_URL || "";
   const normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
   return `${normalizedBaseUrl}/${objectKey}`;
+}
+
+export async function saveVendorLogo(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      success: false,
+      message: "You must be logged in.",
+      errors: { logo_file: "You must be logged in." },
+    };
+  }
+
+  const logoFile = formData.get("logo_file");
+
+  if (!isValidImageFile(logoFile)) {
+    return {
+      success: false,
+      message: `Select a valid image under ${MAX_VENDOR_LOGO_FILE_SIZE_MB}MB.`,
+      errors: {
+        logo_file: `Image must be under ${MAX_VENDOR_LOGO_FILE_SIZE_MB}MB and a valid format.`,
+      },
+    };
+  }
+
+  const vendorIdFromForm = formData.get("vendor_id");
+  const vendorSelectColumns = "id";
+  let vendorRecord = null;
+
+  if (vendorIdFromForm) {
+    const { data, error } = await supabase
+      .from("vendors")
+      .select(vendorSelectColumns)
+      .eq("id", vendorIdFromForm)
+      .eq("profiles_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message || "Vendor profile not found.",
+        errors: {},
+      };
+    }
+
+    vendorRecord = data || null;
+  }
+
+  if (!vendorRecord) {
+    const { data, error } = await supabase
+      .from("vendors")
+      .select(vendorSelectColumns)
+      .eq("profiles_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message || "Vendor profile not found.",
+        errors: {},
+      };
+    }
+
+    vendorRecord = data || null;
+  }
+
+  if (!vendorRecord?.id) {
+    return {
+      success: false,
+      message: "Vendor profile not found.",
+      errors: {},
+    };
+  }
+
+  let logoUrl;
+
+  try {
+    logoUrl = await uploadDocumentToR2(logoFile, `vendor-logos/${user.id}`);
+  } catch (error) {
+    console.error("Vendor logo upload failed", error);
+    return {
+      success: false,
+      message: "Failed to upload logo.",
+      errors: {},
+    };
+  }
+
+  if (!logoUrl) {
+    return {
+      success: false,
+      message: "Failed to upload logo.",
+      errors: {},
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("vendors")
+    .update({ logo_url: logoUrl, updated_at: new Date().toISOString() })
+    .eq("id", vendorRecord.id)
+    .eq("profiles_id", user.id);
+
+  if (updateError) {
+    return {
+      success: false,
+      message: updateError.message || "Failed to save logo.",
+      errors: {},
+    };
+  }
+
+  revalidatePath("/dashboard/v/profile");
+  revalidatePath("/dashboard/v");
+
+  return {
+    success: true,
+    message: "Logo updated successfully.",
+    data: { logo_url: logoUrl },
+    errors: {},
+  };
 }
 
 export async function uploadVendorDocument(prevState, formData) {

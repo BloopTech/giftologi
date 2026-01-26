@@ -66,7 +66,7 @@ export const VendorProfileProvider = ({ children }) => {
         supabase
           .from("vendors")
           .select(
-            "id, business_name, legal_name, business_type, business_registration_number, description, email, phone, website, tax_id, address_street, address_city, address_state, digital_address, address_country, verified, created_at, updated_at",
+            "id, business_name, legal_name, business_type, business_registration_number, description, email, phone, website, tax_id, address_street, address_city, address_state, digital_address, address_country, logo_url, verified, created_at, updated_at",
           )
           .eq("profiles_id", userId)
           .order("created_at", { ascending: false })

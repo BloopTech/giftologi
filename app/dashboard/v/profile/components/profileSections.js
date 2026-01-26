@@ -30,15 +30,22 @@ import {
   MAX_VENDOR_DOC_FILE_SIZE_MB,
 } from "../documentTypes";
 
-export function ProfileHeader({ vendorSummary, vendor }) {
+export function ProfileHeader({
+  vendorSummary,
+  vendor,
+  logoPreview,
+  canSaveLogo,
+  isLogoPending,
+}) {
+  const logoSrc = logoPreview || vendor?.logo_url;
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
       <div className="flex items-start justify-between">
         <div className="flex items-start gap-4">
           <div className="w-16 h-16 bg-[#F3F4F6] rounded-xl flex items-center justify-center overflow-hidden">
-            {vendor?.logo_url ? (
+            {logoSrc ? (
               <Image
-                src={vendor.logo_url}
+                src={logoSrc}
                 alt="Vendor Logo"
                 width={64}
                 height={64}
@@ -70,13 +77,25 @@ export function ProfileHeader({ vendorSummary, vendor }) {
           </div>
         </div>
 
-        <button
-          type="button"
-          className="cursor-pointer inline-flex items-center gap-2 px-3 py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
-        >
-          <PiPencilSimple className="w-4 h-4" />
-          Change Logo
-        </button>
+        <div className="flex items-center gap-3">
+          <label
+            htmlFor="vendor_logo_file"
+            className="cursor-pointer inline-flex items-center gap-2 px-3 py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
+          >
+            <PiPencilSimple className="w-4 h-4" />
+            Change Logo
+          </label>
+          {canSaveLogo && (
+            <button
+              type="submit"
+              form="vendorLogoForm"
+              disabled={isLogoPending}
+              className="cursor-pointer inline-flex items-center gap-2 px-3 py-2.5 text-white text-sm font-medium bg-[#111827] rounded-lg hover:bg-[#1F2937] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isLogoPending ? "Saving..." : "Save Logo"}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
