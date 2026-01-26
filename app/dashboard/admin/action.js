@@ -377,6 +377,7 @@ export async function manageRoles(prevState, queryData) {
 
 export async function updateStaffDetails(prevState, formData) {
   const supabase = await createClient();
+  const adminClient = createAdminClient();
 
   const {
     data: { user },
@@ -434,7 +435,7 @@ export async function updateStaffDetails(prevState, formData) {
   const firstname = nameParts[0] || "";
   const lastname = nameParts.slice(1).join(" ") || "";
 
-  const { data, error } = await supabase
+  const { data, error } = await adminClient
     .from("profiles")
     .update({
       firstname,
@@ -445,11 +446,23 @@ export async function updateStaffDetails(prevState, formData) {
     })
     .eq("id", staffId)
     .select("id, firstname, lastname, email, role, phone, status")
-    .single();
+    .maybeSingle();
 
   if (error) {
     return {
       message: error.message,
+      errors: {
+        ...defaultUpdateStaffValues,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (!data) {
+    return {
+      message:
+        "We couldn't update this staff member. Please confirm the account exists and try again.",
       errors: {
         ...defaultUpdateStaffValues,
       },

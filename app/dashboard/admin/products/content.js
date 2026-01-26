@@ -71,14 +71,23 @@ function CategoriesSection({
     initialDeleteCategoryState,
   );
 
-  const [createSubcategoryState, createSubcategoryAction, createSubcategoryPending] =
-    useActionState(createCategory, initialCreateCategoryState);
+  const [
+    createSubcategoryState,
+    createSubcategoryAction,
+    createSubcategoryPending,
+  ] = useActionState(createCategory, initialCreateCategoryState);
 
-  const [updateSubcategoryState, updateSubcategoryAction, updateSubcategoryPending] =
-    useActionState(updateCategory, initialUpdateCategoryState);
+  const [
+    updateSubcategoryState,
+    updateSubcategoryAction,
+    updateSubcategoryPending,
+  ] = useActionState(updateCategory, initialUpdateCategoryState);
 
-  const [deleteSubcategoryState, deleteSubcategoryAction, deleteSubcategoryPending] =
-    useActionState(deleteCategory, initialDeleteCategoryState);
+  const [
+    deleteSubcategoryState,
+    deleteSubcategoryAction,
+    deleteSubcategoryPending,
+  ] = useActionState(deleteCategory, initialDeleteCategoryState);
 
   const loadCategoryUsage = useCallback(async () => {
     const supabase = createSupabaseClient();
@@ -139,16 +148,25 @@ function CategoriesSection({
   }, [createSubcategoryState, onCategoriesRefresh, loadCategoryUsage]);
 
   useEffect(() => {
-    if (updateSubcategoryState?.message && !updateSubcategoryState?.errors?.name?.length) {
+    if (
+      updateSubcategoryState?.message &&
+      !updateSubcategoryState?.errors?.name?.length
+    ) {
       toast.success(updateSubcategoryState.message);
       onCategoriesRefresh?.();
-    } else if (updateSubcategoryState?.message && updateSubcategoryState?.errors?.name?.length) {
+    } else if (
+      updateSubcategoryState?.message &&
+      updateSubcategoryState?.errors?.name?.length
+    ) {
       toast.error(updateSubcategoryState.message);
     }
   }, [updateSubcategoryState, onCategoriesRefresh]);
 
   useEffect(() => {
-    if (deleteSubcategoryState?.message && !deleteSubcategoryState?.errors?.length) {
+    if (
+      deleteSubcategoryState?.message &&
+      !deleteSubcategoryState?.errors?.length
+    ) {
       toast.success(deleteSubcategoryState.message);
       onCategoriesRefresh?.();
       loadCategoryUsage();
@@ -395,7 +413,9 @@ function CategoriesSection({
 
               if (!createState?.message || !hasErrors) return null;
               return (
-                <p className="text-[11px] text-red-600">{createState.message}</p>
+                <p className="text-[11px] text-red-600">
+                  {createState.message}
+                </p>
               );
             })()}
             <div className="flex items-center justify-end gap-2">
@@ -488,17 +508,28 @@ function CategoriesSection({
 
           <div className="mt-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-xs font-medium text-[#0A0A0A]">Subcategories</h3>
+              <h3 className="text-xs font-medium text-[#0A0A0A]">
+                Subcategories
+              </h3>
             </div>
 
             {!subcategories.length ? (
-              <p className="text-[11px] text-[#717182]">No subcategories yet.</p>
+              <p className="text-[11px] text-[#717182]">
+                No subcategories yet.
+              </p>
             ) : (
               <div className="space-y-2">
                 {subcategories.map((subcat) => (
                   <div key={subcat.id} className="flex items-center gap-2">
-                    <form action={updateSubcategoryAction} className="flex flex-1 items-center gap-2">
-                      <input type="hidden" name="categoryId" value={subcat.id} />
+                    <form
+                      action={updateSubcategoryAction}
+                      className="flex flex-1 items-center gap-2"
+                    >
+                      <input
+                        type="hidden"
+                        name="categoryId"
+                        value={subcat.id}
+                      />
                       <input
                         name="name"
                         type="text"
@@ -516,7 +547,11 @@ function CategoriesSection({
                     </form>
 
                     <form action={deleteSubcategoryAction}>
-                      <input type="hidden" name="categoryId" value={subcat.id} />
+                      <input
+                        type="hidden"
+                        name="categoryId"
+                        value={subcat.id}
+                      />
                       <button
                         type="submit"
                         disabled={deleteSubcategoryPending}
@@ -532,7 +567,11 @@ function CategoriesSection({
             )}
 
             <form action={createSubcategoryAction} className="space-y-2">
-              <input type="hidden" name="parentCategoryId" value={editingCategory?.id || ""} />
+              <input
+                type="hidden"
+                name="parentCategoryId"
+                value={editingCategory?.id || ""}
+              />
               <div className="flex items-center gap-2">
                 <input
                   name="name"
@@ -835,7 +874,9 @@ export default function ManageProductsContent() {
     });
 
     for (const [key, list] of map.entries()) {
-      list.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+      list.sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || "")),
+      );
       map.set(key, list);
     }
 
@@ -1094,7 +1135,10 @@ export default function ManageProductsContent() {
   };
 
   return (
-    <section aria-label="Product management" className="flex flex-col space-y-4 w-full mb-8">
+    <section
+      aria-label="Product management"
+      className="flex flex-col space-y-4 w-full mb-8"
+    >
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
           <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
@@ -1248,13 +1292,6 @@ export default function ManageProductsContent() {
           })}
         </div>
       </div>
-
-      <CategoriesSection
-        categories={categories}
-        categoriesLoading={categoriesLoading}
-        categoriesError={categoriesError}
-        onCategoriesRefresh={loadCategories}
-      />
 
       <div className="mt-4 grid grid-cols-1 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col gap-2">
@@ -1450,7 +1487,9 @@ export default function ManageProductsContent() {
                       </label>
                       <Select
                         value={selectedSubcategoryId || ""}
-                        onValueChange={(value) => setSelectedSubcategoryId(value || "")}
+                        onValueChange={(value) =>
+                          setSelectedSubcategoryId(value || "")
+                        }
                         disabled={
                           categoriesLoading ||
                           createPending ||
@@ -1684,7 +1723,9 @@ export default function ManageProductsContent() {
                       <div className="mt-2">
                         <Select
                           value={bulkSubcategoryId || ""}
-                          onValueChange={(value) => setBulkSubcategoryId(value || "")}
+                          onValueChange={(value) =>
+                            setBulkSubcategoryId(value || "")
+                          }
                           disabled={
                             categoriesLoading ||
                             createPending ||
@@ -1963,6 +2004,13 @@ export default function ManageProductsContent() {
 
       {/* <VendorRequestsTable /> */}
       <ProductsTable />
+
+      <CategoriesSection
+        categories={categories}
+        categoriesLoading={categoriesLoading}
+        categoriesError={categoriesError}
+        onCategoriesRefresh={loadCategories}
+      />
     </section>
   );
 }

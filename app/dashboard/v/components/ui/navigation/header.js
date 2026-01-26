@@ -152,7 +152,7 @@ export default function Header() {
                 </div>
                 <div className="md:flex flex-col items-start hidden">
                   <div className="flex items-center space-x-1">
-                    <p className="text-lg font-medium text-[#D9778D]">
+                    <p className="text-lg font-medium text-primary">
                       Giftologi
                     </p>
                     <span className="text-xs text-[#686868]">

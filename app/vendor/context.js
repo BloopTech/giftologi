@@ -193,7 +193,7 @@ export const VendorApplicationProvider = ({ children }) => {
       if (!accountResponse?.data?.loggedIn) {
         const message =
           accountResponse?.message ||
-          "Account created. Please confirm your email to continue.";
+          "Account created. You can login to continue.";
         setNotice({ type: "error", message });
         return { success: false, message, data: accountResponse?.data };
       }

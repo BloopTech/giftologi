@@ -477,7 +477,7 @@ export function DocumentsSection({
           </div>
         )}
 
-        <form action={documentAction} encType="multipart/form-data" className="space-y-3">
+        <form action={documentAction} className="space-y-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div className="flex flex-col gap-1.5">
               <label className="text-[#374151] text-sm font-medium">Document Type</label>

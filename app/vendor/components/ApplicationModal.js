@@ -59,10 +59,14 @@ export default function ApplicationModal({ isOpen, onClose }) {
   const handleNext = async () => {
     if (currentStep < steps.length - 1) {
       const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
       if (!isReadOnly) {
-        await saveDraft({ draftData: formData, currentStep: nextStep });
+        const response = await saveDraft({
+          draftData: formData,
+          currentStep: nextStep,
+        });
+        if (!response?.success) return;
       }
+      setCurrentStep(nextStep);
       return;
     }
 
@@ -74,10 +78,14 @@ export default function ApplicationModal({ isOpen, onClose }) {
   const handlePrevious = async () => {
     if (currentStep > 0) {
       const previousStep = currentStep - 1;
-      setCurrentStep(previousStep);
       if (!isReadOnly) {
-        await saveDraft({ draftData: formData, currentStep: previousStep });
+        const response = await saveDraft({
+          draftData: formData,
+          currentStep: previousStep,
+        });
+        if (!response?.success) return;
       }
+      setCurrentStep(previousStep);
     }
   };
 
@@ -258,7 +266,7 @@ export default function ApplicationModal({ isOpen, onClose }) {
           <button
             onClick={handleNext}
             disabled={isBusy || (isReadOnly && currentStep === steps.length - 1)}
-            className="flex items-center gap-2 px-6 py-2.5 bg-[#22C55E] text-white text-sm font-medium rounded-full hover:bg-[#16A34A] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+            className="cursor-pointer flex items-center gap-2 px-6 py-2.5 bg-[#22C55E] text-white text-sm font-medium rounded-full hover:bg-[#16A34A] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {currentStep === steps.length - 1
               ? submitting
