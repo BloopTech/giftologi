@@ -24,6 +24,7 @@ export function FormField({
   readOnly = false,
   error,
   inputRef,
+  helperText,
 }) {
   const errorId = error && name ? `${name}-error` : undefined;
   const inputClasses = `w-full ${Icon ? 'pl-9' : 'pl-3'} pr-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
@@ -65,6 +66,9 @@ export function FormField({
           {...inputProps}
         />
       </div>
+      {helperText && !error && (
+        <p className="text-xs text-[#6B7280]">{helperText}</p>
+      )}
       {error && (
         <p id={errorId} className="text-xs text-red-600">
           {error}

@@ -254,6 +254,7 @@ export async function uploadVendorDocument(prevState, formData) {
           ? `Uploaded: ${uploadedTitles.join(", ")}. Errors: ${uploadErrors.join(" ")}`
           : uploadErrors.join(" "),
       errors: {},
+      data: uploadedTitles.length > 0 ? { documents: currentDocuments } : undefined,
     };
   }
 
@@ -261,6 +262,7 @@ export async function uploadVendorDocument(prevState, formData) {
     success: true,
     message: `${uploadedTitles.join(", ")} uploaded successfully.`,
     errors: {},
+    data: { documents: currentDocuments },
   };
 }
 

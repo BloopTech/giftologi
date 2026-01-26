@@ -137,7 +137,7 @@ export default function VendorProfileContent() {
     if (documentState?.success) {
       refreshData?.();
     }
-  }, [documentState?.success, refreshData]);
+  }, [documentState?.success, documentState?.message, refreshData]);
 
   const vendorSummary = useMemo(() => {
     const draft = application?.draft_data || {};
@@ -206,6 +206,20 @@ export default function VendorProfileContent() {
 
   const paymentSummary = useMemo(() => {
     const draft = application?.draft_data || {};
+    const maskAccount = (value) => {
+      if (!value) return "";
+      const stringValue = String(value).trim();
+      if (!stringValue) return "";
+      const last4 = stringValue.slice(-4);
+      return last4 ? `****${last4}` : "";
+    };
+    const accountNumberMasked =
+      paymentInfo?.bank_account_masked ||
+      (paymentInfo?.bank_account_last4
+        ? `****${paymentInfo.bank_account_last4}`
+        : "") ||
+      maskAccount(application?.bank_account_number || draft.accountNumber);
+
     return {
       accountName:
         paymentInfo?.account_name ||
@@ -219,11 +233,8 @@ export default function VendorProfileContent() {
         application?.bank_branch ||
         draft.bankBranch ||
         "",
-      accountNumber:
-        paymentInfo?.bank_account ||
-        application?.bank_account_number ||
-        draft.accountNumber ||
-        "",
+      accountNumber: "",
+      accountNumberMasked,
       routingNumber:
         paymentInfo?.routing_number ||
         application?.bank_branch_code ||
@@ -233,10 +244,13 @@ export default function VendorProfileContent() {
     };
   }, [paymentInfo, application]);
 
-  const documentList = useMemo(
-    () => (Array.isArray(documents) ? documents : []),
-    [documents],
-  );
+  const documentList = useMemo(() => {
+    const latestDocuments = documentState?.data?.documents;
+    if (Array.isArray(latestDocuments)) {
+      return latestDocuments;
+    }
+    return Array.isArray(documents) ? documents : [];
+  }, [documentState?.data?.documents, documents]);
   const selectedDocumentTypes = useMemo(
     () => documentQueue.map((row) => row.type).filter(Boolean),
     [documentQueue],

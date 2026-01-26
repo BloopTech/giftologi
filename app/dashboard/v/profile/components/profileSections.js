@@ -325,9 +325,14 @@ export function PaymentInformationSection({
           {
             label: "Account Number",
             name: "bank_account",
-            value: paymentSummary.accountNumber,
+            value: isVerifiedVendor
+              ? paymentSummary.accountNumberMasked
+              : paymentSummary.accountNumber,
             required: true,
             inputRef: paymentFieldRefs.accountNumber,
+            helperText: !isVerifiedVendor && paymentSummary.accountNumberMasked
+              ? `Current on file: ${paymentSummary.accountNumberMasked}`
+              : undefined,
           },
           {
             label: "Branch Code (optional)",
@@ -493,6 +498,7 @@ export function DocumentsSection({
 
         <form
           action={documentAction}
+          encType="multipart/form-data"
           className="space-y-3"
         >
           {documentQueue.map((row, idx) => (
