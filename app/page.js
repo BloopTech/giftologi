@@ -16,8 +16,13 @@ export default function Home() {
         backgroundRepeat: "no-repeat",
       }}
     >
-      <main className="flex flex-col items-center justify-center w-full">
-        <div className="rounded-2xl relative overflow-hidden max-w-6xl mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-poppins">
+      <main
+        id="main-content"
+        role="main"
+        aria-label="Coming soon announcement"
+        className="flex flex-col items-center justify-center w-full"
+      >
+        <article className="rounded-2xl relative overflow-hidden max-w-6xl mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-poppins">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute top-[55px] -right-2 w-[100%] h-[10px] bg-[#D2BF7C] origin-top-right rotate-40 z-1"
@@ -27,7 +32,7 @@ export default function Home() {
               <div className="h-full w-full">
               <Image
                 src={Logo}
-                alt="Logo"
+                alt="Giftologi logo"
                 fill
                 priority
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -35,34 +40,34 @@ export default function Home() {
               </div>
             </div>
             <div className="relative z-10 flex flex-col space-y-4 w-full">
-              <p className="text-[#85753C] font-semibold">
+              <h1 className="text-[#85753C] font-semibold text-base">
                 Hold the ribbon,
                 <br />
                 we&apos;re tying the knot on our site.
-              </p>
+              </h1>
               <p className="text-xs text-[#85753C]">
                 We&apos;re handpicking every detail, just for you. Sit
                 tight—we&apos;ll be live soon.
               </p>
-              <div className="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0 w-full">
+              <nav aria-label="Contact options" className="flex flex-col md:flex-row md:space-x-4 space-y-4 md:space-y-0 w-full">
                 <Link
                   href="mailto:hello@mygiftologi.com"
-                  className="rounded-xl flex items-center justify-center px-4 py-2 bg-[#A5914B] text-xs text-white"
-                  aria-label="Send us an email"
+                  className="rounded-xl flex items-center justify-center px-4 py-2 bg-[#A5914B] text-xs text-white focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                  aria-label="Send us an email at hello@mygiftologi.com"
                 >
                   Send us an Email
                 </Link>
                 <Link
                   href="tel:+233598608892"
-                  className="rounded-xl flex items-center justify-center px-8 py-2 bg-[#85753C] text-xs text-white"
-                  aria-label="Call us at +233598608892"
+                  className="rounded-xl flex items-center justify-center px-8 py-2 bg-[#85753C] text-xs text-white focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                  aria-label="Call us at +233 59 860 8892"
                 >
                   Call Us
                 </Link>
-              </div>
+              </nav>
             </div>
           </div>
-        </div>
+        </article>
       </main>
     </div>
   );

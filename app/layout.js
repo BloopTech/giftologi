@@ -11,6 +11,7 @@ import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { createMetadata, getPageSeo } from "./utils/seo";
+import { SkipLink } from "./components/accessibility";
 
 export async function generateMetadata() {
   const pageSeo = await getPageSeo("home");
@@ -64,6 +65,7 @@ export default function RootLayout({ children }) {
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} antialiased`}
       >
         <ThemeProvider attribute="class">
+          <SkipLink href="#main-content" />
           <Toaster
             position="top-center"
             expand={true}
@@ -76,7 +78,12 @@ export default function RootLayout({ children }) {
             }}
           />
 
-          <main className="w-full font-poppins bg-white text-black dark:bg-gray-950 dark:text-white min-h-screen">
+          <main
+            id="main-content"
+            role="main"
+            tabIndex={-1}
+            className="w-full font-poppins bg-white text-black dark:bg-gray-950 dark:text-white min-h-screen"
+          >
             {children}
           </main>
         </ThemeProvider>

@@ -43,54 +43,54 @@ export default function PasswordResetPageLayout(props) {
   }, [state?.message, state?.errors, state?.status_code]);
 
   return (
-    <>
-      <div
-        className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem] bg-[#16150FB2] min-h-screen"
-        style={{
-          backgroundImage: "url('/auth_layer.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <div className="px-5 lg:px-[2rem] w-full flex max-w-auto max-w-md items-center justify-center flex-col space-y-12 py-[2rem] bg-[#fffcef] rounded-2xl">
-          {passwordSuccess ? (
-            <ResetPasswordSuccess />
-          ) : (
-            <>
-              <div className="flex items-center justify-between w-full">
-                <div className="flex flex-col space-y-1">
-                  <h3 className="text-primary font-bold text-xl">
-                    Reset Password
-                  </h3>
-                  <p className="text-sm text-primary">Reset your password</p>
-                  <p className="text-xs text-primary/70">
-                    Resetting password for <span className="font-semibold">{email}</span>
-                  </p>
-                </div>
-                <Link href="/">
-                  {" "}
-                  <Image
-                    src={Logo}
-                    alt="Logo"
-                    width={50}
-                    height={50}
-                    priority
-                  />
-                </Link>
+    <main
+      id="main-content"
+      role="main"
+      aria-label="Reset password page"
+      className="flex w-full items-center justify-center flex-col space-y-16 py-8 bg-[#16150FB2] min-h-screen"
+      style={{
+        backgroundImage: "url('/auth_layer.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="px-5 lg:px-8 w-full flex max-w-md items-center justify-center flex-col space-y-12 py-8 bg-[#fffcef] rounded-2xl">
+        {passwordSuccess ? (
+          <ResetPasswordSuccess />
+        ) : (
+          <>
+            <header className="flex items-center justify-between w-full">
+              <div className="flex flex-col space-y-1">
+                <h1 className="text-primary font-bold text-xl">
+                  Reset Password
+                </h1>
+                <p className="text-sm text-primary">Reset your password</p>
+                <p className="text-xs text-primary/70">
+                  Resetting password for <span className="font-semibold">{email}</span>
+                </p>
               </div>
-              <div className="w-full">
-                <FormInput
-                  state={state}
-                  formAction={formAction}
-                  isPending={isPending}
-                  email={email}
+              <Link href="/" aria-label="Go to homepage">
+                <Image
+                  src={Logo}
+                  alt="Giftologi logo"
+                  width={50}
+                  height={50}
+                  priority
                 />
-              </div>
-            </>
-          )}
-        </div>
+              </Link>
+            </header>
+            <div className="w-full">
+              <FormInput
+                state={state}
+                formAction={formAction}
+                isPending={isPending}
+                email={email}
+              />
+            </div>
+          </>
+        )}
       </div>
-    </>
+    </main>
   );
 }

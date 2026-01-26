@@ -3,6 +3,9 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
+import nodemailer from "nodemailer";
+import { render, pretty } from "@react-email/render";
+import VendorApplicationSubmittedEmail from "../../../vendor/emails/VendorApplicationSubmittedEmail";
 import { createClient } from "../../../utils/supabase/server";
 import {
   DOCUMENT_TITLE_LOOKUP,
@@ -21,6 +24,61 @@ const vendorDocsS3Client = new S3Client({
 });
 
 const randomObjectName = (bytes = 32) => crypto.randomBytes(bytes).toString("hex");
+
+const getSiteUrl = () =>
+  process.env.NEXTAUTH_URL ||
+  (process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : "http://localhost:3000");
+
+const createEmailTransport = () => {
+  const host = process.env.SMTP_HOST;
+  if (!host) return null;
+
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = process.env.SMTP_SECURE === "true";
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: user && pass ? { user, pass } : undefined,
+  });
+};
+
+const sendVendorApplicationSubmittedEmail = async ({
+  to,
+  applicationId,
+  vendorName,
+}) => {
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const transport = createEmailTransport();
+
+  if (!to || !fromAddress || !transport) {
+    console.warn("Email not sent: missing SMTP configuration or recipient.");
+    return;
+  }
+
+  const siteUrl = getSiteUrl();
+  const html = await pretty(
+    await render(
+      <VendorApplicationSubmittedEmail
+        vendorName={vendorName}
+        applicationId={applicationId}
+        trackUrl={`${siteUrl}/dashboard/v/profile`}
+      />,
+    ),
+  );
+
+  await transport.sendMail({
+    from: `Giftologi <${fromAddress}>`,
+    to,
+    subject: "Your vendor application was submitted",
+    html,
+  });
+};
 
 const isFileLike = (value) => {
   if (!value) return false;
@@ -241,8 +299,17 @@ const paymentSchema = z.object({
   account_name: z.string().optional().or(z.literal("")),
   bank_name: z.string().optional().or(z.literal("")),
   bank_account: z.string().optional().or(z.literal("")),
+  bank_branch: z.string().optional().or(z.literal("")),
   routing_number: z.string().optional().or(z.literal("")),
   account_type: z.string().optional().or(z.literal("")),
+});
+
+const applicationSubmissionSchema = vendorSchema.extend({
+  website: z.string().url("Website is required"),
+  account_name: z.string().min(1, "Account name is required"),
+  bank_name: z.string().min(1, "Bank name is required"),
+  bank_account: z.string().min(1, "Account number is required"),
+  bank_branch: z.string().min(1, "Bank branch is required"),
 });
 
 const notificationSchema = z.object({
@@ -307,6 +374,7 @@ export async function manageProfile(prevState, queryData) {
     account_name: queryData.get("account_name")?.trim() || "",
     bank_name: queryData.get("bank_name")?.trim() || "",
     bank_account: queryData.get("bank_account")?.trim() || "",
+    bank_branch: queryData.get("bank_branch")?.trim() || "",
     routing_number: queryData.get("routing_number")?.trim() || "",
     account_type: queryData.get("account_type")?.trim() || "",
   };
@@ -358,58 +426,109 @@ export async function manageProfile(prevState, queryData) {
     };
   }
 
-  const vendorId = queryData.get("vendor_id");
-  if (!vendorId) {
-    return {
-      success: false,
-      message: "Vendor profile not found.",
-      errors: {},
-      values: {},
-    };
-  }
-
-  const { data: existingVendor, error: existingVendorError } = await supabase
-    .from("vendors")
-    .select("id, verified, legal_name, tax_id")
-    .eq("id", vendorId)
-    .eq("profiles_id", user.id)
-    .maybeSingle();
-
-  if (existingVendorError || !existingVendor) {
-    return {
-      success: false,
-      message: existingVendorError?.message || "Vendor profile not found.",
-      errors: {},
-      values: rawVendor,
-    };
-  }
-
+  const vendorIdFromForm = queryData.get("vendor_id");
+  const now = new Date().toISOString();
   const vendorPayload = {
     ...vendorValidation.data,
     website: vendorValidation.data.website || null,
     description: vendorValidation.data.description || null,
-    updated_at: new Date().toISOString(),
+    updated_at: now,
   };
 
+  let existingVendor = null;
+
+  if (vendorIdFromForm) {
+    const { data, error } = await supabase
+      .from("vendors")
+      .select("id, verified, legal_name, tax_id")
+      .eq("id", vendorIdFromForm)
+      .eq("profiles_id", user.id)
+      .maybeSingle();
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message || "Vendor profile not found.",
+        errors: {},
+        values: rawVendor,
+      };
+    }
+
+    existingVendor = data || null;
+  }
+
+  if (!existingVendor) {
+    const { data, error } = await supabase
+      .from("vendors")
+      .select("id, verified, legal_name, tax_id")
+      .eq("profiles_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      return {
+        success: false,
+        message: error.message || "Vendor profile not found.",
+        errors: {},
+        values: rawVendor,
+      };
+    }
+
+    existingVendor = data || null;
+  }
+
+  let createdVendor = false;
+
+  if (!existingVendor) {
+    const insertPayload = {
+      ...vendorPayload,
+      profiles_id: user.id,
+      verified: false,
+      created_at: now,
+      updated_at: now,
+    };
+    const { data, error } = await supabase
+      .from("vendors")
+      .insert([insertPayload])
+      .select("id, verified, legal_name, tax_id")
+      .single();
+
+    if (error || !data) {
+      return {
+        success: false,
+        message: error?.message || "Failed to create vendor profile.",
+        errors: {},
+        values: rawVendor,
+      };
+    }
+
+    existingVendor = data;
+    createdVendor = true;
+  }
+
+  const vendorId = existingVendor.id;
   const isVerifiedVendor = !!existingVendor.verified;
   if (isVerifiedVendor) {
     vendorPayload.legal_name = existingVendor.legal_name || vendorPayload.legal_name;
     vendorPayload.tax_id = existingVendor.tax_id || vendorPayload.tax_id;
   }
 
-  const { error: vendorError } = await supabase
-    .from("vendors")
-    .update(vendorPayload)
-    .eq("id", vendorId)
-    .eq("profiles_id", user.id);
+  if (!createdVendor) {
+    const { error: vendorError } = await supabase
+      .from("vendors")
+      .update(vendorPayload)
+      .eq("id", vendorId)
+      .eq("profiles_id", user.id);
 
-  if (vendorError) {
-    return {
-      success: false,
-      message: vendorError.message || "Failed to update vendor profile.",
-      errors: {},
-      values: rawVendor,
-    };
+    if (vendorError) {
+      return {
+        success: false,
+        message: vendorError.message || "Failed to update vendor profile.",
+        errors: {},
+        values: rawVendor,
+      };
+    }
   }
 
   const paymentInfoId = queryData.get("payment_info_id");
@@ -418,6 +537,7 @@ export async function manageProfile(prevState, queryData) {
     account_name: paymentValidation.data.account_name || null,
     bank_name: paymentValidation.data.bank_name || null,
     bank_account: paymentValidation.data.bank_account || null,
+    bank_branch: paymentValidation.data.bank_branch || null,
     routing_number: paymentValidation.data.routing_number || null,
     account_type: paymentValidation.data.account_type || null,
   };
@@ -459,7 +579,7 @@ export async function manageProfile(prevState, queryData) {
   const notificationPayload = {
     ...notificationValidation.data,
     vendor_id: vendorId,
-    updated_at: new Date().toISOString(),
+    updated_at: now,
   };
 
   const { error: notificationError } = await supabase
@@ -477,14 +597,121 @@ export async function manageProfile(prevState, queryData) {
     };
   }
 
+  let applicationNotice = null;
+
+  if (!isVerifiedVendor) {
+    const { data: applicationRecord, error: applicationError } = await supabase
+      .from("vendor_applications")
+      .select("id, status")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (applicationError) {
+      console.error("Vendor application lookup error", applicationError);
+      applicationNotice =
+        "Profile updated, but we could not submit your application. Please try again.";
+    } else {
+      const normalizedStatus = (applicationRecord?.status || "").toLowerCase();
+      const isSubmitted = ["pending", "approved"].includes(normalizedStatus);
+
+      if (!isSubmitted) {
+        const submissionValidation = applicationSubmissionSchema.safeParse({
+          ...rawVendor,
+          account_name: rawPayment.account_name,
+          bank_name: rawPayment.bank_name,
+          bank_account: rawPayment.bank_account,
+          bank_branch: rawPayment.bank_branch,
+        });
+
+        if (!submissionValidation.success) {
+          applicationNotice =
+            "Profile updated. Complete all required business and payout fields to submit your application.";
+        } else {
+          const applicationPayload = {
+            status: "pending",
+            submitted_at: now,
+            updated_at: now,
+            business_name: vendorPayload.business_name,
+            tax_id: vendorPayload.tax_id,
+            website: vendorPayload.website,
+            business_description: vendorPayload.description,
+            street_address: vendorPayload.address_street,
+            city: vendorPayload.address_city,
+            region: vendorPayload.address_state,
+            digital_address: vendorPayload.digital_address,
+            bank_account_name: paymentPayload.account_name,
+            bank_name: paymentPayload.bank_name,
+            bank_account_number: paymentPayload.bank_account,
+            bank_branch: paymentPayload.bank_branch,
+            bank_branch_code: paymentPayload.routing_number,
+            owner_email: vendorPayload.email,
+            owner_phone: vendorPayload.phone,
+          };
+
+          let submissionId = applicationRecord?.id || null;
+
+          if (submissionId) {
+            const { error: updateError } = await supabase
+              .from("vendor_applications")
+              .update(applicationPayload)
+              .eq("id", submissionId)
+              .eq("user_id", user.id);
+
+            if (updateError) {
+              console.error("Vendor application update error", updateError);
+              submissionId = null;
+            }
+          } else {
+            const { data: inserted, error: insertError } = await supabase
+              .from("vendor_applications")
+              .insert([
+                {
+                  user_id: user.id,
+                  created_by: user.id,
+                  ...applicationPayload,
+                },
+              ])
+              .select("id")
+              .single();
+
+            if (insertError) {
+              console.error("Vendor application insert error", insertError);
+            } else {
+              submissionId = inserted?.id || null;
+            }
+          }
+
+          if (submissionId) {
+            try {
+              await sendVendorApplicationSubmittedEmail({
+                to: vendorPayload.email || user.email,
+                applicationId: submissionId,
+                vendorName: vendorPayload.business_name || vendorPayload.legal_name,
+              });
+            } catch (emailError) {
+              console.error("Failed to send vendor submission email", emailError);
+            }
+          } else {
+            applicationNotice =
+              "Profile updated, but we could not submit your application. Please try again.";
+          }
+        }
+      }
+    }
+  }
+
   revalidatePath("/dashboard/v/profile");
   revalidatePath("/dashboard/v");
 
   return {
     success: true,
-    message: isVerifiedVendor
-      ? "Profile updated. Payment details require support to change."
-      : "Profile updated successfully.",
+    message:
+      applicationNotice ||
+      (isVerifiedVendor
+        ? "Profile updated. Payment details require support to change."
+        : "Profile updated successfully."),
     errors: {},
     values: rawVendor,
   };

@@ -140,7 +140,7 @@ export default function GenerateReportsContent() {
   };
 
   return (
-    <div className="flex flex-col space-y-4 w-full mb-[2rem]">
+    <section aria-label="Report generation" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex flex-col w-full">
         <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
           Generate Reports
@@ -236,6 +236,6 @@ export default function GenerateReportsContent() {
           ? reports.map((report) => renderReportCard(report))
           : null}
       </div>
-    </div>
+    </section>
   );
 }

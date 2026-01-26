@@ -209,18 +209,18 @@ export default function VendorPayoutsContent() {
   };
 
   return (
-    <div className="flex flex-col space-y-6 w-full mb-8">
+    <section aria-label="Vendor payouts management" className="flex flex-col space-y-6 w-full mb-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
         <Link
           href="/dashboard/v"
-          className="text-[#6B7280] hover:text-[#111827]"
+          className="text-[#6B7280] hover:text-[#111827] focus:text-[#111827]"
         >
           Vendor Portal
         </Link>
         <span className="text-[#6B7280]">/</span>
         <span className="text-[#111827] font-medium">Payouts</span>
-      </div>
+      </nav>
 
       {error && (
         <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
@@ -613,6 +613,6 @@ export default function VendorPayoutsContent() {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

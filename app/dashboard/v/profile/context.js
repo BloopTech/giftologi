@@ -77,19 +77,8 @@ export const VendorProfileProvider = ({ children }) => {
       if (profileError) throw profileError;
       if (vendorError && vendorError.code !== "PGRST116") throw vendorError;
 
-      if (!vendorRecord?.id) {
-        setData({
-          profile: profileData || null,
-          vendor: null,
-          paymentInfo: null,
-          notificationPreferences: defaultNotificationPreferences,
-          documents: [],
-          application: null,
-          supportContact: null,
-        });
-        setError("Vendor profile not found.");
-        return;
-      }
+      const hasVendor = Boolean(vendorRecord?.id);
+      const emptyResult = { data: null, error: null };
 
       const [
         { data: paymentInfoData, error: paymentInfoError },
@@ -97,28 +86,32 @@ export const VendorProfileProvider = ({ children }) => {
         { data: applicationData, error: applicationError },
         { data: contactSettings, error: contactError },
       ] = await Promise.all([
-        supabase
-          .from("payment_info")
-          .select(
-            "id, vendor_id, bank_name, bank_account, bank_branch, momo_number, momo_network, account_name, account_type, routing_number",
-          )
-          .eq("vendor_id", vendorRecord.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        supabase
-          .from("vendor_notification_preferences")
-          .select(
-            "id, vendor_id, new_orders, order_updates, payout_alerts, low_stock_alerts, product_reviews, weekly_reports, monthly_reports, marketing_emails",
-          )
-          .eq("vendor_id", vendorRecord.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+        hasVendor
+          ? supabase
+              .from("payment_info")
+              .select(
+                "id, vendor_id, bank_name, bank_account, bank_branch, momo_number, momo_network, account_name, account_type, routing_number",
+              )
+              .eq("vendor_id", vendorRecord.id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve(emptyResult),
+        hasVendor
+          ? supabase
+              .from("vendor_notification_preferences")
+              .select(
+                "id, vendor_id, new_orders, order_updates, payout_alerts, low_stock_alerts, product_reviews, weekly_reports, monthly_reports, marketing_emails",
+              )
+              .eq("vendor_id", vendorRecord.id)
+              .order("created_at", { ascending: false })
+              .limit(1)
+              .maybeSingle()
+          : Promise.resolve(emptyResult),
         supabase
           .from("vendor_applications")
           .select(
-            "id, documents, created_at, business_name, tax_id, website, business_description, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, owner_email, owner_phone, status",
+            "id, documents, created_at, business_name, tax_id, website, business_description, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, owner_email, owner_phone, status, draft_data",
           )
           .eq("user_id", userId)
           .order("created_at", { ascending: false })
@@ -152,6 +145,10 @@ export const VendorProfileProvider = ({ children }) => {
         application: applicationData || null,
         supportContact: contactSettings || null,
       });
+
+      if (!hasVendor && !applicationData?.id) {
+        setError("Vendor profile not found.");
+      }
     } catch (err) {
       console.error("Vendor profile fetch error", err);
       setError(err?.message || "Failed to load profile data");

@@ -34,7 +34,8 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
             onChange={handleChange}
             disabled={disabled}
             placeholder="e.g., Premium Home Goods"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+            required
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
@@ -49,14 +50,15 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
             onChange={handleChange}
             disabled={disabled}
             placeholder="e.g., Premium Home Goods LLC"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+            required
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Business Type
+              Business Type <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -65,9 +67,28 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
               onChange={handleChange}
               disabled={disabled}
               placeholder="e.g., LLC, Corporation, Sole Proprietor"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Business Registration Number <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              name="businessRegistrationNumber"
+              value={formData.businessRegistrationNumber || ""}
+              onChange={handleChange}
+              disabled={disabled}
+              placeholder="BR-2024-001"
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Tax ID / EIN <span className="text-red-500">*</span>
@@ -79,12 +100,10 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
               onChange={handleChange}
               disabled={disabled}
               placeholder="XX-XXXXXXX"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Year Established
@@ -96,23 +115,25 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
               onChange={handleChange}
               disabled={disabled}
               placeholder="YYYY"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Website
-            </label>
-            <input
-              type="text"
-              name="website"
-              value={formData.website || ""}
-              onChange={handleChange}
-              disabled={disabled}
-              placeholder="www.yourbusiness.com"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
-            />
-          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Website <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            name="website"
+            value={formData.website || ""}
+            onChange={handleChange}
+            disabled={disabled}
+            placeholder="https://www.yourbusiness.com"
+            required
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+          />
         </div>
 
         <div>
@@ -126,7 +147,7 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
             disabled={disabled}
             placeholder="Tell us about your business, what you sell, and what makes you unique..."
             rows={3}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] resize-none disabled:bg-gray-100 disabled:text-gray-500"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
       </div>

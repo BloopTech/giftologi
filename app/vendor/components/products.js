@@ -85,7 +85,7 @@ export function ProductsStep({
                     )}
                     onChange={() => handleCategoryChange(category)}
                     disabled={disabled}
-                    className="w-4 h-4 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C] disabled:opacity-50"
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
                   />
                   <span className="text-sm text-gray-700">{category}</span>
                 </label>
@@ -110,7 +110,7 @@ export function ProductsStep({
               onChange={handleChange}
               placeholder="e.g., 50"
               disabled={disabled}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -124,7 +124,7 @@ export function ProductsStep({
               onChange={handleChange}
               placeholder="$0.00"
               disabled={disabled}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
         </div>
@@ -140,7 +140,7 @@ export function ProductsStep({
             onChange={handleChange}
             placeholder="e.g., Tema, Greater Accra"
             disabled={disabled}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
@@ -162,7 +162,7 @@ export function ProductsStep({
                   checked={(formData.shippingMethods || []).includes(method)}
                   onChange={() => handleShippingChange(method)}
                   disabled={disabled}
-                  className="w-4 h-4 rounded border-gray-300 text-[#BBA96C] focus:ring-[#BBA96C] disabled:opacity-50"
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
                 />
                 <span className="text-sm text-gray-700">{method}</span>
               </label>
@@ -181,7 +181,7 @@ export function ProductsStep({
             placeholder="Describe the types of products you'll be selling..."
             rows={3}
             disabled={disabled}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] resize-none disabled:bg-gray-100 disabled:text-gray-500"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
       </div>

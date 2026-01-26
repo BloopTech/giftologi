@@ -128,7 +128,7 @@ export default function DocumentsTab(props) {
                 {docErrors.ownerIdDocument}
               </p>
             )}
-            {renderMeta("Owner ID Card/Passport", "ownerIdDocument")}
+            {renderMeta("Owner ID Card / Passport", "ownerIdDocument")}
           </div>
 
           <div className="space-y-1">

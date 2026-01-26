@@ -54,7 +54,7 @@ export default function HostDashboardContent(props) {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
-      <main className="flex flex-col space-y-16 w-full">
+      <main id="host-dashboard-content" role="main" aria-label="Host dashboard" className="flex flex-col space-y-16 w-full">
         <CarouselHero
           items={carouselItems}
           openCreateRegistry={openCreateRegistry}

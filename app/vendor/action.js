@@ -146,6 +146,11 @@ const buildApplicationFieldsFromDraft = (draft) => {
   const businessType = cleanValue(draft.businessType);
   if (businessType) fields.business_type = businessType;
 
+  const businessRegistrationNumber = cleanValue(draft.businessRegistrationNumber);
+  if (businessRegistrationNumber) {
+    fields.business_registration_number = businessRegistrationNumber;
+  }
+
   const taxId = cleanValue(draft.taxId);
   if (taxId) fields.tax_id = taxId;
 
@@ -291,15 +296,43 @@ const draftSchema = z.object({
 
 const submissionSchema = z.object({
   businessName: z.string().trim().min(1, { message: "Business name is required" }),
-  email: z
+  legalBusinessName: z
     .string()
     .trim()
-    .min(1, { message: "Email is required" })
+    .min(1, { message: "Legal business name is required" }),
+  businessType: z.string().trim().min(1, { message: "Business type is required" }),
+  businessRegistrationNumber: z
+    .string()
+    .trim()
+    .min(1, { message: "Business registration number is required" }),
+  taxId: z.string().trim().min(1, { message: "Tax ID is required" }),
+  website: z.string().trim().min(1, { message: "Website is required" }),
+  streetAddress: z.string().trim().min(1, { message: "Street address is required" }),
+  city: z.string().trim().min(1, { message: "City is required" }),
+  region: z.string().trim().min(1, { message: "Region is required" }),
+  digitalAddress: z
+    .string()
+    .trim()
+    .min(1, { message: "Digital address is required" }),
+  country: z.string().trim().min(1, { message: "Country is required" }),
+  ownerFullName: z.string().trim().min(1, { message: "Owner full name is required" }),
+  ownerEmail: z
+    .string()
+    .trim()
+    .min(1, { message: "Owner email is required" })
     .email({ message: "Enter a valid email" }),
-  phoneNumber: z
+  ownerPhone: z.string().trim().min(1, { message: "Owner phone is required" }),
+  category: z.string().trim().min(1, { message: "Category is required" }),
+  bankAccountName: z
     .string()
     .trim()
-    .min(1, { message: "Phone number is required" }),
+    .min(1, { message: "Account name is required" }),
+  bankName: z.string().trim().min(1, { message: "Bank name is required" }),
+  bankAccountNumber: z
+    .string()
+    .trim()
+    .min(1, { message: "Account number is required" }),
+  bankBranch: z.string().trim().min(1, { message: "Bank branch is required" }),
 });
 
 const documentUploadSchema = z.object({
@@ -1222,10 +1255,48 @@ export async function submitVendorApplication(payload) {
     ...(payload?.draftData || {}),
   };
 
+  const normalizeString = (value) => cleanValue(value) || "";
+  const ownerFullName =
+    normalizeString(mergedDraft.ownerFullName) ||
+    [
+      normalizeString(mergedDraft.firstName),
+      normalizeString(mergedDraft.lastName),
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+  const category =
+    Array.isArray(mergedDraft.productCategories) &&
+    mergedDraft.productCategories.length
+      ? normalizeString(mergedDraft.productCategories[0])
+      : normalizeString(mergedDraft.category);
+
   const validation = submissionSchema.safeParse({
-    businessName: mergedDraft.businessName || "",
-    email: mergedDraft.email || "",
-    phoneNumber: mergedDraft.phoneNumber || "",
+    businessName: normalizeString(mergedDraft.businessName),
+    legalBusinessName: normalizeString(mergedDraft.legalBusinessName),
+    businessType: normalizeString(mergedDraft.businessType),
+    businessRegistrationNumber: normalizeString(
+      mergedDraft.businessRegistrationNumber,
+    ),
+    taxId: normalizeString(mergedDraft.taxId),
+    website: normalizeString(mergedDraft.website),
+    streetAddress: normalizeString(
+      mergedDraft.address || mergedDraft.streetAddress,
+    ),
+    city: normalizeString(mergedDraft.city),
+    region: normalizeString(mergedDraft.region),
+    digitalAddress: normalizeString(
+      mergedDraft.digitalAddress || mergedDraft.zipCode || mergedDraft.postalCode,
+    ),
+    country: normalizeString(mergedDraft.country),
+    ownerFullName,
+    ownerEmail: normalizeString(mergedDraft.ownerEmail || mergedDraft.email),
+    ownerPhone: normalizeString(mergedDraft.ownerPhone || mergedDraft.phoneNumber),
+    category,
+    bankAccountName: normalizeString(mergedDraft.accountHolderName),
+    bankName: normalizeString(mergedDraft.bankName),
+    bankAccountNumber: normalizeString(mergedDraft.accountNumber),
+    bankBranch: normalizeString(mergedDraft.bankBranch),
   });
 
   if (!validation.success) {

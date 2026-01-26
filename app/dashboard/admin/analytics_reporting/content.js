@@ -225,7 +225,7 @@ export default function AnalyticsReportingContent() {
   const currentTab = activeTab || "overview";
 
   return (
-    <div className="flex flex-col space-y-4 w-full mb-[2rem]">
+    <section aria-label="Analytics and reporting" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex flex-col">
           <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
@@ -315,6 +315,6 @@ export default function AnalyticsReportingContent() {
           formatCount={formatCount}
         />
       ) : null}
-    </div>
+    </section>
   );
 }

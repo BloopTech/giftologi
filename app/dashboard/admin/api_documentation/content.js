@@ -79,7 +79,7 @@ export default function APIDocumentationContent() {
   }, [focusId]);
 
   return (
-    <div className="flex flex-col space-y-4 w-full mb-[2rem]">
+    <section aria-label="API documentation" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
           <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
@@ -162,6 +162,6 @@ export default function APIDocumentationContent() {
           </table>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

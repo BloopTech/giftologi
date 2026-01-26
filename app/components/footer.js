@@ -101,70 +101,87 @@ const partners = [
 
 export default function Footer() {
   return (
-    <div className="flex flex-col space-y-4 w-full">
+    <footer role="contentinfo" aria-label="Site footer" className="flex flex-col space-y-4 w-full">
       <div className="bg-[#E8E8E8] w-full border border-[#DCDCDE] rounded-md p-8">
         <div className="grid grid-cols-5 gap-8">
-          <div className="flex flex-col space-y-4">
-            <h1 className="font-semibold">Company Info</h1>
-            <div className="flex flex-col space-y-2">
+          <nav aria-label="Company information" className="flex flex-col space-y-4">
+            <h2 className="font-semibold">Company Info</h2>
+            <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {companyInfo.map((item) => (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="text-xs text-[#909090] hover:text-[#247ACB]"
-                >
-                  {item.title}
-                </Link>
+                <li key={item.title}>
+                  <Link
+                    href={item.href}
+                    className="text-xs text-[#909090] hover:text-[#247ACB] focus:text-[#247ACB]"
+                  >
+                    {item.title}
+                  </Link>
+                </li>
               ))}
-            </div>
-          </div>
-          <div className="flex flex-col space-y-4">
-            <h1 className="font-semibold">For Members</h1>
-            <div className="flex flex-col space-y-2">
+            </ul>
+          </nav>
+          <nav aria-label="Member resources" className="flex flex-col space-y-4">
+            <h2 className="font-semibold">For Members</h2>
+            <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {members.map((item) => (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="text-xs text-[#909090] hover:text-[#247ACB]"
-                >
-                  {item.title}
-                </Link>
+                <li key={item.title}>
+                  <Link
+                    href={item.href}
+                    className="text-xs text-[#909090] hover:text-[#247ACB] focus:text-[#247ACB]"
+                  >
+                    {item.title}
+                  </Link>
+                </li>
               ))}
-            </div>
-          </div>
-          <div className="flex flex-col space-y-4">
-            <h1 className="font-semibold">For Partners</h1>
-            <div className="flex flex-col space-y-2">
+            </ul>
+          </nav>
+          <nav aria-label="Partner resources" className="flex flex-col space-y-4">
+            <h2 className="font-semibold">For Partners</h2>
+            <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {partners.map((item) => (
-                <Link
-                  key={item.title}
-                  href={item.href}
-                  className="text-xs text-[#909090] hover:text-[#247ACB]"
-                >
-                  {item.title}
-                </Link>
+                <li key={item.title}>
+                  <Link
+                    href={item.href}
+                    className="text-xs text-[#909090] hover:text-[#247ACB] focus:text-[#247ACB]"
+                  >
+                    {item.title}
+                  </Link>
+                </li>
               ))}
-            </div>
-          </div>
+            </ul>
+          </nav>
           <div className="col-span-2 flex flex-col space-y-2">
-            <h1 className="font-semibold">Connect with Us</h1>
-            <div className="flex flex-col space-y-2">
+            <h2 className="font-semibold" id="connect-heading">Connect with Us</h2>
+            <form className="flex flex-col space-y-2" aria-labelledby="connect-heading">
+              <label htmlFor="contact" className="sr-only">
+                Your email address
+              </label>
               <input
+                type="email"
                 name="contact"
                 id="contact"
+                placeholder="Enter your email"
+                aria-describedby="contact-hint"
                 className="border border-[#DCDCDE] bg-white text-black rounded-xl px-2 py-1 focus:border-[#A5914B] focus:ring-1 focus:ring-[#A5914B] focus:outline-none"
               />
-              <button className="w-fit text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center">
+              <span id="contact-hint" className="sr-only">
+                Enter your email to get in touch with us
+              </span>
+              <button
+                type="submit"
+                className="w-fit text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] focus:bg-white focus:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center"
+              >
                 Contact Us
               </button>
-            </div>
+            </form>
           </div>
         </div>
       </div>
       <p className="text-xs text-[#909090]">
         © 2025 All rights reserved - Giftologi LLC —{" "}
-        <span className="text-[#85753C]">Site Map</span>
+        <Link href="/sitemap" className="text-[#85753C] hover:underline focus:underline">
+          Site Map
+        </Link>
       </p>
-    </div>
+    </footer>
   );
 }

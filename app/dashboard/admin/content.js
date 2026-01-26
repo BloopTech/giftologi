@@ -83,7 +83,7 @@ export default function SuperAdminDashboardContent() {
   };
 
   return (
-    <div className="flex flex-col space-y-4 w-full mb-[2rem]">
+    <section aria-label="Admin dashboard overview" className="flex flex-col space-y-4 w-full mb-8">
       <h1 className="text-[#0A0A0A] font-medium font-inter">Overview</h1>
       {/* Card Overview */}
       {role === "super_admin" || role === "operations_manager_admin" ? (
@@ -558,6 +558,6 @@ export default function SuperAdminDashboardContent() {
             : null}
         </div>
       </div>
-    </div>
+    </section>
   );
 }

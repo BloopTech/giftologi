@@ -32,7 +32,7 @@ import {
 import { cx } from "../../../../../components/utils";
 import { DropdownUserProfile } from "./dropdownUserProfile";
 import Image from "next/image";
-import logo from "../../../../../../public/giftologi_vendor_logo.png";
+import logo from "../../../../../../public/giftologi-logo.png";
 import Link from "next/link";
 import {
   Dialog,

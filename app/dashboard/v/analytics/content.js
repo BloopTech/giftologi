@@ -298,18 +298,18 @@ export default function VendorAnalyticsContent() {
   } = stats;
 
   return (
-    <div className="flex flex-col space-y-6 w-full mb-8">
+    <section aria-label="Vendor analytics and insights" className="flex flex-col space-y-6 w-full mb-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
         <Link
           href="/dashboard/v"
-          className="text-[#6B7280] hover:text-[#111827]"
+          className="text-[#6B7280] hover:text-[#111827] focus:text-[#111827]"
         >
           Vendor Portal
         </Link>
         <span className="text-[#6B7280]">/</span>
         <span className="text-[#111827] font-medium">Analytics</span>
-      </div>
+      </nav>
 
       {/* Header with Date Filter */}
       <div className="flex items-center justify-between">
@@ -524,6 +524,6 @@ export default function VendorAnalyticsContent() {
           border="border border-[#FFD6A7]"
         />
       </div>
-    </div>
+    </section>
   );
 }

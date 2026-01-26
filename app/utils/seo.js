@@ -3,7 +3,7 @@
 export async function getSeoDefaults() {
   return {
     siteName: "Giftologi",
-    siteUrl: process.env.NEXT_PUBLIC_SITE_URL || "https://giftologi.com",
+    siteUrl: process.env.NEXTAUTH_URL || "https://mygiftologi.com",
     defaultDescription: "Giftologi - Your premier platform for gift registries, vendor connections, and memorable celebrations.",
     keywords: ["gift registry", "wedding gifts", "baby shower", "birthday gifts", "vendor marketplace", "celebrations"],
     author: "Giftologi Team",

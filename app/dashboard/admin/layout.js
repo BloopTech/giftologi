@@ -13,6 +13,7 @@ import Header from "./components/ui/navigation/header";
 import AdminSidebar from "./components/ui/navigation";
 import { DashboardProvider } from "./context";
 import { TooltipProvider } from "@/app/components/Tooltip";
+import { SkipLink } from "@/app/components/accessibility";
 
 export default function RootLayout({ children }) {
   return (
@@ -36,21 +37,28 @@ export default function RootLayout({ children }) {
             </div>
           </main> */}
           <TooltipProvider>
+            <SkipLink href="#admin-main-content" />
             <div className="mx-auto w-full">
               <AdminSidebar />
-              <main className="lg:pl-72 flex flex-col bg-[#FAFAFA] dark:bg-gray-950">
+              <div className="lg:pl-72 flex flex-col bg-[#FAFAFA] dark:bg-gray-950">
                 <div className="flex flex-col min-h-screen ">
-                  <div className="lg:mx-10 mx-5">
+                  <header className="lg:mx-10 mx-5" role="banner">
                     <Header />
-                  </div>
+                  </header>
 
-                  <main className="flex-grow mt-[7rem] lg:px-10 px-5">
+                  <main
+                    id="admin-main-content"
+                    role="main"
+                    tabIndex={-1}
+                    aria-label="Admin dashboard content"
+                    className="flex-grow mt-[7rem] lg:px-10 px-5"
+                  >
                     <Suspense fallback={null}>
                       <NuqsAdapter>{children}</NuqsAdapter>
                     </Suspense>
                   </main>
                 </div>
-              </main>
+              </div>
             </div>
           </TooltipProvider>
         </DashboardProvider>

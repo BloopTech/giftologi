@@ -18,7 +18,7 @@ export function StepIndicator({ steps, currentStep }) {
                 index < currentStep
                   ? "bg-[#22C55E] border-[#22C55E] text-white"
                   : index === currentStep
-                    ? "bg-[#BBA96C] border-[#BBA96C] text-white"
+                    ? "bg-primary border-primary text-white"
                     : "bg-white border-gray-300 text-gray-400"
               }`}
             >
@@ -31,7 +31,7 @@ export function StepIndicator({ steps, currentStep }) {
             <span
               className={`text-xs mt-2 font-medium ${
                 index === currentStep
-                  ? "text-[#BBA96C]"
+                  ? "text-primary"
                   : index < currentStep
                     ? "text-[#22C55E]"
                     : "text-gray-400"
@@ -121,7 +121,7 @@ export function FileUploadArea({
                 href={existingDocument.url}
                 target="_blank"
                 rel="noreferrer"
-                className="text-sm text-[#BBA96C] font-medium hover:underline"
+                className="text-sm text-primary font-medium hover:underline"
               >
                 View document
               </a>

@@ -143,18 +143,18 @@ export default function VendorProductsContent() {
   }
 
   return (
-    <div className="flex flex-col space-y-6 w-full mb-8">
+    <section aria-label="Vendor products management" className="flex flex-col space-y-6 w-full mb-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
         <Link
           href="/dashboard/v"
-          className="text-[#6B7280] hover:text-[#111827]"
+          className="text-[#6B7280] hover:text-[#111827] focus:text-[#111827]"
         >
           Vendor Portal
         </Link>
         <span className="text-[#6B7280]">/</span>
         <span className="text-[#111827] font-medium">Products</span>
-      </div>
+      </nav>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -394,6 +394,6 @@ export default function VendorProductsContent() {
         onSuccess={refreshData}
         variant="vendor_products"
       />
-    </div>
+    </section>
   );
 }

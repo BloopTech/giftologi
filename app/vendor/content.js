@@ -19,32 +19,31 @@ import ApplicationModal from "./components/ApplicationModal";
 // Header Component
 function VendorHeader() {
   return (
-    <header className="w-full bg-white border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
+    <header className="w-full bg-white border-b border-gray-100" role="banner">
+      <nav className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between" aria-label="Vendor page navigation">
+        <Link href="/" className="flex items-center gap-2" aria-label="Giftologi homepage">
           <div className="flex aspect-square items-center justify-center">
-            <Image src={logo} alt="logo" width={40} height={40} priority />
+            <Image src={logo} alt="Giftologi logo" width={40} height={40} priority />
           </div>
-
           <span className="font-medium text-[#85753C] font-poppins flex items-center">
             Giftologi
           </span>
-        </div>
+        </Link>
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/v/profile"
-            className="px-5 py-2 border border-[#BBA96C] rounded-full text-sm font-medium text-gray-700 hover:bg-[#BBA96C] hover:text-white transition-colors"
+            className="px-5 py-2 border border-primary rounded-full text-sm font-medium text-gray-700 hover:bg-primary hover:text-white focus:bg-primary focus:text-white transition-colors"
           >
             Vendor Profile
           </Link>
           <Link
             href="/login"
-            className="px-5 py-2 bg-[#BBA96C] border border-[#BBA96C] text-white rounded-full text-sm font-medium hover:bg-white hover:text-gray-700 transition-colors"
+            className="px-5 py-2 bg-primary border border-primary text-white rounded-full text-sm font-medium hover:bg-white hover:text-gray-700 focus:bg-white focus:text-gray-700 transition-colors"
           >
             Log in
           </Link>
         </div>
-      </div>
+      </nav>
     </header>
   );
 }
@@ -69,7 +68,7 @@ function HeroSection({ onOpenModal }) {
         <div className="flex items-center justify-center gap-4 mb-8">
           <button
             onClick={onOpenModal}
-            className="inline-flex items-center gap-2 px-6 py-3 bg-[#BBA96C] text-white rounded-full font-medium hover:bg-white hover:text-[#a89558] border border-[#a89558] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-full font-medium hover:bg-white hover:text-[#a89558] border border-[#a89558] transition-colors cursor-pointer"
           >
             Start Your Application
             <ArrowRight className="w-4 h-4" />
@@ -104,7 +103,7 @@ function StatsSection() {
               key={index}
               className="bg-white border border-gray-200 rounded-xl p-6 text-center"
             >
-              <div className="text-3xl font-bold text-[#BBA96C] mb-1">
+              <div className="text-3xl font-bold text-primary mb-1">
                 {stat.value}
               </div>
               <div className="text-sm text-gray-500">{stat.label}</div>
@@ -173,7 +172,7 @@ function WhySellSection() {
               className="bg-white border border-gray-200 rounded-xl p-6"
             >
               <div className="w-12 h-12 bg-[#F5F0E1] rounded-lg flex items-center justify-center mb-4">
-                <feature.icon className="w-6 h-6 text-[#BBA96C]" />
+                <feature.icon className="w-6 h-6 text-primary" />
               </div>
               <h3 className="font-semibold text-gray-900 mb-2">
                 {feature.title}
@@ -228,7 +227,7 @@ function HowItWorksSection() {
           <div className="grid md:grid-cols-4 gap-8">
             {steps.map((step, index) => (
               <div key={index} className="text-center relative">
-                <div className="w-16 h-16 bg-[#BBA96C] rounded-full flex items-center justify-center mx-auto mb-4 relative z-10">
+                <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center mx-auto mb-4 relative z-10">
                   <span className="text-white font-bold text-xl">
                     {step.number}
                   </span>
@@ -252,7 +251,7 @@ function CTASection({ onOpenModal }) {
     <section className="bg-[#FFFCEF] py-16">
       <div className="max-w-3xl mx-auto px-4">
         <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
-          <div className="w-16 h-16 bg-[#BBA96C] rounded-xl flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-primary rounded-xl flex items-center justify-center mx-auto mb-6">
             <Home className="w-8 h-8 text-white" />
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-4">
@@ -266,7 +265,7 @@ function CTASection({ onOpenModal }) {
           </p>
           <button
             onClick={onOpenModal}
-            className="inline-flex items-center gap-2 px-8 py-3 bg-[#BBA96C] text-white rounded-full font-medium hover:bg-white hover:text-[#a89558] border border-[#a89558] transition-colors cursor-pointer"
+            className="inline-flex items-center gap-2 px-8 py-3 bg-primary text-white rounded-full font-medium hover:bg-white hover:text-[#a89558] border border-[#a89558] transition-colors cursor-pointer"
           >
             Apply Now
             <ArrowRight className="w-4 h-4" />
@@ -377,9 +376,9 @@ function VendorFooter() {
               <input
                 type="email"
                 placeholder="Enter your email"
-                className="border border-gray-300 bg-white text-gray-800 rounded-lg px-4 py-2 text-sm focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] focus:outline-none"
+                className="border border-gray-300 bg-white text-gray-800 rounded-lg px-4 py-2 text-sm focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
               />
-              <button className="w-fit text-white cursor-pointer text-sm bg-[#BBA96C] hover:bg-[#a89558] rounded-lg px-6 py-2 transition-colors">
+              <button className="w-fit text-white cursor-pointer text-sm bg-primary hover:bg-[#a89558] rounded-lg px-6 py-2 transition-colors">
                 Contact Us
               </button>
             </div>
@@ -406,12 +405,20 @@ export default function VendorLandingPageContent() {
 
   return (
     <div className="min-h-screen bg-white">
+      <a
+        href="#vendor-main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
+      >
+        Skip to main content
+      </a>
       <VendorHeader />
-      <HeroSection onOpenModal={openModal} />
-      <StatsSection />
-      <WhySellSection />
-      <HowItWorksSection />
-      <CTASection onOpenModal={openModal} />
+      <main id="vendor-main-content" role="main" tabIndex={-1}>
+        <HeroSection onOpenModal={openModal} />
+        <StatsSection />
+        <WhySellSection />
+        <HowItWorksSection />
+        <CTASection onOpenModal={openModal} />
+      </main>
       <VendorFooter />
       <ApplicationModal isOpen={isModalOpen} onClose={closeModal} />
     </div>

@@ -9,8 +9,6 @@ import { CircleChevronDown, ShoppingCart } from "lucide-react";
 
 
 export default function EventPageContent(props) {
-
-
   // Mock 20 products to render in the Shop section
   const products = Array.from({ length: 8 }, (_, i) => ({
     id: i + 1,
@@ -23,7 +21,13 @@ export default function EventPageContent(props) {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
-      <main className="flex flex-col space-y-16 w-full">
+      <a
+        href="#event-main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-9999 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
+      >
+        Skip to main content
+      </a>
+      <main id="event-main-content" role="main" tabIndex={-1} aria-label="Event registry" className="flex flex-col space-y-16 w-full">
         <div className="w-full bg-[#B1D1FC] border border-[#D4D4D4] rounded-md py-8 px-4 h-[250px] flex items-center justify-center">
           {/* <div className="flex items-center space-y-8 flex-col justify-center">
             <PiFileImageLight className="size-14" />

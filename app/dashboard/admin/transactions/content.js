@@ -93,7 +93,7 @@ export default function ViewTransactionsContent() {
   };
 
   return (
-    <div className="flex flex-col space-y-4 w-full mb-[2rem]">
+    <section aria-label="Transaction and order management" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex flex-col w-full">
         <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
           Transaction & Order Management
@@ -316,6 +316,6 @@ export default function ViewTransactionsContent() {
       </div>
 
       <TransactionsTable />
-    </div>
+    </section>
   );
 }

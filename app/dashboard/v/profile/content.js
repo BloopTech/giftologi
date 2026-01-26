@@ -96,44 +96,89 @@ export default function VendorProfileContent() {
     }
   }, [documentState?.success, refreshData]);
 
-  const vendorSummary = useMemo(
-    () => ({
+  const vendorSummary = useMemo(() => {
+    const draft = application?.draft_data || {};
+    return {
       businessName:
-        vendor?.business_name || application?.business_name || "Your Business",
-      legalName: vendor?.legal_name || vendor?.business_name || "",
+        vendor?.business_name ||
+        application?.business_name ||
+        draft.businessName ||
+        "Your Business",
+      legalName:
+        vendor?.legal_name ||
+        draft.legalBusinessName ||
+        vendor?.business_name ||
+        "",
       description:
-        vendor?.description || application?.business_description || "",
-      email: vendor?.email || application?.owner_email || profile?.email || "",
-      phone: vendor?.phone || application?.owner_phone || profile?.phone || "",
-      website: vendor?.website || application?.website || "",
-      taxId: vendor?.tax_id || application?.tax_id || "",
+        vendor?.description ||
+        application?.business_description ||
+        draft.businessDescription ||
+        "",
+      email:
+        vendor?.email ||
+        application?.owner_email ||
+        draft.email ||
+        profile?.email ||
+        "",
+      phone:
+        vendor?.phone ||
+        application?.owner_phone ||
+        draft.phoneNumber ||
+        profile?.phone ||
+        "",
+      website: vendor?.website || application?.website || draft.website || "",
+      taxId: vendor?.tax_id || application?.tax_id || draft.taxId || "",
       memberSince: formatMemberSince(vendor?.created_at),
       isVerified: !!vendor?.verified,
       address: {
-        street: vendor?.address_street || application?.street_address || "",
-        city: vendor?.address_city || application?.city || "",
-        state: vendor?.address_state || application?.region || "",
+        street:
+          vendor?.address_street ||
+          application?.street_address ||
+          draft.address ||
+          draft.streetAddress ||
+          "",
+        city: vendor?.address_city || application?.city || draft.city || "",
+        state: vendor?.address_state || application?.region || draft.region || "",
         digitalAddress:
-          vendor?.digital_address || application?.digital_address || "",
-        country: vendor?.address_country || "",
+          vendor?.digital_address ||
+          application?.digital_address ||
+          draft.digitalAddress ||
+          draft.zipCode ||
+          draft.postalCode ||
+          "",
+        country: vendor?.address_country || draft.country || "",
       },
-    }),
-    [vendor, profile, application],
-  );
+    };
+  }, [vendor, profile, application]);
 
-  const paymentSummary = useMemo(
-    () => ({
+  const paymentSummary = useMemo(() => {
+    const draft = application?.draft_data || {};
+    return {
       accountName:
-        paymentInfo?.account_name || application?.bank_account_name || "",
-      bankName: paymentInfo?.bank_name || application?.bank_name || "",
+        paymentInfo?.account_name ||
+        application?.bank_account_name ||
+        draft.accountHolderName ||
+        "",
+      bankName:
+        paymentInfo?.bank_name || application?.bank_name || draft.bankName || "",
+      bankBranch:
+        paymentInfo?.bank_branch ||
+        application?.bank_branch ||
+        draft.bankBranch ||
+        "",
       accountNumber:
-        paymentInfo?.bank_account || application?.bank_account_number || "",
+        paymentInfo?.bank_account ||
+        application?.bank_account_number ||
+        draft.accountNumber ||
+        "",
       routingNumber:
-        paymentInfo?.routing_number || application?.bank_branch_code || "",
+        paymentInfo?.routing_number ||
+        application?.bank_branch_code ||
+        draft.routingNumber ||
+        "",
       accountType: paymentInfo?.account_type || "",
-    }),
-    [paymentInfo, application],
-  );
+    };
+  }, [paymentInfo, application]);
 
   const documentList = useMemo(
     () => (Array.isArray(documents) ? documents : []),
@@ -191,18 +236,18 @@ export default function VendorProfileContent() {
   ].filter(Boolean);
 
   return (
-    <div className="flex flex-col space-y-6 w-full mb-8">
+    <section aria-label="Vendor profile settings" className="flex flex-col space-y-6 w-full mb-8">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-sm">
+      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
         <Link
           href="/dashboard/v"
-          className="text-[#6B7280] hover:text-[#111827]"
+          className="text-[#6B7280] hover:text-[#111827] focus:text-[#111827]"
         >
           Vendor Portal
         </Link>
         <span className="text-[#6B7280]">/</span>
         <span className="text-[#111827] font-medium">Profile</span>
-      </div>
+      </nav>
 
       {error && (
         <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
@@ -289,6 +334,6 @@ export default function VendorProfileContent() {
         fileInputRef={fileInputRef}
         isApplicationApproved={isApplicationApproved}
       />
-    </div>
+    </section>
   );
 }

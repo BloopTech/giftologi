@@ -5,6 +5,7 @@ import Image from "next/image";
 import Footer from "../../components/footer";
 import Advertisement from "../../components/advertisement";
 import { CircleChevronDown } from "lucide-react";
+import Link from "next/link";
 
 export default function PublicRegistryContent(props) {
   const { registry, event, host, products } = props;
@@ -17,8 +18,14 @@ export default function PublicRegistryContent(props) {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
+      <Link
+        href="#registry-main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-[9999] focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
+      >
+        Skip to main content
+      </Link>
       <RegistryPageViewTracker registryId={registry?.id} />
-      <main className="flex flex-col space-y-16 w-full">
+      <main id="registry-main-content" role="main" tabIndex={-1} aria-label={`${registry?.title || "Registry"} gift list`} className="flex flex-col space-y-16 w-full">
         <div className="w-full bg-[#B1D1FC] border border-[#D4D4D4] rounded-md py-8 px-4 h-[250px] flex items-center justify-center overflow-hidden">
           {coverPhoto ? (
             <Image

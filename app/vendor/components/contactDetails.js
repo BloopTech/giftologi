@@ -35,8 +35,9 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
               name="firstName"
               value={formData.firstName || ""}
               onChange={handleChange}
+              required
               disabled={disabled}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -48,8 +49,9 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
               name="lastName"
               value={formData.lastName || ""}
               onChange={handleChange}
+              required
               disabled={disabled}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
         </div>
@@ -64,8 +66,9 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
               name="email"
               value={formData.email || ""}
               onChange={handleChange}
+              required
               disabled={disabled}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
           <div>
@@ -78,8 +81,9 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
               value={formData.phoneNumber || ""}
               onChange={handleChange}
               placeholder="(000) 123-4567"
+              required
               disabled={disabled}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
           </div>
         </div>
@@ -100,7 +104,8 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
               onChange={handleChange}
               disabled={disabled}
               placeholder="At least 8 characters"
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+              required
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
             />
             <button
               type="button"
@@ -132,7 +137,7 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
             onChange={handleChange}
             placeholder="e.g., Owner, Manager"
             disabled={disabled}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
           />
         </div>
 
@@ -147,43 +152,46 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Address
+                Street Address <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 name="address"
                 value={formData.address || ""}
                 onChange={handleChange}
+                required
                 disabled={disabled}
-                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  City
+                  City <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="city"
                   value={formData.city || ""}
                   onChange={handleChange}
+                  required
                   disabled={disabled}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Region
+                  Region <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="region"
                   value={formData.region || ""}
                   onChange={handleChange}
+                  required
                   disabled={disabled}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
             </div>
@@ -191,20 +199,22 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  ZIP Code
+                  Digital Address <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  name="zipCode"
-                  value={formData.zipCode || ""}
+                  name="digitalAddress"
+                  value={formData.digitalAddress || formData.zipCode || ""}
                   onChange={handleChange}
+                  required
+                  placeholder="GA-000-0000"
                   disabled={disabled}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Country
+                  Country <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -212,8 +222,9 @@ export function ContactDetailsStep({ formData, setFormData, disabled }) {
                   value={formData.country || ""}
                   onChange={handleChange}
                   placeholder="Ghana"
+                  required
                   disabled={disabled}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-[#BBA96C] focus:ring-1 focus:ring-[#BBA96C] disabled:bg-gray-100 disabled:text-gray-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
                 />
               </div>
             </div>

@@ -44,35 +44,35 @@ export default function SignupPageLayout() {
   }, [state?.message, state?.errors, state?.data]);
 
   return (
-    <>
-      <div
-        className="flex w-full items-center justify-center flex-col space-y-16 py-[2rem] bg-[#16150FB2] min-h-screen"
-        style={{
-          backgroundImage: "url('/auth_layer.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      >
-        <div className="px-5 lg:px-[2rem] w-full flex max-w-auto max-w-md items-center justify-center flex-col space-y-12 py-[2rem] bg-[#fffcef] rounded-2xl">
-          <div className="flex space-x-2 items-center justify-start w-full">
-            <Link href="/">
-              {" "}
-              <Image src={Logo} alt="Logo" width={50} height={50} priority />
-            </Link>
-            <p className="text-primary font-medium text-xl">
-              Create an Account
-            </p>
-          </div>
-          <div className="w-full">
-            <FormInput
-              state={state}
-              formAction={formAction}
-              isPending={isPending}
-            />
-          </div>
+    <main
+      id="main-content"
+      role="main"
+      aria-label="Create account page"
+      className="flex w-full items-center justify-center flex-col space-y-16 py-8 bg-[#16150FB2] min-h-screen"
+      style={{
+        backgroundImage: "url('/auth_layer.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <div className="px-5 lg:px-8 w-full flex max-w-md items-center justify-center flex-col space-y-12 py-8 bg-[#fffcef] rounded-2xl">
+        <header className="flex space-x-2 items-center justify-start w-full">
+          <Link href="/" aria-label="Go to homepage">
+            <Image src={Logo} alt="Giftologi logo" width={50} height={50} priority />
+          </Link>
+          <h1 className="text-primary font-medium text-xl">
+            Create an Account
+          </h1>
+        </header>
+        <div className="w-full">
+          <FormInput
+            state={state}
+            formAction={formAction}
+            isPending={isPending}
+          />
         </div>
       </div>
-    </>
+    </main>
   );
 }

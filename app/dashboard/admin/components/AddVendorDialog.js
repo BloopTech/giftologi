@@ -3,7 +3,14 @@ import React, { useActionState, useEffect, useState } from "react";
 import { createVendor } from "../action";
 import { fetchVendorCategories } from "../vendorCategories";
 import { toast } from "sonner";
-import { Eye, EyeOff, LoaderCircle, CheckCircle2, XCircle, Copy } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  LoaderCircle,
+  CheckCircle2,
+  XCircle,
+  Copy,
+} from "lucide-react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { DialogClose } from "@/app/components/Dialog";
 
@@ -47,7 +54,10 @@ function generateStrongPassword() {
 }
 
 export default function AddVendorDialog({ onClose }) {
-  const [state, formAction, isPending] = useActionState(createVendor, initialState);
+  const [state, formAction, isPending] = useActionState(
+    createVendor,
+    initialState,
+  );
 
   const [password, setPassword] = useState(state?.values?.password ?? "");
   const [showPassword, setShowPassword] = useState(false);
@@ -61,7 +71,9 @@ export default function AddVendorDialog({ onClose }) {
 
   useEffect(() => {
     const hasErrors =
-      state?.message && state?.errors && Object.keys(state.errors || {}).length > 0;
+      state?.message &&
+      state?.errors &&
+      Object.keys(state.errors || {}).length > 0;
 
     const hasData =
       state?.message && state?.data && Object.keys(state.data || {}).length > 0;
@@ -103,8 +115,8 @@ export default function AddVendorDialog({ onClose }) {
               </p>
             ) : null}
             <p className="mt-1 text-[11px] text-[#BBF7D0]">
-              Email sent to {credentials?.email || state?.email || "the vendor"} with
-              login credentials.
+              Email sent to {credentials?.email || state?.email || "the vendor"}{" "}
+              with login credentials.
             </p>
           </div>
         </div>
@@ -185,7 +197,7 @@ export default function AddVendorDialog({ onClose }) {
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
               focusInput,
-              hasError("businessName") ? hasErrorInput : ""
+              hasError("businessName") ? hasErrorInput : "",
             )}
             disabled={isPending}
           />
@@ -213,7 +225,7 @@ export default function AddVendorDialog({ onClose }) {
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A]",
               focusInput,
-              hasError("category") ? hasErrorInput : ""
+              hasError("category") ? hasErrorInput : "",
             )}
             disabled={isPending || categoriesLoading}
           >
@@ -262,7 +274,7 @@ export default function AddVendorDialog({ onClose }) {
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
               focusInput,
-              hasError("fullName") ? hasErrorInput : ""
+              hasError("fullName") ? hasErrorInput : "",
             )}
             disabled={isPending}
           />
@@ -276,10 +288,7 @@ export default function AddVendorDialog({ onClose }) {
         </div>
 
         <div className="space-y-1">
-          <label
-            htmlFor="email"
-            className="text-xs font-medium text-[#0A0A0A]"
-          >
+          <label htmlFor="email" className="text-xs font-medium text-[#0A0A0A]">
             Email Address <span className="text-red-500">*</span>
           </label>
           <input
@@ -292,7 +301,7 @@ export default function AddVendorDialog({ onClose }) {
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
               focusInput,
-              hasError("email") ? hasErrorInput : ""
+              hasError("email") ? hasErrorInput : "",
             )}
             disabled={isPending}
           />
@@ -306,22 +315,20 @@ export default function AddVendorDialog({ onClose }) {
         </div>
 
         <div className="space-y-1">
-          <label
-            htmlFor="phone"
-            className="text-xs font-medium text-[#0A0A0A]"
-          >
-            Phone Number
+          <label htmlFor="phone" className="text-xs font-medium text-[#0A0A0A]">
+            Phone <span className="text-red-500">*</span>
           </label>
           <input
             id="phone"
             name="phone"
             type="tel"
+            required
             placeholder="+233 000 0 00 0000"
             className={cx(
               "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
               focusInput,
-              hasError("phone") ? hasErrorInput : ""
+              hasError("phone") ? hasErrorInput : "",
             )}
             disabled={isPending}
           />
@@ -331,11 +338,7 @@ export default function AddVendorDialog({ onClose }) {
                 <li key={index}>{err}</li>
               ))}
             </ul>
-          ) : (
-            <p className="text-[11px] text-[#717182]">
-              Optional. For internal contact.
-            </p>
-          )}
+          ) : null}
         </div>
 
         <div className="space-y-1">
@@ -357,7 +360,7 @@ export default function AddVendorDialog({ onClose }) {
                 "w-full rounded-full border px-4 py-2.5 pr-32 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
-                hasError("password") ? hasErrorInput : ""
+                hasError("password") ? hasErrorInput : "",
               )}
               placeholder="Auto-generated password"
               disabled={isPending}
@@ -399,7 +402,8 @@ export default function AddVendorDialog({ onClose }) {
             </ul>
           ) : (
             <p className="text-[11px] text-[#717182]">
-              System auto-generated. Must be at least 8 characters with upper, lower, and symbol.
+              System auto-generated. Must be at least 8 characters with upper,
+              lower, and symbol.
             </p>
           )}
         </div>

@@ -55,7 +55,7 @@ export default async function HostDashboard() {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
-      <main className="flex flex-col space-y-16 w-full">
+      <main id="lists-content" role="main" aria-label="Your gift lists" className="flex flex-col space-y-16 w-full">
         <CarouselHero items={carouselItems} />
 
         <div className="flex items-center gap-4 w-full md:flex-wrap lg:flex-nowrap">
