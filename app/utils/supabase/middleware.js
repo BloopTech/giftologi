@@ -28,6 +28,10 @@ export async function middlewareClient(request) {
     },
   });
 
+  const vendorDashboardPath = "/dashboard/v";
+  const vendorProfilePath = "/dashboard/v/profile";
+  let vendorLandingPath = null;
+
   // Collect cookies set during auth exchange so we can apply them to redirects with full options
   const pendingCookies = [];
 
@@ -88,8 +92,10 @@ export async function middlewareClient(request) {
 
   // Helper: role dashboard by profile role (copy cookies with full options onto redirect)
   const redirectToRoleDashboard = (role) => {
-    const dest =
-      role && roleRedirects?.[role] ? roleRedirects[role] : "/dashboard";
+    let dest = role && roleRedirects?.[role] ? roleRedirects[role] : "/dashboard";
+    if (role === "vendor" && vendorLandingPath) {
+      dest = vendorLandingPath;
+    }
     return withCookiesRedirect(new URL(dest, request.url));
   };
 
@@ -342,6 +348,38 @@ export async function middlewareClient(request) {
           //   e?.message || e
           // );
         }
+      }
+    }
+
+    if (profile?.role === "vendor") {
+      const [vendorResult, applicationResult] = await Promise.all([
+        supabase
+          .from("vendors")
+          .select("id, verified")
+          .eq("profiles_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("vendor_applications")
+          .select("id, status")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      if (vendorResult?.error || applicationResult?.error) {
+        vendorLandingPath = vendorProfilePath;
+      } else {
+        const isVerifiedVendor = Boolean(vendorResult?.data?.verified);
+        const applicationStatus =
+          applicationResult?.data?.status?.toLowerCase?.() || "";
+        const isApplicationApproved = applicationStatus === "approved";
+        vendorLandingPath =
+          isVerifiedVendor && isApplicationApproved
+            ? vendorDashboardPath
+            : vendorProfilePath;
       }
     }
     // Enforce role-based route isolation: restrict navigation to the user's role area only

@@ -22,13 +22,13 @@ import {
 import { DOCUMENT_UPLOAD_OPTIONS } from "./documentTypes";
 
 const defaultNotificationSettings = {
-  newOrders: true,
-  orderUpdates: true,
-  payoutAlerts: true,
-  lowStockAlerts: true,
-  productReviews: true,
-  weeklyReports: true,
-  monthlyReports: true,
+  newOrders: false,
+  orderUpdates: false,
+  payoutAlerts: false,
+  lowStockAlerts: false,
+  productReviews: false,
+  weeklyReports: false,
+  monthlyReports: false,
   marketingEmails: false,
 };
 
@@ -57,6 +57,90 @@ const formatMemberSince = (value) => {
   if (Number.isNaN(date.getTime())) return "—";
   return date.toLocaleString("en-US", { month: "short", year: "numeric" });
 };
+
+const skeletonCardClass = "bg-white rounded-xl border border-[#E5E7EB] p-5";
+
+const VendorProfileSkeleton = () => (
+  <section
+    aria-label="Loading vendor profile"
+    className="flex flex-col space-y-6 w-full mb-8"
+  >
+    <div className="flex items-center gap-2 text-sm">
+      <div className="h-3 w-24 rounded-full bg-[#E5E7EB] animate-pulse" />
+      <div className="h-3 w-4 rounded-full bg-[#E5E7EB] animate-pulse" />
+      <div className="h-3 w-16 rounded-full bg-[#E5E7EB] animate-pulse" />
+    </div>
+
+    <div className={skeletonCardClass}>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="h-16 w-16 rounded-xl bg-[#E5E7EB] animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-4 w-40 rounded bg-[#E5E7EB] animate-pulse" />
+            <div className="h-3 w-64 rounded bg-[#E5E7EB] animate-pulse" />
+            <div className="h-3 w-28 rounded bg-[#E5E7EB] animate-pulse" />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-24 rounded-lg bg-[#E5E7EB] animate-pulse" />
+          <div className="h-9 w-24 rounded-lg bg-[#E5E7EB] animate-pulse" />
+        </div>
+      </div>
+    </div>
+
+    <div className={`${skeletonCardClass} space-y-4`}>
+      <div className="h-4 w-44 rounded bg-[#E5E7EB] animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {Array.from({ length: 6 }).map((_, idx) => (
+          <div key={`biz-field-${idx}`} className="space-y-2">
+            <div className="h-3 w-24 rounded bg-[#E5E7EB] animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-[#E5E7EB] animate-pulse" />
+          </div>
+        ))}
+      </div>
+      <div className="space-y-2">
+        <div className="h-3 w-32 rounded bg-[#E5E7EB] animate-pulse" />
+        <div className="h-24 w-full rounded-lg bg-[#E5E7EB] animate-pulse" />
+      </div>
+    </div>
+
+    <div className={`${skeletonCardClass} space-y-4`}>
+      <div className="h-4 w-40 rounded bg-[#E5E7EB] animate-pulse" />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {Array.from({ length: 5 }).map((_, idx) => (
+          <div key={`payment-field-${idx}`} className="space-y-2">
+            <div className="h-3 w-28 rounded bg-[#E5E7EB] animate-pulse" />
+            <div className="h-10 w-full rounded-lg bg-[#E5E7EB] animate-pulse" />
+          </div>
+        ))}
+      </div>
+    </div>
+
+    <div className={`${skeletonCardClass} space-y-4`}>
+      <div className="h-4 w-52 rounded bg-[#E5E7EB] animate-pulse" />
+      <div className="space-y-3">
+        {Array.from({ length: 4 }).map((_, idx) => (
+          <div
+            key={`notification-${idx}`}
+            className="h-10 w-full rounded-lg bg-[#E5E7EB] animate-pulse"
+          />
+        ))}
+      </div>
+    </div>
+
+    <div className={`${skeletonCardClass} space-y-4`}>
+      <div className="h-4 w-44 rounded bg-[#E5E7EB] animate-pulse" />
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, idx) => (
+          <div
+            key={`document-${idx}`}
+            className="h-12 w-full rounded-lg bg-[#E5E7EB] animate-pulse"
+          />
+        ))}
+      </div>
+    </div>
+  </section>
+);
 
 export default function VendorProfileContent() {
   const {
@@ -141,6 +225,12 @@ export default function VendorProfileContent() {
   useEffect(() => {
     setNotifications(mapNotificationSettings(notificationPreferences));
   }, [notificationPreferences]);
+
+  useEffect(() => {
+    if (state?.success) {
+      refreshData?.();
+    }
+  }, [state, refreshData]);
 
   useEffect(() => {
     if (documentState?.success) {
@@ -362,15 +452,19 @@ export default function VendorProfileContent() {
 
   const handleEditPayment = () => {
     const target =
+      accountNumberRef.current ||
       accountNameRef.current ||
       bankNameRef.current ||
-      bankBranchRef.current ||
-      accountNumberRef.current;
+      bankBranchRef.current;
     if (target) {
       target.scrollIntoView({ behavior: "smooth", block: "center" });
       target.focus();
     }
   };
+
+  if (loading) {
+    return <VendorProfileSkeleton />;
+  }
 
   return (
     <section aria-label="Vendor profile settings" className="flex flex-col space-y-6 w-full mb-8">
@@ -392,10 +486,6 @@ export default function VendorProfileContent() {
         </div>
       )}
 
-      {loading && (
-        <div className="text-xs text-[#6B7280]">Refreshing profile data...</div>
-      )}
-
       {state?.message && (
         <div
           className={`rounded-xl border px-4 py-3 text-sm ${
@@ -411,7 +501,6 @@ export default function VendorProfileContent() {
       <form
         id="vendorLogoForm"
         action={logoAction}
-        encType="multipart/form-data"
         className="hidden"
       >
         <input type="hidden" name="vendor_id" value={vendor?.id || ""} readOnly />

@@ -142,8 +142,12 @@ const buildApplicationPayloadFromProfile = ({
   setIfValue(payload, "bank_account_number", paymentPayload.bank_account);
   setIfValue(payload, "bank_branch", paymentPayload.bank_branch);
   setIfValue(payload, "bank_branch_code", paymentPayload.routing_number);
+  setIfValue(payload, "bank_account_masked", paymentPayload.bank_account_masked);
+  setIfValue(payload, "bank_account_last4", paymentPayload.bank_account_last4);
+  setIfValue(payload, "bank_account_token", paymentPayload.bank_account_token);
   setIfValue(payload, "owner_email", vendorPayload.email);
   setIfValue(payload, "owner_phone", vendorPayload.phone);
+  setIfValue(payload, "owner_full_name", vendorPayload.legal_name);
   return payload;
 };
 
@@ -910,23 +914,83 @@ export async function manageProfile(prevState, queryData) {
     }
   }
 
-  const paymentInfoId = queryData.get("payment_info_id");
+  const paymentInfoId = queryData.get("payment_info_id") || "";
+  const rawBankAccount = paymentValidation.data.bank_account?.trim() || "";
+  const bankAccountLast4 = rawBankAccount ? rawBankAccount.slice(-4) : "";
+  const bankAccountMasked = bankAccountLast4 ? `****${bankAccountLast4}` : "";
   const paymentPayload = {
-    ...paymentValidation.data,
     account_name: paymentValidation.data.account_name || null,
     bank_name: paymentValidation.data.bank_name || null,
-    bank_account: paymentValidation.data.bank_account || null,
+    bank_account: rawBankAccount || null,
     bank_branch: paymentValidation.data.bank_branch || null,
     routing_number: paymentValidation.data.routing_number || null,
     account_type: paymentValidation.data.account_type || null,
+    bank_branch_code: paymentValidation.data.routing_number || null,
+    bank_account_masked: null,
+    bank_account_last4: null,
+    bank_account_token: null,
   };
 
-  if (!isVerifiedVendor) {
-    if (paymentInfoId) {
+  const paymentInfoPayload = {};
+  setIfValue(paymentInfoPayload, "account_name", paymentPayload.account_name);
+  setIfValue(paymentInfoPayload, "bank_name", paymentPayload.bank_name);
+  setIfValue(paymentInfoPayload, "bank_branch", paymentPayload.bank_branch);
+  setIfValue(paymentInfoPayload, "routing_number", paymentPayload.routing_number);
+  setIfValue(paymentInfoPayload, "account_type", paymentPayload.account_type);
+  setIfValue(paymentInfoPayload, "bank_branch_code", paymentPayload.bank_branch_code);
+
+  if (rawBankAccount) {
+    const { data: secretId, error: secretError } = await supabase.rpc(
+      "create_payment_secret",
+      {
+        raw_value: rawBankAccount,
+        secret_name: `vendor_payment_${vendorId}`,
+        secret_description: `Bank account for vendor ${vendorId}`,
+      },
+    );
+
+    if (secretError) {
+      return {
+        success: false,
+        message: secretError.message || "Failed to secure bank account details.",
+        errors: {},
+        values: rawVendor,
+      };
+    }
+
+    paymentInfoPayload.bank_account_masked = bankAccountMasked;
+    paymentInfoPayload.bank_account_last4 = bankAccountLast4 || null;
+    paymentInfoPayload.bank_account_token = secretId || null;
+    paymentInfoPayload.bank_account = bankAccountMasked;
+
+    paymentPayload.bank_account_masked = bankAccountMasked;
+    paymentPayload.bank_account_last4 = bankAccountLast4 || null;
+    paymentPayload.bank_account_token = secretId || null;
+  }
+
+  const hasPaymentInfoUpdates = Object.keys(paymentInfoPayload).length > 0;
+
+  if (!isVerifiedVendor && hasPaymentInfoUpdates) {
+    paymentInfoPayload.updated_at = now;
+    let resolvedPaymentInfoId = paymentInfoId;
+
+    if (!resolvedPaymentInfoId) {
+      const { data: existingPaymentInfo } = await supabase
+        .from("payment_info")
+        .select("id")
+        .eq("vendor_id", vendorId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      resolvedPaymentInfoId = existingPaymentInfo?.id || "";
+    }
+
+    if (resolvedPaymentInfoId) {
       const { error: paymentError } = await supabase
         .from("payment_info")
-        .update(paymentPayload)
-        .eq("id", paymentInfoId)
+        .update(paymentInfoPayload)
+        .eq("id", resolvedPaymentInfoId)
         .eq("vendor_id", vendorId);
 
       if (paymentError) {
@@ -937,10 +1001,10 @@ export async function manageProfile(prevState, queryData) {
           values: rawVendor,
         };
       }
-    } else if (Object.values(paymentPayload).some((value) => value)) {
+    } else {
       const { error: paymentError } = await supabase
         .from("payment_info")
-        .insert({ ...paymentPayload, vendor_id: vendorId })
+        .insert({ ...paymentInfoPayload, vendor_id: vendorId, created_at: now })
         .select("id")
         .single();
 
@@ -998,12 +1062,14 @@ export async function manageProfile(prevState, queryData) {
       const isSubmitted = ["pending", "approved"].includes(normalizedStatus);
 
       if (!isSubmitted) {
+        const draftPayment = applicationRecord?.draft_data || {};
         const submissionValidation = applicationSubmissionSchema.safeParse({
           ...rawVendor,
-          account_name: rawPayment.account_name,
-          bank_name: rawPayment.bank_name,
-          bank_account: rawPayment.bank_account,
-          bank_branch: rawPayment.bank_branch,
+          account_name:
+            rawPayment.account_name || draftPayment.accountHolderName || "",
+          bank_name: rawPayment.bank_name || draftPayment.bankName || "",
+          bank_account: rawPayment.bank_account || draftPayment.accountNumber || "",
+          bank_branch: rawPayment.bank_branch || draftPayment.bankBranch || "",
         });
 
         if (!submissionValidation.success) {
@@ -1030,8 +1096,12 @@ export async function manageProfile(prevState, queryData) {
             bank_account_number: paymentPayload.bank_account,
             bank_branch: paymentPayload.bank_branch,
             bank_branch_code: paymentPayload.routing_number,
+            bank_account_masked: paymentPayload.bank_account_masked,
+            bank_account_last4: paymentPayload.bank_account_last4,
+            bank_account_token: paymentPayload.bank_account_token,
             owner_email: vendorPayload.email,
             owner_phone: vendorPayload.phone,
+            owner_full_name: vendorPayload.legal_name || vendorPayload.business_name,
           };
 
           let submissionId = applicationRecord?.id || null;

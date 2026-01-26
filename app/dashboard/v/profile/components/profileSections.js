@@ -396,11 +396,7 @@ export function PaymentInformationSection({
           </Link>
         ) : (
           <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              onEditPayment?.();
-            }}
+            type="submit"
             className="cursor-pointer w-full py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
           >
             Update Payment Method
@@ -517,7 +513,6 @@ export function DocumentsSection({
 
         <form
           action={documentAction}
-          encType="multipart/form-data"
           className="space-y-3"
         >
           {documentQueue.map((row, idx) => (
