@@ -111,6 +111,155 @@ const isValidImageFile = (file) => {
   return true;
 };
 
+const setIfValue = (payload, key, value) => {
+  if (value === undefined || value === null) return;
+  if (typeof value === "string" && value.trim() === "") return;
+  payload[key] = value;
+};
+
+const buildApplicationPayloadFromProfile = ({
+  vendorPayload = {},
+  compliancePayload = {},
+  paymentPayload = {},
+}) => {
+  const payload = {};
+  setIfValue(payload, "business_name", vendorPayload.business_name);
+  setIfValue(payload, "business_type", compliancePayload.business_type);
+  setIfValue(
+    payload,
+    "business_registration_number",
+    compliancePayload.business_registration_number,
+  );
+  setIfValue(payload, "tax_id", vendorPayload.tax_id);
+  setIfValue(payload, "website", vendorPayload.website);
+  setIfValue(payload, "business_description", vendorPayload.description);
+  setIfValue(payload, "street_address", vendorPayload.address_street);
+  setIfValue(payload, "city", vendorPayload.address_city);
+  setIfValue(payload, "region", vendorPayload.address_state);
+  setIfValue(payload, "digital_address", vendorPayload.digital_address);
+  setIfValue(payload, "bank_account_name", paymentPayload.account_name);
+  setIfValue(payload, "bank_name", paymentPayload.bank_name);
+  setIfValue(payload, "bank_account_number", paymentPayload.bank_account);
+  setIfValue(payload, "bank_branch", paymentPayload.bank_branch);
+  setIfValue(payload, "bank_branch_code", paymentPayload.routing_number);
+  setIfValue(payload, "owner_email", vendorPayload.email);
+  setIfValue(payload, "owner_phone", vendorPayload.phone);
+  return payload;
+};
+
+const buildDraftDataFromProfile = ({
+  vendorPayload = {},
+  compliancePayload = {},
+  paymentPayload = {},
+}) => {
+  const draft = {};
+  setIfValue(draft, "businessName", vendorPayload.business_name);
+  setIfValue(draft, "businessType", compliancePayload.business_type);
+  setIfValue(
+    draft,
+    "businessRegistrationNumber",
+    compliancePayload.business_registration_number,
+  );
+  setIfValue(draft, "taxId", vendorPayload.tax_id);
+  setIfValue(draft, "website", vendorPayload.website);
+  setIfValue(draft, "businessDescription", vendorPayload.description);
+  setIfValue(draft, "address", vendorPayload.address_street);
+  setIfValue(draft, "city", vendorPayload.address_city);
+  setIfValue(draft, "region", vendorPayload.address_state);
+  setIfValue(draft, "digitalAddress", vendorPayload.digital_address);
+  setIfValue(draft, "accountHolderName", paymentPayload.account_name);
+  setIfValue(draft, "bankName", paymentPayload.bank_name);
+  setIfValue(draft, "accountNumber", paymentPayload.bank_account);
+  setIfValue(draft, "bankBranch", paymentPayload.bank_branch);
+  setIfValue(draft, "routingNumber", paymentPayload.routing_number);
+  setIfValue(draft, "ownerEmail", vendorPayload.email);
+  setIfValue(draft, "ownerPhone", vendorPayload.phone);
+  return draft;
+};
+
+const ensureVendorApplication = async ({
+  supabase,
+  userId,
+  now,
+  vendorPayload = {},
+  compliancePayload = {},
+  paymentPayload = {},
+}) => {
+  const { data: existing, error: existingError } = await supabase
+    .from("vendor_applications")
+    .select("id, status, draft_data, documents")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    return { application: null, error: existingError };
+  }
+
+  const normalizedStatus = (existing?.status || "").toLowerCase();
+  if (existing?.id && ["pending", "approved"].includes(normalizedStatus)) {
+    return { application: existing, error: null, created: false };
+  }
+
+  const applicationPayload = buildApplicationPayloadFromProfile({
+    vendorPayload,
+    compliancePayload,
+    paymentPayload,
+  });
+  const draftData = buildDraftDataFromProfile({
+    vendorPayload,
+    compliancePayload,
+    paymentPayload,
+  });
+  const mergedDraft = {
+    ...(existing?.draft_data || {}),
+    ...draftData,
+  };
+
+  const basePayload = {
+    status: "draft",
+    draft_data: mergedDraft,
+    updated_at: now,
+    ...applicationPayload,
+  };
+
+  if (existing?.id) {
+    const { data: updated, error: updateError } = await supabase
+      .from("vendor_applications")
+      .update(basePayload)
+      .eq("id", existing.id)
+      .eq("user_id", userId)
+      .select("id, status, draft_data, documents")
+      .maybeSingle();
+
+    if (updateError) {
+      return { application: null, error: updateError };
+    }
+
+    return { application: updated || existing, error: null, created: false };
+  }
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("vendor_applications")
+    .insert([
+      {
+        user_id: userId,
+        created_by: userId,
+        created_at: now,
+        ...basePayload,
+      },
+    ])
+    .select("id, status, draft_data, documents")
+    .single();
+
+  if (insertError) {
+    return { application: null, error: insertError };
+  }
+
+  return { application: inserted, error: null, created: true };
+};
+
 async function uploadDocumentToR2(file, keyPrefix) {
   if (!isFileLike(file)) return null;
   const buffer = await file.arrayBuffer();
@@ -275,7 +424,9 @@ export async function uploadVendorDocument(prevState, formData) {
 
   const { data: vendorRecord, error: vendorError } = await supabase
     .from("vendors")
-    .select("id, verified")
+    .select(
+      "id, verified, business_name, business_type, business_registration_number, description, email, phone, website, tax_id, address_street, address_city, address_state, digital_address",
+    )
     .eq("profiles_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -289,18 +440,39 @@ export async function uploadVendorDocument(prevState, formData) {
     };
   }
 
-  const { data: applicationRecord, error: applicationError } = await supabase
-    .from("vendor_applications")
-    .select("id, status, documents")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const now = new Date().toISOString();
+  const vendorPayload = {
+    business_name: vendorRecord.business_name || null,
+    email: vendorRecord.email || null,
+    phone: vendorRecord.phone || null,
+    website: vendorRecord.website || null,
+    tax_id: vendorRecord.tax_id || null,
+    description: vendorRecord.description || null,
+    address_street: vendorRecord.address_street || null,
+    address_city: vendorRecord.address_city || null,
+    address_state: vendorRecord.address_state || null,
+    digital_address: vendorRecord.digital_address || null,
+  };
+  const compliancePayload = {
+    business_type: vendorRecord.business_type || null,
+    business_registration_number: vendorRecord.business_registration_number || null,
+  };
+  const { application: applicationRecord, error: applicationError } =
+    await ensureVendorApplication({
+      supabase,
+      userId: user.id,
+      now,
+      vendorPayload,
+      compliancePayload,
+      paymentPayload: {},
+    });
 
   if (applicationError || !applicationRecord?.id) {
     return {
       success: false,
-      message: applicationError?.message || "Vendor application not found.",
+      message:
+        applicationError?.message ||
+        "Unable to create a vendor application. Please save your profile first.",
       errors: {},
     };
   }
@@ -807,44 +979,25 @@ export async function manageProfile(prevState, queryData) {
   let applicationNotice = null;
 
   if (!isVerifiedVendor) {
-    const { data: applicationRecord, error: applicationError } = await supabase
-      .from("vendor_applications")
-      .select("id, status, draft_data")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { application: applicationRecord, error: applicationError } =
+      await ensureVendorApplication({
+        supabase,
+        userId: user.id,
+        now,
+        vendorPayload,
+        compliancePayload,
+        paymentPayload,
+      });
 
     if (applicationError) {
       console.error("Vendor application lookup error", applicationError);
       applicationNotice =
-        "Profile updated, but we could not submit your application. Please try again.";
+        "Profile updated, but we could not create your application. Please try again.";
     } else {
       const normalizedStatus = (applicationRecord?.status || "").toLowerCase();
       const isSubmitted = ["pending", "approved"].includes(normalizedStatus);
 
       if (!isSubmitted) {
-        if (applicationRecord?.id) {
-          const mergedDraft = {
-            ...(applicationRecord.draft_data || {}),
-            businessType: business_type || "",
-            businessRegistrationNumber: business_registration_number || "",
-          };
-          const { error: draftError } = await supabase
-            .from("vendor_applications")
-            .update({
-              ...compliancePayload,
-              draft_data: mergedDraft,
-              updated_at: now,
-            })
-            .eq("id", applicationRecord.id)
-            .eq("user_id", user.id);
-
-          if (draftError) {
-            console.error("Vendor application draft update error", draftError);
-          }
-        }
-
         const submissionValidation = applicationSubmissionSchema.safeParse({
           ...rawVendor,
           account_name: rawPayment.account_name,
@@ -893,24 +1046,6 @@ export async function manageProfile(prevState, queryData) {
             if (updateError) {
               console.error("Vendor application update error", updateError);
               submissionId = null;
-            }
-          } else {
-            const { data: inserted, error: insertError } = await supabase
-              .from("vendor_applications")
-              .insert([
-                {
-                  user_id: user.id,
-                  created_by: user.id,
-                  ...applicationPayload,
-                },
-              ])
-              .select("id")
-              .single();
-
-            if (insertError) {
-              console.error("Vendor application insert error", insertError);
-            } else {
-              submissionId = inserted?.id || null;
             }
           }
 
