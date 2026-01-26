@@ -82,7 +82,11 @@ export function ProfileHeader({ vendorSummary, vendor }) {
   );
 }
 
-export function BusinessInformationSection({ vendorSummary, isVerifiedVendor }) {
+export function BusinessInformationSection({
+  vendorSummary,
+  isVerifiedVendor,
+  errors = {},
+}) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
       <SectionHeader icon={PiBuilding} title="Business Information" />
@@ -96,6 +100,7 @@ export function BusinessInformationSection({ vendorSummary, isVerifiedVendor }) 
           name="business_name"
           value={vendorSummary.businessName}
           required
+          error={errors.business_name}
         />
         {isVerifiedVendor ? (
           <LockedField
@@ -109,6 +114,37 @@ export function BusinessInformationSection({ vendorSummary, isVerifiedVendor }) 
             name="legal_name"
             value={vendorSummary.legalName}
             required
+            error={errors.legal_name}
+          />
+        )}
+        {isVerifiedVendor ? (
+          <LockedField
+            label="Business Type"
+            name="business_type"
+            value={vendorSummary.businessType}
+          />
+        ) : (
+          <FormField
+            label="Business Type"
+            name="business_type"
+            value={vendorSummary.businessType}
+            required
+            error={errors.business_type}
+          />
+        )}
+        {isVerifiedVendor ? (
+          <LockedField
+            label="Business Registration Number"
+            name="business_registration_number"
+            value={vendorSummary.businessRegistrationNumber}
+          />
+        ) : (
+          <FormField
+            label="Business Registration Number"
+            name="business_registration_number"
+            value={vendorSummary.businessRegistrationNumber}
+            required
+            error={errors.business_registration_number}
           />
         )}
         <FormField
@@ -116,14 +152,21 @@ export function BusinessInformationSection({ vendorSummary, isVerifiedVendor }) 
           name="email"
           value={vendorSummary.email}
           required
+          error={errors.email}
         />
         <FormField
           label="Phone Number"
           name="phone"
           value={vendorSummary.phone}
           required
+          error={errors.phone}
         />
-        <FormField label="Website" name="website" value={vendorSummary.website} />
+        <FormField
+          label="Website"
+          name="website"
+          value={vendorSummary.website}
+          error={errors.website}
+        />
         {isVerifiedVendor ? (
           <LockedField
             label="Tax ID / EIN"
@@ -136,6 +179,7 @@ export function BusinessInformationSection({ vendorSummary, isVerifiedVendor }) 
             name="tax_id"
             value={vendorSummary.taxId}
             required
+            error={errors.tax_id}
           />
         )}
       </div>
@@ -146,13 +190,14 @@ export function BusinessInformationSection({ vendorSummary, isVerifiedVendor }) 
           name="description"
           value={vendorSummary.description}
           placeholder="Tell customers about your business..."
+          error={errors.description}
         />
       </div>
     </div>
   );
 }
 
-export function BusinessAddressSection({ vendorSummary }) {
+export function BusinessAddressSection({ vendorSummary, errors = {} }) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
       <SectionHeader icon={PiMapPin} title="Business Address" />
@@ -163,6 +208,7 @@ export function BusinessAddressSection({ vendorSummary }) {
           name="address_street"
           value={vendorSummary.address.street}
           required
+          error={errors.address_street}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -171,18 +217,21 @@ export function BusinessAddressSection({ vendorSummary }) {
             name="address_city"
             value={vendorSummary.address.city}
             required
+            error={errors.address_city}
           />
           <FormField
             label="State"
             name="address_state"
             value={vendorSummary.address.state}
             required
+            error={errors.address_state}
           />
           <FormField
             label="Digital Address"
             name="digital_address"
             value={vendorSummary.address.digitalAddress}
             required
+            error={errors.digital_address}
           />
         </div>
         <FormField
@@ -190,6 +239,7 @@ export function BusinessAddressSection({ vendorSummary }) {
           name="address_country"
           value={vendorSummary.address.country}
           required
+          error={errors.address_country}
         />
       </div>
     </div>
@@ -200,6 +250,7 @@ export function PaymentInformationSection({
   paymentSummary,
   isVerifiedVendor,
   requestLinks,
+  errors = {},
 }) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
@@ -281,7 +332,7 @@ export function PaymentInformationSection({
           isVerifiedVendor ? (
             <LockedField key={field.name} {...field} mask />
           ) : (
-            <FormField key={field.name} {...field} />
+            <FormField key={field.name} {...field} error={errors[field.name]} />
           ),
         )}
       </div>
@@ -299,6 +350,7 @@ export function PaymentInformationSection({
             label="Account Type"
             name="account_type"
             value={paymentSummary.accountType}
+            error={errors.account_type}
           />
         )}
       </div>

@@ -66,7 +66,7 @@ export const VendorProfileProvider = ({ children }) => {
         supabase
           .from("vendors")
           .select(
-            "id, business_name, legal_name, description, email, phone, website, tax_id, address_street, address_city, address_state, digital_address, address_country, verified, created_at, updated_at",
+            "id, business_name, legal_name, business_type, business_registration_number, description, email, phone, website, tax_id, address_street, address_city, address_state, digital_address, address_country, verified, created_at, updated_at",
           )
           .eq("profiles_id", userId)
           .order("created_at", { ascending: false })
@@ -111,7 +111,7 @@ export const VendorProfileProvider = ({ children }) => {
         supabase
           .from("vendor_applications")
           .select(
-            "id, documents, created_at, business_name, tax_id, website, business_description, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, owner_email, owner_phone, status, draft_data",
+            "id, documents, created_at, business_name, business_type, business_registration_number, tax_id, website, business_description, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, owner_email, owner_phone, status, draft_data",
           )
           .eq("user_id", userId)
           .order("created_at", { ascending: false })

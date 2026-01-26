@@ -109,6 +109,16 @@ export default function VendorProfileContent() {
         draft.legalBusinessName ||
         vendor?.business_name ||
         "",
+      businessType:
+        vendor?.business_type ||
+        application?.business_type ||
+        draft.businessType ||
+        "",
+      businessRegistrationNumber:
+        vendor?.business_registration_number ||
+        application?.business_registration_number ||
+        draft.businessRegistrationNumber ||
+        "",
       description:
         vendor?.description ||
         application?.business_description ||
@@ -223,6 +233,7 @@ export default function VendorProfileContent() {
   const supportEmail = supportContact?.support_email || "hello@mygiftologi.com";
   const supportPhone = supportContact?.support_phone || "";
   const supportWhatsapp = supportContact?.whatsapp_link || "";
+  const formErrors = state?.errors || {};
   const requestLinks = [
     supportEmail
       ? { label: "Email Support", href: `mailto:${supportEmail}` }
@@ -295,12 +306,14 @@ export default function VendorProfileContent() {
         <BusinessInformationSection
           vendorSummary={vendorSummary}
           isVerifiedVendor={isVerifiedVendor}
+          errors={formErrors}
         />
-        <BusinessAddressSection vendorSummary={vendorSummary} />
+        <BusinessAddressSection vendorSummary={vendorSummary} errors={formErrors} />
         <PaymentInformationSection
           paymentSummary={paymentSummary}
           isVerifiedVendor={isVerifiedVendor}
           requestLinks={requestLinks}
+          errors={formErrors}
         />
         <NotificationPreferencesSection
           notifications={notifications}

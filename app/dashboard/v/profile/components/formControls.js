@@ -22,8 +22,14 @@ export function FormField({
   name,
   type = 'text',
   readOnly = false,
+  error,
 }) {
-  const inputClasses = `w-full ${Icon ? 'pl-9' : 'pl-3'} pr-3 py-2.5 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+  const errorId = error && name ? `${name}-error` : undefined;
+  const inputClasses = `w-full ${Icon ? 'pl-9' : 'pl-3'} pr-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 ${
+    error
+      ? 'border-[#FCA5A5] focus:border-[#EF4444] focus:ring-[#FEE2E2]'
+      : 'border-[#D1D5DB] focus:ring-primary/20 focus:border-primary'
+  } ${
     readOnly ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed' : 'bg-white text-[#111827]'
   }`;
   const inputValue = value ?? '';
@@ -49,11 +55,18 @@ export function FormField({
           name={name}
           readOnly={readOnly}
           aria-readonly={readOnly}
+          aria-invalid={Boolean(error)}
+          aria-describedby={errorId}
           tabIndex={readOnly ? -1 : 0}
           className={inputClasses}
           {...inputProps}
         />
       </div>
+      {error && (
+        <p id={errorId} className="text-xs text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }
@@ -108,7 +121,8 @@ export function LockedField({ label, value, icon: Icon, name, mask = false }) {
   );
 }
 
-export function TextAreaField({ label, value, placeholder, name }) {
+export function TextAreaField({ label, value, placeholder, name, error }) {
+  const errorId = error && name ? `${name}-error` : undefined;
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[#374151] text-sm font-medium">{label}</label>
@@ -117,8 +131,19 @@ export function TextAreaField({ label, value, placeholder, name }) {
         defaultValue={value}
         placeholder={placeholder}
         rows={3}
-        className="w-full px-3 py-2.5 border border-[#D1D5DB] rounded-lg text-sm text-[#111827] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white resize-none"
+        aria-invalid={Boolean(error)}
+        aria-describedby={errorId}
+        className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#111827] focus:outline-none focus:ring-2 bg-white resize-none ${
+          error
+            ? 'border-[#FCA5A5] focus:border-[#EF4444] focus:ring-[#FEE2E2]'
+            : 'border-[#D1D5DB] focus:ring-primary/20 focus:border-primary'
+        }`}
       />
+      {error && (
+        <p id={errorId} className="text-xs text-red-600">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

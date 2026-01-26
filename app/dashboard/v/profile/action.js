@@ -283,6 +283,11 @@ export const defaultDocumentUploadState = {
 const vendorSchema = z.object({
   business_name: z.string().min(1, "Business name is required").max(120),
   legal_name: z.string().min(1, "Legal name is required").max(120),
+  business_type: z.string().min(1, "Business type is required").max(120),
+  business_registration_number: z
+    .string()
+    .min(1, "Business registration number is required")
+    .max(120),
   email: z.string().email("Invalid email address"),
   phone: z.string().min(1, "Phone number is required").max(50),
   website: z.string().url("Invalid website URL").optional().or(z.literal("")),
@@ -358,6 +363,9 @@ export async function manageProfile(prevState, queryData) {
   const rawVendor = {
     business_name: queryData.get("business_name")?.trim() || "",
     legal_name: queryData.get("legal_name")?.trim() || "",
+    business_type: queryData.get("business_type")?.trim() || "",
+    business_registration_number:
+      queryData.get("business_registration_number")?.trim() || "",
     email: queryData.get("email")?.trim() || "",
     phone: queryData.get("phone")?.trim() || "",
     website: queryData.get("website")?.trim() || "",
@@ -428,19 +436,51 @@ export async function manageProfile(prevState, queryData) {
 
   const vendorIdFromForm = queryData.get("vendor_id");
   const now = new Date().toISOString();
+  const {
+    business_name,
+    legal_name,
+    business_type,
+    business_registration_number,
+    email,
+    phone,
+    website,
+    tax_id,
+    description,
+    address_street,
+    address_city,
+    address_state,
+    digital_address,
+    address_country,
+  } = vendorValidation.data;
   const vendorPayload = {
-    ...vendorValidation.data,
-    website: vendorValidation.data.website || null,
-    description: vendorValidation.data.description || null,
+    business_name,
+    legal_name,
+    email,
+    phone,
+    website: website || null,
+    tax_id,
+    description: description || null,
+    address_street,
+    address_city,
+    address_state,
+    digital_address,
+    address_country,
     updated_at: now,
+  };
+  const compliancePayload = {
+    business_type: business_type || null,
+    business_registration_number: business_registration_number || null,
   };
 
   let existingVendor = null;
 
+  const vendorSelectColumns =
+    "id, verified, legal_name, tax_id, business_type, business_registration_number";
+
   if (vendorIdFromForm) {
     const { data, error } = await supabase
       .from("vendors")
-      .select("id, verified, legal_name, tax_id")
+      .select(vendorSelectColumns)
       .eq("id", vendorIdFromForm)
       .eq("profiles_id", user.id)
       .maybeSingle();
@@ -460,7 +500,7 @@ export async function manageProfile(prevState, queryData) {
   if (!existingVendor) {
     const { data, error } = await supabase
       .from("vendors")
-      .select("id, verified, legal_name, tax_id")
+      .select(vendorSelectColumns)
       .eq("profiles_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -483,6 +523,7 @@ export async function manageProfile(prevState, queryData) {
   if (!existingVendor) {
     const insertPayload = {
       ...vendorPayload,
+      ...compliancePayload,
       profiles_id: user.id,
       verified: false,
       created_at: now,
@@ -512,12 +553,20 @@ export async function manageProfile(prevState, queryData) {
   if (isVerifiedVendor) {
     vendorPayload.legal_name = existingVendor.legal_name || vendorPayload.legal_name;
     vendorPayload.tax_id = existingVendor.tax_id || vendorPayload.tax_id;
+    compliancePayload.business_type =
+      existingVendor.business_type || compliancePayload.business_type;
+    compliancePayload.business_registration_number =
+      existingVendor.business_registration_number ||
+      compliancePayload.business_registration_number;
   }
 
   if (!createdVendor) {
+    const vendorUpdatePayload = isVerifiedVendor
+      ? vendorPayload
+      : { ...vendorPayload, ...compliancePayload };
     const { error: vendorError } = await supabase
       .from("vendors")
-      .update(vendorPayload)
+      .update(vendorUpdatePayload)
       .eq("id", vendorId)
       .eq("profiles_id", user.id);
 
@@ -602,7 +651,7 @@ export async function manageProfile(prevState, queryData) {
   if (!isVerifiedVendor) {
     const { data: applicationRecord, error: applicationError } = await supabase
       .from("vendor_applications")
-      .select("id, status")
+      .select("id, status, draft_data")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -617,6 +666,27 @@ export async function manageProfile(prevState, queryData) {
       const isSubmitted = ["pending", "approved"].includes(normalizedStatus);
 
       if (!isSubmitted) {
+        if (applicationRecord?.id) {
+          const mergedDraft = {
+            ...(applicationRecord.draft_data || {}),
+            businessType: business_type || "",
+            businessRegistrationNumber: business_registration_number || "",
+          };
+          const { error: draftError } = await supabase
+            .from("vendor_applications")
+            .update({
+              ...compliancePayload,
+              draft_data: mergedDraft,
+              updated_at: now,
+            })
+            .eq("id", applicationRecord.id)
+            .eq("user_id", user.id);
+
+          if (draftError) {
+            console.error("Vendor application draft update error", draftError);
+          }
+        }
+
         const submissionValidation = applicationSubmissionSchema.safeParse({
           ...rawVendor,
           account_name: rawPayment.account_name,
@@ -634,6 +704,9 @@ export async function manageProfile(prevState, queryData) {
             submitted_at: now,
             updated_at: now,
             business_name: vendorPayload.business_name,
+            business_type: compliancePayload.business_type,
+            business_registration_number:
+              compliancePayload.business_registration_number,
             tax_id: vendorPayload.tax_id,
             website: vendorPayload.website,
             business_description: vendorPayload.description,
