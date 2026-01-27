@@ -1482,7 +1482,9 @@ export async function submitVendorApplication(payload) {
 
   const { data: existing, error: existingError } = await actingClient
     .from("vendor_applications")
-    .select("id, status, draft_data, current_step, documents")
+    .select(
+      "id, status, draft_data, current_step, documents, bank_account_number, bank_account_masked, bank_account_last4, bank_account_token",
+    )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -1568,6 +1570,223 @@ export async function submitVendorApplication(payload) {
   const now = new Date().toISOString();
   const applicationFields = buildApplicationFieldsFromDraft(mergedDraft);
 
+  const rawBankAccount =
+    cleanValue(applicationFields.bank_account_number) ||
+    cleanValue(mergedDraft.accountNumber) ||
+    cleanValue(existing?.bank_account_number);
+  const normalizedBankAccount =
+    typeof rawBankAccount === "string" ? rawBankAccount.trim() : rawBankAccount;
+  const bankAccountDigits =
+    typeof normalizedBankAccount === "string"
+      ? normalizedBankAccount.replace(/\D/g, "")
+      : "";
+  const computedLast4 = bankAccountDigits ? bankAccountDigits.slice(-4) : null;
+  const bankAccountLast4 = existing?.bank_account_last4 || computedLast4 || null;
+  const bankAccountMasked =
+    existing?.bank_account_masked ||
+    (bankAccountLast4 ? `****${bankAccountLast4}` : null);
+  let bankAccountToken = existing?.bank_account_token || null;
+
+  if (!bankAccountToken && normalizedBankAccount) {
+    const uniqueSecretName = `vendor_payment_${userId}_${Date.now()}`;
+    const { data: secretId, error: secretError } = await actingClient.rpc(
+      "create_payment_secret",
+      {
+        raw_value: normalizedBankAccount,
+        secret_name: uniqueSecretName,
+        secret_description: `Bank account for vendor ${userId}`,
+      },
+    );
+
+    if (secretError) {
+      return {
+        success: false,
+        message:
+          secretError.message || "Failed to secure bank account details.",
+        data: null,
+      };
+    }
+
+    bankAccountToken = secretId || null;
+  }
+
+  const bankAccountFields = {
+    bank_account_masked: bankAccountMasked,
+    bank_account_last4: bankAccountLast4,
+    bank_account_token: bankAccountToken,
+  };
+
+  const syncVendorProfile = async () => {
+    const { data: existingVendor, error: vendorError } = await actingClient
+      .from("vendors")
+      .select("id, verified")
+      .eq("profiles_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (vendorError) {
+      return {
+        error: vendorError.message || "Failed to load vendor profile.",
+      };
+    }
+
+    const vendorPayload = {
+      business_name: applicationFields.business_name || null,
+      category: applicationFields.category || null,
+      description: applicationFields.business_description || null,
+      legal_name:
+        cleanValue(mergedDraft.legalBusinessName) ||
+        applicationFields.business_name ||
+        null,
+      email: applicationFields.owner_email || userEmail || null,
+      phone: applicationFields.owner_phone || null,
+      website: applicationFields.website || null,
+      tax_id: applicationFields.tax_id || null,
+      address_street: applicationFields.street_address || null,
+      address_city: applicationFields.city || null,
+      address_state: applicationFields.region || null,
+      digital_address: applicationFields.digital_address || null,
+      address_country: cleanValue(mergedDraft.country) || null,
+      business_type: applicationFields.business_type || null,
+      business_registration_number:
+        applicationFields.business_registration_number || null,
+      updated_at: now,
+    };
+
+    let vendorId = existingVendor?.id || null;
+
+    if (!vendorId) {
+      const { data: insertedVendor, error: insertError } = await actingClient
+        .from("vendors")
+        .insert([
+          {
+            profiles_id: userId,
+            created_by: userId,
+            created_at: now,
+            verified: false,
+            ...vendorPayload,
+          },
+        ])
+        .select("id")
+        .single();
+
+      if (insertError || !insertedVendor) {
+        return {
+          error: insertError?.message || "Failed to create vendor profile.",
+        };
+      }
+
+      vendorId = insertedVendor.id;
+    } else if (!existingVendor?.verified) {
+      const { error: updateError } = await actingClient
+        .from("vendors")
+        .update(vendorPayload)
+        .eq("id", vendorId)
+        .eq("profiles_id", userId);
+
+      if (updateError) {
+        return {
+          error: updateError.message || "Failed to update vendor profile.",
+        };
+      }
+    }
+
+    if (!vendorId) {
+      return { error: "Unable to resolve vendor profile." };
+    }
+
+    const routingNumber =
+      cleanValue(mergedDraft.routingNumber) ||
+      cleanValue(applicationFields.bank_branch_code);
+
+    const paymentInfoPayload = {
+      account_name: applicationFields.bank_account_name || null,
+      bank_name: applicationFields.bank_name || null,
+      bank_branch: applicationFields.bank_branch || null,
+      bank_branch_code: routingNumber || null,
+      routing_number: routingNumber || null,
+      account_type: cleanValue(mergedDraft.accountType) || null,
+      bank_account_masked: bankAccountMasked || null,
+      bank_account_last4: bankAccountLast4 || null,
+      bank_account_token: bankAccountToken || null,
+      bank_account: bankAccountMasked || null,
+    };
+
+    const hasPaymentInfoUpdates = Object.values(paymentInfoPayload).some(
+      (value) => value,
+    );
+
+    if (!hasPaymentInfoUpdates) {
+      return { vendorId, paymentInfoId: null, error: null };
+    }
+
+    const { data: existingPaymentInfo, error: existingPaymentError } =
+      await actingClient
+        .from("payment_info")
+        .select("id")
+        .eq("vendor_id", vendorId)
+        .maybeSingle();
+
+    if (existingPaymentError) {
+      return {
+        vendorId,
+        error:
+          existingPaymentError.message ||
+          "Failed to load payment information.",
+      };
+    }
+
+    if (existingPaymentInfo?.id) {
+      const { error: paymentUpdateError } = await actingClient
+        .from("payment_info")
+        .update({ ...paymentInfoPayload, updated_at: now })
+        .eq("id", existingPaymentInfo.id)
+        .eq("vendor_id", vendorId);
+
+      if (paymentUpdateError) {
+        return {
+          vendorId,
+          error:
+            paymentUpdateError.message || "Failed to update payment information.",
+        };
+      }
+
+      return {
+        vendorId,
+        paymentInfoId: existingPaymentInfo.id,
+        error: null,
+      };
+    }
+
+    const { data: insertedPayment, error: paymentInsertError } =
+      await actingClient
+        .from("payment_info")
+        .insert({
+          ...paymentInfoPayload,
+          vendor_id: vendorId,
+          created_at: now,
+          updated_at: now,
+        })
+        .select("id")
+        .single();
+
+    if (paymentInsertError || !insertedPayment) {
+      return {
+        vendorId,
+        error:
+          paymentInsertError?.message ||
+          "Failed to create payment information.",
+      };
+    }
+
+    return {
+      vendorId,
+      paymentInfoId: insertedPayment.id,
+      error: null,
+    };
+  };
+
   if (existing?.id) {
     const updatePayload = {
       status: "pending",
@@ -1579,6 +1798,7 @@ export async function submitVendorApplication(payload) {
           ? payload.currentStep
           : existing.current_step ?? 0,
       ...applicationFields,
+      ...bankAccountFields,
     };
 
     const { data: updated, error: updateError } = await actingClient
@@ -1597,6 +1817,11 @@ export async function submitVendorApplication(payload) {
       };
     }
 
+    const syncResult = await syncVendorProfile();
+    if (syncResult?.error) {
+      console.error("Vendor profile sync failed", syncResult.error);
+    }
+
     try {
       await sendVendorApplicationSubmittedEmail({
         to: mergedDraft.email || userEmail,
@@ -1611,7 +1836,9 @@ export async function submitVendorApplication(payload) {
 
     return {
       success: true,
-      message: "Application submitted successfully.",
+      message: syncResult?.error
+        ? "Application submitted, but we couldn't finish setting up your vendor profile yet."
+        : "Application submitted successfully.",
       data: { applicationId: updated.id },
     };
   }
@@ -1626,6 +1853,7 @@ export async function submitVendorApplication(payload) {
     current_step: typeof payload?.currentStep === "number" ? payload.currentStep : 0,
     documents: Array.isArray(payload?.documents) ? payload.documents : null,
     ...applicationFields,
+    ...bankAccountFields,
   };
 
   const { data: inserted, error: insertError } = await actingClient
@@ -1642,6 +1870,11 @@ export async function submitVendorApplication(payload) {
     };
   }
 
+  const syncResult = await syncVendorProfile();
+  if (syncResult?.error) {
+    console.error("Vendor profile sync failed", syncResult.error);
+  }
+
   try {
     await sendVendorApplicationSubmittedEmail({
       to: mergedDraft.email || userEmail,
@@ -1656,7 +1889,9 @@ export async function submitVendorApplication(payload) {
 
   return {
     success: true,
-    message: "Application submitted successfully.",
+    message: syncResult?.error
+      ? "Application submitted, but we couldn't finish setting up your vendor profile yet."
+      : "Application submitted successfully.",
     data: { applicationId: inserted.id },
   };
 }
