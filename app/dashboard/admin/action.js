@@ -869,8 +869,7 @@ const createVendorSchema = z.object({
     .trim()
     .min(1, { message: "Business name is required" }),
   category: z
-    .string()
-    .trim()
+    .array(z.string().trim().min(1))
     .min(1, { message: "Category is required" }),
   email: z.email({ message: "Email is invalid" }),
   password: z
@@ -932,7 +931,10 @@ export async function createVendor(prevState, formData) {
 
   const raw = {
     businessName: formData.get("businessName"),
-    category: formData.get("category"),
+    category: formData
+      .getAll("category")
+      .map((value) => (value == null ? "" : String(value).trim()))
+      .filter(Boolean),
     email: formData.get("email"),
     password: formData.get("password"),
     fullName: formData.get("fullName"),
@@ -950,8 +952,9 @@ export async function createVendor(prevState, formData) {
     };
   }
 
-  const { businessName, category, email, password, fullName, phone } =
-    parsed.data;
+  const { businessName, category, email, password, fullName, phone } = parsed.data;
+
+  const categoryPayload = JSON.stringify(category);
 
   const { data: existingProfile } = await supabase
     .from("profiles")
@@ -1100,7 +1103,7 @@ export async function createVendor(prevState, formData) {
       .from("vendors")
       .update({
         business_name: businessName,
-        category,
+        category: categoryPayload,
         verified: true,
         updated_at: new Date().toISOString(),
       })
@@ -1127,7 +1130,7 @@ export async function createVendor(prevState, formData) {
         {
           profiles_id: userId,
           business_name: businessName,
-          category,
+          category: categoryPayload,
           description: null,
           commission_rate: null,
           verified: true,

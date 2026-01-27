@@ -803,7 +803,9 @@ const createVendorApplicationSchema = z.object({
     .trim()
     .min(1, { message: "Business name is required" })
     .max(50, { message: "Business name must be 50 characters or less" }),
-  category: z.string().trim().min(1, { message: "Category is required" }),
+  category: z
+    .array(z.string().trim().min(1))
+    .min(1, { message: "Category is required" }),
   businessType: z
     .string()
     .trim()
@@ -994,7 +996,10 @@ export async function createVendorApplication(prevState, formData) {
     const raw = {
     vendorUserId: formData.get("vendorUserId") || "",
     businessName: formData.get("businessName") || "",
-    category: formData.get("category") || "",
+    category: formData
+      .getAll("category")
+      .map((value) => (value == null ? "" : String(value).trim()))
+      .filter(Boolean),
     businessType: formData.get("businessType") || "",
     businessRegistrationNumber:
       formData.get("businessRegistrationNumber") || "",
@@ -1080,6 +1085,8 @@ export async function createVendorApplication(prevState, formData) {
     bankBranch,
     financialVerificationNotes,
   } = parsed.data;
+
+  const categoryPayload = JSON.stringify(category);
 
   const {
     data: existingApplication,
@@ -1281,7 +1288,7 @@ export async function createVendorApplication(prevState, formData) {
   const insertPayload = {
     user_id: vendorUserId,
     business_name: businessName,
-    category,
+    category: categoryPayload,
     status: "pending",
     created_by: currentProfile?.id || user.id,
     business_type: businessType || null,
@@ -1373,7 +1380,7 @@ export async function updateVendorApplication(prevState, formData) {
   const raw = {
     applicationId: formData.get("applicationId") || "",
     businessName: formData.get("businessName") || "",
-    category: formData.get("category") || "",
+    category: formData.getAll("category").map((value) => (value == null ? "" : String(value).trim())),
     businessType: formData.get("businessType") || "",
     businessRegistrationNumber:
       formData.get("businessRegistrationNumber") || "",
@@ -1459,6 +1466,8 @@ export async function updateVendorApplication(prevState, formData) {
     bankBranch,
     financialVerificationNotes,
   } = parsed.data;
+
+  const categoryPayload = JSON.stringify(category);
 
   const { data: application, error: applicationError } = await supabase
     .from("vendor_applications")
@@ -1620,7 +1629,7 @@ export async function updateVendorApplication(prevState, formData) {
   );
   const updatePayload = {
     business_name: businessName,
-    category,
+    category: categoryPayload,
     business_type: businessType || null,
     business_registration_number: businessRegistrationNumber || null,
     tax_id: taxId || null,

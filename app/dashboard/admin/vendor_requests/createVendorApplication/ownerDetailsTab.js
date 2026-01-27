@@ -10,12 +10,13 @@ export default function OwnerDetailsTab(props) {
     onInputChange,
     hasError,
     disableIdentityFields = true,
+    height
   } = props;
 
   const errorFor = (key) => state?.errors?.[key] ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 w-full ${height} scroll-smooth`}>
       <section className="space-y-2">
         <p className="text-[11px] font-medium text-[#717182]">
           Owner / Primary Contact

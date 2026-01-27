@@ -3,10 +3,10 @@ import React from "react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 
 export default function OwnerReferencesTab(props) {
-  const { state, isPending, getFieldValue, onInputChange } = props;
+  const { state, isPending, getFieldValue, onInputChange, height } = props;
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 w-full ${height} scroll-smooth`}>
       <section className="space-y-2">
         <p className="text-[11px] font-medium text-[#717182]">
           Business References

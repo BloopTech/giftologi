@@ -167,8 +167,34 @@ function useVendorRequestsProviderValue() {
           return;
         }
 
+        const applicationRows = Array.isArray(data) ? data : [];
+        const applicationUserIds = applicationRows
+          .map((row) => row?.user_id)
+          .filter(Boolean);
+        const uniqueUserIds = Array.from(new Set(applicationUserIds));
+        const vendorLogoByProfileId = new Map();
+
+        if (uniqueUserIds.length > 0) {
+          const { data: vendorRows, error: vendorError } = await supabase
+            .from("vendors")
+            .select("profiles_id, logo_url")
+            .in("profiles_id", uniqueUserIds)
+            .order("created_at", { ascending: false });
+
+          if (!vendorError && Array.isArray(vendorRows)) {
+            vendorRows.forEach((vendorRow) => {
+              if (!vendorRow?.profiles_id) return;
+              if (vendorLogoByProfileId.has(vendorRow.profiles_id)) return;
+              vendorLogoByProfileId.set(
+                vendorRow.profiles_id,
+                vendorRow.logo_url || "",
+              );
+            });
+          }
+        }
+
         if (!ignore) {
-          const enriched = (data || []).map((row, index) => {
+          const enriched = applicationRows.map((row, index) => {
             const profile = row.profiles || null;
             const nameParts = [];
             if (profile?.firstname) nameParts.push(profile.firstname);
@@ -188,6 +214,7 @@ function useVendorRequestsProviderValue() {
               appliedDate: row.created_at,
               contactName,
               contactEmail: profile?.email || "",
+              logoUrl: vendorLogoByProfileId.get(row.user_id) || "",
               __raw: row,
             };
           });

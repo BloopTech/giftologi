@@ -3,12 +3,12 @@ import React from "react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 
 export default function FinancialTabs(props) {
-  const { state, isPending, selectedVendor, getFieldValue, onInputChange, hasError } = props;
+  const { state, isPending, selectedVendor, getFieldValue, onInputChange, hasError, height } = props;
 
   const errorFor = (key) => state?.errors?.[key] ?? [];
 
   return (
-    <div className="space-y-4">
+    <div className={`space-y-4 w-full ${height} scroll-smooth`}>
       <section className="space-y-2">
         <p className="text-[11px] font-medium text-[#717182]">
           Bank Account Details

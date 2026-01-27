@@ -92,6 +92,61 @@ const initialState = {
   data: {},
 };
 
+const coerceCategories = (value, depth = 0) => {
+  if (value === null || value === undefined || depth > 4) return [];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => coerceCategories(item, depth + 1));
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    const postgresArrayMatch = trimmed.startsWith("{") && trimmed.endsWith("}");
+    if (postgresArrayMatch) {
+      const inner = trimmed.slice(1, -1);
+      if (!inner) return [];
+      return inner
+        .split(",")
+        .map((segment) => segment.replace(/^"|"$/g, "").trim())
+        .filter(Boolean);
+    }
+
+    const candidates = [trimmed];
+    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+      candidates.push(trimmed.slice(1, -1));
+    }
+
+    for (const candidate of candidates) {
+      if (candidate.startsWith("[") && candidate.endsWith("]")) {
+        try {
+          const parsed = JSON.parse(candidate);
+          if (Array.isArray(parsed)) {
+            return coerceCategories(parsed, depth + 1);
+          }
+        } catch (err) {
+          // ignore
+        }
+      }
+    }
+
+    return [trimmed];
+  }
+  return [];
+};
+
+const normalizeCategories = (value) => {
+  const seen = new Set();
+  const normalized = [];
+  coerceCategories(value).forEach((item) => {
+    const label = String(item || "").trim();
+    if (label && !seen.has(label)) {
+      seen.add(label);
+      normalized.push(label);
+    }
+  });
+  return normalized;
+};
+
 export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
   const [state, formAction, isPending] = useActionState(
     createVendorApplication,
@@ -387,11 +442,14 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
     if (profile.lastname) nameParts.push(profile.lastname);
     const contactName = nameParts.join(" ") || profile.email || "—";
 
+    const vendorCategoryRaw = vendor.category;
+    const vendorCategories = normalizeCategories(vendorCategoryRaw);
+
     setSelectedVendor({
       vendorId: vendor.id,
       vendorUserId: vendor.profiles_id,
       businessName: vendor.business_name || "",
-      category: vendor.category || "",
+      category: vendorCategories,
       contactName,
       contactEmail: profile.email || "",
       contactPhone: profile.phone || "",
@@ -506,6 +564,23 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
         }
 
         FORM_FIELDS.forEach((field) => {
+          if (field === "category") {
+            const rawCategory = getFieldValue("category");
+            const selectedCategories = Array.isArray(rawCategory)
+              ? rawCategory
+              : typeof rawCategory === "string" && rawCategory.trim()
+                ? [rawCategory.trim()]
+                : [];
+
+            selectedCategories
+              .map((value) => (value == null ? "" : String(value).trim()))
+              .filter(Boolean)
+              .forEach((value) => {
+                formData.append("category", value);
+              });
+            return;
+          }
+
           formData.set(field, getFieldValue(field) ?? "");
         });
 
@@ -557,321 +632,335 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
         </div>
       </DialogHeader>
 
-      <form
-        onSubmit={handleSubmit}
-        className="mt-3 space-y-4 text-xs text-[#0A0A0A]"
-      >
-        {!hasSelectedVendor && (
-          <section className="space-y-3">
-            <p className="text-[11px] font-medium text-[#717182]">
-              Step 1 · Choose Vendor (no existing application)
-            </p>
-            <div className="flex items-center gap-3">
-              <div className="relative flex-1">
-                <span className="absolute inset-y-0 left-3 flex items-center text-[#9CA3AF]">
-                  <Search className="size-3.5" />
-                </span>
-                <input
-                  type="text"
-                  value={vendorSearch}
-                  onChange={(event) => setVendorSearch(event.target.value)}
-                  placeholder="Search vendors by business name or email"
-                  className={cx(
-                    "w-full rounded-full border px-8 py-2 text-xs shadow-sm outline-none bg-white",
-                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
-                    focusInput
-                  )}
-                />
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-[#E5E7EB] bg-white max-h-64 overflow-y-auto">
-              {vendorLoading ? (
-                <div className="flex items-center justify-center gap-2 px-4 py-6 text-[11px] text-[#717182]">
-                  <LoaderCircle className="size-3.5 animate-spin" />
-                  <span>Loading vendors…</span>
-                </div>
-              ) : vendorError ? (
-                <div className="px-4 py-6 text-[11px] text-red-600">
-                  {vendorError}
-                </div>
-              ) : !filteredVendors.length ? (
-                <div className="px-4 py-6 text-[11px] text-[#717182]">
-                  No eligible vendors found. All vendors may already have
-                  applications.
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {filteredVendors.map((vendor) => {
-                    const profile = vendor.profiles || {};
-                    const parts = [];
-                    if (profile.firstname) parts.push(profile.firstname);
-                    if (profile.lastname) parts.push(profile.lastname);
-                    const contactName = parts.join(" ") || profile.email || "—";
-                    const email = profile.email || "—";
-
-                    const isSelected =
-                      selectedVendor && selectedVendor.vendorId === vendor.id;
-
-                    return (
-                      <li
-                        key={vendor.id}
-                        className="flex items-center justify-between gap-3 px-4 py-3 text-xs"
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-medium text-[#0A0A0A]">
-                            {vendor.business_name || "Untitled Vendor"}
-                          </span>
-                          <span className="text-[11px] text-[#6A7282]">
-                            {contactName} · {email}
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleSelectVendor(vendor)}
-                          className={cx(
-                            "rounded-full px-3 py-1 text-[11px] font-medium border cursor-pointer",
-                            isSelected
-                              ? "border-[#3979D2] bg-[#3979D2] text-white"
-                              : "border-[#D1D5DB] bg-white text-[#0A0A0A] hover:bg-gray-50"
-                          )}
-                        >
-                          {isSelected ? "Selected" : "Select"}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
-          </section>
-        )}
-
-        {hasSelectedVendor && (
-          <>
-            <section className="space-y-2">
-              <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 flex flex-col gap-1 text-[11px]">
-                <span className="text-[#6B7280]">Selected Vendor</span>
-                <span className="text-xs font-medium text-[#111827]">
-                  {selectedVendor.businessName || "Untitled Vendor"}
-                </span>
-                <span className="text-[11px] text-[#6B7280]">
-                  {selectedVendor.contactName} · {selectedVendor.contactEmail}
-                </span>
-              </div>
-            </section>
-
+      <form onSubmit={handleSubmit} className="mt-3">
+        <div className="space-y-4 text-xs text-[#0A0A0A]">
+          {!hasSelectedVendor ? (
             <section className="space-y-3">
-              {/* Responsive Tab Navigation */}
-              <div className="relative">
-                {/* Tab carousel navigation */}
-                <div className="flex items-center gap-2">
-                  {/* Back button for carousel */}
-                  <button
-                    type="button"
-                    onClick={() => handleTabCarouselScroll('back')}
-                    disabled={!checkCanScroll().canScrollBack}
+              <p className="text-[11px] font-medium text-[#717182]">
+                Step 1 · Choose Vendor (no existing application)
+              </p>
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1">
+                  <span className="absolute inset-y-0 left-3 flex items-center text-[#9CA3AF]">
+                    <Search className="size-3.5" />
+                  </span>
+                  <input
+                    type="text"
+                    value={vendorSearch}
+                    onChange={(event) => setVendorSearch(event.target.value)}
+                    placeholder="Search vendors by business name or email"
                     className={cx(
-                      "shrink-0 p-1.5 rounded-full border transition-colors",
-                      !checkCanScroll().canScrollBack
-                        ? "border-gray-200 text-gray-300 cursor-not-allowed" 
-                        : "border-[#D1D5DB] bg-white text-[#6B7280] hover:border-[#3979D2] hover:text-[#3979D2] cursor-pointer"
+                      "w-full rounded-full border px-8 py-2 text-xs shadow-sm outline-none bg-white",
+                      "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                      focusInput,
                     )}
-                  >
-                    <ChevronLeft className="size-3.5" />
-                  </button>
+                  />
+                </div>
+              </div>
 
-                  {/* Scrollable tab container */}
-                  <div className="flex-1 overflow-hidden">
-                    <div 
-                      id="tab-carousel"
-                      className="overflow-x-auto scrollbar-hide"
-                      style={{
-                        scrollbarWidth: 'none', /* Firefox */
-                        msOverflowStyle: 'none', /* IE and Edge */
-                      }}
-                      onScroll={() => {
-                        // Force re-render to update button states
-                        setTabScrollOffset(prev => prev + 1);
-                      }}
-                    >
-                      <style jsx>{`
-                        #tab-carousel::-webkit-scrollbar {
-                          display: none; /* Chrome, Safari and Opera */
-                        }
-                      `}</style>
-                      <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px] whitespace-nowrap">
-                        {TABS.map((tab) => (
+              <div className="rounded-xl border border-[#E5E7EB] bg-white max-h-64 overflow-y-auto">
+                {vendorLoading ? (
+                  <div className="flex items-center justify-center gap-2 px-4 py-6 text-[11px] text-[#717182]">
+                    <LoaderCircle className="size-3.5 animate-spin" />
+                    <span>Loading vendors…</span>
+                  </div>
+                ) : vendorError ? (
+                  <div className="px-4 py-6 text-[11px] text-red-600">
+                    {vendorError}
+                  </div>
+                ) : !filteredVendors.length ? (
+                  <div className="px-4 py-6 text-[11px] text-[#717182]">
+                    No eligible vendors found. All vendors may already have
+                    applications.
+                  </div>
+                ) : (
+                  <ul className="divide-y divide-gray-100">
+                    {filteredVendors.map((vendor) => {
+                      const profile = vendor.profiles || {};
+                      const parts = [];
+                      if (profile.firstname) parts.push(profile.firstname);
+                      if (profile.lastname) parts.push(profile.lastname);
+                      const contactName =
+                        parts.join(" ") || profile.email || "—";
+                      const email = profile.email || "—";
+
+                      const isSelected =
+                        selectedVendor && selectedVendor.vendorId === vendor.id;
+
+                      return (
+                        <li
+                          key={vendor.id}
+                          className="flex items-center justify-between gap-3 px-4 py-3 text-xs"
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium text-[#0A0A0A]">
+                              {vendor.business_name || "Untitled Vendor"}
+                            </span>
+                            <span className="text-[11px] text-[#6A7282]">
+                              {contactName} · {email}
+                            </span>
+                          </div>
                           <button
-                            key={tab.id}
                             type="button"
-                            onClick={() => setActiveTab(tab.id)}
+                            onClick={() => handleSelectVendor(vendor)}
                             className={cx(
-                              "px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap",
-                              activeTab === tab.id
-                                ? "bg-white text-[#0A0A0A] shadow-sm"
-                                : "text-[#6A7282] hover:text-[#0A0A0A]"
+                              "rounded-full px-3 py-1 text-[11px] font-medium border cursor-pointer",
+                              isSelected
+                                ? "border-[#3979D2] bg-[#3979D2] text-white"
+                                : "border-[#D1D5DB] bg-white text-[#0A0A0A] hover:bg-gray-50",
                             )}
                           >
-                            {tab.label}
+                            {isSelected ? "Selected" : "Select"}
                           </button>
-                        ))}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            </section>
+          ) : (
+            <>
+              <section className="space-y-2">
+                <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 flex flex-col gap-1 text-[11px]">
+                  <span className="text-[#6B7280]">Selected Vendor</span>
+                  <span className="text-xs font-medium text-[#111827]">
+                    {selectedVendor.businessName || "Untitled Vendor"}
+                  </span>
+                  <span className="text-[11px] text-[#6B7280]">
+                    {selectedVendor.contactName} · {selectedVendor.contactEmail}
+                  </span>
+                </div>
+              </section>
+
+              <section className="space-y-3">
+                {/* Responsive Tab Navigation */}
+                <div className="relative">
+                  {/* Tab carousel navigation */}
+                  <div className="flex items-center gap-2">
+                    {/* Back button for carousel */}
+                    <button
+                      type="button"
+                      onClick={() => handleTabCarouselScroll('back')}
+                      disabled={!checkCanScroll().canScrollBack}
+                      className={cx(
+                        "shrink-0 p-1.5 rounded-full border transition-colors",
+                        !checkCanScroll().canScrollBack
+                          ? "border-gray-200 text-gray-300 cursor-not-allowed" 
+                          : "border-[#D1D5DB] bg-white text-[#6B7280] hover:border-[#3979D2] hover:text-[#3979D2] cursor-pointer"
+                      )}
+                    >
+                      <ChevronLeft className="size-3.5" />
+                    </button>
+
+                    {/* Scrollable tab container */}
+                    <div className="flex-1 overflow-hidden">
+                      <div 
+                        id="tab-carousel"
+                        className="overflow-x-auto scrollbar-hide"
+                        style={{
+                          scrollbarWidth: 'none', /* Firefox */
+                          msOverflowStyle: 'none', /* IE and Edge */
+                        }}
+                        onScroll={() => {
+                          // Force re-render to update button states
+                          setTabScrollOffset(prev => prev + 1);
+                        }}
+                      >
+                        <style jsx>{`
+                          #tab-carousel::-webkit-scrollbar {
+                            display: none; /* Chrome, Safari and Opera */
+                          }
+                        `}</style>
+                        <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px] whitespace-nowrap">
+                          {TABS.map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setActiveTab(tab.id)}
+                              className={cx(
+                                "px-3 py-1.5 rounded-full cursor-pointer transition-colors whitespace-nowrap",
+                                activeTab === tab.id
+                                  ? "bg-white text-[#0A0A0A] shadow-sm"
+                                  : "text-[#6A7282] hover:text-[#0A0A0A]"
+                              )}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     </div>
+
+                    {/* Forward button for carousel */}
+                    <button
+                      type="button"
+                      onClick={() => handleTabCarouselScroll('forward')}
+                      disabled={!checkCanScroll().canScrollForward}
+                      className={cx(
+                        "shrink-0 p-1.5 rounded-full border transition-colors",
+                        !checkCanScroll().canScrollForward
+                          ? "border-gray-200 text-gray-300 cursor-not-allowed" 
+                          : "border-[#D1D5DB] bg-white text-[#6B7280] hover:border-[#3979D2] hover:text-[#3979D2] cursor-pointer"
+                      )}
+                    >
+                      <ChevronRight className="size-3.5" />
+                    </button>
                   </div>
 
-                  {/* Forward button for carousel */}
-                  <button
-                    type="button"
-                    onClick={() => handleTabCarouselScroll('forward')}
-                    disabled={!checkCanScroll().canScrollForward}
-                    className={cx(
-                      "shrink-0 p-1.5 rounded-full border transition-colors",
-                      !checkCanScroll().canScrollForward
-                        ? "border-gray-200 text-gray-300 cursor-not-allowed" 
-                        : "border-[#D1D5DB] bg-white text-[#6B7280] hover:border-[#3979D2] hover:text-[#3979D2] cursor-pointer"
-                    )}
-                  >
-                    <ChevronRight className="size-3.5" />
-                  </button>
+                  {/* Progress indicator */}
+                  <div className="mt-2 flex items-center justify-between text-[10px] text-[#9CA3AF]">
+                    <span>Step {TABS.findIndex(tab => tab.id === activeTab) + 1} of {TABS.length}</span>
+                    <span>{TABS.find(tab => tab.id === activeTab)?.label}</span>
+                  </div>
                 </div>
 
-                {/* Progress indicator */}
-                <div className="mt-2 flex items-center justify-between text-[10px] text-[#9CA3AF]">
-                  <span>Step {TABS.findIndex(tab => tab.id === activeTab) + 1} of {TABS.length}</span>
-                  <span>{TABS.find(tab => tab.id === activeTab)?.label}</span>
-                </div>
-              </div>
+                {activeTab === "business" && (
+                  <BusinessTab
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    categories={categories}
+                    categoriesLoading={categoriesLoading}
+                    categoriesError={categoriesError}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
 
-              {activeTab === "business" && (
-                <BusinessTab
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  categories={categories}
-                  categoriesLoading={categoriesLoading}
-                  categoriesError={categoriesError}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                />
-              )}
+                {activeTab === "business-address" && (
+                  <BusinessAddressTab 
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
 
-              {activeTab === "business-address" && (
-                <BusinessAddressTab 
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                />
-              )}
+                {activeTab === "owner" && (
+                  <OwnerDetailsTab 
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
 
-              {activeTab === "owner" && (
-                <OwnerDetailsTab 
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                />
-              )}
+                {activeTab === "owner-references" && (
+                  <OwnerReferencesTab 
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
 
-              {activeTab === "owner-references" && (
-                <OwnerReferencesTab 
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                />
-              )}
+                {activeTab === "documents" && (
+                  <DocumentsTab
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    handleDocumentFileChange={handleDocumentFileChange}
+                    docErrors={docErrors}
+                    selectedFiles={docFiles}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
 
-              {activeTab === "documents" && (
-                <DocumentsTab
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                  handleDocumentFileChange={handleDocumentFileChange}
-                  docErrors={docErrors}
-                  selectedFiles={docFiles}
-                />
-              )}
+                {activeTab === "documents-notes" && (
+                  <DocumentsNotesTab 
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
 
-              {activeTab === "documents-notes" && (
-                <DocumentsNotesTab 
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                />
-              )}
+                {activeTab === "financial" && (
+                  <FinancialTabs
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
 
-              {activeTab === "financial" && (
-                <FinancialTabs
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                />
-              )}
+                {activeTab === "financial-notes" && (
+                  <FinancialNotesTab
+                    state={state}
+                    hasError={hasError}
+                    errorFor={errorFor}
+                    isPending={isPending}
+                    selectedVendor={selectedVendor}
+                    getFieldValue={getFieldValue}
+                    onInputChange={handleInputChange}
+                    height="h-70 overflow-y-auto"
+                  />
+                )}
+              </section>
+            </>
+          )}
 
-              {activeTab === "financial-notes" && (
-                <FinancialNotesTab
-                  state={state}
-                  hasError={hasError}
-                  errorFor={errorFor}
-                  isPending={isPending}
-                  selectedVendor={selectedVendor}
-                  getFieldValue={getFieldValue}
-                  onInputChange={handleInputChange}
-                />
-              )}
-            </section>
-          </>
-        )}
+          <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <DialogClose asChild>
+              <button
+                type="button"
+                className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                disabled={isPending}
+              >
+                Cancel
+              </button>
+            </DialogClose>
 
-        <div className="mt-6 flex flex-col gap-3 border-t border-gray-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
-          <DialogClose asChild>
-            <button
-              type="button"
-              className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
-              disabled={isPending}
-            >
-              Cancel
-            </button>
-          </DialogClose>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              disabled={isPending || isPendingTransition || !hasSelectedVendor || hasDocumentErrors}
-              className={cx(
-                "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
-                "border-primary text-white bg-primary hover:bg-white hover:text-primary",
-                (!hasSelectedVendor || isPending || isPendingTransition || hasDocumentErrors) &&
-                  "opacity-60 cursor-not-allowed hover:bg-primary hover:text-white"
-              )}
-            >
-              {getButtonText()}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                type="submit"
+                disabled={
+                  isPending ||
+                  isPendingTransition ||
+                  !hasSelectedVendor ||
+                  hasDocumentErrors
+                }
+                className={cx(
+                  "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
+                  "border-primary text-white bg-primary hover:bg-white hover:text-primary",
+                  (!hasSelectedVendor ||
+                    isPending ||
+                    isPendingTransition ||
+                    hasDocumentErrors) &&
+                    "opacity-60 cursor-not-allowed hover:bg-primary hover:text-white",
+                )}
+              >
+                {getButtonText()}
+              </button>
+            </div>
           </div>
         </div>
       </form>

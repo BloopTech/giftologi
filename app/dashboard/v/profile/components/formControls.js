@@ -128,24 +128,49 @@ export function LockedField({ label, value, icon: Icon, name, mask = false }) {
   );
 }
 
-export function TextAreaField({ label, value, placeholder, name, error }) {
+export function TextAreaField({
+  label,
+  value,
+  placeholder,
+  name,
+  error,
+  readOnly = false,
+  helperText,
+}) {
   const errorId = error && name ? `${name}-error` : undefined;
+  const inputValue = value ?? '';
+  const inputProps = readOnly
+    ? {
+        value: inputValue,
+        readOnly: true,
+        'aria-readonly': true,
+        tabIndex: -1,
+      }
+    : { defaultValue: inputValue };
+
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-[#374151] text-sm font-medium">{label}</label>
       <textarea
         name={name}
-        defaultValue={value}
         placeholder={placeholder}
         rows={3}
         aria-invalid={Boolean(error)}
         aria-describedby={errorId}
-        className={`w-full px-3 py-2.5 border rounded-lg text-sm text-[#111827] focus:outline-none focus:ring-2 bg-white resize-none ${
+        className={`w-full px-3 py-2.5 border rounded-lg text-sm focus:outline-none focus:ring-2 resize-none ${
           error
             ? 'border-[#FCA5A5] focus:border-[#EF4444] focus:ring-[#FEE2E2]'
             : 'border-[#D1D5DB] focus:ring-primary/20 focus:border-primary'
+        } ${
+          readOnly
+            ? 'bg-[#F9FAFB] text-[#9CA3AF] cursor-not-allowed'
+            : 'bg-white text-[#111827]'
         }`}
+        {...inputProps}
       />
+      {helperText && !error && (
+        <p className="text-xs text-[#6B7280]">{helperText}</p>
+      )}
       {error && (
         <p id={errorId} className="text-xs text-red-600">
           {error}

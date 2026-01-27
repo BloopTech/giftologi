@@ -1,10 +1,16 @@
-import React, { forwardRef } from "react";
+import React, { createContext, forwardRef, useContext } from "react";
 import * as DialogPrimitives from "@radix-ui/react-dialog";
 
 import { cx, focusRing } from "./utils";
 
-const Dialog = (props) => {
-  return <DialogPrimitives.Root {...props} />;
+const DialogHeightContext = createContext(null);
+
+const Dialog = ({ contentHeightClassName, ...props }) => {
+  return (
+    <DialogHeightContext.Provider value={contentHeightClassName || null}>
+      <DialogPrimitives.Root {...props} />
+    </DialogHeightContext.Provider>
+  );
 };
 Dialog.displayName = "Dialog";
 
@@ -40,30 +46,36 @@ const DialogOverlay = forwardRef(({ className, ...props }, forwardedRef) => {
 
 DialogOverlay.displayName = "DialogOverlay";
 
-const DialogContent = forwardRef(({ className, ...props }, forwardedRef) => {
-  return (
-    <DialogPortal>
-      <DialogOverlay>
-        <DialogPrimitives.Content
-          ref={forwardedRef}
-          className={cx(
-            // base
-            "fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-md border p-6 shadow-lg",
-            // border color
-            "border-gray-200 dark:border-gray-900",
-            // background color
-            "bg-white dark:bg-[#090E1A]",
-            // transition
-            "data-[state=open]:animate-dialogContentShow",
-            focusRing,
-            className
-          )}
-          {...props}
-        />
-      </DialogOverlay>
-    </DialogPortal>
-  );
-});
+const DialogContent = forwardRef(
+  ({ className, ...props }, forwardedRef) => {
+    const heightClassName = useContext(DialogHeightContext);
+    return (
+      <DialogPortal>
+        <DialogOverlay>
+          <DialogPrimitives.Content
+            ref={forwardedRef}
+            className={cx(
+              // base
+              "fixed left-1/2 top-1/2 z-50 w-[95vw] max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-md border p-6 shadow-lg",
+              // height handling
+              heightClassName ? "flex flex-col overflow-hidden" : "overflow-y-auto",
+              // border color
+              "border-gray-200 dark:border-gray-900",
+              // background color
+              "bg-white dark:bg-[#090E1A]",
+              // transition
+              "data-[state=open]:animate-dialogContentShow",
+              focusRing,
+              heightClassName,
+              className
+            )}
+            {...props}
+          />
+        </DialogOverlay>
+      </DialogPortal>
+    );
+  }
+);
 
 DialogContent.displayName = "DialogContent";
 

@@ -31,7 +31,11 @@ export default function VendorRequestsContent() {
 
       <VendorRequestsTable />
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+      <Dialog
+        open={createOpen}
+        onOpenChange={setCreateOpen}
+        contentHeightClassName="h-[98vh]"
+      >
         {createOpen && (
           <CreateVendorApplicationDialog
             open={createOpen}

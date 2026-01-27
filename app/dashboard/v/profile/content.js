@@ -481,6 +481,74 @@ export default function VendorProfileContent() {
     }
     return Array.isArray(documents) ? documents : [];
   }, [documentState?.data?.documents, documents]);
+  const profileCompletion = useMemo(() => {
+    const normalizeDocumentTitle = (value) =>
+      (value || "")
+        .toString()
+        .trim()
+        .toLowerCase()
+        .replace(/\s*\/\s*/g, "/")
+        .replace(/\s+/g, " ");
+    const hasValue = (value) =>
+      value !== null && value !== undefined && String(value).trim() !== "";
+    const hasBusinessInfo = Boolean(
+      hasValue(vendorSummary.businessName) &&
+        Array.isArray(vendorSummary.categories) &&
+        vendorSummary.categories.length > 0 &&
+        hasValue(vendorSummary.legalName) &&
+        hasValue(vendorSummary.businessType) &&
+        hasValue(vendorSummary.businessRegistrationNumber) &&
+        hasValue(vendorSummary.yearsInBusiness) &&
+        hasValue(vendorSummary.email) &&
+        hasValue(vendorSummary.phone) &&
+        hasValue(vendorSummary.taxId),
+    );
+    const hasAddress = Boolean(
+      hasValue(vendorSummary.address?.street) &&
+        hasValue(vendorSummary.address?.city) &&
+        hasValue(vendorSummary.address?.state) &&
+        hasValue(vendorSummary.address?.digitalAddress) &&
+        hasValue(vendorSummary.address?.country),
+    );
+    const hasPayment = Boolean(
+      hasValue(paymentSummary.accountName) &&
+        hasValue(paymentSummary.bankName) &&
+        hasValue(paymentSummary.bankBranch) &&
+        (hasValue(paymentSummary.accountNumber) ||
+          hasValue(paymentSummary.accountNumberMasked)) &&
+        hasValue(paymentSummary.accountType),
+    );
+    const requiredDocumentTitles = DOCUMENT_UPLOAD_OPTIONS.map(
+      (option) => option.label,
+    );
+    const hasAllDocuments = requiredDocumentTitles.every((title) => {
+      const requiredTitle = normalizeDocumentTitle(title);
+      return documentList.some((doc) => {
+        const candidateTitle = normalizeDocumentTitle(
+          doc?.title ||
+            doc?.label ||
+            doc?.name ||
+            doc?.fileName ||
+            doc?.filename ||
+            "",
+        );
+        const url = doc?.url || doc?.href || doc?.link || null;
+        return candidateTitle === requiredTitle && Boolean(url);
+      });
+    });
+
+    const checks = [hasBusinessInfo, hasAddress, hasPayment, hasAllDocuments];
+    const completed = checks.filter(Boolean).length;
+    const total = checks.length || 1;
+    const percent = Math.round((completed / total) * 100);
+    const isComplete = completed === total;
+
+    return {
+      percent,
+      isComplete,
+      label: isComplete ? "Complete" : `${completed}/${total} complete`,
+    };
+  }, [documentList, paymentSummary, vendorSummary]);
   const selectedDocumentTypes = useMemo(
     () => documentQueue.map((row) => row.type).filter(Boolean),
     [documentQueue],
@@ -545,6 +613,10 @@ export default function VendorProfileContent() {
   const isVerifiedVendor = vendorSummary.isVerified;
   const applicationStatus = application?.status?.toLowerCase?.() || "";
   const isApplicationApproved = applicationStatus === "approved";
+  const isApplicationRejected = applicationStatus === "rejected";
+  const rejectionReason = application?.reason?.trim()
+    ? application.reason.trim()
+    : "Your application needs updates before it can be approved.";
   const supportEmail = supportContact?.support_email || "hello@mygiftologi.com";
   const supportPhone = supportContact?.support_phone || "";
   const supportWhatsapp = supportContact?.whatsapp_link || "";
@@ -597,6 +669,15 @@ export default function VendorProfileContent() {
       {error && (
         <div className="rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-sm text-[#991B1B]">
           {error}
+        </div>
+      )}
+
+      {isApplicationRejected && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <p className="text-xs font-semibold text-red-800">
+            Application Rejected
+          </p>
+          <p className="mt-1 whitespace-pre-line">{rejectionReason}</p>
         </div>
       )}
 
@@ -661,6 +742,7 @@ export default function VendorProfileContent() {
           logoState={logoState}
           canSaveLogo={Boolean(logoFile) && !isLogoSaved}
           isLogoPending={isLogoPending}
+          profileCompletion={profileCompletion}
         />
         {logoState?.message && (
           <div

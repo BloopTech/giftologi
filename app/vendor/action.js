@@ -154,9 +154,11 @@ const buildApplicationFieldsFromDraft = (draft) => {
   const taxId = cleanValue(draft.taxId);
   if (taxId) fields.tax_id = taxId;
 
-  const yearEstablished = cleanValue(draft.yearEstablished);
-  if (yearEstablished) {
-    const parsed = Number(yearEstablished);
+  const yearsInBusinessRaw = cleanValue(
+    draft.yearsInBusiness ?? draft.years_in_business,
+  );
+  if (yearsInBusinessRaw) {
+    const parsed = Number(yearsInBusinessRaw);
     if (!Number.isNaN(parsed)) fields.years_in_business = parsed;
   }
 
@@ -196,9 +198,17 @@ const buildApplicationFieldsFromDraft = (draft) => {
 
   const category =
     Array.isArray(draft.productCategories) && draft.productCategories.length
-      ? cleanValue(draft.productCategories[0])
-      : cleanValue(draft.category);
-  if (category) fields.category = category;
+      ? draft.productCategories
+          .map((value) => cleanValue(value))
+          .filter(Boolean)
+      : [];
+  const legacyCategory = cleanValue(draft.category);
+  const categoryPayload = category.length
+    ? JSON.stringify(category)
+    : legacyCategory
+      ? JSON.stringify([legacyCategory])
+      : null;
+  if (categoryPayload) fields.category = categoryPayload;
 
   const bankAccountName = cleanValue(draft.accountHolderName);
   if (bankAccountName) fields.bank_account_name = bankAccountName;
@@ -214,6 +224,37 @@ const buildApplicationFieldsFromDraft = (draft) => {
 
   const bankBranch = cleanValue(draft.bankBranch);
   if (bankBranch) fields.bank_branch = bankBranch;
+
+  const businessReferences = [];
+  const ref1Name = cleanValue(draft.ref1Name);
+  const ref1Company = cleanValue(draft.ref1Company);
+  const ref1Phone = cleanValue(draft.ref1Phone);
+  const ref1Email = cleanValue(draft.ref1Email);
+  if (ref1Name || ref1Company || ref1Phone || ref1Email) {
+    businessReferences.push({
+      name: ref1Name,
+      company: ref1Company,
+      phone: ref1Phone,
+      email: ref1Email,
+    });
+  }
+
+  const ref2Name = cleanValue(draft.ref2Name);
+  const ref2Company = cleanValue(draft.ref2Company);
+  const ref2Phone = cleanValue(draft.ref2Phone);
+  const ref2Email = cleanValue(draft.ref2Email);
+  if (ref2Name || ref2Company || ref2Phone || ref2Email) {
+    businessReferences.push({
+      name: ref2Name,
+      company: ref2Company,
+      phone: ref2Phone,
+      email: ref2Email,
+    });
+  }
+
+  if (businessReferences.length > 0) {
+    fields.business_references = businessReferences;
+  }
 
   return fields;
 };
@@ -904,7 +945,9 @@ export async function fetchVendorApplicationDraft() {
 
   const { data: application, error } = await supabase
     .from("vendor_applications")
-    .select("id, status, draft_data, current_step, documents, submitted_at")
+    .select(
+      "id, status, reason, draft_data, current_step, documents, submitted_at",
+    )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -937,6 +980,7 @@ export async function fetchVendorApplicationDraft() {
       documents: Array.isArray(application.documents)
         ? application.documents
         : [],
+      rejectionReason: application.reason || "",
       submittedAt: application.submitted_at,
     },
   };
@@ -1265,11 +1309,15 @@ export async function submitVendorApplication(payload) {
       .filter(Boolean)
       .join(" ")
       .trim();
-  const category =
-    Array.isArray(mergedDraft.productCategories) &&
-    mergedDraft.productCategories.length
-      ? normalizeString(mergedDraft.productCategories[0])
-      : normalizeString(mergedDraft.category);
+  const categorySelection =
+    Array.isArray(mergedDraft.productCategories) && mergedDraft.productCategories.length
+      ? mergedDraft.productCategories
+          .map((value) => normalizeString(value))
+          .filter(Boolean)
+      : [];
+  const category = categorySelection.length
+    ? categorySelection[0]
+    : normalizeString(mergedDraft.category);
 
   const validation = submissionSchema.safeParse({
     businessName: normalizeString(mergedDraft.businessName),

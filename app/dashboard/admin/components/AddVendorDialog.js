@@ -64,6 +64,24 @@ export default function AddVendorDialog({ onClose }) {
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [categoriesError, setCategoriesError] = useState(null);
+  const [selectedCategories, setSelectedCategories] = useState(() => {
+    const raw = state?.values?.category;
+    return Array.isArray(raw)
+      ? raw
+      : typeof raw === "string" && raw.trim()
+        ? [raw.trim()]
+        : [];
+  });
+
+  useEffect(() => {
+    const raw = state?.values?.category;
+    const next = Array.isArray(raw)
+      ? raw
+      : typeof raw === "string" && raw.trim()
+        ? [raw.trim()]
+        : [];
+    setSelectedCategories(next);
+  }, [state?.values?.category]);
 
   // useEffect(() => {
   //   setPassword(state?.values?.password ?? "");
@@ -159,7 +177,9 @@ export default function AddVendorDialog({ onClose }) {
   }, []);
 
   const errorFor = (key) => state?.errors?.[key] ?? [];
-  const hasError = (key) => (errorFor(key)?.length ?? 0) > 0;
+  const hasError = (field) => {
+    return state?.errors?.[field]?.length > 0;
+  };
 
   const handleGeneratePassword = () => {
     const generated = generateStrongPassword();
@@ -177,9 +197,18 @@ export default function AddVendorDialog({ onClose }) {
     }
   };
 
+  const handleCategoryToggle = (category) => {
+    setSelectedCategories((prev) => {
+      const next = prev.includes(category)
+        ? prev.filter((value) => value !== category)
+        : [...prev, category];
+      return next;
+    });
+  };
+
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="grid grid-cols-1 gap-4">
+    <form action={formAction} className="space-y-4 w-full">
+      <div className="grid grid-cols-1 gap-4 w-full h-120 overflow-y-auto">
         <div className="space-y-1">
           <label
             htmlFor="businessName"
@@ -217,37 +246,43 @@ export default function AddVendorDialog({ onClose }) {
           >
             Category <span className="text-red-500">*</span>
           </label>
-          <select
-            id="category"
-            name="category"
-            required
+          <div
             className={cx(
-              "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
+              "w-full rounded-2xl border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
               "border-[#D6D6D6] text-[#0A0A0A]",
-              focusInput,
               hasError("category") ? hasErrorInput : "",
             )}
-            disabled={isPending || categoriesLoading}
           >
-            <option value="" disabled>
-              Select category
-            </option>
             {categoriesLoading ? (
-              <option value="" disabled>
-                Loading categories...
-              </option>
+              <p className="text-[11px] text-[#717182]">Loading categories...</p>
             ) : categoriesError ? (
-              <option value="" disabled>
-                Unable to load categories
-              </option>
+              <p className="text-[11px] text-[#717182]">Unable to load categories</p>
             ) : (
-              categories.map((cat) => (
-                <option key={cat.id || cat.name} value={cat.name}>
-                  {cat.name}
-                </option>
-              ))
+              <div className="grid grid-cols-2 gap-2">
+                {categories.map((cat) => {
+                  const label = cat?.name || "";
+                  const key = cat?.id || label;
+                  const checked = selectedCategories.includes(label);
+                  return (
+                    <label
+                      key={key}
+                      className="flex items-center gap-2 text-[11px] text-[#0A0A0A]"
+                    >
+                      <input
+                        type="checkbox"
+                        name="category"
+                        value={label}
+                        checked={checked}
+                        onChange={() => handleCategoryToggle(label)}
+                        disabled={isPending || categoriesLoading || !label}
+                      />
+                      <span>{label}</span>
+                    </label>
+                  );
+                })}
+              </div>
             )}
-          </select>
+          </div>
           {hasError("category") ? (
             <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
               {errorFor("category").map((err, index) => (

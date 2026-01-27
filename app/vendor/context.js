@@ -58,6 +58,7 @@ export const VendorApplicationProvider = ({ children }) => {
   const [status, setStatus] = useState(null);
   const [applicationId, setApplicationId] = useState(null);
   const [submittedAt, setSubmittedAt] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -117,6 +118,7 @@ export const VendorApplicationProvider = ({ children }) => {
         setStatus(null);
         setApplicationId(null);
         setSubmittedAt(null);
+        setRejectionReason("");
         return;
       }
 
@@ -126,6 +128,7 @@ export const VendorApplicationProvider = ({ children }) => {
       setStatus(response.data.status || null);
       setApplicationId(response.data.id || null);
       setSubmittedAt(response.data.submittedAt || null);
+      setRejectionReason(response.data.rejectionReason || "");
     } catch (err) {
       console.error("Vendor draft load error", err);
       setError(err?.message || "Unable to load your draft.");
@@ -363,6 +366,7 @@ export const VendorApplicationProvider = ({ children }) => {
     setStatus(null);
     setApplicationId(null);
     setSubmittedAt(null);
+    setRejectionReason("");
     setNotice(null);
     setError(null);
     setDocumentErrors({});
@@ -385,6 +389,7 @@ export const VendorApplicationProvider = ({ children }) => {
       status,
       applicationId,
       submittedAt,
+      rejectionReason,
       loading,
       saving,
       submitting,
@@ -413,6 +418,7 @@ export const VendorApplicationProvider = ({ children }) => {
       status,
       applicationId,
       submittedAt,
+      rejectionReason,
       loading,
       saving,
       submitting,

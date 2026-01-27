@@ -12,6 +12,7 @@ import { Badge } from "@/app/components/Badge";
 import { cx } from "@/app/components/utils";
 import { RejectVendorDialog } from "./RejectVendorDialog";
 import { Loader2Icon } from "lucide-react";
+import Image from "next/image";
 
 const TABS = [
   { id: "business", label: "Business Info" },
@@ -40,6 +41,32 @@ function safeText(value) {
   return str.length ? str : "";
 }
 
+function normalizeDocTitle(value) {
+  return (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, "/")
+    .replace(/\s+/g, " ");
+}
+
+function formatShortUrl(value) {
+  if (!value) return "";
+  try {
+    const url = new URL(value);
+    const parts = [url.hostname];
+    const path = url.pathname || "";
+    if (path && path !== "/") {
+      const trimmed = path.length > 18 ? `${path.slice(0, 18)}…` : path;
+      parts.push(trimmed);
+    }
+    return parts.join("");
+  } catch {
+    const str = String(value);
+    return str.length > 32 ? `${str.slice(0, 32)}…` : str;
+  }
+}
+
 export default function VendorKycDialog({
   request,
   approveAction,
@@ -53,6 +80,7 @@ export default function VendorKycDialog({
 
     return {
       vendorId: request.vendorId || "",
+      logoUrl: request.logoUrl || "",
       appliedDate: request.appliedDate || app.created_at || null,
       status: request.status || app.status || "pending",
       businessName: request.businessName || app.business_name || "",
@@ -91,6 +119,7 @@ export default function VendorKycDialog({
 
   const {
     vendorId,
+    logoUrl,
     appliedDate,
     status,
     businessName,
@@ -159,19 +188,16 @@ export default function VendorKycDialog({
 
   const missingRequiredDocuments = REQUIRED_DOCUMENT_TITLES.filter(
     (requiredTitle) => {
-      const requiredTitleLower = requiredTitle.toLowerCase();
+      const requiredTitleLower = normalizeDocTitle(requiredTitle);
       return !normalizedDocuments.some((doc) => {
-        const candidateTitle = (
+        const candidateTitle = normalizeDocTitle(
           doc?.title ||
-          doc?.label ||
-          doc?.name ||
-          doc?.fileName ||
-          doc?.filename ||
-          ""
-        )
-          .toString()
-          .trim()
-          .toLowerCase();
+            doc?.label ||
+            doc?.name ||
+            doc?.fileName ||
+            doc?.filename ||
+            "",
+        );
 
         if (!candidateTitle) return false;
 
@@ -202,13 +228,30 @@ export default function VendorKycDialog({
     <DialogContent className="max-w-3xl">
       <DialogHeader className="pb-3 border-b border-gray-100">
         <div className="flex items-start justify-between gap-4">
-          <div>
-            <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
-              Vendor KYC & Application Details
-            </DialogTitle>
-            <DialogDescription className="mt-1 text-[11px] text-[#717182]">
-              {topMetaLabel || "Review this vendor's KYC information before approval."}
-            </DialogDescription>
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 overflow-hidden rounded-xl border border-gray-200 bg-white">
+              {logoUrl ? (
+                <Image
+                  src={logoUrl}
+                  alt="Vendor logo"
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 object-cover"
+                />
+              ) : (
+                <div className="h-10 w-10 bg-gray-100" />
+              )}
+            </div>
+
+            <div>
+              <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+                Vendor KYC & Application Details
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-[11px] text-[#717182]">
+                {topMetaLabel ||
+                  "Review this vendor's KYC information before approval."}
+              </DialogDescription>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <Badge
@@ -256,7 +299,7 @@ export default function VendorKycDialog({
         </div>
 
         {activeTab === "business" && (
-          <div className="space-y-4">
+          <div className="space-y-4 w-full h-96 overflow-y-auto">
             <section className="space-y-2">
               <p className="text-[11px] font-medium text-[#717182]">
                 Business Information
@@ -299,6 +342,20 @@ export default function VendorKycDialog({
                     )}
                   </div>
                 </div>
+
+                {logoUrl && (
+                  <div className="border-t border-[#E5E7EB] pt-3">
+                    <p className="text-[11px] text-[#717182]">Logo</p>
+                    <a
+                      href={logoUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-flex text-xs text-[#286AD4] hover:underline break-all"
+                    >
+                      View logo ({formatShortUrl(logoUrl)})
+                    </a>
+                  </div>
+                )}
               </div>
             </section>
 
@@ -328,7 +385,7 @@ export default function VendorKycDialog({
         )}
 
         {activeTab === "owner" && (
-          <div className="space-y-4">
+          <div className="space-y-4 w-full h-96 overflow-y-auto">
             <section className="space-y-2">
               <p className="text-[11px] font-medium text-[#717182]">
                 Owner / Primary Contact
@@ -379,7 +436,7 @@ export default function VendorKycDialog({
         )}
 
         {activeTab === "documents" && (
-          <div className="space-y-4">
+          <div className="space-y-4 w-full h-96 overflow-y-auto">
             {!hasAllRequiredDocuments && (
               <section>
                 <div className="rounded-2xl border border-[#F97316] bg-[#FFF7ED] p-3">
@@ -477,7 +534,7 @@ export default function VendorKycDialog({
         )}
 
         {activeTab === "financial" && (
-          <div className="space-y-4">
+          <div className="space-y-4 w-full h-96 overflow-y-auto">
             <section className="space-y-2">
               <p className="text-[11px] font-medium text-[#717182]">
                 Bank Account Details

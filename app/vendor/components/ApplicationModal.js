@@ -32,6 +32,7 @@ export default function ApplicationModal({ isOpen, onClose }) {
     documents,
     status,
     applicationId,
+    rejectionReason,
     loading,
     saving,
     submitting,
@@ -152,6 +153,10 @@ export default function ApplicationModal({ isOpen, onClose }) {
 
   const normalizedStatus = (status || "").toLowerCase();
   const isSubmitted = ["pending", "approved"].includes(normalizedStatus);
+  const isRejected = normalizedStatus === "rejected";
+  const rejectionMessage = rejectionReason?.trim()
+    ? rejectionReason.trim()
+    : "Your application needs updates before it can be approved.";
   const isBusy = loading || saving || submitting;
 
   if (!isOpen) return null;
@@ -221,6 +226,17 @@ export default function ApplicationModal({ isOpen, onClose }) {
                 {notice.message}
               </div>
             )}
+          </div>
+        )}
+
+        {isRejected && (
+          <div className="px-6 pt-4">
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-700">
+              <p className="text-[11px] font-semibold text-red-800">
+                Application Rejected
+              </p>
+              <p className="mt-1 whitespace-pre-line">{rejectionMessage}</p>
+            </div>
           </div>
         )}
 

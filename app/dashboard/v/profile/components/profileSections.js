@@ -25,6 +25,7 @@ import {
   NotificationRow,
   DocumentRow,
 } from "./formControls";
+import { ProgressBar } from "@/app/components/ProgressBar";
 import {
   DOCUMENT_UPLOAD_OPTIONS,
   DOCUMENT_ACCEPT_TYPES,
@@ -37,65 +38,88 @@ export function ProfileHeader({
   logoPreview,
   canSaveLogo,
   isLogoPending,
+  profileCompletion,
 }) {
   const logoSrc = logoPreview || vendor?.logo_url;
   return (
-    <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          <div className="w-16 h-16 bg-[#F3F4F6] rounded-xl flex items-center justify-center overflow-hidden">
-            {logoSrc ? (
-              <Image
-                src={logoSrc}
-                alt="Vendor Logo"
-                width={64}
-                height={64}
-                className="object-cover w-full h-full"
-              />
-            ) : (
-              <PiBuilding className="w-8 h-8 text-[#9CA3AF]" />
-            )}
-          </div>
-          <div className="flex flex-col">
-            <h1 className="text-[#111827] text-lg font-semibold font-inter">
-              {vendorSummary.businessName}
-            </h1>
-            <p className="text-[#6B7280] text-sm max-w-xl mt-1">
-              {vendorSummary.description ||
-                "Add a short business description to introduce your brand."}
-            </p>
-            <div className="flex items-center gap-3 mt-2">
-              {vendorSummary.isVerified && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FEF3C7] text-[#D97706] text-xs font-medium rounded-full">
-                  <PiCheckCircle className="w-3 h-3" />
-                  Verified Vendor
-                </span>
-              )}
-              <span className="text-[#6B7280] text-xs">
-                Member since {vendorSummary.memberSince}
+    <div className="flex flex-col w-full space-y-4">
+      <div className="flex justify-end">
+        {profileCompletion && (
+          <div className="w-full max-w-xs">
+            <div className="flex items-center justify-between text-[11px] text-[#6B7280] mb-1">
+              <span>Profile completion</span>
+              <span className="text-[#111827] font-medium">
+                {profileCompletion.label}
               </span>
             </div>
+            <ProgressBar
+              value={profileCompletion.percent}
+              max={100}
+              variant="success"
+              showAnimation
+            />
           </div>
-        </div>
+        )}
+      </div>
+      <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-16 h-16 bg-[#F3F4F6] rounded-xl flex items-center justify-center overflow-hidden">
+              {logoSrc ? (
+                <Image
+                  src={logoSrc}
+                  alt="Vendor Logo"
+                  width={64}
+                  height={64}
+                  className="object-cover w-full h-full"
+                />
+              ) : (
+                <PiBuilding className="w-8 h-8 text-[#9CA3AF]" />
+              )}
+            </div>
+            <div className="flex flex-col">
+              <h1 className="text-[#111827] text-lg font-semibold font-inter">
+                {vendorSummary.businessName}
+              </h1>
+              <p className="text-[#6B7280] text-sm max-w-xl mt-1">
+                {vendorSummary.description ||
+                  "Add a short business description to introduce your brand."}
+              </p>
+              <div className="flex items-center gap-3 mt-2">
+                {vendorSummary.isVerified && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-[#FEF3C7] text-[#D97706] text-xs font-medium rounded-full">
+                    <PiCheckCircle className="w-3 h-3" />
+                    Verified Vendor
+                  </span>
+                )}
+                <span className="text-[#6B7280] text-xs">
+                  Member since {vendorSummary.memberSince}
+                </span>
+              </div>
+            </div>
+          </div>
 
-        <div className="flex items-center gap-3">
-          <label
-            htmlFor="vendor_logo_file"
-            className="cursor-pointer inline-flex items-center gap-2 px-3 py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
-          >
-            <PiPencilSimple className="w-4 h-4" />
-            Change Logo
-          </label>
-          {canSaveLogo && (
-            <button
-              type="submit"
-              form="vendorLogoForm"
-              disabled={isLogoPending}
-              className="cursor-pointer inline-flex items-center gap-2 px-3 py-2.5 text-white text-sm font-medium bg-[#111827] rounded-lg hover:bg-[#1F2937] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLogoPending ? "Saving..." : "Save Logo"}
-            </button>
-          )}
+          <div className="flex flex-col items-end gap-3">
+            <div className="flex items-center gap-3">
+              <label
+                htmlFor="vendor_logo_file"
+                className="cursor-pointer inline-flex items-center gap-2 px-3 py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
+              >
+                <PiPencilSimple className="w-4 h-4" />
+                Change Logo
+              </label>
+              {canSaveLogo && (
+                <button
+                  type="submit"
+                  form="vendorLogoForm"
+                  disabled={isLogoPending}
+                  className="cursor-pointer inline-flex items-center gap-2 px-3 py-2.5 text-white text-sm font-medium bg-[#111827] rounded-lg hover:bg-[#1F2937] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLogoPending ? "Saving..." : "Save Logo"}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -166,9 +190,11 @@ export function BusinessInformationSection({
                       type="checkbox"
                       name="category"
                       value={category.name}
-                      defaultChecked={selectedCategories.includes(category.name)}
+                      defaultChecked={selectedCategories.includes(
+                        category.name,
+                      )}
                       disabled={categoriesLoading}
-                      className="h-4 w-4 rounded border-[#D1D5DB] text-[#111827] focus:ring-[#111827]"
+                      className="h-4 w-4 rounded border-[#D1D5DB] focus:ring-primary accent-primary peer-checked:text-white text-[#111827]"
                     />
                     <span>
                       {category.name}
@@ -345,7 +371,7 @@ export function VerificationNotesSection({ vendorSummary, errors = {} }) {
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
       <SectionHeader icon={PiShieldCheck} title="Verification Notes" />
       <p className="text-[#6B7280] text-sm mb-4">
-        Provide any context to help us verify your documentation and payouts.
+        Admin-only notes shared during the verification process.
       </p>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -353,15 +379,19 @@ export function VerificationNotesSection({ vendorSummary, errors = {} }) {
           label="Verification Notes"
           name="verificationNotes"
           value={vendorSummary.verificationNotes}
-          placeholder="Internal notes for document verification."
+          placeholder="No admin verification notes yet."
           error={errors.verification_notes}
+          readOnly
+          helperText="Shared by the admin review team."
         />
         <TextAreaField
           label="Financial Verification Notes"
           name="financialVerificationNotes"
           value={vendorSummary.financialVerificationNotes}
-          placeholder="Bank account verification requirements or notes."
+          placeholder="No financial verification notes yet."
           error={errors.financial_verification_notes}
+          readOnly
+          helperText="Shared by the admin review team."
         />
       </div>
     </div>
@@ -440,7 +470,8 @@ export function PaymentInformationSection({
               Secure Payment Information
             </p>
             <p className="text-[#3B82F6] text-xs mt-0.5">
-              Your payment details are encrypted and stored securely. We never share your banking information.
+              Your payment details are encrypted and stored securely. We never
+              share your banking information.
             </p>
           </div>
         </div>
@@ -452,7 +483,8 @@ export function PaymentInformationSection({
             Compliance fields are locked after verification.
           </p>
           <p className="text-[#B45309] text-xs mt-1">
-            To change legal name, tax ID, or payout details, submit a request to support.
+            To change legal name, tax ID, or payout details, submit a request to
+            support.
           </p>
           <div className="flex flex-wrap gap-2 mt-3">
             {requestLinks.map((link) => (
@@ -501,9 +533,10 @@ export function PaymentInformationSection({
               : paymentSummary.accountNumber,
             required: true,
             inputRef: paymentFieldRefs.accountNumber,
-            helperText: !isVerifiedVendor && paymentSummary.accountNumberMasked
-              ? `Current on file: ${paymentSummary.accountNumberMasked}`
-              : undefined,
+            helperText:
+              !isVerifiedVendor && paymentSummary.accountNumberMasked
+                ? `Current on file: ${paymentSummary.accountNumberMasked}`
+                : undefined,
           },
           {
             label: "Branch Code (optional)",
@@ -563,7 +596,9 @@ export function NotificationPreferencesSection({ notifications, onChange }) {
   return (
     <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
       <SectionHeader icon={PiBell} title="Notification Preferences" />
-      <p className="text-[#6B7280] text-sm mb-4">Choose how you want to receive updates</p>
+      <p className="text-[#6B7280] text-sm mb-4">
+        Choose how you want to receive updates
+      </p>
 
       <div className="space-y-1">
         <NotificationRow
@@ -641,7 +676,9 @@ export function DocumentsSection({
 
       <div className="space-y-1">
         {documentList.length === 0 ? (
-          <p className="py-4 text-sm text-[#6B7280]">No documents uploaded yet.</p>
+          <p className="py-4 text-sm text-[#6B7280]">
+            No documents uploaded yet.
+          </p>
         ) : (
           documentList.map((doc, index) => (
             <DocumentRow key={doc?.id || doc?.title || index} document={doc} />
@@ -663,24 +700,29 @@ export function DocumentsSection({
           </div>
         )}
 
-        <form
-          action={documentAction}
-          className="space-y-3"
-        >
+        <form action={documentAction} className="space-y-3">
           {documentQueue.map((row, idx) => (
-            <div key={row.id} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+            <div
+              key={row.id}
+              className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-end"
+            >
               <div className="flex flex-col gap-1.5">
-                <label className="text-[#374151] text-sm font-medium">Document Type</label>
+                <label className="text-[#374151] text-sm font-medium">
+                  Document Type
+                </label>
                 <select
                   name={`document_type_${idx}`}
                   value={row.type}
-                  onChange={(e) => onDocumentRowChange(row.id, "type", e.target.value)}
+                  onChange={(e) =>
+                    onDocumentRowChange(row.id, "type", e.target.value)
+                  }
                   disabled={documentPending || isApplicationApproved}
                   className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
                 >
                   {DOCUMENT_UPLOAD_OPTIONS.map((option) => {
                     const isSelectedElsewhere =
-                      selectedDocumentTypes?.includes(option.value) && option.value !== row.type;
+                      selectedDocumentTypes?.includes(option.value) &&
+                      option.value !== row.type;
                     return (
                       <option
                         key={option.value}
@@ -695,13 +737,21 @@ export function DocumentsSection({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[#374151] text-sm font-medium">Select File</label>
+                <label className="text-[#374151] text-sm font-medium">
+                  Select File
+                </label>
                 <input
                   type="file"
                   name={`document_file_${idx}`}
                   accept={DOCUMENT_ACCEPT_TYPES}
                   disabled={documentPending || isApplicationApproved}
-                  onChange={(e) => onDocumentRowChange(row.id, "file", e.target.files?.[0] || null)}
+                  onChange={(e) =>
+                    onDocumentRowChange(
+                      row.id,
+                      "file",
+                      e.target.files?.[0] || null,
+                    )
+                  }
                   className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] file:mr-3 file:rounded-full file:border file:border-[#D1D5DB] file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-[#111827] hover:border-[#9CA3AF] disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
                 />
               </div>
@@ -721,14 +771,20 @@ export function DocumentsSection({
           ))}
 
           {documentState?.errors?.document_file && (
-            <p className="text-xs text-red-600">{documentState.errors.document_file}</p>
+            <p className="text-xs text-red-600">
+              {documentState.errors.document_file}
+            </p>
           )}
 
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onAddDocumentRow}
-              disabled={documentPending || isApplicationApproved || isDocumentTypeLimitReached}
+              disabled={
+                documentPending ||
+                isApplicationApproved ||
+                isDocumentTypeLimitReached
+              }
               className="cursor-pointer inline-flex items-center gap-1 rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm font-medium text-[#374151] hover:bg-[#F9FAFB] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <span className="text-lg leading-none">+</span> Add Document
@@ -736,8 +792,8 @@ export function DocumentsSection({
           </div>
 
           <p className="text-xs text-[#6B7280]">
-            Files must be {MAX_VENDOR_DOC_FILE_SIZE_MB}MB or smaller. Supported formats:{" "}
-            {DOCUMENT_ACCEPT_TYPES.replace(/\./g, "").toUpperCase()}.
+            Files must be {MAX_VENDOR_DOC_FILE_SIZE_MB}MB or smaller. Supported
+            formats: {DOCUMENT_ACCEPT_TYPES.replace(/\./g, "").toUpperCase()}.
           </p>
 
           <button

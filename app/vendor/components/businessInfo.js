@@ -122,6 +122,22 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
+            Years in Business
+          </label>
+          <input
+            type="number"
+            name="yearsInBusiness"
+            min="0"
+            value={formData.yearsInBusiness || ""}
+            onChange={handleChange}
+            disabled={disabled}
+            placeholder="e.g., 5"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
             Website <span className="text-red-500">*</span>
           </label>
           <input
@@ -149,6 +165,132 @@ export function BusinessInfoStep({ formData, setFormData, disabled }) {
             rows={3}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary resize-none disabled:bg-gray-100 disabled:text-gray-500"
           />
+        </div>
+
+        <div className="pt-2">
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-sm font-medium text-gray-700">
+              Business References
+            </span>
+          </div>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 1 Name
+                </label>
+                <input
+                  type="text"
+                  name="ref1Name"
+                  value={formData.ref1Name || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 1 Company
+                </label>
+                <input
+                  type="text"
+                  name="ref1Company"
+                  value={formData.ref1Company || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 1 Phone
+                </label>
+                <input
+                  type="text"
+                  name="ref1Phone"
+                  value={formData.ref1Phone || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 1 Email
+                </label>
+                <input
+                  type="email"
+                  name="ref1Email"
+                  value={formData.ref1Email || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 2 Name
+                </label>
+                <input
+                  type="text"
+                  name="ref2Name"
+                  value={formData.ref2Name || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 2 Company
+                </label>
+                <input
+                  type="text"
+                  name="ref2Company"
+                  value={formData.ref2Company || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 2 Phone
+                </label>
+                <input
+                  type="text"
+                  name="ref2Phone"
+                  value={formData.ref2Phone || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reference 2 Email
+                </label>
+                <input
+                  type="email"
+                  name="ref2Email"
+                  value={formData.ref2Email || ""}
+                  onChange={handleChange}
+                  disabled={disabled}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

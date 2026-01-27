@@ -92,6 +92,41 @@ const initialState = {
   data: {},
 };
 
+const normalizeCategoryValue = (value) => {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => (item == null ? "" : String(item).trim()))
+      .filter(Boolean);
+  }
+
+  if (typeof value !== "string") return [];
+
+  const trimmed = value.trim();
+  if (!trimmed) return [];
+
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map((item) => (item == null ? "" : String(item).trim()))
+          .filter(Boolean);
+      }
+    } catch {
+      // fall through
+    }
+  }
+
+  if (trimmed.includes(",")) {
+    return trimmed
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  return [trimmed];
+};
+
 const buildInitialValues = (request) => {
   const raw = request?.__raw || {};
   const refs = Array.isArray(raw.business_references)
@@ -102,7 +137,7 @@ const buildInitialValues = (request) => {
 
   return {
     businessName: raw.business_name || "",
-    category: raw.category || "",
+    category: normalizeCategoryValue(raw.category),
     businessType: raw.business_type || "",
     businessRegistrationNumber: raw.business_registration_number || "",
     taxId: raw.tax_id || "",
@@ -478,6 +513,7 @@ export default function EditVendorApplicationDialog({
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
             disableIdentityFields={false}
+            height="h-96 overflow-y-auto"
           />
         )}
 
@@ -490,6 +526,7 @@ export default function EditVendorApplicationDialog({
             selectedVendor={null}
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
+            height="h-96 overflow-y-auto"
           />
         )}
 
@@ -502,6 +539,7 @@ export default function EditVendorApplicationDialog({
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
             disableIdentityFields={false}
+            height="h-96 overflow-y-auto"
           />
         )}
 
@@ -512,6 +550,7 @@ export default function EditVendorApplicationDialog({
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
             hasError={hasError}
+            height="h-96 overflow-y-auto"
           />
         )}
 
@@ -523,6 +562,7 @@ export default function EditVendorApplicationDialog({
             selectedFiles={docFiles}
             existingDocuments={existingDocuments}
             hasError={hasError}
+            height="h-96 overflow-y-auto"
           />
         </div>
 
@@ -532,6 +572,7 @@ export default function EditVendorApplicationDialog({
             isPending={isPending || isPendingTransition}
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
+            height="h-96"
           />
         )}
 
@@ -543,6 +584,7 @@ export default function EditVendorApplicationDialog({
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
             hasError={hasError}
+            height="h-96 overflow-y-auto"
           />
         )}
 
@@ -553,6 +595,7 @@ export default function EditVendorApplicationDialog({
             getFieldValue={getFieldValue}
             onInputChange={handleInputChange}
             hasError={hasError}
+            height="h-96"
           />
         )}
 

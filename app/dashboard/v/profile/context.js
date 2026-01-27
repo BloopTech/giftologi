@@ -115,7 +115,7 @@ export const VendorProfileProvider = ({ children }) => {
         supabase
           .from("vendor_applications")
           .select(
-            "id, documents, created_at, business_name, category, business_type, business_registration_number, tax_id, website, business_description, street_address, city, region, digital_address, years_in_business, business_references, verification_notes, financial_verification_notes, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, owner_email, owner_phone, status, draft_data",
+            "id, documents, created_at, business_name, category, business_type, business_registration_number, tax_id, website, business_description, street_address, city, region, digital_address, years_in_business, business_references, verification_notes, financial_verification_notes, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, owner_email, owner_phone, status, reason, draft_data",
           )
           .eq("user_id", userId)
           .order("created_at", { ascending: false })

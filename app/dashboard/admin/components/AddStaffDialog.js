@@ -190,8 +190,8 @@ export default function AddStaffDialog({ onClose }) {
   };
 
   return (
-    <form action={formAction} className="space-y-4">
-      <div className="grid grid-cols-1 gap-4">
+    <form action={formAction} className="space-y-4 w-full">
+      <div className="grid grid-cols-1 gap-4 w-full h-120 overflow-y-auto">
         <div className="space-y-1">
           <label
             htmlFor="fullName"

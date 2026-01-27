@@ -3,7 +3,11 @@ import React from "react";
 import { Info } from "lucide-react";
 
 // Step 4: Banking
-export function BankingStep({ formData, setFormData, disabled }) {
+export function BankingStep({
+  formData,
+  setFormData,
+  disabled,
+}) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -143,6 +147,7 @@ export function BankingStep({ formData, setFormData, disabled }) {
             </label>
           </div>
         </div>
+
       </div>
     </div>
   );
