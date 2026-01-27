@@ -220,6 +220,25 @@ export const VendorApplicationProvider = ({ children }) => {
       if (!authUser) {
         const accountResponse = await ensureAccount(draftData || formData);
         if (!accountResponse?.success) {
+          const normalizedMessage = (accountResponse?.message || "").toLowerCase();
+          const canContinue =
+            accountResponse?.data?.loggedIn === false ||
+            normalizedMessage.includes("confirm");
+
+          if (canContinue) {
+            const continueMessage = normalizedMessage.includes("confirm")
+              ? "Your email isn't confirmed yet. You can keep going, but confirm your email to save or submit."
+              : "Account created. You can keep going, but confirm your email to save or submit.";
+
+            setNotice({ type: "success", message: continueMessage });
+            setSaving(false);
+            return {
+              success: true,
+              message: continueMessage,
+              data: { ...accountResponse?.data, localOnly: true },
+            };
+          }
+
           setSaving(false);
           return accountResponse;
         }
@@ -271,8 +290,21 @@ export const VendorApplicationProvider = ({ children }) => {
     if (!authUser) {
       const accountResponse = await ensureAccount(formData);
       if (!accountResponse?.success) {
+        const normalizedMessage = (accountResponse?.message || "").toLowerCase();
+        const canContinue =
+          accountResponse?.data?.loggedIn === false ||
+          normalizedMessage.includes("confirm");
+
+        if (canContinue) {
+          const continueMessage = normalizedMessage.includes("confirm")
+            ? "Your email isn't confirmed yet. We'll still submit your application, but confirm your email to manage it later."
+            : "Account created. We'll submit your application now, but confirm your email to manage it later.";
+
+          setNotice({ type: "success", message: continueMessage });
+        } else {
         setSubmitting(false);
         return accountResponse;
+        }
       }
     }
 
@@ -339,6 +371,11 @@ export const VendorApplicationProvider = ({ children }) => {
     const formPayload = new FormData();
     formPayload.append("document_type", documentType);
     formPayload.append("document_file", file);
+    const sanitizedDraft = sanitizeDraftData(formData);
+    formPayload.append("email", sanitizedDraft.email || "");
+    formPayload.append("ownerEmail", sanitizedDraft.ownerEmail || "");
+    formPayload.append("draft_data", JSON.stringify(sanitizedDraft));
+    formPayload.append("current_step", String(currentStep ?? ""));
 
     const response = await uploadVendorApplicationDocument(null, formPayload);
 
@@ -357,7 +394,7 @@ export const VendorApplicationProvider = ({ children }) => {
     });
     setUploadingDocumentType(null);
     return response;
-  }, []);
+  }, [formData, currentStep]);
 
   const resetApplication = useCallback(() => {
     setFormData({});

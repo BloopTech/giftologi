@@ -1128,12 +1128,101 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return {
-      success: false,
-      message: "You must be logged in to upload documents.",
-      errors: {},
-    };
+  let draftData = {};
+  try {
+    const rawDraft = formData.get("draft_data");
+    if (rawDraft) {
+      draftData = JSON.parse(rawDraft);
+    }
+  } catch (parseError) {
+    console.error("Unable to parse draft data for vendor application", parseError);
+  }
+
+  let actingClient = supabase;
+  let userId = user?.id || null;
+
+  if (!userId) {
+    let adminClient = null;
+    try {
+      adminClient = createAdminClient();
+    } catch (err) {
+      return {
+        success: false,
+        message: err?.message || "Unable to verify your account right now.",
+        errors: {},
+      };
+    }
+
+    actingClient = adminClient;
+
+    const fallbackEmail = cleanValue(
+      formData.get("email") ||
+        formData.get("ownerEmail") ||
+        draftData?.email ||
+        draftData?.ownerEmail,
+    );
+
+    if (!fallbackEmail) {
+      return {
+        success: false,
+        message: "An email address is required to upload documents.",
+        errors: {},
+      };
+    }
+
+    const eligibility = await ensureVendorRoleEligibility({ email: fallbackEmail });
+    if (!eligibility?.success) {
+      return {
+        success: false,
+        message:
+          eligibility?.message ||
+          "This email cannot be used for the vendor application.",
+        errors: {},
+      };
+    }
+
+    const { data: profile, error: profileError } = await adminClient
+      .from("profiles")
+      .select("id")
+      .eq("email", fallbackEmail)
+      .maybeSingle();
+
+    if (profileError) {
+      return {
+        success: false,
+        message: profileError.message || "Unable to verify your account.",
+        errors: {},
+      };
+    }
+
+    if (profile?.id) {
+      userId = profile.id;
+    } else {
+      const { data: signupProfile, error: signupError } = await adminClient
+        .from("signup_profiles")
+        .select("user_id")
+        .eq("email", fallbackEmail)
+        .maybeSingle();
+
+      if (signupError) {
+        return {
+          success: false,
+          message: signupError.message || "Unable to verify your account.",
+          errors: {},
+        };
+      }
+
+      userId = signupProfile?.user_id || null;
+    }
+
+    if (!userId) {
+      return {
+        success: false,
+        message:
+          "We couldn't find your account. Please confirm your email or sign in to upload documents.",
+        errors: {},
+      };
+    }
   }
 
   const raw = { document_type: formData.get("document_type") || "" };
@@ -1169,15 +1258,16 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
 
   const documentType = validation.data.document_type;
 
-  const { data: applicationRecord, error: applicationError } = await supabase
+  const { data: applicationRecord, error: applicationError } = await actingClient
     .from("vendor_applications")
     .select("id, status, documents")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (applicationError || !applicationRecord?.id) {
+  let resolvedApplication = applicationRecord;
+  if (applicationError) {
     return {
       success: false,
       message: applicationError?.message || "Vendor application not found.",
@@ -1185,9 +1275,45 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
     };
   }
 
+  if (!resolvedApplication?.id) {
+    const currentStepRaw = formData.get("current_step");
+
+    const parsedStep = Number(currentStepRaw);
+    const currentStep = Number.isNaN(parsedStep) ? 0 : parsedStep;
+    const now = new Date().toISOString();
+    const applicationFields = buildApplicationFieldsFromDraft(draftData || {});
+
+    const insertPayload = {
+      user_id: userId,
+      status: "draft",
+      created_by: userId,
+      draft_data: draftData || {},
+      current_step: currentStep,
+      last_saved_at: now,
+      updated_at: now,
+      ...applicationFields,
+    };
+
+    const { data: inserted, error: insertError } = await actingClient
+      .from("vendor_applications")
+      .insert([insertPayload])
+      .select("id, status, documents")
+      .single();
+
+    if (insertError || !inserted) {
+      return {
+        success: false,
+        message: insertError?.message || "Unable to create your application draft.",
+        errors: {},
+      };
+    }
+
+    resolvedApplication = inserted;
+  }
+
   if (
-    applicationRecord.status &&
-    ["pending", "approved"].includes(applicationRecord.status)
+    resolvedApplication.status &&
+    ["pending", "approved"].includes(resolvedApplication.status)
   ) {
     return {
       success: false,
@@ -1196,7 +1322,8 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
     };
   }
 
-  const prefix = `vendor-kyc/${user.id}/${documentType}`;
+  const prefix = `vendor-kyc/${userId}/${documentType}`;
+
   let documentUrl;
 
   try {
@@ -1219,9 +1346,10 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
   }
 
   const title = DOCUMENT_TITLE_LOOKUP[documentType] || "Document";
-  const documents = Array.isArray(applicationRecord.documents)
-    ? applicationRecord.documents
+  const documents = Array.isArray(resolvedApplication.documents)
+    ? resolvedApplication.documents
     : [];
+
   const normalizedTitle = title.toLowerCase();
   const filtered = documents.filter((doc) => {
     const candidate = (doc?.title || doc?.label || doc?.name || "")
@@ -1231,11 +1359,11 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
   });
   const nextDocuments = [...filtered, { title, url: documentUrl }];
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await actingClient
     .from("vendor_applications")
     .update({ documents: nextDocuments, updated_at: new Date().toISOString() })
-    .eq("id", applicationRecord.id)
-    .eq("user_id", user.id);
+    .eq("id", resolvedApplication.id)
+    .eq("user_id", userId);
 
   if (updateError) {
     return {
@@ -1258,22 +1386,104 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
 export async function submitVendorApplication(payload) {
   const supabase = await createClient();
 
+  let actingClient = supabase;
+  let userId = null;
+  let userEmail = null;
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    return {
-      success: false,
-      message: "You must be logged in to submit your application.",
-      data: null,
-    };
+  if (user) {
+    userId = user.id;
+    userEmail = user.email;
+  } else {
+    let adminClient = null;
+    try {
+      adminClient = createAdminClient();
+    } catch (err) {
+      return {
+        success: false,
+        message: err?.message || "Unable to verify your account right now.",
+        data: null,
+      };
+    }
+
+    actingClient = adminClient;
+
+    const fallbackEmail = cleanValue(
+      payload?.draftData?.email || payload?.draftData?.ownerEmail,
+    );
+
+    if (!fallbackEmail) {
+      return {
+        success: false,
+        message: "An email address is required to submit your application.",
+        data: null,
+      };
+    }
+
+    const eligibility = await ensureVendorRoleEligibility({ email: fallbackEmail });
+    if (!eligibility?.success) {
+      return {
+        success: false,
+        message:
+          eligibility?.message ||
+          "This email cannot be used for the vendor application.",
+        data: null,
+      };
+    }
+
+    const { data: profile, error: profileError } = await adminClient
+      .from("profiles")
+      .select("id, email")
+      .eq("email", fallbackEmail)
+      .maybeSingle();
+
+    if (profileError) {
+      return {
+        success: false,
+        message: profileError.message || "Unable to verify your account.",
+        data: null,
+      };
+    }
+
+    if (profile?.id) {
+      userId = profile.id;
+      userEmail = profile.email || fallbackEmail;
+    } else {
+      const { data: signupProfile, error: signupError } = await adminClient
+        .from("signup_profiles")
+        .select("user_id, email")
+        .eq("email", fallbackEmail)
+        .maybeSingle();
+
+      if (signupError) {
+        return {
+          success: false,
+          message: signupError.message || "Unable to verify your account.",
+          data: null,
+        };
+      }
+
+      userId = signupProfile?.user_id || null;
+      userEmail = signupProfile?.email || fallbackEmail;
+    }
+
+    if (!userId) {
+      return {
+        success: false,
+        message:
+          "We couldn't find your account. Please confirm your email or sign in to submit.",
+        data: null,
+      };
+    }
   }
 
-  const { data: existing, error: existingError } = await supabase
+  const { data: existing, error: existingError } = await actingClient
     .from("vendor_applications")
     .select("id, status, draft_data, current_step, documents")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -1371,11 +1581,11 @@ export async function submitVendorApplication(payload) {
       ...applicationFields,
     };
 
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await actingClient
       .from("vendor_applications")
       .update(updatePayload)
       .eq("id", existing.id)
-      .eq("user_id", user.id)
+      .eq("user_id", userId)
       .select("id")
       .single();
 
@@ -1389,7 +1599,7 @@ export async function submitVendorApplication(payload) {
 
     try {
       await sendVendorApplicationSubmittedEmail({
-        to: mergedDraft.email || user.email,
+        to: mergedDraft.email || userEmail,
         applicationId: updated.id,
         vendorName: mergedDraft.businessName || mergedDraft.legalBusinessName,
       });
@@ -1407,9 +1617,9 @@ export async function submitVendorApplication(payload) {
   }
 
   const insertPayload = {
-    user_id: user.id,
+    user_id: userId,
     status: "pending",
-    created_by: user.id,
+    created_by: userId,
     submitted_at: now,
     updated_at: now,
     draft_data: mergedDraft,
@@ -1418,7 +1628,7 @@ export async function submitVendorApplication(payload) {
     ...applicationFields,
   };
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data: inserted, error: insertError } = await actingClient
     .from("vendor_applications")
     .insert([insertPayload])
     .select("id")
@@ -1434,7 +1644,7 @@ export async function submitVendorApplication(payload) {
 
   try {
     await sendVendorApplicationSubmittedEmail({
-      to: mergedDraft.email || user.email,
+      to: mergedDraft.email || userEmail,
       applicationId: inserted.id,
       vendorName: mergedDraft.businessName || mergedDraft.legalBusinessName,
     });

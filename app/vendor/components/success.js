@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import { Mail, Clock, CheckCircle, Copy } from "lucide-react";
+import { Mail, Clock, CheckCircle, Copy, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import logo from "../../../public/giftologi-logo.png";
