@@ -122,6 +122,7 @@ const buildApplicationPayloadFromProfile = ({
   compliancePayload = {},
   paymentPayload = {},
   applicationPayload = {},
+  ownerFullName = null,
 }) => {
   const payload = {};
   setIfValue(payload, "business_name", vendorPayload.business_name);
@@ -157,7 +158,7 @@ const buildApplicationPayloadFromProfile = ({
   setIfValue(payload, "bank_account_token", paymentPayload.bank_account_token);
   setIfValue(payload, "owner_email", vendorPayload.email);
   setIfValue(payload, "owner_phone", vendorPayload.phone);
-  setIfValue(payload, "owner_full_name", vendorPayload.legal_name);
+  setIfValue(payload, "owner_full_name", ownerFullName);
   return payload;
 };
 
@@ -221,6 +222,7 @@ const ensureVendorApplication = async ({
   compliancePayload = {},
   paymentPayload = {},
   applicationPayload = {},
+  ownerFullName = null,
 }) => {
   const { data: existing, error: existingError } = await supabase
     .from("vendor_applications")
@@ -244,6 +246,7 @@ const ensureVendorApplication = async ({
     compliancePayload,
     paymentPayload,
     applicationPayload,
+    ownerFullName,
   });
   const draftData = buildDraftDataFromProfile({
     vendorPayload,
@@ -479,6 +482,18 @@ export async function uploadVendorDocument(prevState, formData) {
     };
   }
 
+  const { data: profileRecord } = await supabase
+    .from("profiles")
+    .select("firstname, lastname")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const ownerFullName =
+    [profileRecord?.firstname, profileRecord?.lastname]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || null;
+
   const now = new Date().toISOString();
   const vendorPayload = {
     business_name: vendorRecord.business_name || null,
@@ -504,6 +519,7 @@ export async function uploadVendorDocument(prevState, formData) {
       vendorPayload,
       compliancePayload,
       paymentPayload: {},
+      ownerFullName,
     });
 
   if (applicationError || !applicationRecord?.id) {
@@ -758,6 +774,18 @@ export async function manageProfile(prevState, queryData) {
       values: {},
     };
   }
+
+  const { data: profileRecord } = await supabase
+    .from("profiles")
+    .select("firstname, lastname")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const ownerFullName =
+    [profileRecord?.firstname, profileRecord?.lastname]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || null;
 
   const getFormValue = (...keys) => {
     for (const key of keys) {
@@ -1205,6 +1233,7 @@ export async function manageProfile(prevState, queryData) {
         compliancePayload,
         paymentPayload,
         applicationPayload,
+        ownerFullName,
       });
 
     if (applicationError) {
@@ -1261,7 +1290,7 @@ export async function manageProfile(prevState, queryData) {
             bank_account_token: paymentPayload.bank_account_token,
             owner_email: vendorPayload.email,
             owner_phone: vendorPayload.phone,
-            owner_full_name: vendorPayload.legal_name || vendorPayload.business_name,
+            owner_full_name: ownerFullName,
           };
 
           let submissionId = applicationRecord?.id || null;

@@ -15,6 +15,7 @@ import {
   PiMapPin,
   PiFileText,
   PiUsersThree,
+  PiSpinnerGap,
 } from "react-icons/pi";
 
 import {
@@ -58,6 +59,11 @@ export function ProfileHeader({
               variant="success"
               showAnimation
             />
+            {!profileCompletion.isComplete && profileCompletion.missing && (
+              <div className="mt-1 text-[11px] text-[#6B7280]">
+                Next: <span className="text-[#111827]">{profileCompletion.missing}</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -211,13 +217,13 @@ export function BusinessInformationSection({
         </div>
         {isVerifiedVendor ? (
           <LockedField
-            label="Legal Name"
+            label="Legal Business Name"
             name="legal_name"
             value={vendorSummary.legalName}
           />
         ) : (
           <FormField
-            label="Legal Name"
+            label="Legal Business Name"
             name="legal_name"
             value={vendorSummary.legalName}
             required
@@ -451,6 +457,7 @@ export function PaymentInformationSection({
   paymentSummary,
   isVerifiedVendor,
   requestLinks,
+  isPending,
   errors = {},
   onEditPayment,
   paymentFieldRefs = {},
@@ -582,9 +589,11 @@ export function PaymentInformationSection({
         ) : (
           <button
             type="submit"
-            className="cursor-pointer w-full py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
+            disabled={isPending}
+            className="disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer w-full inline-flex items-center justify-center gap-2 py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
           >
-            Update Payment Method
+            {isPending && <PiSpinnerGap className="w-4 h-4 animate-spin" />}
+            {isPending ? "Updating..." : "Update Payment Method"}
           </button>
         )}
       </div>

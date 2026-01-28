@@ -491,18 +491,37 @@ export default function VendorProfileContent() {
         .replace(/\s+/g, " ");
     const hasValue = (value) =>
       value !== null && value !== undefined && String(value).trim() !== "";
-    const hasBusinessInfo = Boolean(
-      hasValue(vendorSummary.businessName) &&
-        Array.isArray(vendorSummary.categories) &&
-        vendorSummary.categories.length > 0 &&
-        hasValue(vendorSummary.legalName) &&
-        hasValue(vendorSummary.businessType) &&
-        hasValue(vendorSummary.businessRegistrationNumber) &&
-        hasValue(vendorSummary.yearsInBusiness) &&
-        hasValue(vendorSummary.email) &&
-        hasValue(vendorSummary.phone) &&
-        hasValue(vendorSummary.taxId),
-    );
+    const missingBusinessField = (() => {
+      if (!hasValue(vendorSummary.businessName)) return "Business Name";
+      if (
+        !Array.isArray(vendorSummary.categories) ||
+        vendorSummary.categories.length === 0
+      ) {
+        return "Categories";
+      }
+      if (!hasValue(vendorSummary.legalName)) return "Legal Name";
+      if (!hasValue(vendorSummary.businessType)) return "Business Type";
+      if (!hasValue(vendorSummary.businessRegistrationNumber)) {
+        return "Business Registration Number";
+      }
+      if (!hasValue(vendorSummary.yearsInBusiness)) return "Years in Business";
+      if (!hasValue(vendorSummary.email)) return "Email";
+      if (!hasValue(vendorSummary.phone)) return "Phone";
+      if (!hasValue(vendorSummary.taxId)) return "Tax ID / EIN";
+      return null;
+    })();
+    const hasBusinessInfo = missingBusinessField === null;
+
+    const missingAddressField = (() => {
+      if (!hasValue(vendorSummary.address?.street)) return "Street Address";
+      if (!hasValue(vendorSummary.address?.city)) return "City";
+      if (!hasValue(vendorSummary.address?.state)) return "State";
+      if (!hasValue(vendorSummary.address?.digitalAddress)) {
+        return "Digital Address";
+      }
+      if (!hasValue(vendorSummary.address?.country)) return "Country";
+      return null;
+    })();
     const hasAddress = Boolean(
       hasValue(vendorSummary.address?.street) &&
         hasValue(vendorSummary.address?.city) &&
@@ -510,17 +529,39 @@ export default function VendorProfileContent() {
         hasValue(vendorSummary.address?.digitalAddress) &&
         hasValue(vendorSummary.address?.country),
     );
-    const hasPayment = Boolean(
-      hasValue(paymentSummary.accountName) &&
-        hasValue(paymentSummary.bankName) &&
-        hasValue(paymentSummary.bankBranch) &&
-        (hasValue(paymentSummary.accountNumber) ||
-          hasValue(paymentSummary.accountNumberMasked)) &&
-        hasValue(paymentSummary.accountType),
-    );
+    const missingPaymentField = (() => {
+      if (!hasValue(paymentSummary.accountName)) return "Account Name";
+      if (!hasValue(paymentSummary.bankName)) return "Bank Name";
+      if (!hasValue(paymentSummary.bankBranch)) return "Bank Branch";
+      if (
+        !hasValue(paymentSummary.accountNumber) &&
+        !hasValue(paymentSummary.accountNumberMasked)
+      ) {
+        return "Account Number";
+      }
+      if (!hasValue(paymentSummary.accountType)) return "Account Type";
+      return null;
+    })();
+    const hasPayment = missingPaymentField === null;
     const requiredDocumentTitles = DOCUMENT_UPLOAD_OPTIONS.map(
       (option) => option.label,
     );
+    const missingDocumentTitle = requiredDocumentTitles.find((title) => {
+      const requiredTitle = normalizeDocumentTitle(title);
+      const hasDocument = documentList.some((doc) => {
+        const candidateTitle = normalizeDocumentTitle(
+          doc?.title ||
+            doc?.label ||
+            doc?.name ||
+            doc?.fileName ||
+            doc?.filename ||
+            "",
+        );
+        const url = doc?.url || doc?.href || doc?.link || null;
+        return candidateTitle === requiredTitle && Boolean(url);
+      });
+      return !hasDocument;
+    });
     const hasAllDocuments = requiredDocumentTitles.every((title) => {
       const requiredTitle = normalizeDocumentTitle(title);
       return documentList.some((doc) => {
@@ -537,6 +578,14 @@ export default function VendorProfileContent() {
       });
     });
 
+    const missing = (() => {
+      if (hasBusinessInfo && hasAddress && hasPayment && hasAllDocuments) return null;
+      if (!hasBusinessInfo) return missingBusinessField;
+      if (!hasAddress) return missingAddressField;
+      if (!hasPayment) return missingPaymentField;
+      return missingDocumentTitle || "Required document";
+    })();
+
     const checks = [hasBusinessInfo, hasAddress, hasPayment, hasAllDocuments];
     const completed = checks.filter(Boolean).length;
     const total = checks.length || 1;
@@ -547,6 +596,7 @@ export default function VendorProfileContent() {
       percent,
       isComplete,
       label: isComplete ? "Complete" : `${completed}/${total} complete`,
+      missing,
     };
   }, [documentList, paymentSummary, vendorSummary]);
   const selectedDocumentTypes = useMemo(
@@ -779,6 +829,7 @@ export default function VendorProfileContent() {
           paymentSummary={paymentSummary}
           isVerifiedVendor={isVerifiedVendor}
           requestLinks={requestLinks}
+          isPending={isPending}
           errors={formErrors}
           onEditPayment={handleEditPayment}
           paymentFieldRefs={{

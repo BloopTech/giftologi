@@ -141,7 +141,7 @@ export function BankingStep({
                 checked={formData.accountType === "savings"}
                 onChange={handleChange}
                 disabled={disabled}
-                className="w-4 h-4 border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
+                className="w-4 h-4 border-gray-300 text-primary focus:ring-primary accent-primary disabled:opacity-50"
               />
               <span className="text-sm text-gray-700">Savings</span>
             </label>

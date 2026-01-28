@@ -123,7 +123,7 @@ export function SuccessScreen({ applicationId, email, onClose }) {
 
       <Link
         href="/dashboard/v/profile"
-        className="inline-flex items-center gap-2 px-6 py-3 bg-[#3B82F6] text-white rounded-full text-sm font-medium hover:bg-[#2563EB] transition-colors"
+        className="inline-flex items-center gap-2 px-6 py-3 border border-primary bg-primary text-white rounded-full text-sm font-medium hover:text-primary hover:bg-white transition-colors"
       >
         View Vendor Profile
         <ArrowRight className="w-4 h-4" />

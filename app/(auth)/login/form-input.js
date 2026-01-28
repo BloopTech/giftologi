@@ -205,7 +205,7 @@ export default function FormInput(props) {
                   type="button"
                   onClick={handleResendConfirmation}
                   disabled={isPending || isResendLoading}
-                  className="text-primary underline disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="cursor-pointer text-primary underline disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {isResendLoading
                     ? "Sending confirmation email..."

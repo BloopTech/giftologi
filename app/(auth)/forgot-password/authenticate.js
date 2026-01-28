@@ -1,6 +1,6 @@
 "use server";
 import { z } from "zod";
-import { createClient } from "../../utils/supabase/server";
+import { createAdminClient, createClient } from "../../utils/supabase/server";
 
 const defaultValues = {
   email: [],
@@ -36,6 +36,35 @@ export async function forgotPassword(prevState, queryData) {
 
   try {
     const supabase = await createClient();
+    let shouldSendReset = true;
+
+    try {
+      const adminClient = createAdminClient();
+      const { data: profileRecord, error: profileError } = await adminClient
+        .from("profiles")
+        .select("id")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (profileError) {
+        shouldSendReset = true;
+      } else if (!profileRecord?.id) {
+        const { data: signupRecord, error: signupError } = await adminClient
+          .from("signup_profiles")
+          .select("id")
+          .eq("email", email)
+          .maybeSingle();
+
+        if (signupError) {
+          shouldSendReset = true;
+        } else {
+          shouldSendReset = !!signupRecord?.id;
+        }
+      }
+    } catch {
+      shouldSendReset = true;
+    }
+
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL ||
       (process.env.NEXT_PUBLIC_VERCEL_URL
@@ -45,17 +74,28 @@ export async function forgotPassword(prevState, queryData) {
     // Use a constant dynamic segment so it matches `/password-reset/[token]`
     const redirectTo = `${siteUrl}/password-reset/a`;
 
-    const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo,
-    });
-
-    if (error) {
+    if (!shouldSendReset) {
       return {
-        message: error.message,
-        errors: { ...defaultValues, credentials: { email: error.message } },
+        message: "Email does not exist.",
+        errors: { ...defaultValues, email: ["Email does not exist."] },
         values: { email },
         data: {},
       };
+    }
+
+    if (shouldSendReset) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo,
+      });
+
+      if (error) {
+        return {
+          message: error.message,
+          errors: { ...defaultValues, credentials: { email: error.message } },
+          values: { email },
+          data: {},
+        };
+      }
     }
 
     return {

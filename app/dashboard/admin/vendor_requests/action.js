@@ -136,7 +136,7 @@ export async function approveVendorRequest(prevState, formData) {
   const { data: application, error: applicationError } = await supabase
     .from("vendor_applications")
     .select(
-      "id, user_id, business_name, category, status, business_description, tax_id, website, owner_email, owner_phone, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code",
+      "id, user_id, business_name, category, status, business_description, tax_id, website, owner_email, owner_phone, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, draft_data",
     )
     .eq("id", applicationId)
     .single();
@@ -257,6 +257,7 @@ export async function approveVendorRequest(prevState, formData) {
     bank_account: application.bank_account_number || null,
     bank_branch: application.bank_branch || null,
     bank_branch_code: application.bank_branch_code || null,
+    account_type: application?.draft_data?.accountType || null,
     updated_at: new Date().toISOString(),
   };
 

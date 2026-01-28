@@ -85,7 +85,7 @@ export function ProductsStep({
                     )}
                     onChange={() => handleCategoryChange(category)}
                     disabled={disabled}
-                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary disabled:opacity-50"
                   />
                   <span className="text-sm text-gray-700">{category}</span>
                 </label>
