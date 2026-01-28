@@ -17,6 +17,7 @@ import {
   PiUploadSimple,
   PiX,
   PiPlus,
+  PiStorefront,
 } from "react-icons/pi";
 import { useVendorDashboardContext } from "./context";
 import {
@@ -213,9 +214,32 @@ export default function VendorDashboardContent() {
   } = derivedData;
 
   const vendorName = vendor?.business_name || "Your store";
+  const isClosingRequested = vendor?.shop_status === "closing_requested";
+  const isClosed = vendor?.shop_status === "closed";
+  const isShopInactive = isClosingRequested || isClosed;
+  const storefrontSlug = vendor?.slug ? String(vendor.slug).trim() : "";
+  const storefrontPath = storefrontSlug ? `/storefront/${storefrontSlug}` : "";
 
   return (
     <div className="flex flex-col space-y-4 w-full mb-8">
+      {isClosingRequested && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          <div className="flex items-start gap-3">
+            <PiWarningCircle className="size-4 mt-0.5 text-amber-500" />
+            <div className="space-y-1">
+              <p className="font-medium text-amber-900">
+                Close request pending review
+              </p>
+              <p>
+                Your shop is still active, but product updates are paused until
+                an admin reviews your request. You can cancel the request from
+                the navigation menu.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <section className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex flex-col">
@@ -225,13 +249,31 @@ export default function VendorDashboardContent() {
           <p className="text-[#717182] text-sm font-poppins">
             Here&apos;s what&apos;s happening with your store today
           </p>
+          {storefrontPath ? (
+            <div className="pt-2 w-40">
+              <Link
+                href={storefrontPath}
+                target="_blank"
+                rel="noreferrer"
+                className={`py-2 px-4 flex items-center justify-center gap-1 border text-xs rounded-xl transition-colors border-primary text-white bg-primary cursor-pointer hover:text-primary hover:bg-white`}
+              >
+                <PiStorefront className="w-4 h-4" />
+                Visit Storefront
+              </Link>
+            </div>
+          ) : null}
         </div>
         <button
           onClick={() => setAddDialogOpen(true)}
-          className="py-2 px-4 flex items-center justify-center gap-1 border border-primary text-white bg-primary text-xs rounded-full cursor-pointer hover:text-primary hover:bg-white transition-colors"
+          disabled={isShopInactive}
+          className={`py-2 px-4 flex items-center justify-center gap-1 border text-xs rounded-full transition-colors ${
+            isShopInactive
+              ? "border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed"
+              : "border-primary text-white bg-primary cursor-pointer hover:text-primary hover:bg-white"
+          }`}
         >
           <PiPlus className="w-4 h-4" />
-          Add New Products
+          {isShopInactive ? "Shop closing in review" : "Add New Products"}
         </button>
       </section>
 

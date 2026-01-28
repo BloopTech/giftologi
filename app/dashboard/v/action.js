@@ -66,7 +66,7 @@ export async function manageVendor(prevState, formData) {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id")
+    .select("id, shop_status")
     .eq("profiles_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -82,6 +82,15 @@ export async function manageVendor(prevState, formData) {
   }
 
   if (action === "create_product") {
+    if (vendor.shop_status && vendor.shop_status !== "active") {
+      return {
+        success: false,
+        message: "Your shop is not active. Product creation is disabled while a close request is in review.",
+        errors: {},
+        values: {},
+      };
+    }
+
     const rawData = {
       name: formData.get("name"),
       category_id: formData.get("category_id"),
@@ -170,4 +179,210 @@ export async function manageVendor(prevState, formData) {
     errors: {},
     values: {},
   };
+}
+
+export async function requestCloseShop(formData) {
+  const supabase = await createClient();
+
+  const vendorId = formData.get("vendor_id");
+  const reason = formData.get("reason");
+  const reasonType = formData.get("reason_type");
+
+  if (!vendorId) {
+    return { success: false, error: "Vendor ID is required" };
+  }
+
+  if (!reason) {
+    return { success: false, error: "Please provide a reason for closing your shop" };
+  }
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: "You must be logged in to perform this action" };
+    }
+
+    const { data: vendor, error: vendorError } = await supabase
+      .from("vendors")
+      .select("id, shop_status")
+      .eq("id", vendorId)
+      .eq("profiles_id", user.id)
+      .maybeSingle();
+
+    if (vendorError || !vendor) {
+      return { success: false, error: "Vendor profile not found." };
+    }
+
+    if (vendor.shop_status === "closed") {
+      return { success: false, error: "Your shop is already closed." };
+    }
+
+    if (vendor.shop_status === "closing_requested") {
+      return { success: false, error: "You already have a pending close shop request." };
+    }
+
+    const { data: existingRequest, error: checkError } = await supabase
+      .from("vendor_close_requests")
+      .select("id, status")
+      .eq("vendor_id", vendorId)
+      .eq("status", "pending")
+      .maybeSingle();
+
+    if (checkError && checkError.code !== "PGRST116") {
+      console.error("Close shop request lookup error:", checkError);
+      return { success: false, error: "Failed to validate request. Please try again." };
+    }
+
+    if (existingRequest) {
+      return { success: false, error: "You already have a pending close shop request." };
+    }
+
+    const { data, error } = await supabase
+      .from("vendor_close_requests")
+      .insert({
+        vendor_id: vendorId,
+        user_id: user.id,
+        reason: reason,
+        reason_type: reasonType,
+        status: "pending",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error creating close shop request:", error);
+      return { success: false, error: "Failed to submit request. Please try again." };
+    }
+
+    const now = new Date().toISOString();
+    const { error: vendorUpdateError } = await supabase
+      .from("vendors")
+      .update({ shop_status: "closing_requested", close_requested_at: now })
+      .eq("id", vendorId);
+
+    if (vendorUpdateError) {
+      console.error("Error updating vendor close status:", vendorUpdateError);
+    }
+
+    try {
+      await supabase.from("activity_log").insert({
+        user_id: user.id,
+        action: "vendor_close_request_submitted",
+        entity_type: "vendor",
+        entity_id: vendorId,
+        details: { reason, reason_type: reasonType, request_id: data.id },
+      });
+    } catch (logError) {
+      console.error("Activity log insert failed:", logError);
+    }
+
+    revalidatePath("/dashboard/v");
+
+    return { success: true, data };
+  } catch (err) {
+    console.error("Unexpected error in requestCloseShop:", err);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+export async function cancelCloseShopRequest(formData) {
+  const supabase = await createClient();
+
+  const requestId = formData.get("request_id");
+  const vendorId = formData.get("vendor_id");
+
+  if (!requestId) {
+    return { success: false, error: "Request ID is required" };
+  }
+
+  try {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return { success: false, error: "You must be logged in to perform this action" };
+    }
+
+    const { data, error } = await supabase
+      .from("vendor_close_requests")
+      .update({
+        status: "cancelled",
+        cancelled_at: new Date().toISOString(),
+        cancelled_by: user.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", requestId)
+      .eq("status", "pending")
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error cancelling close shop request:", error);
+      return { success: false, error: "Failed to cancel request. Please try again." };
+    }
+
+    if (!data) {
+      return { success: false, error: "Request not found or already processed" };
+    }
+
+    const { error: vendorUpdateError } = await supabase
+      .from("vendors")
+      .update({ shop_status: "active", close_requested_at: null })
+      .eq("id", vendorId)
+      .eq("profiles_id", user.id);
+
+    if (vendorUpdateError) {
+      console.error("Error updating vendor status after cancel:", vendorUpdateError);
+    }
+
+    try {
+      await supabase.from("activity_log").insert({
+        user_id: user.id,
+        action: "vendor_close_request_cancelled",
+        entity_type: "vendor",
+        entity_id: vendorId,
+        details: { request_id: requestId },
+      });
+    } catch (logError) {
+      console.error("Activity log insert failed:", logError);
+    }
+
+    revalidatePath("/dashboard/v");
+
+    return { success: true, data };
+  } catch (err) {
+    console.error("Unexpected error in cancelCloseShopRequest:", err);
+    return { success: false, error: "An unexpected error occurred" };
+  }
+}
+
+export async function getCloseShopRequest(vendorId) {
+  const supabase = await createClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("vendor_close_requests")
+      .select("*")
+      .eq("vendor_id", vendorId)
+      .eq("status", "pending")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error && error.code !== "PGRST116") {
+      console.error("Error fetching close shop request:", error);
+      return null;
+    }
+
+    return data;
+  } catch (err) {
+    console.error("Unexpected error in getCloseShopRequest:", err);
+    return null;
+  }
 }

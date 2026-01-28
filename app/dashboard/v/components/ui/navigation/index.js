@@ -22,7 +22,7 @@ import { createClient } from "../../../../../utils/supabase/client";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { PiStorefront } from "react-icons/pi";
+import CloseShopButton from "./CloseShopButton";
 
 export default function AdminSidebar() {
   const router = useRouter();
@@ -191,14 +191,10 @@ export default function AdminSidebar() {
                 </div>
               );
             })}
-            
           </nav>
           <div>
-              <button className="text-[#D61711] py-1 cursor-pointer hover:text-white hover:bg-[#D61711] px-4 flex gap-8 w-full text-xs items-center">
-                <PiStorefront className="size-4" />
-                <span>Request to Close Shop</span>
-              </button>
-            </div>
+            <CloseShopButton />
+          </div>
         </aside>
       </nav>
     </>

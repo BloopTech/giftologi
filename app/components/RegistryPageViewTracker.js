@@ -25,10 +25,17 @@ function getOrCreateSessionId() {
   return next;
 }
 
+function isLocalhost() {
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname;
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
 export default function RegistryPageViewTracker({ registryId }) {
   useEffect(() => {
     if (!registryId) return;
     if (typeof window === "undefined") return;
+    if (isLocalhost()) return;
 
     const sessionId = getOrCreateSessionId();
 

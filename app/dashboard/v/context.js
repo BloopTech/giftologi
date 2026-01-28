@@ -57,7 +57,9 @@ export const VendorDashboardProvider = ({ children }) => {
           .single(),
         supabase
           .from("vendors")
-          .select("id, business_name, category, verified, created_at")
+          .select(
+            "id, business_name, slug, category, verified, created_at, shop_status, close_requested_at, closed_at",
+          )
           .eq("profiles_id", userId)
           .order("created_at", { ascending: false })
           .limit(1)

@@ -3,6 +3,14 @@ import { createClient } from "@/app/utils/supabase/server";
 
 export async function POST(req) {
   try {
+    const hostHeader =
+      req.headers.get("x-forwarded-host") || req.headers.get("host") || "";
+    const hostname = hostHeader.split(",")[0]?.trim()?.split(":")[0] || "";
+
+    if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") {
+      return NextResponse.json({ ok: true, skipped: true }, { status: 200 });
+    }
+
     const supabase = await createClient();
     const body = await req.json().catch(() => ({}));
 

@@ -19,6 +19,7 @@ export const DashboardProvider = ({ children }) => {
   const [metrics, setMetrics] = useState({
     totalRegistries: null,
     pendingVendorRequests: null,
+    pendingCloseRequests: null,
     totalOrders: null,
     totalPurchases: null,
     vendorPayouts: null,
@@ -99,6 +100,11 @@ export const DashboardProvider = ({ children }) => {
             error: vendorApplicationsError,
             count: vendorApplicationsCount,
           },
+          {
+            data: closeRequestsData,
+            error: closeRequestsError,
+            count: closeRequestsCount,
+          },
           { data: ordersData, error: ordersError, count: ordersCount },
           { data: orderPaymentsData, error: orderPaymentsError },
           {
@@ -117,6 +123,10 @@ export const DashboardProvider = ({ children }) => {
             .select("id, event_id", { count: "exact" }),
           supabase
             .from("vendor_applications")
+            .select("id", { count: "exact" })
+            .eq("status", "pending"),
+          supabase
+            .from("vendor_close_requests")
             .select("id", { count: "exact" })
             .eq("status", "pending"),
           supabase
@@ -153,6 +163,7 @@ export const DashboardProvider = ({ children }) => {
         if (
           registriesError ||
           vendorApplicationsError ||
+          closeRequestsError ||
           ordersError ||
           orderPaymentsError ||
           openTicketsError ||
@@ -164,6 +175,7 @@ export const DashboardProvider = ({ children }) => {
           const errorMessage =
             registriesError?.message ||
             vendorApplicationsError?.message ||
+            closeRequestsError?.message ||
             ordersError?.message ||
             orderPaymentsError?.message ||
             openTicketsError?.message ||
@@ -185,6 +197,11 @@ export const DashboardProvider = ({ children }) => {
           typeof vendorApplicationsCount === "number"
             ? vendorApplicationsCount
             : vendorApplicationsData?.length ?? null;
+
+        const pendingCloseRequests =
+          typeof closeRequestsCount === "number"
+            ? closeRequestsCount
+            : closeRequestsData?.length ?? null;
 
         const totalOrders =
           typeof ordersCount === "number"
@@ -305,6 +322,7 @@ export const DashboardProvider = ({ children }) => {
         setMetrics({
           totalRegistries,
           pendingVendorRequests,
+          pendingCloseRequests,
           totalOrders,
           totalPurchases,
           vendorPayouts,

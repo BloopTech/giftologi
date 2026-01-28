@@ -2,6 +2,7 @@
 import { createClient } from "../../../../utils/supabase/server";
 import { notFound } from "next/navigation";
 import HostDashboardRegistryContent from "./content";
+import { HostRegistryCodeProvider } from "./context";
 
 export default async function RegistryPage({ params }) {
   const getParams = await params;
@@ -40,7 +41,13 @@ export default async function RegistryPage({ params }) {
 
   return (
     <>
-      <HostDashboardRegistryContent registry={registry} event={event} />
+      <HostRegistryCodeProvider
+        registryCode={getParams.registry_code}
+        initialRegistry={registry}
+        initialEvent={event}
+      >
+        <HostDashboardRegistryContent registry={registry} event={event} />
+      </HostRegistryCodeProvider>
     </>
   );
 }

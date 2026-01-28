@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import { render, pretty } from "@react-email/render";
 import VendorApplicationSubmittedEmail from "../../../vendor/emails/VendorApplicationSubmittedEmail";
 import { createClient } from "../../../utils/supabase/server";
+import { generateUniqueVendorSlug } from "../../../utils/vendorSlug";
 import {
   DOCUMENT_TITLE_LOOKUP,
   DOCUMENT_TYPE_VALUES,
@@ -1035,11 +1036,16 @@ export async function manageProfile(prevState, queryData) {
   let createdVendor = false;
 
   if (!existingVendor) {
+    const vendorSlugSource =
+      vendorPayload.business_name || vendorPayload.legal_name || vendorPayload.email || "vendor";
+    const vendorSlug = await generateUniqueVendorSlug(supabase, vendorSlugSource);
+
     const insertPayload = {
       ...vendorPayload,
       ...compliancePayload,
       profiles_id: user.id,
       verified: false,
+      slug: vendorSlug,
       created_at: now,
       updated_at: now,
     };
@@ -1075,9 +1081,18 @@ export async function manageProfile(prevState, queryData) {
   }
 
   if (!createdVendor) {
+    const vendorSlugSource =
+      vendorPayload.business_name || vendorPayload.legal_name || vendorPayload.email || "vendor";
+    const vendorSlug = await generateUniqueVendorSlug(supabase, vendorSlugSource, {
+      excludeVendorId: vendorId,
+    });
+
     const vendorUpdatePayload = isVerifiedVendor
       ? vendorPayload
       : { ...vendorPayload, ...compliancePayload };
+
+    vendorUpdatePayload.slug = vendorSlug;
+
     const { error: vendorError } = await supabase
       .from("vendors")
       .update(vendorUpdatePayload)

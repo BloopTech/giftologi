@@ -87,7 +87,7 @@ export default function SuperAdminDashboardContent() {
       <h1 className="text-[#0A0A0A] font-medium font-inter">Overview</h1>
       {/* Card Overview */}
       {role === "super_admin" || role === "operations_manager_admin" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
           {/* Active Registries */}
           <div className="flex flex-col space-y-2 w-full">
             <h2 className="text-[#717182] text-xs/4 font-poppins">
@@ -114,6 +114,20 @@ export default function SuperAdminDashboardContent() {
             <div className="border-t-[2px] border-[#FFCA57]" />
             <p className="text-[#6A7282] text-[10px] font-poppins">
               Vendor applications awaiting approval
+            </p>
+          </div>
+          {/* Pending Close Shop Requests */}
+          <div className="flex flex-col space-y-2 w-full">
+            <h2 className="text-[#717182] text-xs/4 font-poppins">
+              Pending Close Requests
+            </h2>
+            <div className="flex justify-between items-center">
+              {renderMetricCount(metrics?.pendingCloseRequests)}
+              <PiStorefront className="size-4 text-[#C52721]" />
+            </div>
+            <div className="border-t-[2px] border-[#FF5C57]" />
+            <p className="text-[#6A7282] text-[10px] font-poppins">
+              Vendor shops awaiting closure approval
             </p>
           </div>
           {/* Total Orders */}

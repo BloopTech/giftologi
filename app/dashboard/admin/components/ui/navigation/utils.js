@@ -81,6 +81,18 @@ export const useNavigationData = (role) => {
       id: 4,
       items: [
         {
+          name: "Close Shop Requests",
+          href: "/dashboard/admin/close_requests",
+          icon: PiStorefront,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 5,
+      items: [
+        {
           name: "Vendor Categories",
           href: "/dashboard/admin/vendor_categories",
           icon: PiFolders,
@@ -90,7 +102,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 5,
+      id: 6,
       items: [
         {
           name: "Manage Products",
@@ -102,7 +114,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 6,
+      id: 7,
       items: [
         {
           name: "View Transactions",
@@ -114,7 +126,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 7,
+      id: 8,
       items: [
         {
           name: "Payouts",
@@ -126,7 +138,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 8,
+      id: 9,
       items: [
         {
           name: "Generate Reports",
@@ -138,7 +150,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 9,
+      id: 10,
       items: [
         {
           name: "View Activity Log",
@@ -150,7 +162,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 10,
+      id: 11,
       items: [
         {
           name: "API Documentation",
@@ -162,7 +174,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 11,
+      id: 12,
       items: [
         {
           name: "Analytics & Reporting",
@@ -174,7 +186,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 12,
+      id: 13,
       items: [
         {
           name: "Content & Policy Pages",
@@ -186,7 +198,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 13,
+      id: 14,
       items: [
         {
           name: "All Users",

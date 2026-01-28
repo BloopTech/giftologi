@@ -25,10 +25,17 @@ function getOrCreateProductSessionId() {
   return next;
 }
 
+function isLocalhost() {
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname;
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
 export default function ProductPageViewTracker({ productId }) {
   useEffect(() => {
     if (!productId) return;
     if (typeof window === "undefined") return;
+    if (isLocalhost()) return;
 
     const sessionId = getOrCreateProductSessionId();
 

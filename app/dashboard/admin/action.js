@@ -1,9 +1,9 @@
 "use server";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { createClient, createAdminClient } from "../../utils/supabase/server";
+import { createClient } from "../../utils/supabase/server";
 import { logAdminActivityWithClient } from "./activity_log/logger";
+import { generateUniqueVendorSlug } from "../../utils/vendorSlug";
 
 const defaultManageRolesValues = {
   email: [],
@@ -956,6 +956,8 @@ export async function createVendor(prevState, formData) {
 
   const categoryPayload = JSON.stringify(category);
 
+  const vendorSlug = await generateUniqueVendorSlug(supabase, businessName);
+
   const { data: existingProfile } = await supabase
     .from("profiles")
     .select("*")
@@ -1104,6 +1106,7 @@ export async function createVendor(prevState, formData) {
       .update({
         business_name: businessName,
         category: categoryPayload,
+        slug: vendorSlug,
         verified: true,
         updated_at: new Date().toISOString(),
       })
@@ -1131,6 +1134,7 @@ export async function createVendor(prevState, formData) {
           profiles_id: userId,
           business_name: businessName,
           category: categoryPayload,
+          slug: vendorSlug,
           description: null,
           commission_rate: null,
           verified: true,

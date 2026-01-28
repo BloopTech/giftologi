@@ -66,7 +66,7 @@ export async function manageProducts(prevState, formData) {
 
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")
-    .select("id")
+    .select("id, shop_status")
     .eq("profiles_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -81,7 +81,18 @@ export async function manageProducts(prevState, formData) {
     };
   }
 
+  const isShopInactive = vendor.shop_status && vendor.shop_status !== "active";
+
   if (action === "create") {
+    if (isShopInactive) {
+      return {
+        success: false,
+        message: "Your shop is not active. Product creation is disabled while a close request is in review.",
+        errors: {},
+        values: {},
+      };
+    }
+
     const rawData = {
       name: formData.get("name"),
       category_id: formData.get("category_id"),
@@ -165,6 +176,15 @@ export async function manageProducts(prevState, formData) {
   }
 
   if (action === "update") {
+    if (isShopInactive) {
+      return {
+        success: false,
+        message: "Your shop is not active. Product updates are disabled while a close request is in review.",
+        errors: {},
+        values: {},
+      };
+    }
+
     const productId = formData.get("product_id");
 
     if (!productId) {
@@ -261,6 +281,15 @@ export async function manageProducts(prevState, formData) {
   }
 
   if (action === "delete") {
+    if (isShopInactive) {
+      return {
+        success: false,
+        message: "Your shop is not active. Product deletion is disabled while a close request is in review.",
+        errors: {},
+        values: {},
+      };
+    }
+
     const productId = formData.get("product_id");
 
     if (!productId) {

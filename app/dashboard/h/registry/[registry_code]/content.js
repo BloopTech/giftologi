@@ -1,17 +1,23 @@
 "use client";
 import React, { useState, useEffect, useActionState } from "react";
-import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
+import {
+  PiFileImageLight,
+  PiGiftDuotone,
+  PiGiftFill,
+} from "react-icons/pi";
 import Image from "next/image";
-import Link from "next/link";
 import Footer from "../../../../components/footer";
 import Advertisement from "../../../../components/advertisement";
 import { format } from "date-fns";
 import ShareRegistryDialog from "../../components/ShareRegistryDialog";
-import updateRegistryAction, {
+import { ShoppingCart } from "lucide-react";
+import { ProgressBar } from "../../../../components/ProgressBar";
+import {
   saveRegistryCoverPhoto,
   removeRegistryCoverPhoto,
 } from "./action";
 import { toast } from "sonner";
+import { useHostRegistryCodeContext } from "./context";
 
 const initialState = {
   message: "",
@@ -25,7 +31,14 @@ const initialState = {
 };
 
 export default function HostDashboardRegistryContent(props) {
-  const { registry, event } = props;
+  const {
+    registry: registryFromContext,
+    event: eventFromContext,
+    registryItems,
+    totals,
+  } = useHostRegistryCodeContext() || {};
+  const registry = registryFromContext ?? props.registry;
+  const event = eventFromContext ?? props.event;
   const [saveState, saveFormAction, isSavePending] = useActionState(
     saveRegistryCoverPhoto,
     initialState
@@ -106,6 +119,28 @@ export default function HostDashboardRegistryContent(props) {
     setIsImageSaved(false);
   };
 
+  const products = Array.isArray(registryItems)
+    ? registryItems.map((item) => {
+        const product = item?.product || {};
+        const images = Array.isArray(product.images) ? product.images : [];
+        const rawPrice = product.price;
+        const num = rawPrice === null || rawPrice === undefined ? NaN : Number(rawPrice);
+        const price = Number.isFinite(num) ? `GHS ${num.toFixed(2)}` : "";
+        return {
+          id: item.id,
+          title: product.name || "Gift item",
+          image: images[0] || "/host/toaster.png",
+          price,
+          desired: item?.quantity_needed ?? 0,
+          purchased: item?.purchased_qty ?? 0,
+        };
+      })
+    : [];
+
+  const itemsCount = totals?.itemsCount ?? products.length;
+  const desiredQty = totals?.desiredQty ?? products.reduce((s, p) => s + (p.desired ?? 0), 0);
+  const purchasedQty = totals?.purchasedQty ?? products.reduce((s, p) => s + (p.purchased ?? 0), 0);
+
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
       {/* <p className="capitalize">
@@ -122,10 +157,15 @@ export default function HostDashboardRegistryContent(props) {
             <input
               type="hidden"
               name="registry_id"
-              value={registry.id}
+              value={registry?.id || ""}
               readOnly
             />
-            <input type="hidden" name="event_id" value={event.id} readOnly />
+            <input
+              type="hidden"
+              name="event_id"
+              value={event?.id || ""}
+              readOnly
+            />
             <input
               id="cover_photo_file"
               name="cover_photo"
@@ -228,42 +268,113 @@ export default function HostDashboardRegistryContent(props) {
             <div className="w-[250px] flex flex-col space-y-2 border border-[#DCDCDE] rounded-md p-4 bg-white">
               <p className="text-xs text-[#394B71]">Event Name</p>
               <p className="text-sm text-[#247ACB] font-semibold line-clamp-1 w-full">
-                {registry.title}
+                {registry?.title}
               </p>
               <p className="text-xs text-[#B3B3B3]">
-                {format(event.date, "MMMM dd, yyyy")}
+                {event?.date ? format(new Date(event.date), "MMMM dd, yyyy") : ""}
               </p>
             </div>
             <div className="flex items-start justify-center space-x-2 border border-[#DCDCDE] rounded-md p-4 bg-white">
               <PiGiftDuotone className="size-18 text-[#247ACB]" />
               <div className="flex flex-col space-y-2">
-                <p className="text-4xl text-[#247ACA] font-semibold">0</p>
+                <p className="text-4xl text-[#247ACA] font-semibold">{itemsCount}</p>
                 <p className="text-xs text-[#939393]">items</p>
               </div>
             </div>
+
+            <div className="flex items-center justify-center space-x-4 rounded-md py-4 px-4 bg-white border border-[#DCDCDE]">
+              <ShoppingCart className="size-12 text-[#247ACA] font-semibold" />
+              <div className="flex flex-col space-y-1">
+                <p className="text-xs text-[#939393] ">
+                  <span className="text-2xl text-[#939393]">
+                    <span className="font-semibold text-[#247ACA]">
+                      {purchasedQty}
+                    </span>
+                    /{desiredQty || 0}{" "}
+                  </span>{" "}
+                  products purchased
+                </p>
+                <ProgressBar value={purchasedQty} max={desiredQty || 1} />
+              </div>
+            </div>
+
             <ShareRegistryDialog event={event} />
+
+            <div className="flex items-center flex-col justify-center space-y-2 border border-[#B1C6F2] rounded-md py-4 px-8 bg-[#D3E4F5]">
+              <PiGiftFill className="size-10 text-[#247ACB] font-semibold" />
+              <p className="text-xs text-[#247ACB]">+ Add Gift</p>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center justify-center mx-auto max-w-md w-full rounded-4xl border border-[#A9C4FC] px-4 py-8 bg-white flex-col space-y-4">
-          <div className="inline-block">
-            <Image
-              src="/host/open-gift.svg"
-              alt="open gift"
-              width={100}
-              height={100}
-              className="object-contain"
-              priority
-            />
+        {itemsCount === 0 ? (
+          <div className="flex items-center justify-center mx-auto max-w-md w-full rounded-4xl border border-[#A9C4FC] px-4 py-8 bg-white flex-col space-y-4">
+            <div className="inline-block">
+              <Image
+                src="/host/open-gift.svg"
+                alt="open gift"
+                width={100}
+                height={100}
+                className="object-contain"
+                priority
+              />
+            </div>
+            <p className="text-[#394B71] font-semibold text-center text-sm">
+              Your registry is empty.
+              <br /> Add items from the Shop to get started.
+            </p>
+            <button className="text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center">
+              Go to Shop
+            </button>
           </div>
-          <p className="text-[#394B71] font-semibold text-center text-sm">
-            Your registry is empty.
-            <br /> Add items from the Shop to get started.
-          </p>
-          <button className="text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center">
-            Go to Shop
-          </button>
-        </div>
+        ) : (
+          <div className="w-full flex flex-col space-y-4">
+            <p className="text-[#394B71] font-semibold">View Products</p>
+            <div className="flex flex-wrap gap-4">
+              {products.map((p) => {
+                const isPurchased = (p.purchased ?? 0) >= (p.desired ?? 0) && (p.desired ?? 0) > 0;
+                return (
+                  <div
+                    key={p.id}
+                    className="flex bg-white rounded-lg flex-col space-y-4 py-4 w-[200px]"
+                  >
+                    <div className="flex items-center justify-center px-4">
+                      <Image
+                        src={p.image}
+                        alt={p.title}
+                        width={150}
+                        height={150}
+                        className="object-contain"
+                        priority
+                      />
+                    </div>
+                    <div className="flex flex-col space-y-2 w-full">
+                      <p className="text-sm font-semibold text-black line-clamp-2 w-full px-4">
+                        {p.title}
+                      </p>
+                      <div className="flex items-center w-full justify-between px-4">
+                        <p className="text-xs text-[#939393]">Desired {p.desired}</p>
+                        <p className="text-xs text-[#939393]">Purchased {p.purchased}</p>
+                      </div>
+                      <div className="flex items-center w-full justify-between pl-4">
+                        <p className="text-xs text-[#939393]">{p.price}</p>
+                        {isPurchased ? (
+                          <p className="text-xs text-white bg-[#8DC76C] border border-[#8DC76C] rounded-l-xl px-2 py-1 flex items-center">
+                            Purchased
+                          </p>
+                        ) : (
+                          <button className="text-xs text-white cursor-pointer bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-l-xl px-2 py-1 flex items-center">
+                            View Product
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         <Advertisement />
 

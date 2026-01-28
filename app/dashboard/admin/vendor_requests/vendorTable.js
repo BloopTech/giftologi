@@ -7,6 +7,8 @@ import React, {
   useActionState,
 } from "react";
 
+import Link from "next/link";
+
 import {
   ChevronsUpDown,
   ChevronUp,
@@ -285,9 +287,21 @@ export default function VendorRequestsTable() {
           <SortableHeader column={column} title="Vendor ID" />
         ),
         cell: (info) => (
-          <span className="text-xs font-medium text-[#0A0A0A]">
-            {info.getValue()}
-          </span>
+          <div className="flex flex-col text-xs">
+            <span className="font-medium text-[#0A0A0A]">{info.getValue()}</span>
+            {info.row.original.storefrontSlug ? (
+              <Link
+                href={`/storefront/${info.row.original.storefrontSlug}`}
+                className="text-[#427ED3] hover:underline mt-0.5"
+                target="_blank"
+                rel="noreferrer"
+              >
+                View storefront
+              </Link>
+            ) : (
+              <span className="text-[#6A7282] mt-0.5">Storefront unavailable</span>
+            )}
+          </div>
         ),
       }),
       columnHelper.accessor("businessName", {

@@ -6,6 +6,7 @@ import { createClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
+import { generateUniqueVendorSlug } from "../../../utils/vendorSlug";
 
 const vendorDocsS3Client = new S3Client({
   credentials: {
@@ -179,12 +180,19 @@ export async function approveVendorRequest(prevState, formData) {
 
   let vendor = existingVendor;
 
+  const vendorSlug = await generateUniqueVendorSlug(
+    supabase,
+    application.business_name,
+    vendor?.id ? { excludeVendorId: vendor.id } : {},
+  );
+
   if (vendor) {
     const { data: updatedVendor, error: updateVendorError } = await supabase
       .from("vendors")
       .update({
         business_name: application.business_name,
         category: application.category,
+        slug: vendorSlug,
         description: application.business_description || null,
         email: application.owner_email || null,
         phone: application.owner_phone || null,
@@ -219,6 +227,7 @@ export async function approveVendorRequest(prevState, formData) {
           profiles_id: application.user_id,
           business_name: application.business_name,
           category: application.category,
+          slug: vendorSlug,
           description: application.business_description || null,
           commission_rate: null,
           verified: true,

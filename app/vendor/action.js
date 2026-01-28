@@ -7,6 +7,7 @@ import nodemailer from "nodemailer";
 import { render, pretty } from "@react-email/render";
 import VendorApplicationSubmittedEmail from "./emails/VendorApplicationSubmittedEmail";
 import { createAdminClient, createClient } from "../utils/supabase/server";
+import { generateUniqueVendorSlug } from "../utils/vendorSlug";
 
 import {
   DOCUMENT_TITLE_LOOKUP,
@@ -1654,9 +1655,16 @@ export async function submitVendorApplication(payload) {
       updated_at: now,
     };
 
+    const vendorSlugSource =
+      vendorPayload.business_name ||
+      cleanValue(mergedDraft.businessName) ||
+      userEmail ||
+      "vendor";
+
     let vendorId = existingVendor?.id || null;
 
     if (!vendorId) {
+      const vendorSlug = await generateUniqueVendorSlug(actingClient, vendorSlugSource);
       const { data: insertedVendor, error: insertError } = await actingClient
         .from("vendors")
         .insert([
@@ -1665,6 +1673,7 @@ export async function submitVendorApplication(payload) {
             created_by: userId,
             created_at: now,
             verified: false,
+            slug: vendorSlug,
             ...vendorPayload,
           },
         ])
@@ -1679,9 +1688,12 @@ export async function submitVendorApplication(payload) {
 
       vendorId = insertedVendor.id;
     } else if (!existingVendor?.verified) {
+      const vendorSlug = await generateUniqueVendorSlug(actingClient, vendorSlugSource, {
+        excludeVendorId: vendorId,
+      });
       const { error: updateError } = await actingClient
         .from("vendors")
-        .update(vendorPayload)
+        .update({ ...vendorPayload, slug: vendorSlug })
         .eq("id", vendorId)
         .eq("profiles_id", userId);
 
