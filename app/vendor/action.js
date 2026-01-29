@@ -930,145 +930,200 @@ export async function ensureVendorAccount(payload) {
 }
 
 export async function fetchVendorApplicationDraft() {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const authResponse = await supabase.auth.getUser();
+    const user = authResponse?.data?.user || null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    if (authResponse?.error || !user) {
+      return {
+        success: false,
+        message:
+          authResponse?.error?.message ||
+          "You must be logged in to resume your application.",
+        data: null,
+      };
+    }
 
-  if (!user) {
-    return {
-      success: false,
-      message: "You must be logged in to resume your application.",
-      data: null,
-    };
-  }
+    const { data: application, error } = await supabase
+      .from("vendor_applications")
+      .select(
+        "id, status, reason, draft_data, current_step, documents, submitted_at",
+      )
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
-  const { data: application, error } = await supabase
-    .from("vendor_applications")
-    .select(
-      "id, status, reason, draft_data, current_step, documents, submitted_at",
-    )
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    if (error) {
+      return {
+        success: false,
+        message: error.message || "Unable to load your application.",
+        data: null,
+      };
+    }
 
-  if (error) {
-    return {
-      success: false,
-      message: error.message || "Unable to load your application.",
-      data: null,
-    };
-  }
+    if (!application?.id) {
+      return {
+        success: true,
+        message: "No draft found.",
+        data: null,
+      };
+    }
 
-  if (!application?.id) {
     return {
       success: true,
-      message: "No draft found.",
+      message: "Draft loaded.",
+      data: {
+        id: application.id,
+        status: application.status,
+        draftData: application.draft_data || {},
+        currentStep: application.current_step ?? 0,
+        documents: Array.isArray(application.documents)
+          ? application.documents
+          : [],
+        rejectionReason: application.reason || "",
+        submittedAt: application.submitted_at,
+      },
+    };
+  } catch (error) {
+    console.error("fetchVendorApplicationDraft error", error);
+    return {
+      success: false,
+      message: "An unexpected response was received from the server.",
       data: null,
     };
   }
-
-  return {
-    success: true,
-    message: "Draft loaded.",
-    data: {
-      id: application.id,
-      status: application.status,
-      draftData: application.draft_data || {},
-      currentStep: application.current_step ?? 0,
-      documents: Array.isArray(application.documents)
-        ? application.documents
-        : [],
-      rejectionReason: application.reason || "",
-      submittedAt: application.submitted_at,
-    },
-  };
 }
 
 export async function saveVendorApplicationDraft(payload) {
-  const supabase = await createClient();
+  try {
+    const supabase = await createClient();
+    const authResponse = await supabase.auth.getUser();
+    const user = authResponse?.data?.user || null;
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    if (authResponse?.error || !user) {
+      return {
+        success: false,
+        message:
+          authResponse?.error?.message ||
+          "You must be logged in to save your application.",
+        data: null,
+      };
+    }
 
-  if (!user) {
-    return {
-      success: false,
-      message: "You must be logged in to save your application.",
-      data: null,
+    // Defensive: ensure payload is a plain object before parsing
+    const safePayload =
+      payload && typeof payload === "object" && !Array.isArray(payload)
+        ? { ...payload }
+        : {};
+
+    // Manual validation instead of Zod to avoid v4 internal issues
+    const draftData =
+      safePayload.draftData && typeof safePayload.draftData === "object"
+        ? safePayload.draftData
+        : {};
+    const currentStep =
+      typeof safePayload.currentStep === "number" &&
+      Number.isInteger(safePayload.currentStep) &&
+      safePayload.currentStep >= 0 &&
+      safePayload.currentStep <= 10
+        ? safePayload.currentStep
+        : undefined;
+
+    const { data: existing, error: existingError } = await supabase
+      .from("vendor_applications")
+      .select("id, status, draft_data, current_step")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (existingError) {
+      return {
+        success: false,
+        message: existingError.message || "Failed to load your application.",
+        data: null,
+      };
+    }
+
+    if (existing?.status && ["pending", "approved"].includes(existing.status)) {
+      return {
+        success: false,
+        message: "Submitted applications can no longer be edited.",
+        data: null,
+      };
+    }
+
+    const mergedDraft = {
+      ...(existing?.draft_data || {}),
+      ...(draftData || {}),
     };
-  }
 
-  const parsed = draftSchema.safeParse(payload || {});
-  if (!parsed.success) {
-    return {
-      success: false,
-      message: parsed.error.issues?.[0]?.message || "Invalid draft payload.",
-      data: null,
-    };
-  }
+    const applicationFields = buildApplicationFieldsFromDraft(mergedDraft);
+    const nextStep =
+      typeof currentStep === "number"
+        ? currentStep
+        : existing?.current_step ?? 0;
+    const now = new Date().toISOString();
 
-  const { draftData = {}, currentStep } = parsed.data;
+    if (existing?.id) {
+      const updatePayload = {
+        draft_data: mergedDraft,
+        current_step: nextStep,
+        last_saved_at: now,
+        updated_at: now,
+        status: "draft",
+        ...applicationFields,
+      };
 
-  const { data: existing, error: existingError } = await supabase
-    .from("vendor_applications")
-    .select("id, status, draft_data, current_step")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+      const { error: updateError } = await supabase
+        .from("vendor_applications")
+        .update(updatePayload)
+        .eq("id", existing.id)
+        .eq("user_id", user.id);
 
-  if (existingError) {
-    return {
-      success: false,
-      message: existingError.message || "Failed to load your application.",
-      data: null,
-    };
-  }
+      if (updateError) {
+        return {
+          success: false,
+          message: updateError.message || "Failed to save your draft.",
+          data: null,
+        };
+      }
 
-  if (existing?.status && ["pending", "approved"].includes(existing.status)) {
-    return {
-      success: false,
-      message: "Submitted applications can no longer be edited.",
-      data: null,
-    };
-  }
+      revalidatePath("/vendor");
 
-  const mergedDraft = {
-    ...(existing?.draft_data || {}),
-    ...(draftData || {}),
-  };
+      return {
+        success: true,
+        message: "Draft saved.",
+        data: {
+          applicationId: existing.id,
+          currentStep: nextStep,
+        },
+      };
+    }
 
-  const applicationFields = buildApplicationFieldsFromDraft(mergedDraft);
-  const nextStep =
-    typeof currentStep === "number"
-      ? currentStep
-      : existing?.current_step ?? 0;
-  const now = new Date().toISOString();
-
-  if (existing?.id) {
-    const updatePayload = {
+    const insertPayload = {
+      user_id: user.id,
+      status: "draft",
+      created_by: user.id,
       draft_data: mergedDraft,
       current_step: nextStep,
       last_saved_at: now,
       updated_at: now,
-      status: "draft",
       ...applicationFields,
     };
 
-    const { error: updateError } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from("vendor_applications")
-      .update(updatePayload)
-      .eq("id", existing.id)
-      .eq("user_id", user.id);
+      .insert([insertPayload])
+      .select("id")
+      .single();
 
-    if (updateError) {
+    if (insertError || !inserted) {
       return {
         success: false,
-        message: updateError.message || "Failed to save your draft.",
+        message: insertError?.message || "Failed to save your draft.",
         data: null,
       };
     }
@@ -1079,67 +1134,28 @@ export async function saveVendorApplicationDraft(payload) {
       success: true,
       message: "Draft saved.",
       data: {
-        applicationId: existing.id,
+        applicationId: inserted.id,
         currentStep: nextStep,
       },
     };
-  }
-
-  const insertPayload = {
-    user_id: user.id,
-    status: "draft",
-    created_by: user.id,
-    draft_data: mergedDraft,
-    current_step: nextStep,
-    last_saved_at: now,
-    updated_at: now,
-    ...applicationFields,
-  };
-
-  const { data: inserted, error: insertError } = await supabase
-    .from("vendor_applications")
-    .insert([insertPayload])
-    .select("id")
-    .single();
-
-  if (insertError || !inserted) {
+  } catch (error) {
+    console.error("saveVendorApplicationDraft error", error);
     return {
       success: false,
-      message: insertError?.message || "Failed to save your draft.",
+      message: "An unexpected response was received from the server.",
       data: null,
     };
   }
-
-  revalidatePath("/vendor");
-
-  return {
-    success: true,
-    message: "Draft saved.",
-    data: {
-      applicationId: inserted.id,
-      currentStep: nextStep,
-    },
-  };
 }
 
 export async function uploadVendorApplicationDocument(prevState, formData) {
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  let draftData = {};
-  try {
-    const rawDraft = formData.get("draft_data");
-    if (rawDraft) {
-      draftData = JSON.parse(rawDraft);
-    }
-  } catch (parseError) {
-    console.error("Unable to parse draft data for vendor application", parseError);
-  }
-
+  
   let actingClient = supabase;
+  
   let userId = user?.id || null;
 
   if (!userId) {

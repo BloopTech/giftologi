@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
+  <!-- Gift box base -->
+  <rect x="8" y="24" width="32" height="20" rx="2" fill="#A5914B"/>
+  <rect x="8" y="20" width="32" height="8" rx="2" fill="#C4A85C"/>
+  
+  <!-- Ribbon vertical -->
+  <rect x="21" y="20" width="6" height="24" fill="#85753C"/>
+  
+  <!-- Ribbon horizontal -->
+  <rect x="8" y="22" width="32" height="4" fill="#85753C"/>
+  
+  <!-- Bow -->
+  <ellipse cx="24" cy="16" rx="8" ry="5" fill="#A5914B"/>
+  <ellipse cx="18" cy="14" rx="5" ry="4" fill="#C4A85C"/>
+  <ellipse cx="30" cy="14" rx="5" ry="4" fill="#C4A85C"/>
+  <circle cx="24" cy="16" r="3" fill="#85753C"/>
+  
+  <!-- Shine -->
+  <rect x="12" y="26" width="6" height="2" rx="1" fill="#D4C78A" opacity="0.5"/>
+</svg>

@@ -31,9 +31,9 @@ import Link from "next/link";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "../../../../../components/Dialog";
+import VisuallyHidden from "../../../../../components/accessibility/VisuallyHidden";
 import CreateRegistryDialog from "../../createRegistryDialog";
 
 export default function Header() {
@@ -122,9 +122,9 @@ export default function Header() {
               onOpenChange={setCreateRegistryOpen}
             >
               <DialogContent className="max-w-2xl">
-                <DialogHeader>
+                <VisuallyHidden>
                   <DialogTitle>Create New Registry</DialogTitle>
-                </DialogHeader>
+                </VisuallyHidden>
                 <CreateRegistryDialog onClose={closeCreateRegistry} />
               </DialogContent>
             </Dialog>
@@ -138,7 +138,7 @@ export default function Header() {
           >
             <div>
               <Link
-                href="/dashboard/h/registry/lists"
+                href="/dashboard/h/registry"
                 className="text-xs text-[#A2845E] cursor-pointer font-semibold"
               >
                 My Registry Lists

@@ -1,0 +1,229 @@
+const DEFAULT_VERSION = "v1.0";
+const DEFAULT_CURRENCY = "GHS";
+const DEFAULT_WEIGHT_UNIT = "KG";
+const DEFAULT_REPORT_ID = "9729";
+const DEFAULT_REPORT_TYPE = "URL";
+
+const getRequiredEnv = (key) => {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(`Missing ${key} environment variable`);
+  }
+  return value;
+};
+
+const escapeXml = (value) =>
+  String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+
+const getXmlValue = (xml, tag) => {
+  const match = xml.match(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "i"));
+  return match ? match[1].trim() : "";
+};
+
+const getXmlValues = (xml, tag) => {
+  const regex = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, "gi");
+  const values = [];
+  let match;
+  while ((match = regex.exec(xml)) !== null) {
+    values.push(match[1].trim());
+  }
+  return values;
+};
+
+const buildPartyXml = (party) => {
+  const address = party?.address || "";
+  const address2 = party?.address2 || "";
+  return `
+    <PartyAddress>
+      <Line1>${escapeXml(address)}</Line1>
+      <Line2>${escapeXml(address2)}</Line2>
+      <City>${escapeXml(party?.city)}</City>
+      <StateOrProvinceCode>${escapeXml(party?.state)}</StateOrProvinceCode>
+      <PostCode>${escapeXml(party?.postalCode)}</PostCode>
+      <CountryCode>${escapeXml(party?.countryCode)}</CountryCode>
+    </PartyAddress>
+    <Contact>
+      <PersonName>${escapeXml(party?.name)}</PersonName>
+      <CompanyName>${escapeXml(party?.company)}</CompanyName>
+      <PhoneNumber1>${escapeXml(party?.phone)}</PhoneNumber1>
+      <CellPhone>${escapeXml(party?.phone)}</CellPhone>
+      <EmailAddress>${escapeXml(party?.email)}</EmailAddress>
+    </Contact>
+  `;
+};
+
+const getClientInfoXml = () => {
+  const username = getRequiredEnv("ARAMEX_USERNAME");
+  const password = getRequiredEnv("ARAMEX_PASSWORD");
+  const accountNumber = getRequiredEnv("ARAMEX_ACCOUNT_NUMBER");
+  const accountPin = getRequiredEnv("ARAMEX_ACCOUNT_PIN");
+  const accountEntity = getRequiredEnv("ARAMEX_ACCOUNT_ENTITY");
+  const accountCountry = getRequiredEnv("ARAMEX_ACCOUNT_COUNTRY_CODE");
+  const version = process.env.ARAMEX_VERSION || DEFAULT_VERSION;
+
+  return `
+    <ClientInfo>
+      <UserName>${escapeXml(username)}</UserName>
+      <Password>${escapeXml(password)}</Password>
+      <Version>${escapeXml(version)}</Version>
+      <AccountNumber>${escapeXml(accountNumber)}</AccountNumber>
+      <AccountPin>${escapeXml(accountPin)}</AccountPin>
+      <AccountEntity>${escapeXml(accountEntity)}</AccountEntity>
+      <AccountCountryCode>${escapeXml(accountCountry)}</AccountCountryCode>
+    </ClientInfo>
+  `;
+};
+
+const buildSoapEnvelope = (body) => `<?xml version="1.0" encoding="utf-8"?>
+  <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+    <soap:Body>
+      ${body}
+    </soap:Body>
+  </soap:Envelope>`;
+
+const requestAramex = async ({ url, action, body }) => {
+  const headers = {
+    "Content-Type": "text/xml; charset=utf-8",
+  };
+  if (action) {
+    headers.SOAPAction = action;
+  }
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body,
+  });
+  const text = await response.text();
+  if (!response.ok) {
+    const error = new Error("Aramex request failed");
+    error.raw = text;
+    throw error;
+  }
+  return text;
+};
+
+export const buildAramexTrackingUrl = (trackingNumber) =>
+  trackingNumber
+    ? `https://www.aramex.com/track/shipments?ShipmentNumber=${encodeURIComponent(
+        trackingNumber
+      )}`
+    : "";
+
+export const createAramexShipment = async ({ shipper, consignee, shipment, reference }) => {
+  const shippingUrl = getRequiredEnv("ARAMEX_SHIPPING_URL");
+  const soapAction = process.env.ARAMEX_CREATE_SOAP_ACTION;
+  const labelReportId = process.env.ARAMEX_LABEL_REPORT_ID || DEFAULT_REPORT_ID;
+  const labelReportType = process.env.ARAMEX_LABEL_REPORT_TYPE || DEFAULT_REPORT_TYPE;
+  const productGroup = shipment?.productGroup || process.env.ARAMEX_PRODUCT_GROUP || "EXP";
+  const productType = shipment?.productType || process.env.ARAMEX_PRODUCT_TYPE || "PPX";
+  const paymentType = shipment?.paymentType || process.env.ARAMEX_PAYMENT_TYPE || "P";
+  const currency = shipment?.currency || process.env.ARAMEX_CURRENCY || DEFAULT_CURRENCY;
+  const weightUnit = shipment?.weightUnit || DEFAULT_WEIGHT_UNIT;
+
+  const detailsXml = `
+    <Details>
+      <Dimensions>
+        <Length>${escapeXml(shipment?.dimensions?.length || 0)}</Length>
+        <Width>${escapeXml(shipment?.dimensions?.width || 0)}</Width>
+        <Height>${escapeXml(shipment?.dimensions?.height || 0)}</Height>
+        <Unit>${escapeXml(shipment?.dimensions?.unit || "CM")}</Unit>
+      </Dimensions>
+      <ActualWeight>
+        <Unit>${escapeXml(weightUnit)}</Unit>
+        <Value>${escapeXml(shipment?.weight || 1)}</Value>
+      </ActualWeight>
+      <NumberOfPieces>${escapeXml(shipment?.numberOfPieces || 1)}</NumberOfPieces>
+      <ProductGroup>${escapeXml(productGroup)}</ProductGroup>
+      <ProductType>${escapeXml(productType)}</ProductType>
+      <PaymentType>${escapeXml(paymentType)}</PaymentType>
+      <DescriptionOfGoods>${escapeXml(shipment?.description || "Gift items")}</DescriptionOfGoods>
+      <GoodsOriginCountry>${escapeXml(
+        shipment?.originCountryCode || shipper?.countryCode || "GH"
+      )}</GoodsOriginCountry>
+      <CustomsValueAmount>
+        <Value>${escapeXml(shipment?.goodsValue || shipment?.declaredValue || 0)}</Value>
+        <CurrencyCode>${escapeXml(currency)}</CurrencyCode>
+      </CustomsValueAmount>
+    </Details>
+  `;
+
+  const body = `
+    <CreateShipments xmlns="http://ws.aramex.net/ShippingAPI/v1/">
+      ${getClientInfoXml()}
+      <Shipments>
+        <Shipment>
+          <Shipper>
+            ${buildPartyXml(shipper)}
+          </Shipper>
+          <Consignee>
+            ${buildPartyXml(consignee)}
+          </Consignee>
+          <Reference1>${escapeXml(reference || "")}</Reference1>
+          ${detailsXml}
+        </Shipment>
+      </Shipments>
+      <LabelInfo>
+        <ReportID>${escapeXml(labelReportId)}</ReportID>
+        <ReportType>${escapeXml(labelReportType)}</ReportType>
+      </LabelInfo>
+    </CreateShipments>
+  `;
+
+  const xml = await requestAramex({
+    url: shippingUrl,
+    action: soapAction,
+    body: buildSoapEnvelope(body),
+  });
+
+  const hasErrors = /<HasErrors>true<\/HasErrors>/i.test(xml);
+  const notifications = getXmlValues(xml, "Notification");
+  const message = getXmlValue(xml, "Message");
+  const shipmentNumber =
+    getXmlValue(xml, "ShipmentNumber") || getXmlValue(xml, "ID") || "";
+  const labelUrl = getXmlValue(xml, "LabelURL") || getXmlValue(xml, "ShipmentLabelURL") || "";
+
+  return {
+    raw: xml,
+    hasErrors,
+    message: message || notifications.join(" ").trim(),
+    shipmentNumber,
+    labelUrl,
+  };
+};
+
+export const trackAramexShipment = async ({ trackingNumber }) => {
+  const trackingUrl = getRequiredEnv("ARAMEX_TRACKING_URL");
+  const soapAction = process.env.ARAMEX_TRACK_SOAP_ACTION;
+
+  const body = `
+    <TrackShipments xmlns="http://ws.aramex.net/ShippingAPI/v1/">
+      ${getClientInfoXml()}
+      <Shipments>
+        <string>${escapeXml(trackingNumber)}</string>
+      </Shipments>
+      <GetLastTrackingUpdateOnly>true</GetLastTrackingUpdateOnly>
+    </TrackShipments>
+  `;
+
+  const xml = await requestAramex({
+    url: trackingUrl,
+    action: soapAction,
+    body: buildSoapEnvelope(body),
+  });
+
+  const hasErrors = /<HasErrors>true<\/HasErrors>/i.test(xml);
+  const description = getXmlValue(xml, "UpdateDescription");
+  const updateDate = getXmlValue(xml, "UpdateDateTime") || getXmlValue(xml, "UpdateDate");
+
+  return {
+    raw: xml,
+    hasErrors,
+    description,
+    updateDate,
+  };
+};

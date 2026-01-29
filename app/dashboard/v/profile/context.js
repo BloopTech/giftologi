@@ -151,7 +151,7 @@ export const VendorProfileProvider = ({ children }) => {
       });
 
       if (!hasVendor && !applicationData?.id) {
-        setError("Vendor profile not found.");
+        setError("Complete your application.");
       }
     } catch (err) {
       console.error("Vendor profile fetch error", err);

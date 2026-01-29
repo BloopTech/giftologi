@@ -13,15 +13,22 @@ import { PiShareBold } from "react-icons/pi";
 import { Mail, Share2, QrCode, Send, Share, Link } from "lucide-react";
 
 export default function ShareRegistryDialog(props) {
-  const { event } = props;
+  const { event, registryCode } = props;
   const [url, setUrl] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy Registry Link");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      setUrl(window.location.origin + "/event/" + event?.event_code);
+      const baseUrl = window.location.origin;
+      if (registryCode) {
+        setUrl(`${baseUrl}/registry/${registryCode}`);
+      } else if (event?.event_code) {
+        setUrl(`${baseUrl}/registry/${event.event_code}`);
+      } else {
+        setUrl(`${baseUrl}/registry`);
+      }
     }
-  }, [event]);
+  }, [event, registryCode]);
 
   const handleCopy = async () => {
     try {

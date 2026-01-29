@@ -3,24 +3,24 @@ import React, { useState } from "react";
 import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
 import Image from "next/image";
 import Link from "next/link";
-import Footer from "../../../../components/footer";
-import Advertisement from "../../../../components/advertisement";
-import CarouselHero from "../../components/CarouselHero";
-import wedding from "../../../../../public/host/wedding.png";
-import birthday from "../../../../../public/host/birthday.png";
-import babyshower from "../../../../../public/host/babyshower.png";
-import fundraiser from "../../../../../public/host/fundraiser.png";
-import giftbox from "../../../../../public/host/lists-gift-box.png";
-import Samantha from "../../../../../public/host/Samantha.png";
+import Footer from "../../../components/footer";
+import Advertisement from "../../../components/advertisement";
+import CarouselHero from "../components/CarouselHero";
+import wedding from "../../../../public/host/wedding.png";
+import birthday from "../../../../public/host/birthday.png";
+import babyshower from "../../../../public/host/babyshower.png";
+import fundraiser from "../../../../public/host/fundraiser.png";
+import giftbox from "../../../../public/host/lists-gift-box.png";
+import Samantha from "../../../../public/host/Samantha.png";
 import { Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
-} from "../../../../components/Dialog";
-import CreateRegistryDialog from "../../components/createRegistryDialog";
-import RegistryType from "../../components/registryType";
+} from "../../../components/Dialog";
+import VisuallyHidden from "../../../components/accessibility/VisuallyHidden";
+import CreateRegistryDialog from "../components/createRegistryDialog";
+import RegistryType from "../components/registryType";
 
 const carouselItems = [
   {
@@ -63,9 +63,9 @@ export default function HostDashboardRegistryListsContent(props) {
 
         <Dialog open={createRegistryOpen} onOpenChange={setCreateRegistryOpen}>
           <DialogContent className="max-w-2xl">
-            <DialogHeader>
+            <VisuallyHidden>
               <DialogTitle>Create New Registry</DialogTitle>
-            </DialogHeader>
+            </VisuallyHidden>
             <CreateRegistryDialog onClose={closeCreateRegistry} />
           </DialogContent>
         </Dialog>

@@ -58,7 +58,7 @@ export const VendorOrdersProvider = ({ children }) => {
 
       if (!vendorRecord?.id) {
         setOrdersData(createInitialOrdersData());
-        setError("Vendor profile not found.");
+        setError("Complete your application.");
         return;
       }
 

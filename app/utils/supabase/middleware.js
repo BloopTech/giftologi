@@ -78,6 +78,8 @@ export async function middlewareClient(request) {
     matchesRoutePattern(url.pathname, pattern)
   );
   const isApiRoute = url.pathname.startsWith("/api/");
+  const isVendorApplicationRoute =
+    url.pathname === "/vendor" || url.pathname.startsWith("/vendor/");
 
   // Helper: create redirect with auth cookies applied (use function declaration for hoisting)
   function withCookiesRedirect(urlObj) {
@@ -206,6 +208,9 @@ export async function middlewareClient(request) {
       return supabaseResponse;
     }
     if (isApiRoute) {
+      return supabaseResponse;
+    }
+    if (isVendorApplicationRoute) {
       return supabaseResponse;
     }
     // Block auth pages for logged-in users, except allow password reset during recovery flow

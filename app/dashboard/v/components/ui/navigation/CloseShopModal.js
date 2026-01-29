@@ -197,13 +197,13 @@ export default function CloseShopModal({ vendorId, existingRequest }) {
 
             <DialogFooter className="gap-2">
               <DialogClose asChild>
-                <button className="px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
+                <button className="cursor-pointer px-4 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50">
                   Cancel
                 </button>
               </DialogClose>
               <button
                 onClick={() => setStep(STEPS.REASON)}
-                className="px-4 py-2 text-sm bg-[#D61711] text-white rounded-md hover:bg-red-700"
+                className="cursor-pointer px-4 py-2 text-sm bg-[#D61711] text-white rounded-md hover:bg-red-700"
               >
                 I Understand, Continue
               </button>

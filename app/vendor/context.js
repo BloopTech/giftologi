@@ -216,65 +216,70 @@ export const VendorApplicationProvider = ({ children }) => {
 
       setSaving(true);
       setNotice(null);
+      try {
+        if (!authUser) {
+          const accountResponse = await ensureAccount(draftData || formData);
+          if (!accountResponse?.success) {
+            const normalizedMessage = (accountResponse?.message || "").toLowerCase();
+            const canContinue =
+              accountResponse?.data?.loggedIn === false ||
+              normalizedMessage.includes("confirm");
 
-      if (!authUser) {
-        const accountResponse = await ensureAccount(draftData || formData);
-        if (!accountResponse?.success) {
-          const normalizedMessage = (accountResponse?.message || "").toLowerCase();
-          const canContinue =
-            accountResponse?.data?.loggedIn === false ||
-            normalizedMessage.includes("confirm");
+            if (canContinue) {
+              const continueMessage = normalizedMessage.includes("confirm")
+                ? "Your email isn't confirmed yet. You can keep going, but confirm your email to save or submit."
+                : "Account created. You can keep going, but confirm your email to save or submit.";
 
-          if (canContinue) {
-            const continueMessage = normalizedMessage.includes("confirm")
-              ? "Your email isn't confirmed yet. You can keep going, but confirm your email to save or submit."
-              : "Account created. You can keep going, but confirm your email to save or submit.";
+              setNotice({ type: "success", message: continueMessage });
+              return {
+                success: true,
+                message: continueMessage,
+                data: { ...accountResponse?.data, localOnly: true },
+              };
+            }
 
-            setNotice({ type: "success", message: continueMessage });
-            setSaving(false);
-            return {
-              success: true,
-              message: continueMessage,
-              data: { ...accountResponse?.data, localOnly: true },
-            };
+            return accountResponse;
           }
-
-          setSaving(false);
-          return accountResponse;
         }
-      }
 
-      const payload = {
-        draftData: sanitizeDraftData(draftData || formData),
-        currentStep: typeof nextStep === "number" ? nextStep : currentStep,
-      };
+        const payload = {
+          draftData: sanitizeDraftData(draftData || formData),
+          currentStep: typeof nextStep === "number" ? nextStep : currentStep,
+        };
 
-      const response = await saveVendorApplicationDraft(payload);
+        const response = await saveVendorApplicationDraft(payload);
 
-      if (!response?.success) {
+        if (!response?.success) {
+          setNotice({
+            type: "error",
+            message: response?.message || "Unable to save your draft.",
+          });
+          return response;
+        }
+
+        if (typeof payload.currentStep === "number") {
+          setCurrentStep(payload.currentStep);
+        }
+
+        if (response?.data?.applicationId) {
+          setApplicationId(response.data.applicationId);
+        }
+
+        setStatus("draft");
         setNotice({
-          type: "error",
-          message: response?.message || "Unable to save your draft.",
+          type: "success",
+          message: response?.message || "Draft saved.",
         });
-        setSaving(false);
         return response;
+      } catch (err) {
+        console.error("Vendor draft save error", err);
+        const message =
+          err?.message || "An unexpected response was received from the server.";
+        setNotice({ type: "error", message });
+        return { success: false, message };
+      } finally {
+        setSaving(false);
       }
-
-      if (typeof payload.currentStep === "number") {
-        setCurrentStep(payload.currentStep);
-      }
-
-      if (response?.data?.applicationId) {
-        setApplicationId(response.data.applicationId);
-      }
-
-      setStatus("draft");
-      setNotice({
-        type: "success",
-        message: response?.message || "Draft saved.",
-      });
-      setSaving(false);
-      return response;
     },
     [saving, authUser, formData, currentStep, ensureAccount],
   );
@@ -286,57 +291,63 @@ export const VendorApplicationProvider = ({ children }) => {
 
     setSubmitting(true);
     setNotice(null);
+    try {
+      if (!authUser) {
+        const accountResponse = await ensureAccount(formData);
+        if (!accountResponse?.success) {
+          const normalizedMessage = (accountResponse?.message || "").toLowerCase();
+          const canContinue =
+            accountResponse?.data?.loggedIn === false ||
+            normalizedMessage.includes("confirm");
 
-    if (!authUser) {
-      const accountResponse = await ensureAccount(formData);
-      if (!accountResponse?.success) {
-        const normalizedMessage = (accountResponse?.message || "").toLowerCase();
-        const canContinue =
-          accountResponse?.data?.loggedIn === false ||
-          normalizedMessage.includes("confirm");
+          if (canContinue) {
+            const continueMessage = normalizedMessage.includes("confirm")
+              ? "Your email isn't confirmed yet. We'll still submit your application, but confirm your email to manage it later."
+              : "Account created. We'll submit your application now, but confirm your email to manage it later.";
 
-        if (canContinue) {
-          const continueMessage = normalizedMessage.includes("confirm")
-            ? "Your email isn't confirmed yet. We'll still submit your application, but confirm your email to manage it later."
-            : "Account created. We'll submit your application now, but confirm your email to manage it later.";
-
-          setNotice({ type: "success", message: continueMessage });
-        } else {
-        setSubmitting(false);
-        return accountResponse;
+            setNotice({ type: "success", message: continueMessage });
+          } else {
+            return accountResponse;
+          }
         }
       }
-    }
 
-    const payload = {
-      draftData: sanitizeDraftData(formData),
-      currentStep,
-      documents,
-    };
+      const payload = {
+        draftData: sanitizeDraftData(formData),
+        currentStep,
+        documents,
+      };
 
-    const response = await submitVendorApplication(payload);
+      const response = await submitVendorApplication(payload);
 
-    if (!response?.success) {
+      if (!response?.success) {
+        setNotice({
+          type: "error",
+          message: response?.message || "Unable to submit your application.",
+        });
+        return response;
+      }
+
+      if (response?.data?.applicationId) {
+        setApplicationId(response.data.applicationId);
+      }
+
+      setStatus("pending");
+      setSubmittedAt(new Date().toISOString());
       setNotice({
-        type: "error",
-        message: response?.message || "Unable to submit your application.",
+        type: "success",
+        message: response?.message || "Application submitted.",
       });
-      setSubmitting(false);
       return response;
+    } catch (err) {
+      console.error("Vendor application submission error", err);
+      const message =
+        err?.message || "An unexpected response was received from the server.";
+      setNotice({ type: "error", message });
+      return { success: false, message };
+    } finally {
+      setSubmitting(false);
     }
-
-    if (response?.data?.applicationId) {
-      setApplicationId(response.data.applicationId);
-    }
-
-    setStatus("pending");
-    setSubmittedAt(new Date().toISOString());
-    setNotice({
-      type: "success",
-      message: response?.message || "Application submitted.",
-    });
-    setSubmitting(false);
-    return response;
   }, [submitting, authUser, formData, currentStep, documents, ensureAccount]);
 
   const uploadDocument = useCallback(async ({ documentType, file }) => {

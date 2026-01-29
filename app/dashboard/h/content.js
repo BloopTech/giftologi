@@ -15,9 +15,9 @@ import { Plus } from "lucide-react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
 } from "../../components/Dialog";
+import VisuallyHidden from "../../components/accessibility/VisuallyHidden";
 import CreateRegistryDialog from "./components/createRegistryDialog";
 import RegistryType from "./components/registryType";
 
@@ -62,9 +62,9 @@ export default function HostDashboardContent(props) {
 
         <Dialog open={createRegistryOpen} onOpenChange={setCreateRegistryOpen}>
           <DialogContent className="max-w-2xl">
-            <DialogHeader>
+            <VisuallyHidden>
               <DialogTitle>Create New Registry</DialogTitle>
-            </DialogHeader>
+            </VisuallyHidden>
             <CreateRegistryDialog onClose={closeCreateRegistry} />
           </DialogContent>
         </Dialog>

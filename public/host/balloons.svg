@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 180" fill="none">
+  <!-- Pink balloon -->
+  <ellipse cx="40" cy="50" rx="25" ry="32" fill="#F5A9B8"/>
+  <path d="M40 82 L40 85 L38 88 L42 88 L40 85" fill="#F5A9B8"/>
+  <path d="M40 88 Q35 120 30 160" stroke="#D4A574" stroke-width="1" fill="none"/>
+  <ellipse cx="35" cy="40" rx="5" ry="8" fill="#fff" opacity="0.3"/>
+  
+  <!-- Light pink balloon -->
+  <ellipse cx="70" cy="40" rx="22" ry="28" fill="#FFD1DC"/>
+  <path d="M70 68 L70 71 L68 74 L72 74 L70 71" fill="#FFD1DC"/>
+  <path d="M70 74 Q65 110 60 160" stroke="#D4A574" stroke-width="1" fill="none"/>
+  <ellipse cx="65" cy="32" rx="4" ry="6" fill="#fff" opacity="0.3"/>
+  
+  <!-- Coral balloon -->
+  <ellipse cx="95" cy="55" rx="20" ry="26" fill="#FFB6A3"/>
+  <path d="M95 81 L95 84 L93 87 L97 87 L95 84" fill="#FFB6A3"/>
+  <path d="M95 87 Q90 120 85 160" stroke="#D4A574" stroke-width="1" fill="none"/>
+  <ellipse cx="90" cy="47" rx="4" ry="6" fill="#fff" opacity="0.3"/>
+  
+  <!-- Small accent balloon -->
+  <ellipse cx="55" cy="70" rx="15" ry="20" fill="#F8E1E7"/>
+  <path d="M55 90 L55 92 L54 94 L56 94 L55 92" fill="#F8E1E7"/>
+  <path d="M55 94 Q52 130 50 160" stroke="#D4A574" stroke-width="1" fill="none"/>
+  
+  <!-- Ribbon bow at bottom -->
+  <path d="M45 160 Q55 155 65 160 Q75 155 85 160" stroke="#D4A574" stroke-width="2" fill="none"/>
+</svg>

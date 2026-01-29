@@ -147,7 +147,7 @@ export default function HostDashboardRegistryContent(props) {
         {profile?.role} Dashboard {profile?.firstname}
       </p> */}
       <main className="flex flex-col space-y-16 w-full">
-        <div className="w-full bg-[#E9E9ED] border border-[#D4D4D4] rounded-md py-8 h-[250px] flex items-center justify-center">
+        <div className="w-full rounded-xl overflow-hidden h-[200px] relative">
           {/* Persistent, hidden form to submit the server action with the real File */}
           <form
             id="saveCoverPhotoForm"
@@ -175,91 +175,92 @@ export default function HostDashboardRegistryContent(props) {
               onChange={handleImageChange}
             />
           </form>
-          <div className="flex items-center flex-col justify-center w-full overflow-hidden h-[250px]">
-            {cover_photoInput ? (
-              <div className="w-full h-full relative overflow-hidden">
-                <Image
-                  alt={registry?.title || "Cover photo"}
-                  src={cover_photoInput}
-                  priority
-                  className="object-cover rounded-md"
-                  fill
-                  sizes="100vw"
-                />
-                {/* Action buttons overlay */}
-                {cover_photoInput && (
-                  <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center space-x-4 rounded-md backdrop-blur-sm">
-                    <label
-                      htmlFor="cover_photo_file"
-                      className="text-white cursor-pointer text-xs/tight bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-2xl px-4 py-2 flex items-center"
-                    >
-                      Update Cover Photo
-                    </label>
-                    {!isImageSaved && selectedFile && (
-                      <button
-                        type="submit"
-                        form="saveCoverPhotoForm"
-                        disabled={isSavePending}
-                        className="text-white cursor-pointer text-xs/tight bg-green-600 border border-green-600 hover:bg-white hover:text-green-600 rounded-2xl px-4 py-2 flex items-center disabled:opacity-50"
-                      >
-                        {isSavePending ? "Saving..." : "Save Photo"}
-                      </button>
-                    )}
-                    {isImageSaved && cover_photo ? (
-                      <form action={removeFormAction}>
-                        <input
-                          type="hidden"
-                          name="registry_id"
-                          value={registry.id}
-                          readOnly
-                        />
-                        <input
-                          type="hidden"
-                          name="event_id"
-                          value={event.id}
-                          readOnly
-                        />
-                        <input
-                          type="hidden"
-                          name="photo_url"
-                          value={cover_photo}
-                          readOnly
-                        />
-                        <button
-                          type="submit"
-                          disabled={isRemovePending}
-                          className="text-white cursor-pointer text-xs/tight bg-red-600 border border-red-600 hover:bg-white hover:text-red-600 rounded-2xl px-4 py-2 flex items-center disabled:opacity-50"
-                        >
-                          {isRemovePending ? "Removing..." : "Remove Photo"}
-                        </button>
-                      </form>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleRemovePhoto}
-                        disabled={isRemovePending}
-                        className="text-white cursor-pointer text-xs/tight bg-red-600 border border-red-600 hover:bg-white hover:text-red-600 rounded-2xl px-4 py-2 flex items-center disabled:opacity-50"
-                      >
-                        {isRemovePending ? "Removing..." : "Remove Photo"}
-                      </button>
-                    )}
-                  </div>
-                )}
+
+          {cover_photoInput ? (
+            <>
+              {/* Background Image */}
+              <Image
+                alt={registry?.title || "Cover photo"}
+                src={cover_photoInput}
+                priority
+                className="object-cover"
+                fill
+                sizes="100vw"
+              />
+
+              {/* Edit Cover Button - Top Right */}
+              <div className="absolute top-4 right-4 z-10">
+                <label
+                  htmlFor="cover_photo_file"
+                  className="text-[#A5914B] cursor-pointer text-xs font-medium bg-white border border-[#A5914B] hover:bg-[#A5914B] hover:text-white rounded-full px-4 py-2 transition-colors"
+                >
+                  Edit Cover
+                </label>
               </div>
-            ) : (
-              <div className="w-full flex flex-col space-y-8 items-center justify-center">
-                <PiFileImageLight className="size-14" />
-                <div className="flex flex-col space-y-4">
-                  <label
-                    htmlFor="cover_photo_file"
-                    className="text-white cursor-pointer text-xs/tight bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-2xl px-4 py-2 flex items-center"
+
+              {/* Save/Remove buttons when unsaved changes */}
+              {!isImageSaved && selectedFile && (
+                <div className="absolute top-4 right-28 z-10 flex gap-2">
+                  <button
+                    type="submit"
+                    form="saveCoverPhotoForm"
+                    disabled={isSavePending}
+                    className="text-white cursor-pointer text-xs font-medium bg-green-600 border border-green-600 hover:bg-white hover:text-green-600 rounded-full px-4 py-2 transition-colors disabled:opacity-50"
                   >
-                    Add a Cover Photo
-                  </label>
+                    {isSavePending ? "Saving..." : "Save"}
+                  </button>
                 </div>
+              )}
+
+              {/* Remove button for saved images */}
+              {isImageSaved && cover_photo && (
+                <form action={removeFormAction} className="absolute top-4 right-28 z-10">
+                  <input type="hidden" name="registry_id" value={registry.id} readOnly />
+                  <input type="hidden" name="event_id" value={event.id} readOnly />
+                  <input type="hidden" name="photo_url" value={cover_photo} readOnly />
+                  <button
+                    type="submit"
+                    disabled={isRemovePending}
+                    className="text-white cursor-pointer text-xs font-medium bg-red-500 border border-red-500 hover:bg-white hover:text-red-500 rounded-full px-4 py-2 transition-colors disabled:opacity-50"
+                  >
+                    {isRemovePending ? "Removing..." : "Remove"}
+                  </button>
+                </form>
+              )}
+
+              {/* Content Overlay - Left Side */}
+              <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
+              <div className="absolute left-8 top-1/2 -translate-y-1/2 z-10 flex flex-col space-y-2">
+                <h1 className="text-white text-2xl font-semibold drop-shadow-lg">
+                  {registry?.title || "Registry Name"}
+                </h1>
+                <p className="text-white text-sm font-medium uppercase tracking-wide drop-shadow">
+                  {event?.type || registry?.type || "Event"}
+                </p>
+                <p className="text-white text-sm drop-shadow">
+                  {event?.date
+                    ? format(new Date(event.date), "EEEE, MMMM d, yyyy").toUpperCase()
+                    : ""}
+                </p>
+                <button
+                  type="button"
+                  className="mt-4 text-white text-sm font-medium bg-[#F26B6B] hover:bg-[#E55A5A] rounded-full px-6 py-2 w-fit transition-colors"
+                >
+                  Welcome Note
+                </button>
               </div>
-            )}
-          </div>
+            </>
+          ) : (
+            <div className="w-full h-full bg-[#E9E9ED] border border-[#D4D4D4] flex flex-col space-y-4 items-center justify-center">
+              <PiFileImageLight className="size-14 text-gray-400" />
+              <label
+                htmlFor="cover_photo_file"
+                className="text-white cursor-pointer text-xs font-medium bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-full px-4 py-2 transition-colors"
+              >
+                Add a Cover Photo
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="w-full flex flex-col space-y-4">
@@ -282,23 +283,25 @@ export default function HostDashboardRegistryContent(props) {
               </div>
             </div>
 
-            <div className="flex items-center justify-center space-x-4 rounded-md py-4 px-4 bg-white border border-[#DCDCDE]">
-              <ShoppingCart className="size-12 text-[#247ACA] font-semibold" />
-              <div className="flex flex-col space-y-1">
-                <p className="text-xs text-[#939393] ">
-                  <span className="text-2xl text-[#939393]">
-                    <span className="font-semibold text-[#247ACA]">
-                      {purchasedQty}
-                    </span>
-                    /{desiredQty || 0}{" "}
-                  </span>{" "}
-                  products purchased
-                </p>
-                <ProgressBar value={purchasedQty} max={desiredQty || 1} />
+            {itemsCount?.length ? (
+              <div className="flex items-center justify-center space-x-4 rounded-md py-4 px-4 bg-white border border-[#DCDCDE]">
+                <ShoppingCart className="size-12 text-[#247ACA] font-semibold" />
+                <div className="flex flex-col space-y-1">
+                  <p className="text-xs text-[#939393] ">
+                    <span className="text-2xl text-[#939393]">
+                      <span className="font-semibold text-[#247ACA]">
+                        {purchasedQty}
+                      </span>
+                      /{desiredQty || 0}{" "}
+                    </span>{" "}
+                    products purchased
+                  </p>
+                  <ProgressBar value={purchasedQty} max={desiredQty || 1} />
+                </div>
               </div>
-            </div>
+            ) : null}
 
-            <ShareRegistryDialog event={event} />
+            <ShareRegistryDialog event={event} registryCode={registry?.registry_code} />
 
             <div className="flex items-center flex-col justify-center space-y-2 border border-[#B1C6F2] rounded-md py-4 px-8 bg-[#D3E4F5]">
               <PiGiftFill className="size-10 text-[#247ACB] font-semibold" />

@@ -195,7 +195,7 @@ export default function VendorDashboardContent() {
           </h1>
           <p className="text-[#717182] text-sm font-poppins">
             We could not locate an approved vendor profile for your account.
-            Please contact support if this looks incorrect.
+            Please complete your application or contact support if this looks incorrect.
           </p>
         </div>
       </div>

@@ -54,7 +54,7 @@ export const VendorAnalyticsProvider = ({ children }) => {
 
       if (!vendorRecord?.id) {
         setData(createInitialState());
-        setError("Vendor profile not found.");
+        setError("Complete your application.");
         return;
       }
 
