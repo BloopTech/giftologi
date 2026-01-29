@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Link from "next/link";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../../components/Dialog";
 import { X, Check } from "lucide-react";
 
@@ -29,6 +30,12 @@ export default function PurchaseCompleteModal({
             Purchase Complete!
           </DialogTitle>
 
+          {orderId && (
+            <p className="text-xs text-gray-500 mb-4">
+              Order Code: <span className="font-medium text-gray-900">{orderId}</span>
+            </p>
+          )}
+
           {/* Buttons */}
           <div className="flex gap-3 w-full">
             <button
@@ -46,6 +53,15 @@ export default function PurchaseCompleteModal({
               Continue Shopping
             </button>
           </div>
+
+          {orderId && (
+            <Link
+              href={`/order/${orderId}`}
+              className="mt-4 text-sm font-medium text-[#A5914B] hover:text-[#8B7A3F]"
+            >
+              Open tracking link
+            </Link>
+          )}
         </div>
       </DialogContent>
     </Dialog>

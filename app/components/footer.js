@@ -47,6 +47,10 @@ const members = [
     href: "/about",
   },
   {
+    title: "Track Order",
+    href: "/order/lookup",
+  },
+  {
     title: "Wedding Guides",
     href: "/wedding-guides",
   },

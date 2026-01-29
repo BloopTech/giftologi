@@ -47,11 +47,13 @@ export async function GET(request) {
       );
     }
 
+    const orderCode = order.order_code || order.id;
+
     if (order.status === "paid") {
       const registryCode = order.registry?.registry_code;
       const baseUrl = registryCode ? `/registry/${registryCode}` : "/";
       return NextResponse.redirect(
-        new URL(`${baseUrl}?payment=success&order=${order.id}`, request.url)
+        new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)
       );
     }
 
@@ -140,15 +142,15 @@ export async function GET(request) {
 
     if (newStatus === "paid") {
       return NextResponse.redirect(
-        new URL(`${baseUrl}?payment=success&order=${order.id}`, request.url)
+        new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)
       );
     } else if (newStatus === "pending") {
       return NextResponse.redirect(
-        new URL(`${baseUrl}?payment=pending&order=${order.id}`, request.url)
+        new URL(`${baseUrl}?payment=pending&order=${orderCode}`, request.url)
       );
     } else {
       return NextResponse.redirect(
-        new URL(`${baseUrl}?payment=failed&order=${order.id}`, request.url)
+        new URL(`${baseUrl}?payment=failed&order=${orderCode}`, request.url)
       );
     }
   } catch (error) {

@@ -71,6 +71,19 @@ const initialData = [
       "Add new users, assign roles (without editing permissions).",
     accessScope: "/admin/users (restricted add/delete)",
   },
+  {
+    id: 6,
+    roleName: "Store Manager",
+    description: "Maintains the full catalog lifecycle and product readiness.",
+    accessScope: "/dashboard/admin/products",
+  },
+  {
+    id: 7,
+    roleName: "Marketing",
+    description: "Owns analytics insights and content governance workflows.",
+    accessScope:
+      "/dashboard/admin/analytics_reporting, /dashboard/admin/content_policy_pages",
+  },
 ];
 
 function SortableHeader({ column, title }) {

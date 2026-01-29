@@ -78,7 +78,7 @@ export async function POST(request) {
       );
     }
 
-    // Generate unique order ID
+    // Generate unique order code
     const orderId = generateOrderId();
 
     // Get the base URL for redirects

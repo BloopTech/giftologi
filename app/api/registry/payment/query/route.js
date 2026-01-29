@@ -16,7 +16,7 @@ export async function POST(request) {
 
     if (!orderId && !token) {
       return NextResponse.json(
-        { error: "Order ID or token is required" },
+        { error: "Order code or token is required" },
         { status: 400 }
       );
     }

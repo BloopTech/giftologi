@@ -316,7 +316,7 @@ export default function VendorOrdersContent() {
   const handleExport = () => {
     const csvContent = [
       [
-        "Order ID",
+        "Order Code",
         "Product",
         "SKU",
         "Customer",
@@ -446,7 +446,7 @@ export default function VendorOrdersContent() {
             <PiMagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#9CA3AF]" />
             <input
               type="text"
-              placeholder="Search by order ID, product, or customer..."
+              placeholder="Search by order code, product, or customer..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-10 pr-4 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
@@ -479,7 +479,7 @@ export default function VendorOrdersContent() {
             <thead className="bg-[#F9FAFB]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Order ID
+                  Order Code
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Product

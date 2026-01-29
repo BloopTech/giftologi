@@ -128,6 +128,36 @@ function RegistryContentInner() {
           onWelcomeNoteClick={() => setWelcomeNoteOpen(true)}
         />
 
+        {completedOrderId && (
+          <section className="w-full rounded-3xl border border-[#E5E7EB] bg-white p-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-[#6A7282]">
+                Order Code
+              </p>
+              <p className="text-lg font-semibold text-[#111827] mt-1">
+                {completedOrderId}
+              </p>
+              <p className="text-sm text-[#6A7282] mt-1">
+                Track delivery updates or look up another order anytime.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Link
+                href={`/order/${completedOrderId}`}
+                className="inline-flex items-center justify-center rounded-full bg-[#111827] px-4 py-2 text-sm font-medium text-white hover:bg-[#1F2937]"
+              >
+                Track order
+              </Link>
+              <Link
+                href="/order/lookup"
+                className="inline-flex items-center justify-center rounded-full border border-[#D1D5DB] px-4 py-2 text-sm font-medium text-[#374151] hover:bg-[#F9FAFB]"
+              >
+                Look up order
+              </Link>
+            </div>
+          </section>
+        )}
+
         {/* Products Section */}
         <div className="w-full rounded-3xl border border-[#DCDCDE] p-6 bg-white flex flex-col space-y-6">
           {/* Header with filters */}

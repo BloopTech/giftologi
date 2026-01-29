@@ -155,7 +155,7 @@ export default function ViewTransactionsContent() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={
-                "Search by Order ID, guest name, registry, or vendor"
+                "Search by Order Code, guest name, registry, or vendor"
               }
               className="w-full bg-transparent outline-none text-xs text-[#0A0A0A] placeholder:text-[#B0B7C3]"
             />
@@ -174,7 +174,7 @@ export default function ViewTransactionsContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="order_id">Order ID</SelectItem>
+              <SelectItem value="order_id">Order Code</SelectItem>
               <SelectItem value="guest_name">Guest Name</SelectItem>
               <SelectItem value="registry">Registry</SelectItem>
               <SelectItem value="vendor">Vendor</SelectItem>

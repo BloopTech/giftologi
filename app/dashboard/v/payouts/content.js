@@ -473,7 +473,7 @@ export default function VendorPayoutsContent() {
                   Transaction ID
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Order ID
+                  Order Code
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Product

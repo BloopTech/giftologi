@@ -92,7 +92,7 @@ export default function InitiateRefundDialog({ open, onOpenChange, transaction }
 
           <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 space-y-1 text-[11px] text-[#374151]">
             <p>
-              Order ID:
+              Order Code:
               <span className="ml-1 font-medium text-[#0A0A0A]">
                 {orderCodeLabel}
               </span>

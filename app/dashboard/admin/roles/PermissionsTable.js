@@ -37,6 +37,8 @@ const initialData = [
     operations: true,
     finance: true,
     support: true,
+    storeManager: false,
+    marketing: false,
   },
   {
     id: 2,
@@ -45,6 +47,8 @@ const initialData = [
     operations: true,
     finance: false,
     support: false,
+    storeManager: false,
+    marketing: false,
   },
   {
     id: 3,
@@ -53,6 +57,8 @@ const initialData = [
     operations: true,
     finance: false,
     support: false,
+    storeManager: true,
+    marketing: false,
   },
   {
     id: 4,
@@ -61,6 +67,8 @@ const initialData = [
     operations: true,
     finance: true,
     support: false,
+    storeManager: false,
+    marketing: false,
   },
   {
     id: 5,
@@ -69,6 +77,8 @@ const initialData = [
     operations: false,
     finance: true,
     support: false,
+    storeManager: false,
+    marketing: false,
   },
   {
     id: 6,
@@ -77,6 +87,8 @@ const initialData = [
     operations: false,
     finance: false,
     support: true,
+    storeManager: false,
+    marketing: false,
   },
   {
     id: 7,
@@ -85,6 +97,8 @@ const initialData = [
     operations: false,
     finance: true,
     support: false,
+    storeManager: false,
+    marketing: true,
   },
   {
     id: 8,
@@ -93,6 +107,8 @@ const initialData = [
     operations: true,
     finance: false,
     support: false,
+    storeManager: false,
+    marketing: false,
   },
 ];
 
@@ -175,6 +191,14 @@ export default function PermissionsTable({ searchQuery }) {
       }),
       columnHelper.accessor("support", {
         header: "Support",
+        cell: (info) => <PermissionDot allowed={info.getValue()} />,
+      }),
+      columnHelper.accessor("storeManager", {
+        header: "Store Manager",
+        cell: (info) => <PermissionDot allowed={info.getValue()} />,
+      }),
+      columnHelper.accessor("marketing", {
+        header: "Marketing",
         cell: (info) => <PermissionDot allowed={info.getValue()} />,
       }),
     ],

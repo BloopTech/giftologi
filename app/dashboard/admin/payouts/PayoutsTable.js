@@ -659,7 +659,7 @@ export default function PayoutsTable() {
                   </p>
                 </div>
                 <div>
-                  <p className="font-medium">Order IDs</p>
+                  <p className="font-medium">Order Codes</p>
                   <p className="text-[#6A7282] break-all">
                     {Array.isArray(selectedRow.orderIds) &&
                     selectedRow.orderIds.length

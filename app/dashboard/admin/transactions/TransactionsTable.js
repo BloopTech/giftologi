@@ -192,7 +192,7 @@ export default function TransactionsTable() {
     () => [
       columnHelper.accessor("orderCode", {
         header: ({ column }) => (
-          <SortableHeader column={column} title="Order ID" />
+          <SortableHeader column={column} title="Order Code" />
         ),
         cell: (info) => (
           <span className="text-xs text-[#6A7282]">{info.getValue()}</span>
