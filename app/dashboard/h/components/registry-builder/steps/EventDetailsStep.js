@@ -58,7 +58,7 @@ export default function EventDetailsStep({
       <FormInput
         label="Location"
         name="location"
-        placeholder="DD/MM/YYYY"
+        placeholder="Accra"
         value={formData.location || ""}
         onChange={(e) => updateFormData("location", e.target.value)}
         error={errors.location}

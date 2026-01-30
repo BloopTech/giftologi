@@ -221,7 +221,7 @@ export default function RegistryBuilderDialog({ onClose }) {
             <button
               type="submit"
               disabled={isPending || !canContinue()}
-              className="px-8 py-2.5 text-sm font-medium text-white bg-[#1E88E5] rounded-full hover:bg-[#1976D2] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] flex items-center justify-center"
+              className="px-8 py-2.5 text-sm font-medium text-white bg-primary rounded-full hover:bg-white hover:text-primary border border-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] flex items-center justify-center"
             >
               {isPending ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -234,7 +234,7 @@ export default function RegistryBuilderDialog({ onClose }) {
               type="button"
               onClick={handleContinue}
               disabled={isPending || !canContinue()}
-              className="px-8 py-2.5 text-sm font-medium text-white bg-[#1E88E5] rounded-full hover:bg-[#1976D2] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
+              className="px-8 py-2.5 text-sm font-medium text-white bg-primary rounded-full hover:bg-white hover:text-primary border border-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px]"
             >
               Continue
             </button>

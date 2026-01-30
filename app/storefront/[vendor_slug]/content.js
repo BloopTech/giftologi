@@ -4,8 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import Footer from "../../components/footer";
 import { Store, MapPin, BadgeCheck, AlertTriangle } from "lucide-react";
+import { useStorefrontProducts } from "./context";
 
-export default function StorefrontContent({ vendor, products }) {
+export default function StorefrontContent({ vendor }) {
+  const { products, hasMore, loading, loadMore } = useStorefrontProducts();
   const isClosed = (vendor?.shop_status || "").toLowerCase() === "closed";
   const hasProducts = Array.isArray(products) && products.length > 0;
   const logoSrc = vendor?.logo_url || vendor?.logo || "/host/toaster.png";
@@ -107,48 +109,63 @@ export default function StorefrontContent({ vendor, products }) {
           </div>
 
           {hasProducts ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {products.map((p) => (
-                <div
-                  key={p.id}
-                  className={`flex bg-white rounded-lg flex-col space-y-3 p-4 w-full border ${
-                    isClosed ? "border-gray-200 opacity-75" : "border-[#E5E7EB]"
-                  } hover:shadow-sm transition-shadow`}
-                >
-                  <div className="flex items-center justify-center aspect-square rounded-lg overflow-hidden bg-gray-50">
-                    <Image
-                      src={p.image}
-                      alt={p.name}
-                      width={150}
-                      height={150}
-                      className="object-contain w-full h-full"
-                    />
-                  </div>
-                  <div className="flex flex-col space-y-1.5">
-                    <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                      {p.name}
-                    </p>
-                    <p className="text-sm font-semibold text-[#A5914B]">
-                      {p.price}
-                    </p>
-                    {p.stock <= 0 && (
-                      <span className="text-xs text-red-600">Out of stock</span>
+            <div className="flex flex-col gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                {products.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`flex bg-white rounded-lg flex-col space-y-3 p-4 w-full border ${
+                      isClosed ? "border-gray-200 opacity-75" : "border-[#E5E7EB]"
+                    } hover:shadow-sm transition-shadow`}
+                  >
+                    <div className="flex items-center justify-center aspect-square rounded-lg overflow-hidden bg-gray-50">
+                      <Image
+                        src={p.image}
+                        alt={p.name}
+                        width={150}
+                        height={150}
+                        className="object-contain w-full h-full"
+                      />
+                    </div>
+                    <div className="flex flex-col space-y-1.5">
+                      <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                        {p.name}
+                      </p>
+                      <p className="text-sm font-semibold text-[#A5914B]">
+                        {p.price}
+                      </p>
+                      {p.stock <= 0 && (
+                        <span className="text-xs text-red-600">Out of stock</span>
+                      )}
+                    </div>
+                    {!isClosed && p.stock > 0 && (
+                      <button
+                        className="mt-auto text-xs text-white cursor-pointer bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-lg px-3 py-2 flex items-center justify-center transition-colors"
+                      >
+                        View Product
+                      </button>
+                    )}
+                    {isClosed && (
+                      <div className="mt-auto text-xs text-center text-gray-400 py-2">
+                        Shop closed
+                      </div>
                     )}
                   </div>
-                  {!isClosed && p.stock > 0 && (
-                    <button
-                      className="mt-auto text-xs text-white cursor-pointer bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-lg px-3 py-2 flex items-center justify-center transition-colors"
-                    >
-                      View Product
-                    </button>
-                  )}
-                  {isClosed && (
-                    <div className="mt-auto text-xs text-center text-gray-400 py-2">
-                      Shop closed
-                    </div>
-                  )}
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={loadMore}
+                    disabled={loading}
+                    className="cursor-pointer text-sm text-white bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-lg px-4 py-2 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {loading ? "Loading..." : "Load more"}
+                  </button>
                 </div>
-              ))}
+              )}
             </div>
           ) : (
             <div className="py-12 text-center text-sm text-[#6A7282]">

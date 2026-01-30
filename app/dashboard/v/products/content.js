@@ -37,47 +37,36 @@ import {
   StatCard,
 } from "./utils";
 import { AddProductDialog } from "../components/addProductDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../components/Dropdown";
 
 function ProductActionsMenu({ product, onEdit, onDelete }) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen(!open)}
-        className="cursor-pointer p-1.5 rounded-lg hover:bg-[#F3F4F6] transition-colors"
-      >
-        <PiDotsThreeVertical className="w-5 h-5 text-[#6B7280]" />
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-[#E5E7EB] rounded-lg shadow-lg py-1 min-w-[120px]">
-            <button
-              onClick={() => {
-                onEdit?.(product);
-                setOpen(false);
-              }}
-              className="cursor-pointer w-full px-3 py-2 text-left text-sm text-[#374151] hover:bg-[#F3F4F6] flex items-center gap-2"
-            >
-              <PiPencilSimple className="w-4 h-4" />
-              Edit
-            </button>
-            <button
-              onClick={() => {
-                onDelete?.(product);
-                setOpen(false);
-              }}
-              className="cursor-pointer w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-            >
-              <PiTrash className="w-4 h-4" />
-              Delete
-            </button>
-          </div>
-        </>
-      )}
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button className="cursor-pointer p-1.5 rounded-lg hover:bg-[#F3F4F6] transition-colors">
+          <PiDotsThreeVertical className="w-5 h-5 text-[#6B7280]" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" sideOffset={6} collisionPadding={12}>
+        <DropdownMenuItem onSelect={() => onEdit?.(product)}>
+          <span className="flex items-center gap-2">
+            <PiPencilSimple className="w-4 h-4" />
+            Edit
+          </span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => onDelete?.(product)}>
+          <span className="flex items-center gap-2 text-red-600">
+            <PiTrash className="w-4 h-4" />
+            Delete
+          </span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -99,6 +88,120 @@ export default function VendorProductsContent() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+
+  const [editState, editAction, editPending] = useActionState(manageProducts, {
+    success: false,
+    message: "",
+    errors: {},
+    values: {},
+  });
+
+  const [editExistingImages, setEditExistingImages] = useState([]);
+  const [editImagePreviews, setEditImagePreviews] = useState([]);
+  const [editFeaturedIndex, setEditFeaturedIndex] = useState("");
+  const editFileInputRef = useRef(null);
+  const editFormRef = useRef(null);
+
+  useEffect(() => {
+    if (!editDialogOpen) return;
+    const existing = Array.isArray(selectedProduct?.images)
+      ? selectedProduct.images.filter(Boolean)
+      : [];
+    setEditExistingImages(existing.slice(0, 3));
+    setEditImagePreviews([]);
+    setEditFeaturedIndex("");
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = "";
+    }
+  }, [editDialogOpen, selectedProduct?.id]);
+
+  useEffect(() => {
+    if (!editState?.success) return;
+    setEditDialogOpen(false);
+    setSelectedProduct(null);
+    setEditImagePreviews([]);
+    setEditFeaturedIndex("");
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = "";
+    }
+    editFormRef.current?.reset();
+    refreshData?.();
+  }, [editState?.success, refreshData]);
+
+  const buildEditPreviews = (files) => {
+    const list = Array.from(files || []).filter((file) =>
+      Boolean(file && file.type && file.type.startsWith("image/"))
+    );
+    const limited = list.slice(0, 3);
+
+    if (list.length !== limited.length && editFileInputRef.current) {
+      const dt = new DataTransfer();
+      limited.forEach((f) => dt.items.add(f));
+      editFileInputRef.current.files = dt.files;
+    }
+
+    Promise.all(
+      limited.map(
+        (file) =>
+          new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve({ file, preview: reader.result });
+            reader.readAsDataURL(file);
+          })
+      )
+    ).then((items) => {
+      setEditImagePreviews(items);
+      setEditFeaturedIndex("");
+    });
+  };
+
+  const handleEditImagesChange = (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) {
+      setEditImagePreviews([]);
+      setEditFeaturedIndex("");
+      return;
+    }
+    buildEditPreviews(files);
+  };
+
+  const syncEditInputFiles = (nextPreviews) => {
+    if (!editFileInputRef.current) return;
+    const dt = new DataTransfer();
+    nextPreviews.forEach((item) => {
+      if (item?.file) dt.items.add(item.file);
+    });
+    editFileInputRef.current.files = dt.files;
+  };
+
+  const removeEditImageAt = (index) => {
+    setEditImagePreviews((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      syncEditInputFiles(next);
+      setEditFeaturedIndex("");
+      return next;
+    });
+  };
+
+  const removeAllEditImages = () => {
+    setEditImagePreviews([]);
+    setEditExistingImages([]);
+    setEditFeaturedIndex("");
+    if (editFileInputRef.current) {
+      editFileInputRef.current.value = "";
+    }
+  };
+
+  const removeExistingImageAt = (index) => {
+    setEditExistingImages((prev) => prev.filter((_, i) => i !== index));
+    setEditFeaturedIndex("");
+  };
+
+  const editFeaturedCount = editImagePreviews.length
+    ? editImagePreviews.length
+    : editExistingImages.length;
 
   const filteredProducts = productsWithSales.filter((product) => {
     const matchesSearch =
@@ -186,7 +289,7 @@ export default function VendorProductsContent() {
       </div>
 
       {/* Product Catalog Section */}
-      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-visible">
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
@@ -254,7 +357,7 @@ export default function VendorProductsContent() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto overflow-y-visible">
           <table className="w-full">
             <thead className="bg-[#F9FAFB]">
               <tr>
@@ -374,7 +477,10 @@ export default function VendorProductsContent() {
                       <td className="px-4 py-3 text-center">
                         <ProductActionsMenu
                           product={product}
-                          onEdit={(p) => console.log("Edit", p)}
+                          onEdit={(p) => {
+                            setSelectedProduct(p);
+                            setEditDialogOpen(true);
+                          }}
                           onDelete={(p) => console.log("Delete", p)}
                         />
                       </td>
@@ -395,6 +501,297 @@ export default function VendorProductsContent() {
         onSuccess={refreshData}
         variant="vendor_products"
       />
+
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-[#111827] text-lg font-semibold">
+              Edit Product
+            </DialogTitle>
+            <DialogDescription className="text-[#6B7280] text-sm">
+              Update your product details
+            </DialogDescription>
+          </DialogHeader>
+
+          <form ref={editFormRef} action={editAction} className="mt-4 space-y-4">
+            <input type="hidden" name="action" value="update" />
+            <input type="hidden" name="product_id" value={selectedProduct?.id || ""} />
+            <input
+              type="hidden"
+              name="featuredImageIndex"
+              value={editFeaturedIndex || ""}
+            />
+            <input
+              type="hidden"
+              name="existing_images"
+              value={editImagePreviews.length ? "" : JSON.stringify(editExistingImages)}
+            />
+
+            {editState?.message && !editState?.success && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+                {editState.message}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  defaultValue={selectedProduct?.name || ""}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="status"
+                  defaultValue={selectedProduct?.status || "pending"}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Category <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="category_id"
+                  defaultValue={selectedProduct?.category_id || ""}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                >
+                  <option value="">Select category</option>
+                  {(categories || []).map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Selling Price(GHS) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="price"
+                  step="0.01"
+                  min="0"
+                  defaultValue={selectedProduct?.price ?? ""}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Initial Stock <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="stock_qty"
+                  min="0"
+                  defaultValue={selectedProduct?.stock_qty ?? "0"}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#374151] text-sm font-medium">Description</label>
+              <textarea
+                name="description"
+                rows={3}
+                defaultValue={selectedProduct?.description || ""}
+                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+              />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#374151] text-sm font-medium">
+                Product Images
+              </label>
+
+              <input
+                ref={editFileInputRef}
+                type="file"
+                name="product_images"
+                accept="image/*"
+                multiple
+                onChange={handleEditImagesChange}
+                className="hidden"
+                disabled={editPending}
+              />
+
+              <div className="relative border-2 border-dashed border-[#D1D5DB] rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                {editImagePreviews.length ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      {editImagePreviews.map((item, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={item.preview}
+                            alt={`Preview ${idx + 1}`}
+                            className="h-20 w-full rounded-lg object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeEditImageAt(idx)}
+                            className="cursor-pointer absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                          >
+                            <PiX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        type="button"
+                        onClick={removeAllEditImages}
+                        className="cursor-pointer text-xs text-red-600 hover:underline"
+                      >
+                        Remove all images
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => editFileInputRef.current?.click()}
+                        className="cursor-pointer text-xs text-primary hover:underline"
+                        disabled={editPending}
+                      >
+                        Replace images
+                      </button>
+                    </div>
+                  </div>
+                ) : editExistingImages.length ? (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-3 gap-3">
+                      {editExistingImages.map((url, idx) => (
+                        <div key={idx} className="relative">
+                          <img
+                            src={url}
+                            alt={`Image ${idx + 1}`}
+                            className="h-20 w-full rounded-lg object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeExistingImageAt(idx)}
+                            className="cursor-pointer absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                          >
+                            <PiX className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        type="button"
+                        onClick={removeAllEditImages}
+                        className="cursor-pointer text-xs text-red-600 hover:underline"
+                      >
+                        Remove all images
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => editFileInputRef.current?.click()}
+                        className="cursor-pointer text-xs text-primary hover:underline"
+                        disabled={editPending}
+                      >
+                        Replace images
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <PiUploadSimple className="w-8 h-8 mx-auto text-[#9CA3AF] mb-2" />
+                    <p className="text-[#6B7280] text-sm">
+                      Drag & drop an image here, or{" "}
+                      <button
+                        type="button"
+                        onClick={() => editFileInputRef.current?.click()}
+                        className="text-primary cursor-pointer hover:underline"
+                        disabled={editPending}
+                      >
+                        Browse
+                      </button>
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {(editState?.errors?.images || []).length ? (
+                <ul className="mt-1 list-disc pl-5 text-xs text-red-600">
+                  {Array.isArray(editState.errors.images)
+                    ? editState.errors.images.map((err, idx) => <li key={idx}>{err}</li>)
+                    : null}
+                </ul>
+              ) : (
+                <p className="text-xs text-[#6B7280]">
+                  Upload up to 3 images per product. Each image must be 1MB or smaller.
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#374151] text-sm font-medium">
+                Featured Image
+              </label>
+              {editFeaturedCount <= 0 ? (
+                <p className="text-xs text-[#6B7280]">
+                  Select images above first. If you do not choose a featured image, the
+                  first uploaded image will be used.
+                </p>
+              ) : (
+                <select
+                  value={editFeaturedIndex}
+                  onChange={(e) => setEditFeaturedIndex(e.target.value)}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                  disabled={editPending}
+                >
+                  <option value="">Use first image as featured</option>
+                  {Array.from({ length: Math.min(editFeaturedCount, 3) }).map(
+                    (_, idx) => (
+                      <option key={idx} value={String(idx)}>
+                        {`Image ${idx + 1}`}
+                      </option>
+                    )
+                  )}
+                </select>
+              )}
+            </div>
+
+            <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB]">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="cursor-pointer px-4 py-2 text-sm font-medium text-[#374151] bg-white border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB]"
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={editPending}
+                className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {editPending ? "Saving..." : "Save Changes"}
+              </button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

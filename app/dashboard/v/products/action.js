@@ -169,7 +169,7 @@ export async function manageProducts(prevState, formData) {
         images: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        active: true,
+        active: validation.data.status === "approved",
       })
       .select("id")
       .single();
@@ -204,6 +204,44 @@ export async function manageProducts(prevState, formData) {
       const legacyImage = formData.get("image");
       if (isValidSelectedFile(legacyImage)) {
         validImageFiles.push(legacyImage);
+      }
+    }
+
+    if (!validImageFiles.length) {
+      const rawExistingImages = formData.get("existing_images");
+      if (typeof rawExistingImages === "string" && rawExistingImages.trim()) {
+        try {
+          const parsed = JSON.parse(rawExistingImages);
+          const existing = Array.isArray(parsed)
+            ? parsed
+                .filter((url) => typeof url === "string" && url.trim())
+                .slice(0, 3)
+            : [];
+
+          const featuredRaw = formData.get("featuredImageIndex");
+          const featuredParsed = Number.parseInt(String(featuredRaw ?? ""), 10);
+          const featuredIndex = Number.isFinite(featuredParsed) ? featuredParsed : -1;
+
+          let ordered = existing;
+          if (
+            ordered.length &&
+            Number.isInteger(featuredIndex) &&
+            featuredIndex >= 0 &&
+            featuredIndex < ordered.length
+          ) {
+            const clone = [...ordered];
+            const [picked] = clone.splice(featuredIndex, 1);
+            if (picked) ordered = [picked, ...clone];
+          }
+
+          await supabase
+            .from("products")
+            .update({ images: ordered.length ? ordered : [] })
+            .eq("id", productId)
+            .eq("vendor_id", vendor.id);
+        } catch (err) {
+          console.error("Existing images parse error:", err);
+        }
       }
     }
 
@@ -356,7 +394,7 @@ export async function manageProducts(prevState, formData) {
 
         const uploadedUrls = [];
         for (const file of validImageFiles) {
-          const imageUrl = await uploadProductImage(file, vendor.id, productId);
+          const imageUrl = await uploadProductImage(file, vendor.id, newProduct.id);
           if (imageUrl) uploadedUrls.push(imageUrl);
         }
 

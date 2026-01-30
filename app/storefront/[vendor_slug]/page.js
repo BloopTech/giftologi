@@ -3,6 +3,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "../../utils/supabase/server";
 import StorefrontContent from "./content";
+import { StorefrontProductsProvider } from "./context";
 
 const formatPrice = (value) => {
   if (value === null || value === undefined) return "";
@@ -13,6 +14,8 @@ const formatPrice = (value) => {
 
 export default async function VendorStorefront({ params }) {
   const { vendor_slug } = await params;
+
+  const PAGE_SIZE = 12;
 
   if (!vendor_slug) {
     return notFound();
@@ -55,13 +58,15 @@ export default async function VendorStorefront({ params }) {
       price,
       images,
       description,
-      stock,
+      stock_qty,
       status
     `
     )
     .eq("vendor_id", vendor.id)
-    .eq("status", "active")
-    .order("created_at", { ascending: false });
+    .eq("status", "approved")
+    .eq("active", true)
+    .order("created_at", { ascending: false })
+    .range(0, PAGE_SIZE - 1);
 
   const products = Array.isArray(vendorProducts)
     ? vendorProducts.map((product) => {
@@ -73,15 +78,19 @@ export default async function VendorStorefront({ params }) {
           price: formatPrice(product.price),
           rawPrice: product.price,
           description: product.description || "",
-          stock: product.stock ?? 0,
+          stock: product.stock_qty ?? 0,
         };
       })
     : [];
 
   return (
-    <StorefrontContent
-      vendor={vendor}
-      products={products}
-    />
+    <StorefrontProductsProvider
+      vendorSlug={vendor_slug}
+      initialProducts={products}
+      initialPage={1}
+      pageSize={PAGE_SIZE}
+    >
+      <StorefrontContent vendor={vendor} />
+    </StorefrontProductsProvider>
   );
 }
