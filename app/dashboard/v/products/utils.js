@@ -58,7 +58,7 @@ export const calculateMargin = (price, costPrice) => {
   return margin.toFixed(0);
 };
 
-export function StatCard({ icon: Icon, iconColor, title, value }) {
+export function StatCard({ icon: Icon, iconColor, title, value, description }) {
   return (
     <div className="flex flex-col space-y-2 p-4 bg-white rounded-xl border border-[#E5E7EB]">
       <div className="flex items-center justify-between">
@@ -71,6 +71,9 @@ export function StatCard({ icon: Icon, iconColor, title, value }) {
           {value}
         </span>
       </div>
+      {description ? (
+        <p className="text-[#6B7280] text-xs font-poppins">{description}</p>
+      ) : null}
     </div>
   );
 }

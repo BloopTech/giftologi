@@ -5,6 +5,31 @@ import { createClient } from "../../../utils/supabase/server";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 
+const isFileLike = (value) => {
+  if (!value) return false;
+  const tag = Object.prototype.toString.call(value);
+  if (tag === "[object File]" || tag === "[object Blob]") return true;
+  return (
+    typeof value === "object" &&
+    typeof value.name === "string" &&
+    typeof value.size === "number" &&
+    typeof value.type === "string" &&
+    (typeof value.arrayBuffer === "function" || typeof value.stream === "function")
+  );
+};
+
+const isValidSelectedFile = (file) => {
+  if (!isFileLike(file)) return false;
+  const name = typeof file.name === "string" ? file.name.trim() : "";
+  if (!name || name.toLowerCase() === "undefined" || name.toLowerCase() === "null") {
+    return false;
+  }
+  if (typeof file.size !== "number" || file.size <= 0) return false;
+  return true;
+};
+
+const MAX_PRODUCT_IMAGE_FILE_SIZE_BYTES = 1 * 1024 * 1024;
+
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200),
   category_id: z.string().uuid("Please select a category"),
@@ -28,10 +53,19 @@ const s3Client = new S3Client({
 });
 
 async function uploadProductImage(file, vendorId, productId) {
-  if (!file || file.size === 0) return null;
+  if (!isValidSelectedFile(file)) return null;
+
+  if (
+    typeof file.size === "number" &&
+    file.size > MAX_PRODUCT_IMAGE_FILE_SIZE_BYTES
+  ) {
+    throw new Error("Each product image must be 1MB or smaller.");
+  }
 
   const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = file.name.split(".").pop() || "jpg";
+  const originalName = typeof file.name === "string" ? file.name : "image";
+  const parts = originalName.split(".");
+  const ext = parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "bin";
   const key = `vendors/${vendorId}/products/${productId}/${Date.now()}.${ext}`;
 
   await s3Client.send(
@@ -134,6 +168,8 @@ export async function manageProducts(prevState, formData) {
         description: validation.data.description || null,
         images: [],
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        active: true,
       })
       .select("id")
       .single();
@@ -148,14 +184,55 @@ export async function manageProducts(prevState, formData) {
       };
     }
 
-    const imageFile = formData.get("image");
-    if (imageFile && imageFile.size > 0) {
+    const rawImages = formData.getAll("product_images");
+    const validImageFiles = Array.isArray(rawImages)
+      ? rawImages.filter((file) => isValidSelectedFile(file))
+      : [];
+
+    if (validImageFiles.length > 3) {
+      return {
+        success: false,
+        message: "Please fix the errors below.",
+        errors: {
+          images: "Upload up to 3 images per product.",
+        },
+        values: rawData,
+      };
+    }
+
+    if (!validImageFiles.length) {
+      const legacyImage = formData.get("image");
+      if (isValidSelectedFile(legacyImage)) {
+        validImageFiles.push(legacyImage);
+      }
+    }
+
+    if (validImageFiles.length) {
       try {
-        const imageUrl = await uploadProductImage(imageFile, vendor.id, newProduct.id);
-        if (imageUrl) {
+        const featuredRaw = formData.get("featuredImageIndex");
+        const featuredParsed = Number.parseInt(String(featuredRaw ?? ""), 10);
+        const featuredIndex = Number.isFinite(featuredParsed) ? featuredParsed : -1;
+
+        const uploadedUrls = [];
+        for (const file of validImageFiles) {
+          const imageUrl = await uploadProductImage(file, vendor.id, newProduct.id);
+          if (imageUrl) uploadedUrls.push(imageUrl);
+        }
+
+        if (
+          uploadedUrls.length &&
+          Number.isInteger(featuredIndex) &&
+          featuredIndex >= 0 &&
+          featuredIndex < uploadedUrls.length
+        ) {
+          const [picked] = uploadedUrls.splice(featuredIndex, 1);
+          if (picked) uploadedUrls.unshift(picked);
+        }
+
+        if (uploadedUrls.length) {
           await supabase
             .from("products")
-            .update({ images: [imageUrl] })
+            .update({ images: uploadedUrls })
             .eq("id", newProduct.id);
         }
       } catch (imgErr) {
@@ -233,6 +310,7 @@ export async function manageProducts(prevState, formData) {
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
         updated_at: new Date().toISOString(),
+        active: true,
       })
       .eq("id", productId)
       .eq("vendor_id", vendor.id);
@@ -247,22 +325,57 @@ export async function manageProducts(prevState, formData) {
       };
     }
 
-    const imageFile = formData.get("image");
-    if (imageFile && imageFile.size > 0) {
-      try {
-        const imageUrl = await uploadProductImage(imageFile, vendor.id, productId);
-        if (imageUrl) {
-          const { data: existingProduct } = await supabase
-            .from("products")
-            .select("images")
-            .eq("id", productId)
-            .single();
+    const rawImages = formData.getAll("product_images");
+    const validImageFiles = Array.isArray(rawImages)
+      ? rawImages.filter((file) => isValidSelectedFile(file))
+      : [];
 
-          const existingImages = existingProduct?.images || [];
+    if (validImageFiles.length > 3) {
+      return {
+        success: false,
+        message: "Please fix the errors below.",
+        errors: {
+          images: "Upload up to 3 images per product.",
+        },
+        values: rawData,
+      };
+    }
+
+    if (!validImageFiles.length) {
+      const legacyImage = formData.get("image");
+      if (isValidSelectedFile(legacyImage)) {
+        validImageFiles.push(legacyImage);
+      }
+    }
+
+    if (validImageFiles.length) {
+      try {
+        const featuredRaw = formData.get("featuredImageIndex");
+        const featuredParsed = Number.parseInt(String(featuredRaw ?? ""), 10);
+        const featuredIndex = Number.isFinite(featuredParsed) ? featuredParsed : -1;
+
+        const uploadedUrls = [];
+        for (const file of validImageFiles) {
+          const imageUrl = await uploadProductImage(file, vendor.id, productId);
+          if (imageUrl) uploadedUrls.push(imageUrl);
+        }
+
+        if (
+          uploadedUrls.length &&
+          Number.isInteger(featuredIndex) &&
+          featuredIndex >= 0 &&
+          featuredIndex < uploadedUrls.length
+        ) {
+          const [picked] = uploadedUrls.splice(featuredIndex, 1);
+          if (picked) uploadedUrls.unshift(picked);
+        }
+
+        if (uploadedUrls.length) {
           await supabase
             .from("products")
-            .update({ images: [...existingImages, imageUrl] })
-            .eq("id", productId);
+            .update({ images: uploadedUrls })
+            .eq("id", productId)
+            .eq("vendor_id", vendor.id);
         }
       } catch (imgErr) {
         console.error("Image upload error:", imgErr);

@@ -41,7 +41,8 @@ export function AddProductDialog({
     values: {},
   });
 
-  const [imagePreview, setImagePreview] = useState(null);
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [featuredIndex, setFeaturedIndex] = useState("");
   const fileInputRef = useRef(null);
   const formRef = useRef(null);
 
@@ -124,38 +125,65 @@ export function AddProductDialog({
     if (state.success) {
       onSuccess?.();
       onOpenChange(false);
-      setImagePreview(null);
+      setImagePreviews([]);
+      setFeaturedIndex("");
       setSelectedParentCategoryId("");
       setSelectedSubcategoryId("");
       formRef.current?.reset();
     }
   }, [state.success, onSuccess, onOpenChange]);
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+  const buildPreviews = (files) => {
+    const list = Array.from(files || []).filter((file) =>
+      Boolean(file && file.type && file.type.startsWith("image/"))
+    );
+
+    const limited = list.slice(0, 3);
+
+    if (list.length !== limited.length && fileInputRef.current) {
+      const dt = new DataTransfer();
+      limited.forEach((f) => dt.items.add(f));
+      fileInputRef.current.files = dt.files;
     }
+
+    Promise.all(
+      limited.map(
+        (file) =>
+          new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve({ file, preview: reader.result });
+            reader.readAsDataURL(file);
+          })
+      )
+    ).then((items) => {
+      setImagePreviews(items);
+      setFeaturedIndex("");
+    });
+  };
+
+  const handleImagesChange = (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) {
+      setImagePreviews([]);
+      return;
+    }
+    buildPreviews(files);
   };
 
   const handleDrop = (e) => {
     e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && file.type.startsWith("image/")) {
+    const files = e.dataTransfer.files;
+    if (files && files.length && Array.from(files).some((f) => f?.type?.startsWith("image/"))) {
       if (fileInputRef.current) {
         const dt = new DataTransfer();
-        dt.items.add(file);
+        Array.from(files).forEach((f) => {
+          if (f && f.type && f.type.startsWith("image/")) {
+            dt.items.add(f);
+          }
+        });
         fileInputRef.current.files = dt.files;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      buildPreviews(files);
     }
   };
 
@@ -163,12 +191,32 @@ export function AddProductDialog({
     e.preventDefault();
   };
 
-  const removeImage = () => {
-    setImagePreview(null);
+  const syncInputFiles = (nextPreviews) => {
+    if (!fileInputRef.current) return;
+    const dt = new DataTransfer();
+    nextPreviews.forEach((item) => {
+      if (item?.file) dt.items.add(item.file);
+    });
+    fileInputRef.current.files = dt.files;
+  };
+
+  const removeImageAt = (index) => {
+    setImagePreviews((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      syncInputFiles(next);
+      return next;
+    });
+  };
+
+  const removeAllImages = () => {
+    setImagePreviews([]);
+    setFeaturedIndex("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   };
+
+  const imageCount = imagePreviews.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -184,6 +232,11 @@ export function AddProductDialog({
 
         <form ref={formRef} action={formAction} className="mt-4 space-y-4">
           <input type="hidden" name="action" value={actionValue} />
+          <input
+            type="hidden"
+            name="featuredImageIndex"
+            value={featuredIndex || ""}
+          />
 
           {state.message && !state.success && (
             <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -272,7 +325,7 @@ export function AddProductDialog({
 
             <div className="flex flex-col gap-1.5">
               <label className="text-[#374151] text-sm font-medium">
-                Selling Price <span className="text-red-500">*</span>
+                Selling Price(GHS) <span className="text-red-500">*</span>
               </label>
               <input
                 type="number"
@@ -291,10 +344,10 @@ export function AddProductDialog({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <label className="text-[#374151] text-sm font-medium">
-                Cost Price
+                Cost Price(GHS)
               </label>
               <input
                 type="number"
@@ -306,7 +359,7 @@ export function AddProductDialog({
                 className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>
-          </div>
+          </div> */}
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
@@ -344,26 +397,61 @@ export function AddProductDialog({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[#374151] text-sm font-medium">
-              Product Image
+              Product Images
             </label>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              name="product_images"
+              accept="image/*"
+              multiple
+              onChange={handleImagesChange}
+              className="hidden"
+              disabled={isPending}
+            />
+
             <div
               onDrop={handleDrop}
               onDragOver={handleDragOver}
               className="relative border-2 border-dashed border-[#D1D5DB] rounded-lg p-6 text-center hover:border-primary/50 transition-colors"
             >
-              {imagePreview ? (
-                <div className="relative">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="max-h-32 mx-auto rounded-lg object-contain"
-                  />
+              {imagePreviews.length ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    {imagePreviews.map((item, idx) => (
+                      <div key={idx} className="relative">
+                        <img
+                          src={item.preview}
+                          alt={`Preview ${idx + 1}`}
+                          className="h-20 w-full rounded-lg object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImageAt(idx)}
+                          className="cursor-pointer absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                        >
+                          <PiX className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
                   <button
                     type="button"
-                    onClick={removeImage}
-                    className="cursor-pointer absolute top-0 right-0 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                    onClick={removeAllImages}
+                    className="cursor-pointer text-xs text-red-600 hover:underline"
                   >
-                    <PiX className="w-4 h-4" />
+                    Remove all images
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="cursor-pointer text-xs text-primary hover:underline"
+                    disabled={isPending}
+                  >
+                    Replace images
                   </button>
                 </div>
               ) : (
@@ -371,21 +459,56 @@ export function AddProductDialog({
                   <PiUploadSimple className="w-8 h-8 mx-auto text-[#9CA3AF] mb-2" />
                   <p className="text-[#6B7280] text-sm">
                     Drag & drop an image here, or{" "}
-                    <label className="text-primary cursor-pointer hover:underline">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-primary cursor-pointer hover:underline"
+                      disabled={isPending}
+                    >
                       Browse
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        name="image"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </label>
+                    </button>
                   </p>
                 </>
               )}
             </div>
+
+            {(state.errors?.images || []).length ? (
+              <ul className="mt-1 list-disc pl-5 text-xs text-red-600">
+                {Array.isArray(state.errors.images)
+                  ? state.errors.images.map((err, idx) => <li key={idx}>{err}</li>)
+                  : null}
+              </ul>
+            ) : (
+              <p className="text-xs text-[#6B7280]">
+                Upload up to 3 images per product. Each image must be 1MB or smaller.
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[#374151] text-sm font-medium">
+              Featured Image
+            </label>
+            {imageCount <= 0 ? (
+              <p className="text-xs text-[#6B7280]">
+                Select images above first. If you do not choose a featured image, the
+                first uploaded image will be used.
+              </p>
+            ) : (
+              <select
+                value={featuredIndex}
+                onChange={(e) => setFeaturedIndex(e.target.value)}
+                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                disabled={isPending}
+              >
+                <option value="">Use first image as featured</option>
+                {Array.from({ length: Math.min(imageCount, 3) }).map((_, idx) => (
+                  <option key={idx} value={String(idx)}>
+                    {`Image ${idx + 1}`}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB]">

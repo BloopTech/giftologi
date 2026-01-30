@@ -169,6 +169,7 @@ export default function VendorProductsContent() {
           iconColor="#10B981"
           title="Inventory Value"
           value={formatCurrency(inventoryValue)}
+          description="price of products * stock_qty"
         />
         <StatCard
           icon={PiWarningCircle}
