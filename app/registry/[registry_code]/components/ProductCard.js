@@ -26,13 +26,13 @@ export default function ProductCard({ product, onClick }) {
       }`}
     >
       {/* Product Image */}
-      <div className="flex items-center justify-center p-4 bg-gray-50 rounded-t-xl">
-        <div className="relative w-full aspect-square max-w-[150px]">
+      <div className="flex items-center justify-center overflow-hidden bg-gray-50 rounded-t-xl">
+        <div className="relative w-full aspect-square">
           <Image
             src={image || "/host/toaster.png"}
             alt={title}
             fill
-            className="object-contain"
+            className="object-cover"
             sizes="150px"
           />
         </div>

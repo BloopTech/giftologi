@@ -4,6 +4,7 @@ import { useProductDetail } from "./context";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import Footer from "../../../components/footer";
 import {
   Store,
@@ -42,6 +43,7 @@ export default function ProductCodeDetailContent() {
   const [isWishlisted, setIsWishlisted] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [isAuthed, setIsAuthed] = useState(false);
 
   const router = useRouter();
 
@@ -49,6 +51,23 @@ export default function ProductCodeDetailContent() {
   const logoSrc = vendor?.logo_url || vendor?.logo || "/host/toaster.png";
   const isOutOfStock = product && product?.stock <= 0;
   const canPurchase = !isClosed && !isOutOfStock;
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createSupabaseClient();
+
+    (async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (cancelled) return;
+      setIsAuthed(!!user);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleQuantityChange = useCallback(
     (delta) => {
@@ -63,11 +82,11 @@ export default function ProductCodeDetailContent() {
   );
 
   const handleBuyNow = useCallback(() => {
-    if (!canPurchase) return;
+    if (!canPurchase || !isAuthed) return;
     router.push(
       `/storefront/${vendor?.slug}/checkout?product=${product?.id}&qty=${quantity}`,
     );
-  }, [canPurchase, router, vendor?.slug, product?.id, quantity]);
+  }, [canPurchase, isAuthed, router, vendor?.slug, product?.id, quantity]);
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
@@ -359,14 +378,19 @@ export default function ProductCodeDetailContent() {
                 <>
                   <button
                     onClick={handleBuyNow}
-                    className="flex-1 bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors flex items-center justify-center gap-2"
+                    disabled={!isAuthed}
+                    className="flex-1 bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ShoppingCart className="size-5" />
                     Buy Now
                   </button>
                   <button
-                    onClick={() => setIsWishlisted(!isWishlisted)}
-                    className={`p-3 rounded-xl border transition-colors ${
+                    onClick={() => {
+                      if (!isAuthed) return;
+                      setIsWishlisted(!isWishlisted);
+                    }}
+                    disabled={!isAuthed}
+                    className={`cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 p-3 rounded-xl border transition-colors ${
                       isWishlisted
                         ? "bg-red-50 border-red-200 text-red-500"
                         : "border-gray-300 text-gray-600 hover:border-gray-400"
@@ -381,7 +405,7 @@ export default function ProductCodeDetailContent() {
                   </button>
                   <button
                     onClick={handleShare}
-                    className="p-3 rounded-xl border border-gray-300 text-gray-600 hover:border-gray-400 transition-colors"
+                    className="cursor-pointer p-3 rounded-xl border border-gray-300 text-gray-600 hover:border-gray-400 transition-colors"
                     aria-label="Share product"
                   >
                     <Share2 className="size-5" />

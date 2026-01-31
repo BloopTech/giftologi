@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../utils/supabase/server";
+import { createAdminClient, createClient } from "../../../../utils/supabase/server";
 import { randomBytes } from "crypto";
 
 const EXPRESSPAY_SUBMIT_URL =
@@ -36,6 +36,7 @@ export async function POST(request) {
     }
 
     const supabase = await createClient();
+    const supabaseAdmin = createAdminClient();
 
     // Verify registry and item exist
     const { data: registryItem, error: itemError } = await supabase
@@ -87,7 +88,7 @@ export async function POST(request) {
     const postUrl = `${origin}/api/registry/payment/webhook`;
 
     // Create pending order in database
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
       .insert({
         order_code: orderId,
@@ -116,7 +117,7 @@ export async function POST(request) {
     }
 
     // Create order item
-    const { error: orderItemError } = await supabase.from("order_items").insert({
+    const { error: orderItemError } = await supabaseAdmin.from("order_items").insert({
       order_id: order.id,
       registry_item_id: registryItemId,
       product_id: productId,
@@ -159,7 +160,7 @@ export async function POST(request) {
 
     if (expressPayData.status !== 1) {
       // Update order status to failed
-      await supabase
+      await supabaseAdmin
         .from("orders")
         .update({ status: "failed", updated_at: new Date().toISOString() })
         .eq("id", order.id);
@@ -174,7 +175,7 @@ export async function POST(request) {
     }
 
     // Store the token in the order
-    await supabase
+    await supabaseAdmin
       .from("orders")
       .update({
         payment_token: expressPayData.token,

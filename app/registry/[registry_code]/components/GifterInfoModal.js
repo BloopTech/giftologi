@@ -105,7 +105,7 @@ export default function GifterInfoModal({
                     type="text"
                     value={formData.firstName}
                     onChange={(e) => updateField("firstName", e.target.value)}
-                    placeholder={`Special message for ${hostName || "Host"}`}
+                    placeholder="John"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"
                   />
                 </div>
@@ -117,7 +117,7 @@ export default function GifterInfoModal({
                     type="text"
                     value={formData.lastName}
                     onChange={(e) => updateField("lastName", e.target.value)}
-                    placeholder={`Special message for ${hostName || "Host"}`}
+                    placeholder="Doe"
                     className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"
                   />
                 </div>

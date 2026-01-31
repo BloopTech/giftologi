@@ -9,7 +9,7 @@ export default function HeroBanner({
   onWelcomeNoteClick,
 }) {
   const displayName = host?.firstname
-    ? `${host.firstname}${host?.lastname ? ` & ${host.lastname}` : ""}`
+    ? `${host.firstname}${host?.lastname ? ` ${host.lastname}` : ""}`
     : registry?.title || "Registry";
 
   const coverPhoto = registry?.cover_photo || event?.cover_photo || "";

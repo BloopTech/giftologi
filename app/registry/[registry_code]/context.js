@@ -72,7 +72,6 @@ export const GuestRegistryCodeProvider = ({
         cover_photo,
         deadline,
         welcome_note,
-        shipping_instructions,
         event:events(
           id,
           host_id,
@@ -81,20 +80,21 @@ export const GuestRegistryCodeProvider = ({
           date,
           cover_photo,
           location,
-          description,
-          street_address,
-          street_address_2,
-          city,
-          state_province,
-          postal_code,
-          gps_location
+          description
         )
       `
       )
       .eq("registry_code", registryCode)
       .maybeSingle();
 
-    if (registryError || !registryData) {
+    if (registryError) {
+      console.error("Failed to load registry:", registryError);
+      setError(registryError.message || "Unable to load registry.");
+      setIsLoading(false);
+      return;
+    }
+
+    if (!registryData) {
       router.replace("/404");
       setIsLoading(false);
       return;
@@ -179,18 +179,6 @@ export const GuestRegistryCodeProvider = ({
           postalCode: deliveryAddress.postal_code || null,
           gpsLocation: deliveryAddress.gps_location || null,
           digitalAddress: deliveryAddress.digital_address || null,
-        }
-      : eventData
-      ? {
-          name: hostProfile
-            ? `${hostProfile.firstname || ""} ${hostProfile.lastname || ""}`.trim()
-            : null,
-          streetAddress: eventData.street_address || null,
-          streetAddress2: eventData.street_address_2 || null,
-          city: eventData.city || null,
-          stateProvince: eventData.state_province || null,
-          postalCode: eventData.postal_code || null,
-          gpsLocation: eventData.gps_location || null,
         }
       : null;
 
@@ -425,7 +413,7 @@ export const GuestRegistryCodeProvider = ({
   const hostDisplayName = useMemo(() => {
     if (!host) return "";
     return host.firstname
-      ? `${host.firstname}${host.lastname ? ` & ${host.lastname}` : ""}`
+      ? `${host.firstname}${host.lastname ? ` ${host.lastname}` : ""}`
       : host.email || "";
   }, [host]);
 

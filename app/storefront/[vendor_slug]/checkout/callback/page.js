@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "../../../../utils/supabase/server";
 import CallbackContent from "./content";
 
-export default async function CheckoutCallbackPage({ searchParams }) {
+export default async function CheckoutCallbackPage({ params, searchParams }) {
+  const { vendor_slug } = await params;
   const { token, "order-id": orderCode } = await searchParams;
 
   if (!token && !orderCode) {
@@ -12,6 +13,18 @@ export default async function CheckoutCallbackPage({ searchParams }) {
   }
 
   const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const nextParams = new URLSearchParams();
+    if (token) nextParams.set("token", token);
+    if (orderCode) nextParams.set("order-id", orderCode);
+    const next = `/storefront/${vendor_slug}/checkout/callback?${nextParams.toString()}`;
+    redirect(`/login?next=${encodeURIComponent(next)}`);
+  }
 
   // Find order by token or order code
   let order = null;

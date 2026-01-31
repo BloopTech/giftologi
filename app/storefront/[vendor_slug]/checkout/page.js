@@ -43,6 +43,15 @@ export default async function CheckoutPage({ params, searchParams }) {
 
   const supabase = await createClient();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    const next = `/storefront/${vendor_slug}/checkout?product=${productId}&qty=${quantity}`;
+    redirect(`/login?next=${encodeURIComponent(next)}`);
+  }
+
   // Fetch vendor
   const { data: vendor, error: vendorError } = await supabase
     .from("vendors")

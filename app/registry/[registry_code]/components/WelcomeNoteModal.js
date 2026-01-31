@@ -13,7 +13,7 @@ export default function WelcomeNoteModal({
   welcomeNote,
 }) {
   const displayName = host?.firstname
-    ? `${host.firstname}${host?.lastname ? ` & ${host.lastname}` : ""}`
+    ? `${host.firstname}${host?.lastname ? ` ${host.lastname}` : ""}`
     : "Your Hosts";
 
   const eventType = event?.type || "event";
