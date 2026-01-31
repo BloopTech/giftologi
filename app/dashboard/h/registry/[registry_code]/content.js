@@ -1,11 +1,8 @@
 "use client";
 import React, { useState, useEffect, useActionState } from "react";
-import {
-  PiFileImageLight,
-  PiGiftDuotone,
-  PiGiftFill,
-} from "react-icons/pi";
 import Image from "next/image";
+import { PiFileImageLight, PiGiftDuotone, PiGiftFill } from "react-icons/pi";
+import Link from "next/link";
 import Footer from "../../../../components/footer";
 import Advertisement from "../../../../components/advertisement";
 import { format } from "date-fns";
@@ -52,19 +49,19 @@ export default function HostDashboardRegistryContent(props) {
   const deliveryAddress = deliveryAddressFromContext ?? props.deliveryAddress;
   const [saveState, saveFormAction, isSavePending] = useActionState(
     saveRegistryCoverPhoto,
-    initialState
+    initialState,
   );
   const [removeState, removeFormAction, isRemovePending] = useActionState(
     removeRegistryCoverPhoto,
-    initialState
+    initialState,
   );
   const [welcomeState, welcomeFormAction, isWelcomePending] = useActionState(
     updateWelcomeNote,
-    initialState
+    initialState,
   );
   const [addressState, addressFormAction, isAddressPending] = useActionState(
     updateDeliveryAddress,
-    initialState
+    initialState,
   );
   const [cover_photo, setCoverPhoto] = useState(null);
   const [cover_photoInput, setCoverPhotoInput] = useState(null);
@@ -147,7 +144,10 @@ export default function HostDashboardRegistryContent(props) {
   }, [removeState]);
 
   useEffect(() => {
-    if (welcomeState?.message && Object.keys(welcomeState?.errors || {}).length > 0) {
+    if (
+      welcomeState?.message &&
+      Object.keys(welcomeState?.errors || {}).length > 0
+    ) {
       toast.error(welcomeState?.message);
     }
 
@@ -159,7 +159,10 @@ export default function HostDashboardRegistryContent(props) {
   }, [welcomeState, refresh]);
 
   useEffect(() => {
-    if (addressState?.message && Object.keys(addressState?.errors || {}).length > 0) {
+    if (
+      addressState?.message &&
+      Object.keys(addressState?.errors || {}).length > 0
+    ) {
       toast.error(addressState?.message);
     }
 
@@ -195,7 +198,8 @@ export default function HostDashboardRegistryContent(props) {
         const product = item?.product || {};
         const images = Array.isArray(product.images) ? product.images : [];
         const rawPrice = product.price;
-        const num = rawPrice === null || rawPrice === undefined ? NaN : Number(rawPrice);
+        const num =
+          rawPrice === null || rawPrice === undefined ? NaN : Number(rawPrice);
         const price = Number.isFinite(num) ? `GHS ${num.toFixed(2)}` : "";
         return {
           id: item.id,
@@ -209,8 +213,11 @@ export default function HostDashboardRegistryContent(props) {
     : [];
 
   const itemsCount = totals?.itemsCount ?? products.length;
-  const desiredQty = totals?.desiredQty ?? products.reduce((s, p) => s + (p.desired ?? 0), 0);
-  const purchasedQty = totals?.purchasedQty ?? products.reduce((s, p) => s + (p.purchased ?? 0), 0);
+  const desiredQty =
+    totals?.desiredQty ?? products.reduce((s, p) => s + (p.desired ?? 0), 0);
+  const purchasedQty =
+    totals?.purchasedQty ??
+    products.reduce((s, p) => s + (p.purchased ?? 0), 0);
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
@@ -285,10 +292,28 @@ export default function HostDashboardRegistryContent(props) {
 
               {/* Remove button for saved images */}
               {isImageSaved && cover_photo && (
-                <form action={removeFormAction} className="absolute top-4 right-28 z-1">
-                  <input type="hidden" name="registry_id" value={registry.id} readOnly />
-                  <input type="hidden" name="event_id" value={event.id} readOnly />
-                  <input type="hidden" name="photo_url" value={cover_photo} readOnly />
+                <form
+                  action={removeFormAction}
+                  className="absolute top-4 right-28 z-1"
+                >
+                  <input
+                    type="hidden"
+                    name="registry_id"
+                    value={registry.id}
+                    readOnly
+                  />
+                  <input
+                    type="hidden"
+                    name="event_id"
+                    value={event.id}
+                    readOnly
+                  />
+                  <input
+                    type="hidden"
+                    name="photo_url"
+                    value={cover_photo}
+                    readOnly
+                  />
                   <button
                     type="submit"
                     disabled={isRemovePending}
@@ -310,25 +335,28 @@ export default function HostDashboardRegistryContent(props) {
                 </p>
                 <p className="text-white text-sm drop-shadow">
                   {event?.date
-                    ? format(new Date(event.date), "EEEE, MMMM d, yyyy").toUpperCase()
+                    ? format(
+                        new Date(event.date),
+                        "EEEE, MMMM d, yyyy",
+                      ).toUpperCase()
                     : ""}
                 </p>
-<div className="flex items-center gap-4">
+                <div className="flex items-center gap-4">
                   <button
-                  type="button"
-                  onClick={() => setWelcomeOpen(true)}
-                  className="mt-4 cursor-pointer text-white text-sm font-medium bg-[#F26B6B] hover:bg-[#E55A5A] rounded-full px-6 py-2 w-fit transition-colors"
-                >
-                  Welcome Note
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAddressOpen(true)}
-                  className="mt-4 cursor-pointer text-white text-sm font-medium bg-[#247ACB] hover:bg-[#1F69AE] rounded-full px-6 py-2 w-fit transition-colors"
-                >
-                  Delivery Address
-                </button>
-  </div>
+                    type="button"
+                    onClick={() => setWelcomeOpen(true)}
+                    className="mt-4 cursor-pointer text-white text-sm font-medium bg-[#F26B6B] hover:bg-[#E55A5A] rounded-full px-6 py-2 w-fit transition-colors"
+                  >
+                    Welcome Note
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddressOpen(true)}
+                    className="mt-4 cursor-pointer text-white text-sm font-medium bg-[#247ACB] hover:bg-[#1F69AE] rounded-full px-6 py-2 w-fit transition-colors"
+                  >
+                    Delivery Address
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -353,18 +381,22 @@ export default function HostDashboardRegistryContent(props) {
                 {registry?.title}
               </p>
               <p className="text-xs text-[#B3B3B3]">
-                {event?.date ? format(new Date(event.date), "MMMM dd, yyyy") : ""}
+                {event?.date
+                  ? format(new Date(event.date), "MMMM dd, yyyy")
+                  : ""}
               </p>
             </div>
             <div className="flex items-start justify-center space-x-2 border border-[#DCDCDE] rounded-md p-4 bg-white">
               <PiGiftDuotone className="size-18 text-[#247ACB]" />
               <div className="flex flex-col space-y-2">
-                <p className="text-4xl text-[#247ACA] font-semibold">{itemsCount}</p>
+                <p className="text-4xl text-[#247ACA] font-semibold">
+                  {itemsCount}
+                </p>
                 <p className="text-xs text-[#939393]">items</p>
               </div>
             </div>
 
-            {itemsCount?.length ? (
+            {itemsCount > 0 ? (
               <div className="flex items-center justify-center space-x-4 rounded-md py-4 px-4 bg-white border border-[#DCDCDE]">
                 <ShoppingCart className="size-12 text-[#247ACA] font-semibold" />
                 <div className="flex flex-col space-y-1">
@@ -382,12 +414,18 @@ export default function HostDashboardRegistryContent(props) {
               </div>
             ) : null}
 
-            <ShareRegistryDialog event={event} registryCode={registry?.registry_code} />
+            <ShareRegistryDialog
+              event={event}
+              registryCode={registry?.registry_code}
+            />
 
-            <div className="flex items-center flex-col justify-center space-y-2 border border-[#B1C6F2] rounded-md py-4 px-8 bg-[#D3E4F5]">
+            <Link
+              href="/shop"
+              className="flex items-center flex-col justify-center space-y-2 border border-[#B1C6F2] rounded-md py-4 px-8 bg-[#D3E4F5] cursor-pointer hover:bg-[#C2D7F9] transition-colors"
+            >
               <PiGiftFill className="size-10 text-[#247ACB] font-semibold" />
               <p className="text-xs text-[#247ACB]">+ Add Gift</p>
-            </div>
+            </Link>
           </div>
         </div>
 
@@ -407,38 +445,46 @@ export default function HostDashboardRegistryContent(props) {
               Your registry is empty.
               <br /> Add items from the Shop to get started.
             </p>
-            <button className="text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center">
+            <Link
+              href="/shop"
+              className="text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center"
+            >
               Go to Shop
-            </button>
+            </Link>
           </div>
         ) : (
           <div className="w-full flex flex-col space-y-4">
             <p className="text-[#394B71] font-semibold">View Products</p>
             <div className="flex flex-wrap gap-4">
               {products.map((p) => {
-                const isPurchased = (p.purchased ?? 0) >= (p.desired ?? 0) && (p.desired ?? 0) > 0;
+                const isPurchased =
+                  (p.purchased ?? 0) >= (p.desired ?? 0) &&
+                  (p.desired ?? 0) > 0;
                 return (
                   <div
                     key={p.id}
-                    className="flex bg-white rounded-lg flex-col space-y-4 py-4 w-[200px]"
+                    className="group flex bg-white rounded-lg flex-col space-y-4 w-[200px] overflow-hidden border border-gray-200"
                   >
-                    <div className="flex items-center justify-center px-4">
+                    <div className="relative aspect-square overflow-hidden w-full">
                       <Image
                         src={p.image}
                         alt={p.title}
-                        width={150}
-                        height={150}
-                        className="object-contain"
+                        fill
+                        className="object-cover"
                         priority
                       />
                     </div>
-                    <div className="flex flex-col space-y-2 w-full">
+                    <div className="flex flex-col space-y-2 w-full pb-4">
                       <p className="text-sm font-semibold text-black line-clamp-2 w-full px-4">
                         {p.title}
                       </p>
                       <div className="flex items-center w-full justify-between px-4">
-                        <p className="text-xs text-[#939393]">Desired {p.desired}</p>
-                        <p className="text-xs text-[#939393]">Purchased {p.purchased}</p>
+                        <p className="text-xs text-[#939393]">
+                          Desired {p.desired}
+                        </p>
+                        <p className="text-xs text-[#939393]">
+                          Purchased {p.purchased}
+                        </p>
                       </div>
                       <div className="flex items-center w-full justify-between pl-4">
                         <p className="text-xs text-[#939393]">{p.price}</p>
@@ -477,8 +523,18 @@ export default function HostDashboardRegistryContent(props) {
           </DialogTitle>
 
           <form action={welcomeFormAction} className="space-y-4">
-            <input type="hidden" name="registry_id" value={registry?.id || ""} readOnly />
-            <input type="hidden" name="event_id" value={event?.id || ""} readOnly />
+            <input
+              type="hidden"
+              name="registry_id"
+              value={registry?.id || ""}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="event_id"
+              value={event?.id || ""}
+              readOnly
+            />
             <textarea
               name="welcome_note"
               value={welcomeNoteInput}
@@ -522,8 +578,18 @@ export default function HostDashboardRegistryContent(props) {
           </DialogTitle>
 
           <form action={addressFormAction} className="space-y-4">
-            <input type="hidden" name="registry_id" value={registry?.id || ""} readOnly />
-            <input type="hidden" name="event_id" value={event?.id || ""} readOnly />
+            <input
+              type="hidden"
+              name="registry_id"
+              value={registry?.id || ""}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="event_id"
+              value={event?.id || ""}
+              readOnly
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <input

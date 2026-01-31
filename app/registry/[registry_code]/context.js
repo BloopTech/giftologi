@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
+import { createClient as createSupabaseClient } from "../../utils/supabase/client";
 
 const GuestRegistryCodeContext = createContext();
 
@@ -23,6 +24,7 @@ const PURCHASE_STEPS = {
 
 export const GuestRegistryCodeProvider = ({
   children,
+  registryCode,
   initialRegistry,
   initialEvent,
   initialHost,
@@ -32,6 +34,14 @@ export const GuestRegistryCodeProvider = ({
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const supabase = useMemo(() => createSupabaseClient(), []);
+
+  const formatPrice = useCallback((value) => {
+    if (value === null || value === undefined) return "";
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "";
+    return `GHS ${num.toFixed(2)}`;
+  }, []);
 
   // Registry data
   const [registry, setRegistry] = useState(initialRegistry);
@@ -40,6 +50,164 @@ export const GuestRegistryCodeProvider = ({
   const [products, setProducts] = useState(initialProducts || []);
   const [shippingAddress, setShippingAddress] = useState(initialShippingAddress);
   const [categories, setCategories] = useState(initialCategories || []);
+
+  const [error, setError] = useState(null);
+
+  const [isLoading, setIsLoading] = useState(
+    !initialRegistry && Boolean(registryCode)
+  );
+
+  const refresh = useCallback(async () => {
+    if (!registryCode) return;
+    setIsLoading(true);
+    setError(null);
+
+    const { data: registryData, error: registryError } = await supabase
+      .from("registries")
+      .select(
+        `
+        id,
+        title,
+        registry_code,
+        cover_photo,
+        deadline,
+        welcome_note,
+        shipping_instructions,
+        event:events(
+          id,
+          host_id,
+          type,
+          title,
+          date,
+          cover_photo,
+          location,
+          description,
+          street_address,
+          street_address_2,
+          city,
+          state_province,
+          postal_code,
+          gps_location
+        )
+      `
+      )
+      .eq("registry_code", registryCode)
+      .maybeSingle();
+
+    if (registryError || !registryData) {
+      router.replace("/404");
+      setIsLoading(false);
+      return;
+    }
+
+    const eventData = Array.isArray(registryData.event)
+      ? registryData.event[0]
+      : registryData.event;
+
+    let hostProfile = null;
+    if (eventData?.host_id) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("id, firstname, lastname, email, image")
+        .eq("id", eventData.host_id)
+        .maybeSingle();
+      hostProfile = data;
+    }
+
+    const { data: registryItems, error: registryItemsError } = await supabase
+      .from("registry_items")
+      .select(
+        `
+        id,
+        quantity_needed,
+        purchased_qty,
+        product:products(
+          id,
+          name,
+          price,
+          images,
+          category_id
+        )
+      `
+      )
+      .eq("registry_id", registryData.id);
+
+    if (registryItemsError) {
+      setError(registryItemsError.message || "Unable to load registry items.");
+      setIsLoading(false);
+      return;
+    }
+
+    const { data: categoriesData } = await supabase
+      .from("categories")
+      .select("id, name, slug")
+      .order("name");
+
+    const productsData = Array.isArray(registryItems)
+      ? registryItems.map((item) => {
+          const product = item.product || {};
+          const images = Array.isArray(product.images) ? product.images : [];
+          return {
+            id: item.id,
+            productId: product.id,
+            title: product.name || "Gift item",
+            image: images[0] || "/host/toaster.png",
+            price: formatPrice(product.price),
+            rawPrice: product.price,
+            desired: item.quantity_needed ?? 0,
+            purchased: item.purchased_qty ?? 0,
+            categoryId: product.category_id,
+          };
+        })
+      : [];
+
+    const { data: deliveryAddress } = await supabase
+      .from("delivery_addresses")
+      .select("*")
+      .eq("registry_id", registryData.id)
+      .maybeSingle();
+
+    const shipping = deliveryAddress
+      ? {
+          name: hostProfile
+            ? `${hostProfile.firstname || ""} ${hostProfile.lastname || ""}`.trim()
+            : null,
+          streetAddress: deliveryAddress.street_address || null,
+          streetAddress2: deliveryAddress.street_address_2 || null,
+          city: deliveryAddress.city || null,
+          stateProvince: deliveryAddress.state_province || null,
+          postalCode: deliveryAddress.postal_code || null,
+          gpsLocation: deliveryAddress.gps_location || null,
+          digitalAddress: deliveryAddress.digital_address || null,
+        }
+      : eventData
+      ? {
+          name: hostProfile
+            ? `${hostProfile.firstname || ""} ${hostProfile.lastname || ""}`.trim()
+            : null,
+          streetAddress: eventData.street_address || null,
+          streetAddress2: eventData.street_address_2 || null,
+          city: eventData.city || null,
+          stateProvince: eventData.state_province || null,
+          postalCode: eventData.postal_code || null,
+          gpsLocation: eventData.gps_location || null,
+        }
+      : null;
+
+    setRegistry(registryData);
+    setEvent(eventData || null);
+    setHost(hostProfile || null);
+    setProducts(productsData);
+    setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+    setShippingAddress(shipping);
+    setIsLoading(false);
+  }, [registryCode, supabase, router, formatPrice]);
+
+  useEffect(() => {
+    if (initialRegistry) return;
+    if (!registryCode) return;
+    refresh();
+  }, [initialRegistry, registryCode, refresh]);
 
   // Modal states
   const [welcomeNoteOpen, setWelcomeNoteOpen] = useState(false);
@@ -56,12 +224,12 @@ export const GuestRegistryCodeProvider = ({
   const [giftMessage, setGiftMessage] = useState("");
   const [completedOrderId, setCompletedOrderId] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState(null);
 
   // Filter states
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("default");
 
+  // ... rest of the code remains the same ...
   // Check for payment callback on mount
   useEffect(() => {
     const paymentStatus = searchParams.get("payment");
@@ -272,6 +440,8 @@ export const GuestRegistryCodeProvider = ({
       allProducts: products,
       shippingAddress,
       categories,
+      refresh,
+      isLoading,
 
       // Modal states
       welcomeNoteOpen,
