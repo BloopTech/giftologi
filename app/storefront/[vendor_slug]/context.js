@@ -1,8 +1,15 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 
-const StorefrontProductsContext = createContext(null);
+const StorefrontContext = createContext(null);
 
 const formatPrice = (value) => {
   if (value === null || value === undefined) return "";
@@ -15,22 +22,55 @@ const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   return {
     id: product?.id,
+    product_code: product?.product_code || null,
     name: product?.name || "Product",
     image: images[0] || "/host/toaster.png",
     price: formatPrice(product?.price),
     rawPrice: product?.price,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
+    category_id: product?.category_id || null,
   };
 };
 
-export function StorefrontProductsProvider({
+const parseCategoryChips = (raw) => {
+  if (Array.isArray(raw)) {
+    return raw.map((v) => String(v ?? "").trim()).filter(Boolean);
+  }
+  if (typeof raw !== "string") return [];
+
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map((v) => String(v ?? "").trim()).filter(Boolean);
+      }
+    } catch {
+      // fallthrough
+    }
+  }
+
+  return trimmed
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
+};
+
+export function StorefrontProvider({
   vendorSlug,
   initialProducts,
   initialPage = 1,
   pageSize = 12,
   children,
 }) {
+  const [vendor, setVendor] = useState(null);
+  const [vendorLoading, setVendorLoading] = useState(true);
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+
   const [products, setProducts] = useState(() =>
     Array.isArray(initialProducts) ? initialProducts : []
   );
@@ -48,7 +88,10 @@ export function StorefrontProductsProvider({
     setLoading(true);
 
     try {
-      const url = new URL("/api/storefront/vendor-products", window.location.origin);
+      const url = new URL(
+        "/api/storefront/vendor-products",
+        window.location.origin
+      );
       url.searchParams.set("vendor_slug", vendorSlug);
       url.searchParams.set("page", String(nextPage));
       url.searchParams.set("limit", String(pageSize));
@@ -83,23 +126,120 @@ export function StorefrontProductsProvider({
     }
   }, [hasMore, loading, page, pageSize, vendorSlug]);
 
+  useEffect(() => {
+    if (!vendorSlug) return;
+
+    setProducts([]);
+    setPage(0);
+    setHasMore(true);
+  }, [vendorSlug]);
+
+  useEffect(() => {
+    if (!vendorSlug) return;
+    if (loading) return;
+    if (products.length > 0) return;
+    if (!hasMore) return;
+    if (page !== 0) return;
+
+    loadMore();
+  }, [vendorSlug, hasMore, loadMore, loading, page, products.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!vendorSlug) {
+      setVendor(null);
+      setVendorLoading(false);
+      return;
+    }
+
+    setVendorLoading(true);
+    (async () => {
+      try {
+        const url = new URL("/api/storefront/vendor", window.location.origin);
+        url.searchParams.set("vendor_slug", vendorSlug);
+        const res = await fetch(url.toString(), { method: "GET" });
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        const nextVendor = body?.vendor || null;
+        if (nextVendor) {
+          nextVendor.category_chips = parseCategoryChips(nextVendor.category);
+        }
+        setVendor(nextVendor);
+      } finally {
+        if (!cancelled) setVendorLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorSlug]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!vendorSlug) {
+      setCategories([]);
+      setCategoriesLoading(false);
+      return;
+    }
+
+    setCategoriesLoading(true);
+    (async () => {
+      try {
+        const url = new URL(
+          "/api/storefront/vendor-categories",
+          window.location.origin
+        );
+        url.searchParams.set("vendor_slug", vendorSlug);
+        const res = await fetch(url.toString(), { method: "GET" });
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        setCategories(Array.isArray(body?.categories) ? body.categories : []);
+      } finally {
+        if (!cancelled) setCategoriesLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorSlug]);
+
   const value = useMemo(
-    () => ({ products, loading, hasMore, loadMore }),
-    [products, loading, hasMore, loadMore]
+    () => ({
+      vendor,
+      vendorLoading,
+      categories,
+      categoriesLoading,
+      products,
+      productsLoading: loading,
+      hasMore,
+      loadMore,
+    }),
+    [
+      vendor,
+      vendorLoading,
+      categories,
+      categoriesLoading,
+      products,
+      loading,
+      hasMore,
+      loadMore,
+    ]
   );
 
   return (
-    <StorefrontProductsContext.Provider value={value}>
+    <StorefrontContext.Provider value={value}>
       {children}
-    </StorefrontProductsContext.Provider>
+    </StorefrontContext.Provider>
   );
 }
 
-export function useStorefrontProducts() {
-  const ctx = useContext(StorefrontProductsContext);
+export function useStorefront() {
+  const ctx = useContext(StorefrontContext);
   if (!ctx) {
     throw new Error(
-      "useStorefrontProducts must be used within StorefrontProductsProvider"
+      "useStorefront must be used within StorefrontProvider"
     );
   }
   return ctx;

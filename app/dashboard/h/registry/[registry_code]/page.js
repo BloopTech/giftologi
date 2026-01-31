@@ -39,14 +39,29 @@ export default async function RegistryPage({ params }) {
     return notFound();
   }
 
+  const { data: deliveryAddress, error: deliveryAddressError } = await supabase
+    .from("registry_delivery_addresses")
+    .select("*")
+    .eq("registry_code", getParams.registry_code)
+    .maybeSingle();
+
+  if (deliveryAddressError) {
+    return notFound();
+  }
+
   return (
     <>
       <HostRegistryCodeProvider
         registryCode={getParams.registry_code}
         initialRegistry={registry}
         initialEvent={event}
+        initialDeliveryAddress={deliveryAddress}
       >
-        <HostDashboardRegistryContent registry={registry} event={event} />
+        <HostDashboardRegistryContent
+          registry={registry}
+          event={event}
+          deliveryAddress={deliveryAddress}
+        />
       </HostRegistryCodeProvider>
     </>
   );

@@ -10,14 +10,22 @@ import Footer from "../../../../components/footer";
 import Advertisement from "../../../../components/advertisement";
 import { format } from "date-fns";
 import ShareRegistryDialog from "../../components/ShareRegistryDialog";
-import { ShoppingCart } from "lucide-react";
+import { ShoppingCart, X } from "lucide-react";
 import { ProgressBar } from "../../../../components/ProgressBar";
 import {
   saveRegistryCoverPhoto,
   removeRegistryCoverPhoto,
+  updateWelcomeNote,
+  updateDeliveryAddress,
 } from "./action";
 import { toast } from "sonner";
 import { useHostRegistryCodeContext } from "./context";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+} from "../../../../components/Dialog";
 
 const initialState = {
   message: "",
@@ -34,11 +42,14 @@ export default function HostDashboardRegistryContent(props) {
   const {
     registry: registryFromContext,
     event: eventFromContext,
+    deliveryAddress: deliveryAddressFromContext,
     registryItems,
     totals,
+    refresh,
   } = useHostRegistryCodeContext() || {};
   const registry = registryFromContext ?? props.registry;
   const event = eventFromContext ?? props.event;
+  const deliveryAddress = deliveryAddressFromContext ?? props.deliveryAddress;
   const [saveState, saveFormAction, isSavePending] = useActionState(
     saveRegistryCoverPhoto,
     initialState
@@ -47,10 +58,30 @@ export default function HostDashboardRegistryContent(props) {
     removeRegistryCoverPhoto,
     initialState
   );
+  const [welcomeState, welcomeFormAction, isWelcomePending] = useActionState(
+    updateWelcomeNote,
+    initialState
+  );
+  const [addressState, addressFormAction, isAddressPending] = useActionState(
+    updateDeliveryAddress,
+    initialState
+  );
   const [cover_photo, setCoverPhoto] = useState(null);
   const [cover_photoInput, setCoverPhotoInput] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isImageSaved, setIsImageSaved] = useState(false);
+  const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [welcomeNoteInput, setWelcomeNoteInput] = useState("");
+  const [addressOpen, setAddressOpen] = useState(false);
+  const [addressInput, setAddressInput] = useState({
+    street_address: "",
+    street_address_2: "",
+    city: "",
+    state_province: "",
+    postal_code: "",
+    gps_location: "",
+    digital_address: "",
+  });
 
   useEffect(() => {
     if (registry?.cover_photo) {
@@ -59,6 +90,22 @@ export default function HostDashboardRegistryContent(props) {
       setIsImageSaved(true);
     }
   }, [registry]);
+
+  useEffect(() => {
+    setWelcomeNoteInput((registry?.welcome_note || "").toString());
+  }, [registry?.welcome_note]);
+
+  useEffect(() => {
+    setAddressInput({
+      street_address: (deliveryAddress?.street_address || "").toString(),
+      street_address_2: (deliveryAddress?.street_address_2 || "").toString(),
+      city: (deliveryAddress?.city || "").toString(),
+      state_province: (deliveryAddress?.state_province || "").toString(),
+      postal_code: (deliveryAddress?.postal_code || "").toString(),
+      gps_location: (deliveryAddress?.gps_location || "").toString(),
+      digital_address: (deliveryAddress?.digital_address || "").toString(),
+    });
+  }, [deliveryAddress]);
 
   // Handle save photo success
   useEffect(() => {
@@ -98,6 +145,30 @@ export default function HostDashboardRegistryContent(props) {
       toast.success(removeState?.message);
     }
   }, [removeState]);
+
+  useEffect(() => {
+    if (welcomeState?.message && Object.keys(welcomeState?.errors || {}).length > 0) {
+      toast.error(welcomeState?.message);
+    }
+
+    if (welcomeState?.message && welcomeState?.status_code === 200) {
+      toast.success(welcomeState?.message);
+      setWelcomeOpen(false);
+      refresh?.();
+    }
+  }, [welcomeState, refresh]);
+
+  useEffect(() => {
+    if (addressState?.message && Object.keys(addressState?.errors || {}).length > 0) {
+      toast.error(addressState?.message);
+    }
+
+    if (addressState?.message && addressState?.status_code === 200) {
+      toast.success(addressState?.message);
+      setAddressOpen(false);
+      refresh?.();
+    }
+  }, [addressState, refresh]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -189,7 +260,7 @@ export default function HostDashboardRegistryContent(props) {
               />
 
               {/* Edit Cover Button - Top Right */}
-              <div className="absolute top-4 right-4 z-10">
+              <div className="absolute top-5 right-4 z-1">
                 <label
                   htmlFor="cover_photo_file"
                   className="text-[#A5914B] cursor-pointer text-xs font-medium bg-white border border-[#A5914B] hover:bg-[#A5914B] hover:text-white rounded-full px-4 py-2 transition-colors"
@@ -200,7 +271,7 @@ export default function HostDashboardRegistryContent(props) {
 
               {/* Save/Remove buttons when unsaved changes */}
               {!isImageSaved && selectedFile && (
-                <div className="absolute top-4 right-28 z-10 flex gap-2">
+                <div className="absolute top-4 right-28 z-1 flex gap-2">
                   <button
                     type="submit"
                     form="saveCoverPhotoForm"
@@ -214,7 +285,7 @@ export default function HostDashboardRegistryContent(props) {
 
               {/* Remove button for saved images */}
               {isImageSaved && cover_photo && (
-                <form action={removeFormAction} className="absolute top-4 right-28 z-10">
+                <form action={removeFormAction} className="absolute top-4 right-28 z-1">
                   <input type="hidden" name="registry_id" value={registry.id} readOnly />
                   <input type="hidden" name="event_id" value={event.id} readOnly />
                   <input type="hidden" name="photo_url" value={cover_photo} readOnly />
@@ -230,7 +301,7 @@ export default function HostDashboardRegistryContent(props) {
 
               {/* Content Overlay - Left Side */}
               <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
-              <div className="absolute left-8 top-1/2 -translate-y-1/2 z-10 flex flex-col space-y-2">
+              <div className="absolute left-8 top-1/2 -translate-y-1/2 z-1 flex flex-col space-y-2">
                 <h1 className="text-white text-2xl font-semibold drop-shadow-lg">
                   {registry?.title || "Registry Name"}
                 </h1>
@@ -242,12 +313,22 @@ export default function HostDashboardRegistryContent(props) {
                     ? format(new Date(event.date), "EEEE, MMMM d, yyyy").toUpperCase()
                     : ""}
                 </p>
-                <button
+<div className="flex items-center gap-4">
+                  <button
                   type="button"
-                  className="mt-4 text-white text-sm font-medium bg-[#F26B6B] hover:bg-[#E55A5A] rounded-full px-6 py-2 w-fit transition-colors"
+                  onClick={() => setWelcomeOpen(true)}
+                  className="mt-4 cursor-pointer text-white text-sm font-medium bg-[#F26B6B] hover:bg-[#E55A5A] rounded-full px-6 py-2 w-fit transition-colors"
                 >
                   Welcome Note
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setAddressOpen(true)}
+                  className="mt-4 cursor-pointer text-white text-sm font-medium bg-[#247ACB] hover:bg-[#1F69AE] rounded-full px-6 py-2 w-fit transition-colors"
+                >
+                  Delivery Address
+                </button>
+  </div>
               </div>
             </>
           ) : (
@@ -383,6 +464,180 @@ export default function HostDashboardRegistryContent(props) {
 
         <Footer />
       </main>
+
+      <Dialog open={welcomeOpen} onOpenChange={setWelcomeOpen}>
+        <DialogContent className="w-full max-w-lg rounded-2xl shadow-xl p-6">
+          <DialogClose className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 transition-colors cursor-pointer">
+            <X className="h-5 w-5 text-gray-500" />
+            <span className="sr-only">Close</span>
+          </DialogClose>
+
+          <DialogTitle className="text-xl font-semibold text-gray-900 mb-4">
+            Welcome Note
+          </DialogTitle>
+
+          <form action={welcomeFormAction} className="space-y-4">
+            <input type="hidden" name="registry_id" value={registry?.id || ""} readOnly />
+            <input type="hidden" name="event_id" value={event?.id || ""} readOnly />
+            <textarea
+              name="welcome_note"
+              value={welcomeNoteInput}
+              onChange={(e) => setWelcomeNoteInput(e.target.value)}
+              rows={7}
+              className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+              placeholder="Write a short welcome message for guests"
+              disabled={isWelcomePending}
+            />
+
+            <div className="flex items-center justify-end gap-2">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="px-5 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={isWelcomePending}
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={isWelcomePending}
+                className="px-5 py-2 text-sm font-medium text-white bg-[#A5914B] border border-[#A5914B] rounded-full hover:bg-white hover:text-[#A5914B] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isWelcomePending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addressOpen} onOpenChange={setAddressOpen}>
+        <DialogContent className="w-full max-w-2xl rounded-2xl shadow-xl p-6">
+          <DialogClose className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 transition-colors cursor-pointer">
+            <X className="h-5 w-5 text-gray-500" />
+          </DialogClose>
+
+          <DialogTitle className="text-xl font-semibold text-gray-900 mb-4">
+            Delivery Address
+          </DialogTitle>
+
+          <form action={addressFormAction} className="space-y-4">
+            <input type="hidden" name="registry_id" value={registry?.id || ""} readOnly />
+            <input type="hidden" name="event_id" value={event?.id || ""} readOnly />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input
+                name="street_address"
+                value={addressInput.street_address}
+                onChange={(e) =>
+                  setAddressInput((prev) => ({
+                    ...prev,
+                    street_address: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                placeholder="Street address"
+                disabled={isAddressPending}
+              />
+              <input
+                name="street_address_2"
+                value={addressInput.street_address_2}
+                onChange={(e) =>
+                  setAddressInput((prev) => ({
+                    ...prev,
+                    street_address_2: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                placeholder="Street address line 2"
+                disabled={isAddressPending}
+              />
+              <input
+                name="city"
+                value={addressInput.city}
+                onChange={(e) =>
+                  setAddressInput((prev) => ({ ...prev, city: e.target.value }))
+                }
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                placeholder="City"
+                disabled={isAddressPending}
+              />
+              <input
+                name="state_province"
+                value={addressInput.state_province}
+                onChange={(e) =>
+                  setAddressInput((prev) => ({
+                    ...prev,
+                    state_province: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                placeholder="State/Province"
+                disabled={isAddressPending}
+              />
+              <input
+                name="postal_code"
+                value={addressInput.postal_code}
+                onChange={(e) =>
+                  setAddressInput((prev) => ({
+                    ...prev,
+                    postal_code: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                placeholder="Postal / Zip Code"
+                disabled={isAddressPending}
+              />
+              <input
+                name="digital_address"
+                value={addressInput.digital_address}
+                onChange={(e) =>
+                  setAddressInput((prev) => ({
+                    ...prev,
+                    digital_address: e.target.value,
+                  }))
+                }
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                placeholder="Digital address"
+                disabled={isAddressPending}
+              />
+            </div>
+
+            <input
+              name="gps_location"
+              value={addressInput.gps_location}
+              onChange={(e) =>
+                setAddressInput((prev) => ({
+                  ...prev,
+                  gps_location: e.target.value,
+                }))
+              }
+              className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+              placeholder="GPS Location (Google Maps link or coordinates)"
+              disabled={isAddressPending}
+            />
+
+            <div className="flex items-center justify-end gap-2">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="px-5 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={isAddressPending}
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={isAddressPending}
+                className="px-5 py-2 text-sm font-medium text-white bg-[#A5914B] border border-[#A5914B] rounded-full hover:bg-white hover:text-[#A5914B] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isAddressPending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

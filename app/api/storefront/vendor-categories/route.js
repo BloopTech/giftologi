@@ -4,13 +4,7 @@ import { createClient } from "@/app/utils/supabase/server";
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-
     const vendor_slug = searchParams.get("vendor_slug");
-    const pageRaw = searchParams.get("page");
-    const limitRaw = searchParams.get("limit");
-
-    const page = Math.max(1, Number.parseInt(pageRaw || "1", 10) || 1);
-    const limit = Math.min(48, Math.max(1, Number.parseInt(limitRaw || "12", 10) || 12));
 
     if (!vendor_slug) {
       return NextResponse.json({ message: "vendor_slug is required" }, { status: 400 });
@@ -29,43 +23,39 @@ export async function GET(req) {
     }
 
     if (!vendor?.id) {
-      return NextResponse.json({ products: [] }, { status: 200 });
+      return NextResponse.json({ categories: [] }, { status: 200 });
     }
-
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
 
     const { data: products, error: productsError } = await supabase
       .from("products")
-      .select(
-        `
-        id,
-        product_code,
-        name,
-        price,
-        images,
-        description,
-        stock_qty,
-        status,
-        category_id
-      `
-      )
+      .select("category_id")
       .eq("vendor_id", vendor.id)
       .eq("status", "approved")
-      .eq("active", true)
-      .order("created_at", { ascending: false })
-      .range(from, to);
+      .eq("active", true);
 
     if (productsError) {
-      return NextResponse.json(
-        { message: "Failed to load products" },
-        { status: 500 }
-      );
+      return NextResponse.json({ message: "Failed to load categories" }, { status: 500 });
     }
 
-    return NextResponse.json({ products: Array.isArray(products) ? products : [] }, { status: 200 });
+    const categoryIds = [...new Set((products || []).map((p) => p.category_id).filter(Boolean))];
+
+    if (categoryIds.length === 0) {
+      return NextResponse.json({ categories: [] }, { status: 200 });
+    }
+
+    const { data: categories, error: categoriesError } = await supabase
+      .from("categories")
+      .select("id, name, slug")
+      .in("id", categoryIds)
+      .order("name");
+
+    if (categoriesError) {
+      return NextResponse.json({ message: "Failed to load categories" }, { status: 500 });
+    }
+
+    return NextResponse.json({ categories: categories || [] }, { status: 200 });
   } catch (error) {
-    console.error("Unexpected error in storefront vendor-products:", error);
+    console.error("Unexpected error in storefront vendor-categories:", error);
     return NextResponse.json({ message: "Unexpected error" }, { status: 500 });
   }
 }

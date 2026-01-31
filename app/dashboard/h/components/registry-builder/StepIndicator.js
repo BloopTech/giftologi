@@ -6,7 +6,6 @@ const steps = [
   { id: 2, label: "Delivery Address" },
   { id: 3, label: "Personalise" },
   { id: 4, label: "Privacy" },
-  { id: 5, label: "Share" },
 ];
 
 export default function StepIndicator({ currentStep }) {

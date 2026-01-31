@@ -316,11 +316,48 @@ export default function VendorRequestsTable() {
         header: ({ column }) => (
           <SortableHeader column={column} title="Category" />
         ),
-        cell: (info) => (
-          <span className="text-xs text-[#6A7282]">
-            {info.getValue() || "—"}
-          </span>
-        ),
+        cell: (info) => {
+          const value = info.getValue();
+          const normalizeItem = (item) => String(item ?? "").trim();
+          const parseJsonArrayString = (raw) => {
+            if (typeof raw !== "string") return null;
+            const trimmed = raw.trim();
+            if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) return null;
+            try {
+              const parsed = JSON.parse(trimmed);
+              return Array.isArray(parsed) ? parsed : null;
+            } catch {
+              return null;
+            }
+          };
+
+          let categories;
+          if (Array.isArray(value)) {
+            categories = value.map(normalizeItem);
+          } else {
+            const parsedArray = parseJsonArrayString(value);
+            categories = parsedArray ? parsedArray.map(normalizeItem) : [normalizeItem(value)];
+          }
+
+          categories = categories.filter(Boolean);
+
+          if (!categories.length) {
+            return <span className="text-xs text-[#6A7282]">—</span>;
+          }
+
+          return (
+            <div className="flex flex-wrap gap-1 whitespace-normal">
+              {categories.map((category) => (
+                <span
+                  key={category}
+                  className="inline-flex min-w-0 max-w-full items-center rounded-full border border-gray-200 bg-white px-2 py-1 text-[11px] font-medium leading-tight text-[#6A7282] whitespace-normal break-words"
+                >
+                  {category}
+                </span>
+              ))}
+            </div>
+          );
+        },
       }),
       columnHelper.accessor("appliedDateLabel", {
         header: ({ column }) => (

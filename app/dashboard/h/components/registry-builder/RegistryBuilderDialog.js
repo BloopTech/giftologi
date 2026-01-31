@@ -10,7 +10,6 @@ import {
   DeliveryAddressStep,
   PersonaliseStep,
   PrivacyStep,
-  ShareStep,
 } from "./steps";
 
 const STEP_TITLES = {
@@ -18,7 +17,6 @@ const STEP_TITLES = {
   2: "Delivery Address",
   3: "Personalise",
   4: "Privacy",
-  5: "Share Registry",
 };
 
 const initialState = {
@@ -46,14 +44,21 @@ export default function RegistryBuilderDialog({ onClose }) {
     date: undefined,
     location: "",
     description: "",
+    welcomeNote: "",
     useCurrentLocation: false,
     gpsLocation: "",
+    digitalAddress: "",
     streetAddress: "",
     streetAddress2: "",
     city: "",
     stateProvince: "",
     postalCode: "",
     privacy: "public",
+    eventPhoto: null,
+    coverPhoto: null,
+  });
+
+  const [photoPreviews, setPhotoPreviews] = useState({
     eventPhoto: null,
     coverPhoto: null,
   });
@@ -82,6 +87,25 @@ export default function RegistryBuilderDialog({ onClose }) {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
 
+  const handlePhotoChange = useCallback(
+    (field) => async (e) => {
+      const file = e.target.files?.[0] ?? null;
+      updateFormData(field, file);
+
+      if (!file) {
+        setPhotoPreviews((prev) => ({ ...prev, [field]: null }));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreviews((prev) => ({ ...prev, [field]: reader.result }));
+      };
+      reader.readAsDataURL(file);
+    },
+    [updateFormData]
+  );
+
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep((prev) => prev - 1);
@@ -89,7 +113,7 @@ export default function RegistryBuilderDialog({ onClose }) {
   };
 
   const handleContinue = () => {
-    if (currentStep < 5) {
+    if (currentStep < 4) {
       setCurrentStep((prev) => prev + 1);
     }
   };
@@ -104,8 +128,6 @@ export default function RegistryBuilderDialog({ onClose }) {
         return true;
       case 4:
         return true;
-      case 5:
-        return true;
       default:
         return false;
     }
@@ -115,6 +137,7 @@ export default function RegistryBuilderDialog({ onClose }) {
     const stepProps = {
       formData,
       updateFormData,
+      photoPreviews,
       errors: state?.errors || {},
       disabled: isPending,
     };
@@ -128,14 +151,12 @@ export default function RegistryBuilderDialog({ onClose }) {
         return <PersonaliseStep {...stepProps} />;
       case 4:
         return <PrivacyStep {...stepProps} />;
-      case 5:
-        return <ShareStep {...stepProps} />;
       default:
         return null;
     }
   };
 
-  const isLastStep = currentStep === 5;
+  const isLastStep = currentStep === 4;
 
   return (
     <div className="flex flex-col">
@@ -174,6 +195,7 @@ export default function RegistryBuilderDialog({ onClose }) {
         />
         <input type="hidden" name="location" value={formData.location} />
         <input type="hidden" name="description" value={formData.description} />
+        <input type="hidden" name="welcomeNote" value={formData.welcomeNote || ""} />
         <input type="hidden" name="privacy" value={formData.privacy || "public"} />
         <input
           type="hidden"
@@ -188,6 +210,27 @@ export default function RegistryBuilderDialog({ onClose }) {
         <input type="hidden" name="stateProvince" value={formData.stateProvince} />
         <input type="hidden" name="postalCode" value={formData.postalCode} />
         <input type="hidden" name="gpsLocation" value={formData.gpsLocation} />
+        <input type="hidden" name="digitalAddress" value={formData.digitalAddress} />
+
+        {/* Persisted file inputs so selected files survive step changes */}
+        <input
+          id="registry_builder_event_photo"
+          type="file"
+          name="eventPhoto"
+          accept="image/*"
+          onChange={handlePhotoChange("eventPhoto")}
+          disabled={isPending}
+          className="hidden"
+        />
+        <input
+          id="registry_builder_cover_photo"
+          type="file"
+          name="coverPhoto"
+          accept="image/*"
+          onChange={handlePhotoChange("coverPhoto")}
+          disabled={isPending}
+          className="hidden"
+        />
 
         <div className="min-h-[320px] max-h-[50vh] overflow-y-auto pr-2">
           {renderStep()}

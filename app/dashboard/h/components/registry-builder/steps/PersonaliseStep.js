@@ -1,48 +1,31 @@
 "use client";
-import { useRef, useState } from "react";
+import { useCallback } from "react";
 import { Upload, X } from "lucide-react";
 import Image from "next/image";
 
-function PhotoUploadCard({ label, name, value, onChange, disabled }) {
-  const inputRef = useRef(null);
-  const [preview, setPreview] = useState(value || null);
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result);
-        onChange(file);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRemove = (e) => {
-    e.stopPropagation();
-    setPreview(null);
-    onChange(null);
-    if (inputRef.current) {
-      inputRef.current.value = "";
-    }
-  };
+function PhotoUploadCard({ label, inputId, preview, onRemove, disabled }) {
+  const handleRemove = useCallback(
+    (e) => {
+      e.stopPropagation();
+      const input = document.getElementById(inputId);
+      if (input) {
+        input.value = "";
+      }
+      onRemove?.();
+    },
+    [inputId, onRemove]
+  );
 
   return (
     <div
-      onClick={() => !disabled && inputRef.current?.click()}
+      onClick={() => {
+        if (disabled) return;
+        const input = document.getElementById(inputId);
+        input?.click?.();
+      }}
       className="relative flex flex-col items-center justify-center p-6 bg-[#FFFCF3] border border-[#A5914B] border-dashed rounded-2xl cursor-pointer hover:bg-[#FFF9E6] transition-colors min-h-[180px]"
     >
-      <input
-        ref={inputRef}
-        type="file"
-        name={name}
-        accept="image/*"
-        onChange={handleFileChange}
-        disabled={disabled}
-        className="hidden"
-      />
-      
+
       {preview ? (
         <div className="relative w-full h-32">
           <Image
@@ -74,6 +57,7 @@ function PhotoUploadCard({ label, name, value, onChange, disabled }) {
 export default function PersonaliseStep({
   formData,
   updateFormData,
+  photoPreviews,
   errors = {},
   disabled = false,
 }) {
@@ -82,16 +66,16 @@ export default function PersonaliseStep({
       <div className="grid grid-cols-2 gap-6">
         <PhotoUploadCard
           label="Upload Event Photo"
-          name="eventPhoto"
-          value={formData.eventPhoto}
-          onChange={(file) => updateFormData("eventPhoto", file)}
+          inputId="registry_builder_event_photo"
+          preview={photoPreviews?.eventPhoto}
+          onRemove={() => updateFormData("eventPhoto", null)}
           disabled={disabled}
         />
         <PhotoUploadCard
           label="Upload Cover Photo"
-          name="coverPhoto"
-          value={formData.coverPhoto}
-          onChange={(file) => updateFormData("coverPhoto", file)}
+          inputId="registry_builder_cover_photo"
+          preview={photoPreviews?.coverPhoto}
+          onRemove={() => updateFormData("coverPhoto", null)}
           disabled={disabled}
         />
       </div>

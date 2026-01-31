@@ -1,5 +1,11 @@
 "use server";
 import { randomBytes } from "crypto";
+import {
+  S3Client,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
+import sharp from "sharp";
+import crypto from "crypto";
 import { createClient } from "../../utils/supabase/server";
 import { redirect } from "next/navigation";
 import z from "zod";
@@ -23,12 +29,89 @@ const defaultRegistrySchema = z.object({
   type: z.string().min(1, { message: "Type is required" }),
   location: z.string().min(1, { message: "Location is required" }),
   description: z.string().optional(),
+  welcomeNote: z.string().optional(),
+  streetAddress: z.string().optional(),
+  streetAddress2: z.string().optional(),
+  city: z.string().optional(),
+  stateProvince: z.string().optional(),
+  postalCode: z.string().optional(),
+  gpsLocation: z.string().optional(),
+  digitalAddress: z.string().optional(),
   date: z.string().min(1, { message: "Date is required" }),
   deadline: z.string().min(1, { message: "Deadline is required" }),
   privacy: z.string().min(1, { message: "Privacy is required" }),
 });
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+const s3Client = new S3Client({
+  credentials: {
+    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+  },
+  endpoint: process.env.CLOUDFLARE_R2_ENDPOINT,
+  region: "auto",
+});
+
+const randomImageName = (bytes = 32) =>
+  crypto.randomBytes(bytes).toString("hex");
+
+const sanitizeFilename = (filename) => {
+  return (
+    filename
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9._-]/g, "")
+      .replace(/\.[^.]+$/, "") + ".webp"
+  );
+};
+
+const isFileLike = (v) => {
+  if (!v) return false;
+  const tag = Object.prototype.toString.call(v);
+  if (tag === "[object File]" || tag === "[object Blob]") return true;
+  return (
+    typeof v === "object" &&
+    typeof v.name === "string" &&
+    typeof v.size === "number" &&
+    typeof v.type === "string" &&
+    (typeof v.arrayBuffer === "function" || typeof v.stream === "function")
+  );
+};
+
+const isValidSelectedFile = (f) => {
+  if (!isFileLike(f)) return false;
+  const name = typeof f.name === "string" ? f.name.trim() : "";
+  if (!name || name.toLowerCase() === "undefined" || name.toLowerCase() === "null")
+    return false;
+  if (typeof f.size !== "number" || f.size <= 0) return false;
+  return true;
+};
+
+async function uploadImageToR2(file) {
+  const imagecode = randomImageName();
+  const originalname = sanitizeFilename(file?.name || "image");
+  const buffer = await file.arrayBuffer();
+  const compressedBuffer = await sharp(Buffer.from(buffer))
+    .toFormat("webp")
+    .webp({
+      quality: 80,
+      lossless: false,
+      effort: 4,
+    })
+    .toBuffer();
+
+  const fileName = `${imagecode}.${originalname}`;
+  const s3params = {
+    Bucket: process.env.CLOUDFLARE_R2_BUCKET_NAME,
+    Key: fileName,
+    Body: compressedBuffer,
+    ContentType: "image/webp",
+  };
+
+  const command = new PutObjectCommand(s3params);
+  await s3Client.send(command);
+  return `${process.env.CLOUDFLARE_R2_PUBLIC_URL}/${fileName}`;
+}
 
 function generateCode(length = 10) {
   const bytes = randomBytes(length);
@@ -88,6 +171,14 @@ export async function createRegistryAction(prevState, queryData) {
     type: (queryData.get("type") || "").toString(),
     location: (queryData.get("location") || "").toString().trim(),
     description: (queryData.get("description") || "").toString().trim(),
+    welcomeNote: (queryData.get("welcomeNote") || "").toString().trim(),
+    streetAddress: (queryData.get("streetAddress") || "").toString().trim(),
+    streetAddress2: (queryData.get("streetAddress2") || "").toString().trim(),
+    city: (queryData.get("city") || "").toString().trim(),
+    stateProvince: (queryData.get("stateProvince") || "").toString().trim(),
+    postalCode: (queryData.get("postalCode") || "").toString().trim(),
+    gpsLocation: (queryData.get("gpsLocation") || "").toString().trim(),
+    digitalAddress: (queryData.get("digitalAddress") || "").toString().trim(),
     date: (queryData.get("date") || "").toString(),
     deadline: (queryData.get("deadline") || "").toString(),
     privacy: (queryData.get("privacy") || "").toString(),
@@ -114,8 +205,11 @@ export async function createRegistryAction(prevState, queryData) {
     };
   }
 
-  const { title, type, location, description, date, deadline, privacy } =
+  const { title, type, location, description, welcomeNote, streetAddress, streetAddress2, city, stateProvince, postalCode, gpsLocation, digitalAddress, date, deadline, privacy } =
     validatedFields.data;
+
+  const eventPhoto = queryData.get("eventPhoto");
+  const coverPhoto = queryData.get("coverPhoto");
 
   const { data: event, error: eventError } = await insertWithUniqueCode({
     supabase,
@@ -149,8 +243,10 @@ export async function createRegistryAction(prevState, queryData) {
     table: "registries",
     payload: {
       title,
+      welcome_note: welcomeNote || null,
       deadline,
       event_id: event.id,
+      registry_owner_id: profile.id,
       created_at: new Date(),
       updated_at: new Date(),
     },
@@ -165,6 +261,109 @@ export async function createRegistryAction(prevState, queryData) {
       values: payload,
       data: {},
     };
+  }
+
+  const normalizedAddressValues = [
+    streetAddress,
+    streetAddress2,
+    city,
+    stateProvince,
+    postalCode,
+    gpsLocation,
+    digitalAddress,
+  ].map((value) => (typeof value === "string" ? value.trim() : ""));
+  const hasAddress = normalizedAddressValues.some((value) => value);
+
+  if (hasAddress) {
+    const { error: deliveryAddressError } = await supabase
+      .from("delivery_addresses")
+      .insert([
+        {
+          registry_id: registry.id,
+          event_id: event.id,
+          street_address: streetAddress || null,
+          street_address_2: streetAddress2 || null,
+          city: city || null,
+          state_province: stateProvince || null,
+          postal_code: postalCode || null,
+          gps_location: gpsLocation || null,
+          digital_address: digitalAddress || null,
+          created_at: new Date(),
+          updated_at: new Date(),
+        },
+      ])
+      .select("id")
+      .single();
+
+    if (deliveryAddressError) {
+      return {
+        message: deliveryAddressError.message,
+        errors: deliveryAddressError,
+        values: payload,
+        data: {},
+      };
+    }
+  }
+
+  let eventPhotoUrl = null;
+  let coverPhotoUrl = null;
+
+  try {
+    if (isValidSelectedFile(eventPhoto)) {
+      eventPhotoUrl = await uploadImageToR2(eventPhoto);
+    }
+    if (isValidSelectedFile(coverPhoto)) {
+      coverPhotoUrl = await uploadImageToR2(coverPhoto);
+    }
+  } catch (e) {
+    return {
+      message: "Failed to upload images",
+      errors: { images: [e?.message || "Upload failed"] },
+      values: payload,
+      data: {},
+    };
+  }
+
+  if (eventPhotoUrl || coverPhotoUrl) {
+    const eventUpdates = {};
+    const registryUpdates = {};
+    if (eventPhotoUrl) eventUpdates.cover_photo = eventPhotoUrl;
+    if (coverPhotoUrl) {
+      eventUpdates.cover_photo = coverPhotoUrl;
+      registryUpdates.cover_photo = coverPhotoUrl;
+    }
+
+    if (Object.keys(eventUpdates).length > 0) {
+      const { error: eventUpdateError } = await supabase
+        .from("events")
+        .update(eventUpdates)
+        .eq("id", event.id);
+
+      if (eventUpdateError) {
+        return {
+          message: eventUpdateError.message,
+          errors: eventUpdateError,
+          values: payload,
+          data: {},
+        };
+      }
+    }
+
+    if (Object.keys(registryUpdates).length > 0) {
+      const { error: registryUpdateError } = await supabase
+        .from("registries")
+        .update(registryUpdates)
+        .eq("id", registry.id);
+
+      if (registryUpdateError) {
+        return {
+          message: registryUpdateError.message,
+          errors: registryUpdateError,
+          values: payload,
+          data: {},
+        };
+      }
+    }
   }
 
   redirect(`/dashboard/h/registry/${registry.registry_code}`);

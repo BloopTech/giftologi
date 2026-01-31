@@ -7,28 +7,26 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogClose,
 } from "../../../components/Dialog";
 import { PiShareBold } from "react-icons/pi";
-import { Mail, Share2, QrCode, Send, Share, Link } from "lucide-react";
+import { Send, Share2, QrCode } from "lucide-react";
 
 export default function ShareRegistryDialog(props) {
   const { event, registryCode } = props;
   const [url, setUrl] = useState("");
   const [copyLabel, setCopyLabel] = useState("Copy Registry Link");
+  const [showQr, setShowQr] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       const baseUrl = window.location.origin;
       if (registryCode) {
         setUrl(`${baseUrl}/registry/${registryCode}`);
-      } else if (event?.event_code) {
-        setUrl(`${baseUrl}/registry/${event.event_code}`);
       } else {
         setUrl(`${baseUrl}/registry`);
       }
     }
-  }, [event, registryCode]);
+  }, [registryCode]);
 
   const handleCopy = async () => {
     try {
@@ -40,6 +38,36 @@ export default function ShareRegistryDialog(props) {
       setTimeout(() => setCopyLabel("Copy Registry Link"), 2000);
     }
   };
+
+  const handleShareEmail = () => {
+    const subject = encodeURIComponent("Check out my gift registry!");
+    const body = encodeURIComponent(
+      `I've created a gift registry. You can view it here: ${url}`
+    );
+    window.open(`mailto:?subject=${subject}&body=${body}`, "_blank");
+  };
+
+  const handleShareSocial = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: "My Gift Registry",
+        text: "Check out my gift registry!",
+        url,
+      }).catch(() => {});
+    } else {
+      handleCopy();
+    }
+  };
+
+  const handleShareQr = () => {
+    setShowQr((prev) => !prev);
+  };
+
+  const qrSrc = url
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(
+        url
+      )}`
+    : "";
 
   return (
     <Dialog>
@@ -76,25 +104,55 @@ export default function ShareRegistryDialog(props) {
 
           {/* Second section: three share boxes */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
+            <button
+              type="button"
+              onClick={handleShareEmail}
+              className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer"
+            >
               <Send className="size-12 text-[#9B9B9B]" />
               <p className="text-xs text-[#394B71] font-semibold">
                 Share via e-mail
               </p>
-            </div>
-            <div className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
-              <Link className="size-12 text-[#9B9B9B]" />
+            </button>
+            <button
+              type="button"
+              onClick={handleShareSocial}
+              className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer"
+            >
+              <Share2 className="size-12 text-[#9B9B9B]" />
               <p className="text-xs text-[#394B71] font-semibold">
                 Share on Social
               </p>
-            </div>
-            <div className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer">
+            </button>
+            <button
+              type="button"
+              onClick={handleShareQr}
+              className="flex flex-col items-center justify-center space-y-4 border border-primary rounded-2xl py-4 bg-white hover:shadow-sm cursor-pointer"
+            >
               <QrCode className="size-12 text-[#9B9B9B]" />
               <p className="text-xs text-[#394B71] font-semibold">
-                Share on QR
+                {showQr ? "Hide QR" : "Share on QR"}
               </p>
-            </div>
+            </button>
           </div>
+
+          {showQr && qrSrc ? (
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-[#DCDCDE] bg-[#FAFAFA] p-4">
+              <img
+                src={qrSrc}
+                alt="Registry QR code"
+                className="h-40 w-40"
+              />
+              <a
+                href={qrSrc}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-white cursor-pointer bg-primary border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-2"
+              >
+                Open QR Code
+              </a>
+            </div>
+          ) : null}
         </div>
 
         {/* <div className="mt-6 flex justify-end">

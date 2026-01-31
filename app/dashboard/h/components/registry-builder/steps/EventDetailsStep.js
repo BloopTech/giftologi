@@ -50,6 +50,7 @@ export default function EventDetailsStep({
         placeholder="DD/MM/YYYY"
         value={formData.date}
         onChange={(date) => updateFormData("date", date)}
+        disabledDays={{ before: new Date() }}
         error={errors.date}
         disabled={disabled}
         required
@@ -77,6 +78,18 @@ export default function EventDetailsStep({
         disabled={disabled}
         optional
         rows={4}
+      />
+
+      <FormTextarea
+        label="Welcome Note"
+        name="welcomeNote"
+        placeholder="Write a short welcome message for guests"
+        value={formData.welcomeNote || ""}
+        onChange={(e) => updateFormData("welcomeNote", e.target.value)}
+        error={errors.welcomeNote}
+        disabled={disabled}
+        optional
+        rows={5}
       />
     </div>
   );

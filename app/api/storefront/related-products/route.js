@@ -4,16 +4,16 @@ import { createClient } from "@/app/utils/supabase/server";
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-
     const vendor_slug = searchParams.get("vendor_slug");
-    const pageRaw = searchParams.get("page");
+    const product_code = searchParams.get("product_code");
     const limitRaw = searchParams.get("limit");
+    const limit = Math.min(12, Math.max(1, Number.parseInt(limitRaw || "4", 10) || 4));
 
-    const page = Math.max(1, Number.parseInt(pageRaw || "1", 10) || 1);
-    const limit = Math.min(48, Math.max(1, Number.parseInt(limitRaw || "12", 10) || 12));
-
-    if (!vendor_slug) {
-      return NextResponse.json({ message: "vendor_slug is required" }, { status: 400 });
+    if (!vendor_slug || !product_code) {
+      return NextResponse.json(
+        { message: "vendor_slug and product_code are required" },
+        { status: 400 }
+      );
     }
 
     const supabase = await createClient();
@@ -32,10 +32,18 @@ export async function GET(req) {
       return NextResponse.json({ products: [] }, { status: 200 });
     }
 
-    const from = (page - 1) * limit;
-    const to = from + limit - 1;
+    const { data: current, error: currentError } = await supabase
+      .from("products")
+      .select("id")
+      .eq("vendor_id", vendor.id)
+      .eq("product_code", product_code)
+      .maybeSingle();
 
-    const { data: products, error: productsError } = await supabase
+    if (currentError) {
+      return NextResponse.json({ message: "Failed to load product" }, { status: 500 });
+    }
+
+    const query = supabase
       .from("products")
       .select(
         `
@@ -44,28 +52,28 @@ export async function GET(req) {
         name,
         price,
         images,
-        description,
-        stock_qty,
-        status,
-        category_id
+        stock_qty
       `
       )
       .eq("vendor_id", vendor.id)
       .eq("status", "approved")
       .eq("active", true)
       .order("created_at", { ascending: false })
-      .range(from, to);
+      .limit(limit);
+
+    if (current?.id) {
+      query.neq("id", current.id);
+    }
+
+    const { data: products, error: productsError } = await query;
 
     if (productsError) {
-      return NextResponse.json(
-        { message: "Failed to load products" },
-        { status: 500 }
-      );
+      return NextResponse.json({ message: "Failed to load related products" }, { status: 500 });
     }
 
     return NextResponse.json({ products: Array.isArray(products) ? products : [] }, { status: 200 });
   } catch (error) {
-    console.error("Unexpected error in storefront vendor-products:", error);
+    console.error("Unexpected error in storefront related-products:", error);
     return NextResponse.json({ message: "Unexpected error" }, { status: 500 });
   }
 }

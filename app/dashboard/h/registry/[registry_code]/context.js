@@ -16,10 +16,14 @@ export const HostRegistryCodeProvider = ({
   registryCode,
   initialRegistry,
   initialEvent,
+  initialDeliveryAddress,
 }) => {
   const supabase = useMemo(() => createSupabaseClient(), []);
   const [registry, setRegistry] = useState(initialRegistry ?? null);
   const [event, setEvent] = useState(initialEvent ?? null);
+  const [deliveryAddress, setDeliveryAddress] = useState(
+    initialDeliveryAddress ?? null
+  );
   const [registryItems, setRegistryItems] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -49,6 +53,7 @@ export const HostRegistryCodeProvider = ({
         registry_code,
         cover_photo,
         deadline,
+        welcome_note,
         event:events!inner(
           id,
           host_id,
@@ -97,8 +102,21 @@ export const HostRegistryCodeProvider = ({
       return;
     }
 
+    const { data: deliveryAddressData, error: deliveryAddressError } = await supabase
+      .from("registry_delivery_addresses")
+      .select("*")
+      .eq("registry_code", registryCode)
+      .maybeSingle();
+
+    if (deliveryAddressError) {
+      setError(deliveryAddressError);
+      setIsLoading(false);
+      return;
+    }
+
     setRegistry(registryData);
     setEvent(eventData || null);
+    setDeliveryAddress(deliveryAddressData || null);
     setRegistryItems(Array.isArray(registryItemsData) ? registryItemsData : []);
     setIsLoading(false);
   }, [registryCode, supabase]);
@@ -129,13 +147,14 @@ export const HostRegistryCodeProvider = ({
     () => ({
       registry,
       event,
+      deliveryAddress,
       registryItems,
       totals,
       isLoading,
       error,
       refresh,
     }),
-    [registry, event, registryItems, totals, isLoading, error, refresh]
+    [registry, event, deliveryAddress, registryItems, totals, isLoading, error, refresh]
   );
 
   return (

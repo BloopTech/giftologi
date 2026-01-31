@@ -10,6 +10,7 @@ export default function FormDatePicker({
   optional = false,
   error,
   disabled = false,
+  disabledDays,
   value,
   onChange,
   className,
@@ -37,6 +38,7 @@ export default function FormDatePicker({
         placeholder={placeholder}
         hasError={hasError}
         disabled={disabled}
+        disabledDays={disabledDays}
         className={cx(
           "w-full rounded-full border px-4 py-3 shadow-sm outline-none transition text-sm h-auto",
           "bg-white",
