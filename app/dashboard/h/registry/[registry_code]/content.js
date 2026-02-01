@@ -315,7 +315,7 @@ export default function HostDashboardRegistryContent(props) {
               />
 
               {/* Edit Cover Button - Top Right */}
-              <div className="absolute top-5 right-4 z-1 flex items-center gap-2">
+              <div className="absolute top-4 right-4 z-1 flex items-center gap-2">
                 <label
                   htmlFor="cover_photo_file"
                   className="text-[#A5914B] cursor-pointer text-xs font-medium bg-white border border-[#A5914B] hover:bg-[#A5914B] hover:text-white rounded-full px-4 py-2 transition-colors"

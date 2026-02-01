@@ -33,6 +33,9 @@ const parseVariationPayload = (raw) => {
 export async function addProductToRegistry(prevState, formData) {
   const supabase = await createClient();
 
+  const optionalString = (value) =>
+    typeof value === "string" && value.trim() !== "" ? value : undefined;
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -51,10 +54,10 @@ export async function addProductToRegistry(prevState, formData) {
     productId: formData.get("productId"),
     quantity: formData.get("quantity"),
     priority: formData.get("priority"),
-    notes: formData.get("notes"),
-    color: formData.get("color"),
-    size: formData.get("size"),
-    variation: formData.get("variation"),
+    notes: optionalString(formData.get("notes")),
+    color: optionalString(formData.get("color")),
+    size: optionalString(formData.get("size")),
+    variation: optionalString(formData.get("variation")),
   };
 
   const parsed = addProductSchema.safeParse(raw);
