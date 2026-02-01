@@ -21,10 +21,11 @@ export default function FormDatePicker({
     <div className="space-y-1.5">
       {label && (
         <div className="flex items-center justify-between">
-          <label className="text-sm font-medium text-gray-900">{label}</label>
-          {optional && (
-            <span className="text-sm text-[#A5914B]">Optional</span>
-          )}
+          <label className="text-sm font-medium text-gray-900">
+            {label}
+            {required ? <span className="text-red-600">*</span> : null}
+          </label>
+          {optional && <span className="text-sm text-[#A5914B]">Optional</span>}
         </div>
       )}
       <input
@@ -46,7 +47,7 @@ export default function FormDatePicker({
           "text-gray-900",
           "hover:border-gray-400",
           hasError ? hasErrorInput : "",
-          className
+          className,
         )}
       />
       {hasError && (

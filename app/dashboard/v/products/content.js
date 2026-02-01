@@ -104,6 +104,64 @@ export default function VendorProductsContent() {
   const editFileInputRef = useRef(null);
   const editFormRef = useRef(null);
 
+  const [editParentCategoryId, setEditParentCategoryId] = useState("");
+  const [editSubcategoryId, setEditSubcategoryId] = useState("");
+
+  const categoriesById = React.useMemo(() => {
+    const map = new Map();
+    (categories || []).forEach((category) => {
+      map.set(category.id, category);
+    });
+    return map;
+  }, [categories]);
+
+  const categoriesByParentId = React.useMemo(() => {
+    const map = new Map();
+    (categories || []).forEach((category) => {
+      const parentId = category.parent_category_id || null;
+      const existing = map.get(parentId) || [];
+      existing.push(category);
+      map.set(parentId, existing);
+    });
+
+    for (const [key, list] of map.entries()) {
+      list.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+      map.set(key, list);
+    }
+
+    return map;
+  }, [categories]);
+
+  const editSubcategoryOptions = React.useMemo(() => {
+    if (!editParentCategoryId) return [];
+    return categoriesByParentId.get(editParentCategoryId) || [];
+  }, [categoriesByParentId, editParentCategoryId]);
+
+  const editSelectedCategoryId = editSubcategoryId || editParentCategoryId;
+
+  const getCategoryDisplayName = React.useCallback(
+    (category) => {
+      if (!category) return "Untitled";
+      const name = category.name || "Untitled";
+      const parentId = category.parent_category_id;
+      if (!parentId) return name;
+      const parent = categoriesById.get(parentId);
+      if (!parent) return name;
+      return `${parent.name || "Untitled"} / ${name}`;
+    },
+    [categoriesById],
+  );
+
+  const formatVariationsValue = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return "";
+    }
+  };
+
   useEffect(() => {
     if (!editDialogOpen) return;
     const existing = Array.isArray(selectedProduct?.images)
@@ -114,6 +172,16 @@ export default function VendorProductsContent() {
     setEditFeaturedIndex("");
     if (editFileInputRef.current) {
       editFileInputRef.current.value = "";
+    }
+    const selectedCategory = selectedProduct?.category_id
+      ? categoriesById.get(selectedProduct.category_id)
+      : null;
+    if (selectedCategory?.parent_category_id) {
+      setEditParentCategoryId(selectedCategory.parent_category_id);
+      setEditSubcategoryId(selectedCategory.id);
+    } else {
+      setEditParentCategoryId(selectedCategory?.id || "");
+      setEditSubcategoryId("");
     }
   }, [editDialogOpen, selectedProduct?.id]);
 
@@ -518,6 +586,11 @@ export default function VendorProductsContent() {
             <input type="hidden" name="product_id" value={selectedProduct?.id || ""} />
             <input
               type="hidden"
+              name="category_id"
+              value={editSelectedCategoryId || ""}
+            />
+            <input
+              type="hidden"
               name="featuredImageIndex"
               value={editFeaturedIndex || ""}
             />
@@ -567,14 +640,36 @@ export default function VendorProductsContent() {
                   Category <span className="text-red-500">*</span>
                 </label>
                 <select
-                  name="category_id"
-                  defaultValue={selectedProduct?.category_id || ""}
+                  value={editParentCategoryId}
+                  onChange={(e) => {
+                    setEditParentCategoryId(e.target.value);
+                    setEditSubcategoryId("");
+                  }}
                   className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                 >
                   <option value="">Select category</option>
-                  {(categories || []).map((cat) => (
+                  {(categoriesByParentId.get(null) || []).map((cat) => (
                     <option key={cat.id} value={cat.id}>
                       {cat.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Subcategory
+                </label>
+                <select
+                  value={editSubcategoryId}
+                  onChange={(e) => setEditSubcategoryId(e.target.value)}
+                  disabled={!editParentCategoryId || !editSubcategoryOptions.length}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                >
+                  <option value="">None</option>
+                  {editSubcategoryOptions.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {getCategoryDisplayName(cat)}
                     </option>
                   ))}
                 </select>
@@ -618,6 +713,30 @@ export default function VendorProductsContent() {
                 defaultValue={selectedProduct?.description || ""}
                 className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
               />
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#374151] text-sm font-medium">
+                Variations (optional)
+              </label>
+              <textarea
+                name="variations"
+                rows={4}
+                defaultValue={formatVariationsValue(
+                  editState?.values?.variations ?? selectedProduct?.variations
+                )}
+                placeholder='[{"label":"Red / Small","color":"Red","size":"S","sku":"SKU-RED-S","price":120}]'
+                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+              />
+              {editState?.errors?.variations && (
+                <span className="text-red-500 text-xs">
+                  {editState.errors.variations}
+                </span>
+              )}
+              <p className="text-[11px] text-[#6B7280]">
+                Provide a JSON array of variations. Supported fields: label,
+                color, size, sku, price.
+              </p>
             </div>
 
             <div className="flex flex-col gap-1.5">

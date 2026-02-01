@@ -23,17 +23,61 @@ const formatPrice = (value) => {
   return `GHS ${num.toFixed(2)}`;
 };
 
+const normalizeVariations = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((v) => v && typeof v === "object");
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((v) => v && typeof v === "object")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const getVariationPriceStats = (variations) => {
+  const prices = (variations || [])
+    .map((variation) => Number(variation?.price))
+    .filter((value) => Number.isFinite(value));
+  if (!prices.length) {
+    return { min: null, max: null };
+  }
+  return {
+    min: Math.min(...prices),
+    max: Math.max(...prices),
+  };
+};
+
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const vendor = product?.vendor || {};
+  const variations = normalizeVariations(product?.variations);
+  const variationStats = getVariationPriceStats(variations);
+  const basePrice = Number(product?.price);
+  const displayPrice =
+    variationStats.min != null && Number.isFinite(variationStats.min)
+      ? variationStats.min
+      : Number.isFinite(basePrice)
+      ? basePrice
+      : null;
   return {
     id: product?.id,
     productCode: product?.product_code || null,
     name: product?.name || "Product",
     image: images[0] || "/host/toaster.png",
     images,
-    price: formatPrice(product?.price),
-    rawPrice: product?.price,
+    price: formatPrice(displayPrice),
+    rawPrice: displayPrice,
+    basePrice: Number.isFinite(basePrice) ? basePrice : null,
+    variationPriceRange:
+      variationStats.min != null && variationStats.max != null
+        ? variationStats
+        : null,
+    variations,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
     categoryId: product?.category_id || null,
@@ -187,6 +231,7 @@ export function ShopProvider({
             name,
             price,
             images,
+            variations,
             description,
             stock_qty,
             category_id,
@@ -366,19 +411,6 @@ export function ShopProvider({
     setAddToRegistryProduct(null);
   }, []);
 
-  // Add product to registry (now handled by server action in modal)
-  const addProductToRegistry = useCallback(
-    async ({ productId, quantity, priority, notes, color, size }) => {
-      // This function is kept for backward compatibility but should not be used
-      // The AddToRegistryModal now uses server actions directly
-      console.warn(
-        "addProductToRegistry is deprecated. Use server action in AddToRegistryModal instead."
-      );
-      return { success: false, error: "Deprecated method" };
-    },
-    []
-  );
-
   // Check if product is in registry
   const isProductInRegistry = useCallback(
     (productId) => {
@@ -483,8 +515,7 @@ export function ShopProvider({
       addToRegistryOpen,
       addToRegistryProduct,
       openAddToRegistry,
-      closeAddToRegistry,
-      addProductToRegistry,
+      closeAddToRegistry
     }),
     [
       products,
@@ -511,8 +542,7 @@ export function ShopProvider({
       addToRegistryOpen,
       addToRegistryProduct,
       openAddToRegistry,
-      closeAddToRegistry,
-      addProductToRegistry,
+      closeAddToRegistry
     ]
   );
 

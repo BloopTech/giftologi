@@ -397,6 +397,26 @@ export function AddProductDialog({
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[#374151] text-sm font-medium">
+              Variations (optional)
+            </label>
+            <textarea
+              name="variations"
+              rows={4}
+              placeholder='[{"label":"Red / Small","color":"Red","size":"S","sku":"SKU-RED-S","price":120}]'
+              defaultValue={state.values?.variations || ""}
+              className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+            />
+            {state.errors?.variations && (
+              <span className="text-red-500 text-xs">{state.errors.variations}</span>
+            )}
+            <p className="text-[11px] text-[#6B7280]">
+              Provide a JSON array of variations. Supported fields: label, color,
+              size, sku, price.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[#374151] text-sm font-medium">
               Product Images
             </label>
 

@@ -60,6 +60,8 @@ export const HostRegistryCodeProvider = ({
           type,
           title,
           date,
+          location,
+          privacy,
           cover_photo
         )
       `

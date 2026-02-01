@@ -1,8 +1,16 @@
 "use client";
 import React, { useState, useEffect, useActionState } from "react";
 import Image from "next/image";
-import { PiFileImageLight, PiGiftDuotone, PiGiftFill } from "react-icons/pi";
+import {
+  PiFileImageLight,
+  PiGiftDuotone,
+  PiGiftFill,
+  PiDotsThreeVertical,
+  PiPencilSimple,
+  PiTrash,
+} from "react-icons/pi";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Footer from "../../../../components/footer";
 import Advertisement from "../../../../components/advertisement";
 import { format } from "date-fns";
@@ -14,6 +22,8 @@ import {
   removeRegistryCoverPhoto,
   updateWelcomeNote,
   updateDeliveryAddress,
+  updateRegistryDetails,
+  deleteRegistry,
 } from "./action";
 import { toast } from "sonner";
 import { useHostRegistryCodeContext } from "./context";
@@ -23,6 +33,14 @@ import {
   DialogContent,
   DialogTitle,
 } from "../../../../components/Dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../../../components/Dropdown";
+import FormInput from "../../components/registry-builder/FormInput";
+import EditRegistryBuilderDialog from "../../components/registry-builder/EditRegistryBuilderDialog";
 
 const initialState = {
   message: "",
@@ -36,6 +54,7 @@ const initialState = {
 };
 
 export default function HostDashboardRegistryContent(props) {
+  const router = useRouter();
   const {
     registry: registryFromContext,
     event: eventFromContext,
@@ -63,13 +82,20 @@ export default function HostDashboardRegistryContent(props) {
     updateDeliveryAddress,
     initialState,
   );
+  const [deleteState, deleteFormAction, isDeletePending] = useActionState(
+    deleteRegistry,
+    initialState,
+  );
   const [cover_photo, setCoverPhoto] = useState(null);
   const [cover_photoInput, setCoverPhotoInput] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [isImageSaved, setIsImageSaved] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [welcomeNoteInput, setWelcomeNoteInput] = useState("");
   const [addressOpen, setAddressOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [addressInput, setAddressInput] = useState({
     street_address: "",
     street_address_2: "",
@@ -173,6 +199,28 @@ export default function HostDashboardRegistryContent(props) {
     }
   }, [addressState, refresh]);
 
+  useEffect(() => {
+    if (
+      deleteState?.message &&
+      Object.keys(deleteState?.errors || {}).length > 0
+    ) {
+      toast.error(deleteState?.message);
+    }
+
+    if (deleteState?.message && deleteState?.status_code === 200) {
+      toast.success(deleteState?.message);
+      setDeleteOpen(false);
+      setDeleteConfirmText("");
+      router.push("/dashboard/h/registry");
+    }
+  }, [deleteState, router]);
+
+  useEffect(() => {
+    if (!deleteOpen) {
+      setDeleteConfirmText("");
+    }
+  }, [deleteOpen]);
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -267,7 +315,7 @@ export default function HostDashboardRegistryContent(props) {
               />
 
               {/* Edit Cover Button - Top Right */}
-              <div className="absolute top-5 right-4 z-1">
+              <div className="absolute top-5 right-4 z-1 flex items-center gap-2">
                 <label
                   htmlFor="cover_photo_file"
                   className="text-[#A5914B] cursor-pointer text-xs font-medium bg-white border border-[#A5914B] hover:bg-[#A5914B] hover:text-white rounded-full px-4 py-2 transition-colors"
@@ -375,7 +423,30 @@ export default function HostDashboardRegistryContent(props) {
         <div className="w-full flex flex-col space-y-4">
           <p className="text-[#394B71] font-semibold">Registry Summary</p>
           <div className="w-full flex space-x-4 flex-wrap">
-            <div className="w-[250px] flex flex-col space-y-2 border border-[#DCDCDE] rounded-md p-4 bg-white">
+            <div className="w-[250px] flex flex-col space-y-2 border border-[#DCDCDE] rounded-md p-4 bg-white relative">
+              <div className="absolute top-3 right-3">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="cursor-pointer p-1.5 rounded-lg hover:bg-[#F3F4F6] transition-colors">
+                      <PiDotsThreeVertical className="w-5 h-5 text-[#6B7280]" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" sideOffset={6} collisionPadding={12}>
+                    <DropdownMenuItem onSelect={() => setEditOpen(true)}>
+                      <span className="flex items-center gap-2">
+                        <PiPencilSimple className="w-4 h-4" />
+                        Edit registry
+                      </span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => setDeleteOpen(true)}>
+                      <span className="flex items-center gap-2 text-red-600">
+                        <PiTrash className="w-4 h-4" />
+                        Delete registry
+                      </span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <p className="text-xs text-[#394B71]">Event Name</p>
               <p className="text-sm text-[#247ACB] font-semibold line-clamp-1 w-full">
                 {registry?.title}
@@ -420,7 +491,11 @@ export default function HostDashboardRegistryContent(props) {
             />
 
             <Link
-              href="/shop"
+              href={
+                registry?.registry_code
+                  ? `/shop?registry_code=${registry.registry_code}`
+                  : "/shop"
+              }
               className="flex items-center flex-col justify-center space-y-2 border border-[#B1C6F2] rounded-md py-4 px-8 bg-[#D3E4F5] cursor-pointer hover:bg-[#C2D7F9] transition-colors"
             >
               <PiGiftFill className="size-10 text-[#247ACB] font-semibold" />
@@ -446,7 +521,11 @@ export default function HostDashboardRegistryContent(props) {
               <br /> Add items from the Shop to get started.
             </p>
             <Link
-              href="/shop"
+              href={
+                registry?.registry_code
+                  ? `/shop?registry_code=${registry.registry_code}`
+                  : "/shop"
+              }
               className="text-white cursor-pointer text-xs/tight bg-[#A5914B] border border-[#A5914B] hover:bg-white hover:text-[#A5914B] rounded-2xl px-4 py-2 flex items-center"
             >
               Go to Shop
@@ -699,6 +778,103 @@ export default function HostDashboardRegistryContent(props) {
                 className="px-5 py-2 text-sm font-medium text-white bg-[#A5914B] border border-[#A5914B] rounded-full hover:bg-white hover:text-[#A5914B] transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isAddressPending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="w-full max-w-2xl rounded-2xl shadow-xl p-6">
+          <DialogClose className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 transition-colors cursor-pointer">
+            <X className="h-5 w-5 text-gray-500" />
+          </DialogClose>
+
+          <DialogTitle className="text-xl font-semibold text-gray-900 mb-4">
+            Edit Registry
+          </DialogTitle>
+
+          <EditRegistryBuilderDialog
+            action={updateRegistryDetails}
+            registry={registry}
+            event={event}
+            deliveryAddress={deliveryAddress}
+            onClose={() => setEditOpen(false)}
+            onSuccess={() => {
+              setEditOpen(false);
+              refresh?.();
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="w-full max-w-lg rounded-2xl shadow-xl p-6">
+          <DialogClose className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 transition-colors cursor-pointer">
+            <X className="h-5 w-5 text-gray-500" />
+          </DialogClose>
+
+          <DialogTitle className="text-xl font-semibold text-gray-900 mb-2">
+            Delete Registry
+          </DialogTitle>
+          <p className="text-sm text-gray-600 mb-4">
+            This action cannot be undone. Type <span className="font-semibold">DELETE REGISTRY</span>
+            to confirm.
+          </p>
+
+          <form action={deleteFormAction} className="space-y-4">
+            <input
+              type="hidden"
+              name="registry_id"
+              value={registry?.id || ""}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="event_id"
+              value={event?.id || ""}
+              readOnly
+            />
+            <input
+              type="hidden"
+              name="redirect_to"
+              value="/dashboard/h/registry"
+              readOnly
+            />
+            {deleteState?.message &&
+            Object.keys(deleteState?.errors || {}).length > 0 ? (
+              <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-600">
+                {deleteState.message}
+              </p>
+            ) : null}
+
+            <FormInput
+              label="Confirmation"
+              name="confirm_text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder="DELETE REGISTRY"
+              required
+              disabled={isDeletePending}
+              error={deleteState?.errors?.confirm_text}
+            />
+
+            <div className="flex items-center justify-end gap-2">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="px-5 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={isDeletePending}
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={isDeletePending}
+                className="px-5 py-2 text-sm font-medium text-white bg-red-600 border border-red-600 rounded-full hover:bg-white hover:text-red-600 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isDeletePending ? "Deleting..." : "Delete registry"}
               </button>
             </div>
           </form>

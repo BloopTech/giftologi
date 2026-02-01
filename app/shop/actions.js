@@ -16,7 +16,19 @@ const addProductSchema = z.object({
   notes: z.string().max(500).optional(),
   color: z.string().max(100).optional(),
   size: z.string().max(100).optional(),
+  variation: z.string().optional(),
 });
+
+const parseVariationPayload = (raw) => {
+  if (!raw || typeof raw !== "string") return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
 
 export async function addProductToRegistry(prevState, formData) {
   const supabase = await createClient();
@@ -28,7 +40,7 @@ export async function addProductToRegistry(prevState, formData) {
   if (!user) {
     return {
       message: "You must be logged in to add items to a registry.",
-      errors: {},
+      errors: user,
       values: {},
       data: {},
     };
@@ -42,6 +54,7 @@ export async function addProductToRegistry(prevState, formData) {
     notes: formData.get("notes"),
     color: formData.get("color"),
     size: formData.get("size"),
+    variation: formData.get("variation"),
   };
 
   const parsed = addProductSchema.safeParse(raw);
@@ -55,7 +68,16 @@ export async function addProductToRegistry(prevState, formData) {
     };
   }
 
-  const { registryId, productId, quantity, priority, notes, color, size } = parsed.data;
+  const { registryId, productId, quantity, priority, notes, color, size, variation } =
+    parsed.data;
+
+  const variationSelection = parseVariationPayload(variation);
+  const normalizedColor =
+    color ||
+    (variationSelection?.color ? String(variationSelection.color) : null) ||
+    null;
+  const normalizedSize =
+    size || (variationSelection?.size ? String(variationSelection.size) : null) || null;
 
   // Verify registry belongs to user
   const { data: registry, error: registryError } = await supabase
@@ -68,7 +90,7 @@ export async function addProductToRegistry(prevState, formData) {
   if (registryError || !registry) {
     return {
       message: "Registry not found or you don't have permission to modify it.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -85,7 +107,7 @@ export async function addProductToRegistry(prevState, formData) {
   if (existingError) {
     return {
       message: "Failed to check existing items.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -96,7 +118,7 @@ export async function addProductToRegistry(prevState, formData) {
       message: "This product is already in your registry.",
       errors: {},
       values: raw,
-      data: {},
+      data: raw,
     };
   }
 
@@ -110,7 +132,7 @@ export async function addProductToRegistry(prevState, formData) {
   if (productError || !product) {
     return {
       message: "Product not found.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -119,7 +141,7 @@ export async function addProductToRegistry(prevState, formData) {
   if (!product.active || product.status !== "approved") {
     return {
       message: "This product is not available for registries.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -128,7 +150,7 @@ export async function addProductToRegistry(prevState, formData) {
   if (product.stock_qty < quantity) {
     return {
       message: `Only ${product.stock_qty} items available in stock.`,
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -143,8 +165,9 @@ export async function addProductToRegistry(prevState, formData) {
       quantity_needed: quantity,
       priority,
       notes: notes || null,
-      color: color || null,
-      size: size || null,
+      color: normalizedColor,
+      size: normalizedSize,
+      variation: variationSelection,
       created_at: new Date(),
       updated_at: new Date(),
     })
@@ -154,7 +177,7 @@ export async function addProductToRegistry(prevState, formData) {
   if (insertError) {
     return {
       message: insertError.message || "Failed to add item to registry.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -186,7 +209,7 @@ export async function removeProductFromRegistry(prevState, formData) {
   if (!user) {
     return {
       message: "You must be logged in to remove items from a registry.",
-      errors: {},
+      errors: user,
       values: {},
       data: {},
     };
@@ -228,7 +251,7 @@ export async function removeProductFromRegistry(prevState, formData) {
   if (itemError || !item) {
     return {
       message: "Item not found or you don't have permission to remove it.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -244,7 +267,7 @@ export async function removeProductFromRegistry(prevState, formData) {
   if (purchasesError) {
     return {
       message: "Failed to check item purchases.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -253,7 +276,7 @@ export async function removeProductFromRegistry(prevState, formData) {
   if (purchases && purchases.length > 0) {
     return {
       message: "Cannot remove item that has already been purchased.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };
@@ -268,7 +291,7 @@ export async function removeProductFromRegistry(prevState, formData) {
   if (deleteError) {
     return {
       message: deleteError.message || "Failed to remove item from registry.",
-      errors: {},
+      errors: raw,
       values: raw,
       data: {},
     };

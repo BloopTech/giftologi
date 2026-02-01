@@ -95,7 +95,7 @@ export default function Header() {
     <nav
       className={cx(
         "fixed left-0 top-0 z-10 w-full transition-colors duration-200",
-        scrolled ? "bg-white shadow-sm" : "bg-transparent"
+        scrolled ? "bg-white shadow-sm" : "bg-transparent",
       )}
     >
       <div className="flex justify-between w-full items-center max-w-5xl mx-auto">
@@ -133,7 +133,7 @@ export default function Header() {
           <div
             className={cx(
               "flex items-center space-x-4 py-3 px-6",
-              scrolled ? "" : "border-[#DCDCDE] bg-white border rounded-4xl"
+              scrolled ? "" : "border-[#DCDCDE] bg-white border rounded-4xl",
             )}
           >
             <div>
@@ -144,17 +144,22 @@ export default function Header() {
                 My Registry Lists
               </Link>
             </div>
-            <button className="text-xs text-[#A2845E] cursor-pointer flex items-center space-x-2">
-              <ShoppingCart className="size-5" />
-              <span>Shop</span>
-            </button>
+            <div>
+              <Link
+                href="/shop"
+                className="text-xs text-[#A2845E] cursor-pointer flex items-center space-x-2"
+              >
+                <ShoppingCart className="size-5" />
+                <span>Shop</span>
+              </Link>
+            </div>
 
             <div className="text-sm text-[#A2845E] flex items-center space-x-2">
               <button
                 aria-label="User settings"
                 //variant="ghost"
                 className={cx(
-                  "group flex items-center cursor-pointer rounded-md text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 data-[state=open]:bg-gray-100 hover:dark:bg-gray-400/10"
+                  "group flex items-center cursor-pointer rounded-md text-sm font-medium text-gray-900 dark:text-white hover:bg-gray-100 data-[state=open]:bg-gray-100 hover:dark:bg-gray-400/10",
                 )}
               >
                 <span className="relative">

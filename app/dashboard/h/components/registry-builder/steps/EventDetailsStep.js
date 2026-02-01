@@ -3,7 +3,7 @@ import FormInput from "../FormInput";
 import FormSelect from "../FormSelect";
 import FormDatePicker from "../FormDatePicker";
 import FormTextarea from "../FormTextarea";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, LocateIcon, MapPin } from "lucide-react";
 
 const eventTypeOptions = [
   { value: "Wedding", label: "Wedding" },
@@ -64,8 +64,8 @@ export default function EventDetailsStep({
         onChange={(e) => updateFormData("location", e.target.value)}
         error={errors.location}
         disabled={disabled}
-        optional
-        icon={<CalendarDays className="w-5 h-5" />}
+        icon={<MapPin className="w-5 h-5" />}
+        required
       />
 
       <FormTextarea

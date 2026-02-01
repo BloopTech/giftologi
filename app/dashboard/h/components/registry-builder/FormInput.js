@@ -17,7 +17,7 @@ const FormInput = forwardRef(
       icon,
       ...props
     },
-    ref
+    ref,
   ) => {
     const hasError = error && error.length > 0;
 
@@ -25,11 +25,9 @@ const FormInput = forwardRef(
       <div className="space-y-1.5">
         {label && (
           <div className="flex items-center justify-between">
-            <label
-              htmlFor={name}
-              className="text-sm font-medium text-gray-900"
-            >
-              {label}
+            <label htmlFor={name} className="text-sm font-medium text-gray-900">
+              {label}{" "}
+              {required ? <span className="text-red-600">*</span> : null}
             </label>
             {optional && (
               <span className="text-sm text-[#A5914B]">Optional</span>
@@ -55,7 +53,7 @@ const FormInput = forwardRef(
               focusInput,
               hasError ? hasErrorInput : "",
               icon ? "pr-10" : "",
-              className
+              className,
             )}
             {...props}
           />
@@ -74,7 +72,7 @@ const FormInput = forwardRef(
         )}
       </div>
     );
-  }
+  },
 );
 
 FormInput.displayName = "FormInput";

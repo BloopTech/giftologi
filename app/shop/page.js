@@ -26,6 +26,7 @@ export async function generateMetadata() {
 
 export default async function ShopPage({ searchParams }) {
   const params = await searchParams;
+  const registryCodeParam = typeof params?.registry_code === "string" ? params.registry_code : "";
   const supabase = await createClient();
 
   // Get current user and their active registry (if host)
@@ -47,7 +48,7 @@ export default async function ShopPage({ searchParams }) {
 
     // If user is a host, get their most recent active registry
     if (profile?.role === "host") {
-      const { data: registry } = await supabase
+      let registryQuery = supabase
         .from("registries")
         .select(
           `
@@ -62,10 +63,15 @@ export default async function ShopPage({ searchParams }) {
           )
         `
         )
-        .eq("event.host_id", profile.id)
+        .eq("registry_owner_id", profile.id)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(1);
+
+      if (registryCodeParam) {
+        registryQuery = registryQuery.eq("registry_code", registryCodeParam);
+      }
+
+      const { data: registry } = await registryQuery.maybeSingle();
 
       if (registry) {
         activeRegistry = {

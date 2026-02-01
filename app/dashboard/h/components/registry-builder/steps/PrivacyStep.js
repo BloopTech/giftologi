@@ -20,7 +20,7 @@ function RadioOption({ label, description, value, selected, onChange, disabled }
         />
         <div
           className={cx(
-            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors",
+            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors pointer-events-none",
             selected
               ? "bg-[#A5914B] border-[#A5914B]"
               : "bg-white border-gray-300"

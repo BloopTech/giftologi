@@ -86,6 +86,45 @@ async function uploadProductImage(file, keyPrefix) {
 const generateProductCode = () =>
   `P-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
 
+const parseVariationsPayload = (raw) => {
+  if (!raw || typeof raw !== "string") return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let parsed = [];
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const label = typeof entry.label === "string" ? entry.label.trim() : "";
+      const color = typeof entry.color === "string" ? entry.color.trim() : "";
+      const size = typeof entry.size === "string" ? entry.size.trim() : "";
+      const sku = typeof entry.sku === "string" ? entry.sku.trim() : "";
+      const rawPrice = entry.price;
+      const priceValue =
+        rawPrice === null || typeof rawPrice === "undefined" || rawPrice === ""
+          ? null
+          : Number(rawPrice);
+      const price = Number.isFinite(priceValue) ? priceValue : null;
+
+      if (!label && !color && !size && !sku && price == null) return null;
+
+      const variation = {};
+      if (label) variation.label = label;
+      if (color) variation.color = color;
+      if (size) variation.size = size;
+      if (sku) variation.sku = sku;
+      if (price != null) variation.price = price;
+      return variation;
+    })
+    .filter(Boolean);
+};
+
 const slugifyCategory = (value) => {
   const base = String(value || "")
     .trim()
@@ -637,6 +676,7 @@ const defaultCreateProductValues = {
   stockQty: [],
   productCode: [],
   categoryId: [],
+  variations: [],
   images: [],
   featuredImageIndex: [],
   bulkFile: [],
@@ -1272,6 +1312,7 @@ const createSingleProductSchema = z.object({
     }, "Enter a valid stock quantity"),
   productCode: z.string().trim().optional().or(z.literal("")),
   categoryId: z.string().trim().uuid({ message: "Select a category" }),
+  variations: z.string().trim().optional().or(z.literal("")),
   featuredImageIndex: z
     .string()
     .trim()
@@ -1420,6 +1461,7 @@ export async function createVendorProducts(prevState, formData) {
       stockQty: formData.get("stockQty") || "",
       productCode: formData.get("productCode") || "",
       categoryId: formData.get("categoryId") || "",
+      variations: formData.get("variations") || "",
       featuredImageIndex: formData.get("featuredImageIndex") || "",
     };
 
@@ -1517,6 +1559,7 @@ export async function createVendorProducts(prevState, formData) {
     const stockNumber = single.stockQty
       ? Number(single.stockQty.replace(/,/g, ""))
       : null;
+    const variations = parseVariationsPayload(single.variations);
     const nowIso = new Date().toISOString();
 
     const productPayload = {
@@ -1529,6 +1572,7 @@ export async function createVendorProducts(prevState, formData) {
         stockNumber != null && Number.isFinite(stockNumber)
           ? stockNumber
           : null,
+      variations: variations.length ? variations : null,
       images: orderedImageUrls.length ? orderedImageUrls : null,
       status: "approved",
       active: true,

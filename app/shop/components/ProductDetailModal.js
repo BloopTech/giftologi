@@ -1,5 +1,5 @@
 "use client";
-import React, { useActionState } from "react";
+import React, { useActionState, useEffect, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -27,6 +27,8 @@ export default function ProductDetailModal({
   isHost,
   registry,
 }) {
+  const addToastKeyRef = useRef(0);
+  const removeToastKeyRef = useRef(0);
   const { getRegistryItem } = useShop();
   const [addState, addAction, isAddPending] = useActionState(
     addProductToRegistry,
@@ -38,30 +40,39 @@ export default function ProductDetailModal({
   );
 
   // Show toast notifications based on action states
-  React.useEffect(() => {
-    if (addState?.message && Object.keys(addState?.errors || {}).length > 0) {
+  useEffect(() => {
+    if (!addState?.message) return;
+    if (addToastKeyRef.current === addState.message) return;
+
+    if (Object.keys(addState?.errors || {}).length > 0) {
       toast.error(addState.message);
-    }
-    if (addState?.message && !Object.keys(addState?.errors || {}).length) {
+    } else {
       toast.success(addState.message);
       if (addState?.data?.item) {
         onOpenChange(false);
+        window.dispatchEvent(new CustomEvent("registry-item-updated"));
       }
     }
+
+    addToastKeyRef.current = addState.message;
   }, [addState, onOpenChange]);
 
-  React.useEffect(() => {
-    if (removeState?.message && Object.keys(removeState?.errors || {}).length > 0) {
+  useEffect(() => {
+    if (!removeState?.message) return;
+    if (removeToastKeyRef.current === removeState.message) return;
+
+    if (Object.keys(removeState?.errors || {}).length > 0) {
       toast.error(removeState.message);
-    }
-    if (removeState?.message && !Object.keys(removeState?.errors || {}).length) {
+    } else {
       toast.success(removeState.message);
       if (removeState?.data?.registryItemId) {
         onOpenChange(false);
         // Trigger refresh of registry items in context
-        window.dispatchEvent(new CustomEvent('registry-item-updated'));
+        window.dispatchEvent(new CustomEvent("registry-item-updated"));
       }
     }
+
+    removeToastKeyRef.current = removeState.message;
   }, [removeState, onOpenChange]);
 
   if (!product) return null;

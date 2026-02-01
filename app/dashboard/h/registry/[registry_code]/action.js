@@ -6,7 +6,10 @@ import {
 } from "@aws-sdk/client-s3";
 import sharp from "sharp";
 import crypto from "crypto";
+import z from "zod";
 import { createClient } from "@/app/utils/supabase/server";
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 const s3Client = new S3Client({
   credentials: {
@@ -400,6 +403,429 @@ export async function updateDeliveryAddress(prev, queryData) {
   return {
     message: "Delivery address saved successfully",
     data: deliveryAddress,
+    errors: {},
+    status_code: 200,
+  };
+}
+
+const updateRegistryDetailsSchema = z.object({
+  registry_id: z.string().uuid({ message: "Invalid registry" }),
+  event_id: z.string().uuid({ message: "Invalid event" }),
+  location: z.string().trim().min(1, { message: "Location is required" }),
+  date: z.string().trim().min(1, { message: "Event date is required" }),
+  privacy: z.enum(["public", "private"], { message: "Privacy is required" }),
+  street_address: z.string().optional(),
+  street_address_2: z.string().optional(),
+  city: z.string().optional(),
+  state_province: z.string().optional(),
+  postal_code: z.string().optional(),
+  gps_location: z.string().optional(),
+  digital_address: z.string().optional(),
+});
+
+const deleteRegistrySchema = z.object({
+  registry_id: z.string().uuid({ message: "Invalid registry" }),
+  event_id: z.string().uuid({ message: "Invalid event" }),
+  confirm_text: z
+    .string()
+    .trim()
+    .min(1, { message: "Type DELETE REGISTRY to confirm" }),
+  redirect_to: z.string().optional(),
+});
+
+export async function updateRegistryDetails(prev, queryData) {
+  const supabase = await createClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .single();
+
+  if (profileError) {
+    return {
+      errors: { profile: [profileError.message] },
+      message: "Failed to update registry",
+      data: {},
+    };
+  }
+
+  const raw = {
+    registry_id: queryData.get("registry_id"),
+    event_id: queryData.get("event_id"),
+    location: (queryData.get("location") || "").toString().trim(),
+    date: (queryData.get("date") || "").toString().trim(),
+    privacy: (queryData.get("privacy") || "")
+      .toString()
+      .trim()
+      .toLowerCase(),
+    street_address: (queryData.get("street_address") || "").toString().trim(),
+    street_address_2: (queryData.get("street_address_2") || "")
+      .toString()
+      .trim(),
+    city: (queryData.get("city") || "").toString().trim(),
+    state_province: (queryData.get("state_province") || "")
+      .toString()
+      .trim(),
+    postal_code: (queryData.get("postal_code") || "").toString().trim(),
+    gps_location: (queryData.get("gps_location") || "").toString().trim(),
+    digital_address: (queryData.get("digital_address") || "")
+      .toString()
+      .trim(),
+  };
+
+  const parsed = updateRegistryDetailsSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const {
+    registry_id,
+    event_id,
+    location,
+    date,
+    privacy,
+    street_address,
+    street_address_2,
+    city,
+    state_province,
+    postal_code,
+    gps_location,
+    digital_address,
+  } = parsed.data;
+
+  const { data: isEventData, error: isEventError } = await supabase
+    .from("events")
+    .select("id, host_id")
+    .eq("host_id", profile.id)
+    .eq("id", event_id)
+    .single();
+
+  if (isEventError) {
+    return {
+      errors: { event_id: [isEventError.message] },
+      message: "Failed to update registry",
+      data: {},
+    };
+  }
+
+  const { data: isRegistryData, error: isRegistryError } = await supabase
+    .from("registries")
+    .select("id, registry_code")
+    .eq("event_id", isEventData.id)
+    .eq("id", registry_id)
+    .single();
+
+  if (isRegistryError) {
+    return {
+      errors: { registry_id: [isRegistryError.message] },
+      message: "Failed to update registry",
+      data: {},
+    };
+  }
+
+  const { error: eventError } = await supabase
+    .from("events")
+    .update({
+      location,
+      date,
+      privacy,
+      updated_at: new Date(),
+    })
+    .eq("id", isEventData.id);
+
+  if (eventError) {
+    return {
+      errors: { event: [eventError.message] },
+      message: "Failed to update registry",
+      data: {},
+    };
+  }
+
+  const addressValues = [
+    street_address,
+    street_address_2,
+    city,
+    state_province,
+    postal_code,
+    gps_location,
+    digital_address,
+  ].map((value) => (typeof value === "string" ? value.trim() : ""));
+
+  const hasAddress = addressValues.some((value) => value);
+
+  const { data: existingAddress, error: addressError } = await supabase
+    .from("delivery_addresses")
+    .select("id")
+    .eq("registry_id", isRegistryData.id)
+    .maybeSingle();
+
+  if (addressError) {
+    return {
+      errors: { delivery_address: [addressError.message] },
+      message: "Failed to update registry",
+      data: {},
+    };
+  }
+
+  if (existingAddress?.id && !hasAddress) {
+    const { error: deleteAddressError } = await supabase
+      .from("delivery_addresses")
+      .delete()
+      .eq("id", existingAddress.id);
+
+    if (deleteAddressError) {
+      return {
+        errors: { delivery_address: [deleteAddressError.message] },
+        message: "Failed to update registry",
+        data: {},
+      };
+    }
+  }
+
+  if (hasAddress) {
+    const addressPayload = {
+      registry_id: isRegistryData.id,
+      event_id: isEventData.id,
+      street_address: street_address || null,
+      street_address_2: street_address_2 || null,
+      city: city || null,
+      state_province: state_province || null,
+      postal_code: postal_code || null,
+      gps_location: gps_location || null,
+      digital_address: digital_address || null,
+      updated_at: new Date(),
+    };
+
+    const { error: addressUpsertError } = existingAddress?.id
+      ? await supabase
+          .from("delivery_addresses")
+          .update(addressPayload)
+          .eq("id", existingAddress.id)
+      : await supabase
+          .from("delivery_addresses")
+          .insert([{ ...addressPayload, created_at: new Date() }]);
+
+    if (addressUpsertError) {
+      return {
+        errors: { delivery_address: [addressUpsertError.message] },
+        message: "Failed to update registry",
+        data: {},
+      };
+    }
+  }
+
+  revalidatePath(`/dashboard/h/registry/${isRegistryData.registry_code}`);
+  revalidatePath("/dashboard/h/registry");
+
+  return {
+    message: "Registry updated successfully",
+    data: { registry_id: isRegistryData.id },
+    errors: {},
+    status_code: 200,
+  };
+}
+
+export async function deleteRegistry(prev, queryData) {
+  const supabase = await createClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("*")
+    .single();
+
+  if (profileError) {
+    return {
+      errors: { profile: [profileError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  const raw = {
+    registry_id: queryData.get("registry_id"),
+    event_id: queryData.get("event_id"),
+    confirm_text: (queryData.get("confirm_text") || "").toString(),
+    redirect_to: (queryData.get("redirect_to") || "").toString(),
+  };
+
+  const parsed = deleteRegistrySchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { registry_id, event_id, confirm_text, redirect_to } = parsed.data;
+  const redirectPath =
+    typeof redirect_to === "string" && redirect_to.trim().length
+      ? redirect_to.trim()
+      : null;
+
+  if (confirm_text.trim().toUpperCase() !== "DELETE REGISTRY") {
+    return {
+      message: "Confirmation text does not match.",
+      errors: {
+        confirm_text: ["Type DELETE REGISTRY to confirm."],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { data: isEventData, error: isEventError } = await supabase
+    .from("events")
+    .select("id, host_id")
+    .eq("host_id", profile.id)
+    .eq("id", event_id)
+    .single();
+
+  if (isEventError) {
+    return {
+      errors: { event_id: [isEventError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  const { data: isRegistryData, error: isRegistryError } = await supabase
+    .from("registries")
+    .select("id, registry_code")
+    .eq("event_id", isEventData.id)
+    .eq("id", registry_id)
+    .single();
+
+  if (isRegistryError) {
+    return {
+      errors: { registry_id: [isRegistryError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  const { data: purchasedItems, error: purchasedError } = await supabase
+    .from("registry_items")
+    .select("id")
+    .eq("registry_id", isRegistryData.id)
+    .gt("purchased_qty", 0)
+    .limit(1);
+
+  if (purchasedError) {
+    return {
+      errors: { registry_id: [purchasedError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  if (purchasedItems?.length) {
+    return {
+      errors: { registry_id: ["Registry has purchased items."] },
+      message: "Registry has purchased items and cannot be deleted.",
+      data: {},
+    };
+  }
+
+  const { data: orders, error: ordersError } = await supabase
+    .from("orders")
+    .select("id")
+    .eq("registry_id", isRegistryData.id);
+
+  if (ordersError) {
+    return {
+      errors: { registry_id: [ordersError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  const orderIds = (orders || []).map((order) => order.id).filter(Boolean);
+
+  if (orderIds.length) {
+    const { error: orderItemsError } = await supabase
+      .from("order_items")
+      .delete()
+      .in("order_id", orderIds);
+
+    if (orderItemsError) {
+      return {
+        errors: { registry_id: [orderItemsError.message] },
+        message: "Failed to delete registry",
+        data: {},
+      };
+    }
+  }
+
+  const { error: ordersDeleteError } = await supabase
+    .from("orders")
+    .delete()
+    .eq("registry_id", isRegistryData.id);
+
+  if (ordersDeleteError) {
+    return {
+      errors: { registry_id: [ordersDeleteError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  const { error: registryItemsDeleteError } = await supabase
+    .from("registry_items")
+    .delete()
+    .eq("registry_id", isRegistryData.id);
+
+  if (registryItemsDeleteError) {
+    return {
+      errors: { registry_id: [registryItemsDeleteError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  const { error: registryDeleteError } = await supabase
+    .from("registries")
+    .delete()
+    .eq("id", isRegistryData.id);
+
+  if (registryDeleteError) {
+    return {
+      errors: { registry_id: [registryDeleteError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  const { error: eventDeleteError } = await supabase
+    .from("events")
+    .delete()
+    .eq("id", isEventData.id);
+
+  if (eventDeleteError) {
+    return {
+      errors: { event_id: [eventDeleteError.message] },
+      message: "Failed to delete registry",
+      data: {},
+    };
+  }
+
+  revalidatePath("/dashboard/h/registry");
+
+  if (redirectPath) {
+    redirect(redirectPath);
+  }
+
+  return {
+    message: "Registry deleted successfully",
+    data: { registry_id: isRegistryData.id },
     errors: {},
     status_code: 200,
   };

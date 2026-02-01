@@ -13,10 +13,50 @@ const productSchema = z.object({
   cost_price: z.coerce.number().min(0).optional(),
   stock_qty: z.coerce.number().int().min(0, "Stock must be 0 or greater"),
   description: z.string().max(2000).optional(),
+  variations: z.string().optional().or(z.literal("")),
 });
 
 const generateProductCode = () =>
   `P-${crypto.randomBytes(4).toString("hex").toUpperCase()}`;
+
+const parseVariationsPayload = (raw) => {
+  if (!raw || typeof raw !== "string") return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let parsed = [];
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const label = typeof entry.label === "string" ? entry.label.trim() : "";
+      const color = typeof entry.color === "string" ? entry.color.trim() : "";
+      const size = typeof entry.size === "string" ? entry.size.trim() : "";
+      const sku = typeof entry.sku === "string" ? entry.sku.trim() : "";
+      const rawPrice = entry.price;
+      const priceValue =
+        rawPrice === null || typeof rawPrice === "undefined" || rawPrice === ""
+          ? null
+          : Number(rawPrice);
+      const price = Number.isFinite(priceValue) ? priceValue : null;
+
+      if (!label && !color && !size && !sku && price == null) return null;
+
+      const variation = {};
+      if (label) variation.label = label;
+      if (color) variation.color = color;
+      if (size) variation.size = size;
+      if (sku) variation.sku = sku;
+      if (price != null) variation.price = price;
+      return variation;
+    })
+    .filter(Boolean);
+};
 
 const s3Client = new S3Client({
   region: "auto",
@@ -99,6 +139,7 @@ export async function manageVendor(prevState, formData) {
       cost_price: formData.get("cost_price") || undefined,
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
+      variations: formData.get("variations") || "",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -119,6 +160,7 @@ export async function manageVendor(prevState, formData) {
 
     const productCode = generateProductCode();
 
+    const variations = parseVariationsPayload(rawData.variations);
     const { data: newProduct, error: insertError } = await supabase
       .from("products")
       .insert({
@@ -130,6 +172,7 @@ export async function manageVendor(prevState, formData) {
         price: validation.data.price,
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
+        variations: variations.length ? variations : null,
         images: [],
         created_at: new Date().toISOString(),
       })

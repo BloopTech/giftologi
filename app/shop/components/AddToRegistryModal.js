@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useActionState } from "react";
+import React, { useState, useActionState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import {
   Dialog,
@@ -29,11 +29,13 @@ export default function AddToRegistryModal({
   product,
   registry,
 }) {
+  const toastKeyRef = useRef(0);
   const [quantity, setQuantity] = useState(1);
   const [priority, setPriority] = useState("nice-to-have");
   const [notes, setNotes] = useState("");
   const [color, setColor] = useState("");
   const [size, setSize] = useState("");
+  const [selectedVariation, setSelectedVariation] = useState("");
 
   const [state, formAction, isPending] = useActionState(
     addProductToRegistry,
@@ -41,11 +43,19 @@ export default function AddToRegistryModal({
   );
 
   // Show toast notifications based on action state
-  React.useEffect(() => {
-    if (state?.message && Object.keys(state?.errors || {}).length > 0) {
+  useEffect(() => {
+    if (!state?.message) return;
+    const toastKey = JSON.stringify({
+      message: state.message,
+      itemId: state?.data?.item?.id || null,
+      registryItemId: state?.data?.registryItemId || null,
+      errorKeys: Object.keys(state?.errors || {}).join(","),
+    });
+    if (toastKeyRef.current === toastKey) return;
+
+    if (Object.keys(state?.errors || {}).length > 0) {
       toast.error(state.message);
-    }
-    if (state?.message && !Object.keys(state?.errors || {}).length) {
+    } else {
       toast.success(state.message);
       if (state?.data?.item) {
         onOpenChange(false);
@@ -55,11 +65,53 @@ export default function AddToRegistryModal({
         setNotes("");
         setColor("");
         setSize("");
+        setSelectedVariation("");
         // Trigger refresh of registry items in context
-        window.dispatchEvent(new CustomEvent('registry-item-updated'));
+        window.dispatchEvent(new CustomEvent("registry-item-updated"));
       }
     }
+
+    toastKeyRef.current = toastKey;
   }, [state, onOpenChange]);
+
+  const variations = useMemo(() => {
+    if (!product?.variations) return [];
+    if (Array.isArray(product.variations)) return product.variations;
+    if (typeof product.variations === "string") {
+      try {
+        const parsed = JSON.parse(product.variations);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  }, [product?.variations]);
+
+  const variationOptions = useMemo(() => {
+    return variations
+      .map((variation, index) => ({
+        key: String(variation?.id || variation?.sku || index),
+        label:
+          variation?.label ||
+          [variation?.color, variation?.size]
+            .filter(Boolean)
+            .join(" / ") ||
+          `Option ${index + 1}`,
+        price: variation?.price,
+        color: variation?.color,
+        size: variation?.size,
+        raw: variation,
+      }))
+      .filter((option) => option.label);
+  }, [variations]);
+
+  const handleVariationChange = (value) => {
+    setSelectedVariation(value);
+    const selected = variationOptions.find((option) => option.key === value);
+    if (selected?.color) setColor(String(selected.color));
+    if (selected?.size) setSize(String(selected.size));
+  };
 
   const handleQuantityChange = (delta) => {
     setQuantity((prev) => {
@@ -177,35 +229,70 @@ export default function AddToRegistryModal({
               <input type="hidden" name="priority" value={priority} readOnly />
             </div>
 
-            {/* Color & Size (optional) */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Preferred Color (optional)
-                </label>
-                <input
-                  type="text"
-                  name="color"
-                  value={color}
-                  onChange={(e) => setColor(e.target.value)}
-                  placeholder="e.g., Blue, Silver"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                />
+            {variationOptions.length > 0 ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Choose a variation
+                  </label>
+                  <select
+                    value={selectedVariation}
+                    onChange={(e) => handleVariationChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none bg-white"
+                  >
+                    <option value="">Select an option</option>
+                    {variationOptions.map((option) => (
+                      <option key={option.key} value={option.key}>
+                        {option.label}
+                        {option.price != null ? ` - GHS ${option.price}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  <input
+                    type="hidden"
+                    name="variation"
+                    value={
+                      selectedVariation
+                        ? JSON.stringify(
+                            variationOptions.find(
+                              (option) => option.key === selectedVariation
+                            )?.raw || {}
+                          )
+                        : ""
+                    }
+                    readOnly
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Preferred Color
+                    </label>
+                    <input
+                      type="text"
+                      name="color"
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      placeholder="e.g., Blue, Silver"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Preferred Size
+                    </label>
+                    <input
+                      type="text"
+                      name="size"
+                      value={size}
+                      onChange={(e) => setSize(e.target.value)}
+                      placeholder="e.g., Large, 10x12"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
+                    />
+                  </div>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Preferred Size (optional)
-                </label>
-                <input
-                  type="text"
-                  name="size"
-                  value={size}
-                  onChange={(e) => setSize(e.target.value)}
-                  placeholder="e.g., Large, 10x12"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                />
-              </div>
-            </div>
+            ) : null}
 
             {/* Notes */}
             <div>

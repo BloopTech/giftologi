@@ -61,7 +61,7 @@ export const VendorProductsProvider = ({ children }) => {
           supabase
             .from("products")
             .select(`
-              id, name, description, price, stock_qty, images, status, product_code, created_at,
+              id, name, description, price, stock_qty, images, variations, status, product_code, created_at,
               category_id,
               categories:category_id (id, name, slug)
             `)

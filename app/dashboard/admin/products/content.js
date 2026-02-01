@@ -680,6 +680,7 @@ const initialCreateState = {
     stockQty: [],
     productCode: [],
     categoryId: [],
+    variations: [],
     images: [],
     featuredImageIndex: [],
     bulkFile: [],
@@ -1616,6 +1617,36 @@ export default function ManageProductsContent() {
                           ))}
                         </ul>
                       ) : null}
+                    </div>
+
+                    <div className="md:col-span-2 space-y-1">
+                      <label
+                        htmlFor="product-variations"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Variations (optional)
+                      </label>
+                      <textarea
+                        id="product-variations"
+                        name="variations"
+                        rows={4}
+                        defaultValue={createState?.values?.variations || ""}
+                        placeholder='[{"label":"Red / Small","color":"Red","size":"S","sku":"SKU-RED-S","price":120}]'
+                        className="w-full rounded-lg border px-3 py-2 text-xs font-mono shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.variations || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.variations.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-[#717182]">
+                          Provide a JSON array of variations with fields like label,
+                          color, size, sku, and price.
+                        </p>
+                      )}
                     </div>
 
                     <div className="md:col-span-2 space-y-1">

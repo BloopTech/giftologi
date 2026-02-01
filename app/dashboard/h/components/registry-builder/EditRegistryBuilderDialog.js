@@ -1,40 +1,46 @@
 "use client";
+
 import React, {
   useActionState,
-  useEffect,
-  useState,
   useCallback,
+  useEffect,
+  useMemo,
   useRef,
+  useState,
 } from "react";
-import { createRegistryAction } from "../../action";
 import { toast } from "sonner";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
 import { DialogClose } from "../../../../components/Dialog";
 import StepIndicator from "./StepIndicator";
-import {
-  EventDetailsStep,
-  DeliveryAddressStep,
-  PersonaliseStep,
-  PrivacyStep,
-} from "./steps";
+import { DeliveryAddressStep, PrivacyStep } from "./steps";
+import FormDatePicker from "./FormDatePicker";
+import FormInput from "./FormInput";
+
+const EDIT_STEPS = [
+  { id: 1, label: "Event Details" },
+  { id: 2, label: "Delivery Address" },
+  { id: 3, label: "Privacy" },
+];
 
 const STEP_TITLES = {
   1: "Registry Builder",
   2: "Delivery Address",
-  3: "Personalise",
-  4: "Privacy",
+  3: "Privacy",
 };
 
 const initialState = {
   message: "",
   errors: {
-    title: [],
-    type: [],
     location: [],
-    description: [],
     date: [],
-    deadline: [],
     privacy: [],
+    street_address: [],
+    street_address_2: [],
+    city: [],
+    state_province: [],
+    postal_code: [],
+    gps_location: [],
+    digital_address: [],
     credentials: {},
     unknown: "",
   },
@@ -42,15 +48,29 @@ const initialState = {
   data: {},
 };
 
-export default function RegistryBuilderDialog({ onClose }) {
+export default function EditRegistryBuilderDialog({
+  onClose,
+  action,
+  registry,
+  event,
+  deliveryAddress,
+  onSuccess,
+}) {
   const [currentStep, setCurrentStep] = useState(1);
+
+  const normalizedEvent = useMemo(() => {
+    if (!event) return null;
+    return Array.isArray(event) ? event[0] : event;
+  }, [event]);
+
+  const normalizedDelivery = useMemo(() => {
+    if (!deliveryAddress) return null;
+    return Array.isArray(deliveryAddress) ? deliveryAddress[0] : deliveryAddress;
+  }, [deliveryAddress]);
+
   const [formData, setFormData] = useState({
-    title: "",
-    type: "",
     date: undefined,
     location: "",
-    description: "",
-    welcomeNote: "",
     useCurrentLocation: false,
     gpsLocation: "",
     digitalAddress: "",
@@ -60,19 +80,9 @@ export default function RegistryBuilderDialog({ onClose }) {
     stateProvince: "",
     postalCode: "",
     privacy: "public",
-    eventPhoto: null,
-    coverPhoto: null,
   });
 
-  const [photoPreviews, setPhotoPreviews] = useState({
-    eventPhoto: null,
-    coverPhoto: null,
-  });
-
-  const [state, formAction, isPending] = useActionState(
-    createRegistryAction,
-    initialState
-  );
+  const [state, formAction, isPending] = useActionState(action, initialState);
   const successToastShownRef = useRef(false);
   const errorToastShownRef = useRef(false);
 
@@ -84,50 +94,45 @@ export default function RegistryBuilderDialog({ onClose }) {
   }, [isPending]);
 
   useEffect(() => {
-    const hasErrors =
+    setFormData({
+      date: normalizedEvent?.date ? new Date(normalizedEvent.date) : undefined,
+      location: (normalizedEvent?.location || "").toString(),
+      useCurrentLocation: false,
+      gpsLocation: (normalizedDelivery?.gps_location || "").toString(),
+      digitalAddress: (normalizedDelivery?.digital_address || "").toString(),
+      streetAddress: (normalizedDelivery?.street_address || "").toString(),
+      streetAddress2: (normalizedDelivery?.street_address_2 || "").toString(),
+      city: (normalizedDelivery?.city || "").toString(),
+      stateProvince: (normalizedDelivery?.state_province || "").toString(),
+      postalCode: (normalizedDelivery?.postal_code || "").toString(),
+      privacy: (normalizedEvent?.privacy || "public").toString().toLowerCase(),
+    });
+  }, [normalizedEvent, normalizedDelivery]);
+
+  useEffect(() => {
+    const hasActualErrors =
       state?.message &&
       state?.errors &&
       Object.values(state.errors).some(
-        (err) => Array.isArray(err) && err.length > 0
+        (err) => Array.isArray(err) && err.length > 0,
       );
 
-    if (hasErrors && !errorToastShownRef.current) {
+    if (hasActualErrors && !errorToastShownRef.current) {
       toast.error(state.message);
       errorToastShownRef.current = true;
     }
 
-    const hasSuccess =
-      state?.message && state?.data && Object.keys(state.data).length;
-
-    if (hasSuccess && !successToastShownRef.current) {
+    if (state?.message && state?.status_code === 200 && !successToastShownRef.current) {
       toast.success(state.message);
       successToastShownRef.current = true;
+      onSuccess?.(state);
       onClose?.();
     }
-  }, [state, onClose]);
+  }, [state, onClose, onSuccess]);
 
   const updateFormData = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   }, []);
-
-  const handlePhotoChange = useCallback(
-    (field) => async (e) => {
-      const file = e.target.files?.[0] ?? null;
-      updateFormData(field, file);
-
-      if (!file) {
-        setPhotoPreviews((prev) => ({ ...prev, [field]: null }));
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreviews((prev) => ({ ...prev, [field]: reader.result }));
-      };
-      reader.readAsDataURL(file);
-    },
-    [updateFormData]
-  );
 
   const handleBack = () => {
     if (currentStep > 1) {
@@ -137,7 +142,7 @@ export default function RegistryBuilderDialog({ onClose }) {
 
   const handleContinue = (e) => {
     if (e?.preventDefault) e.preventDefault();
-    if (currentStep < 4) {
+    if (currentStep < 3) {
       setCurrentStep((prev) => prev + 1);
     }
   };
@@ -145,46 +150,66 @@ export default function RegistryBuilderDialog({ onClose }) {
   const canContinue = () => {
     switch (currentStep) {
       case 1:
-        return formData.title && formData.type && formData.date;
+        return formData.location && formData.date;
       case 2:
         return true;
       case 3:
-        return true;
-      case 4:
         return true;
       default:
         return false;
     }
   };
 
+  const errors = state?.errors || {};
+
   const renderStep = () => {
     const stepProps = {
       formData,
       updateFormData,
-      photoPreviews,
-      errors: state?.errors || {},
+      errors,
       disabled: isPending,
     };
 
     switch (currentStep) {
       case 1:
-        return <EventDetailsStep {...stepProps} />;
+        return (
+          <div className="space-y-5">
+            <FormDatePicker
+              label="Date"
+              name="date"
+              placeholder="DD/MM/YYYY"
+              value={formData.date}
+              onChange={(date) => updateFormData("date", date)}
+              disabledDays={{ before: new Date() }}
+              error={errors.date}
+              disabled={isPending}
+              required
+            />
+            <FormInput
+              label="Location"
+              name="location"
+              placeholder="Accra"
+              value={formData.location || ""}
+              onChange={(e) => updateFormData("location", e.target.value)}
+              error={errors.location}
+              disabled={isPending}
+              required
+            />
+          </div>
+        );
       case 2:
         return <DeliveryAddressStep {...stepProps} />;
       case 3:
-        return <PersonaliseStep {...stepProps} />;
-      case 4:
         return <PrivacyStep {...stepProps} />;
       default:
         return null;
     }
   };
 
-  const isLastStep = currentStep === 4;
+  const isLastStep = currentStep === 3;
 
   return (
     <div className="flex flex-col">
-      {/* Header with Back button and Title */}
       <div className="flex items-center gap-4 mb-6">
         {currentStep > 1 && (
           <button
@@ -202,65 +227,57 @@ export default function RegistryBuilderDialog({ onClose }) {
         </h2>
       </div>
 
-      {/* Step Indicator */}
       <div className="mb-8">
-        <StepIndicator currentStep={currentStep} />
+        <StepIndicator currentStep={currentStep} steps={EDIT_STEPS} />
       </div>
 
-      {/* Form Content */}
       <form action={formAction}>
-        {/* Hidden inputs for form submission */}
-        <input type="hidden" name="title" value={formData.title} />
-        <input type="hidden" name="type" value={formData.type} />
+        <input type="hidden" name="registry_id" value={registry?.id || ""} />
+        <input type="hidden" name="event_id" value={normalizedEvent?.id || ""} />
+        <input type="hidden" name="location" value={formData.location || ""} />
         <input
           type="hidden"
           name="date"
           value={formData.date ? formData.date.toISOString() : ""}
         />
-        <input type="hidden" name="location" value={formData.location} />
-        <input type="hidden" name="description" value={formData.description} />
-        <input type="hidden" name="welcomeNote" value={formData.welcomeNote || ""} />
         <input type="hidden" name="privacy" value={formData.privacy || "public"} />
+
         <input
           type="hidden"
-          name="deadline"
-          value={formData.date ? formData.date.toISOString() : ""}
-        />
-
-        {/* Address fields */}
-        <input type="hidden" name="streetAddress" value={formData.streetAddress} />
-        <input type="hidden" name="streetAddress2" value={formData.streetAddress2} />
-        <input type="hidden" name="city" value={formData.city} />
-        <input type="hidden" name="stateProvince" value={formData.stateProvince} />
-        <input type="hidden" name="postalCode" value={formData.postalCode} />
-        <input type="hidden" name="gpsLocation" value={formData.gpsLocation} />
-        <input type="hidden" name="digitalAddress" value={formData.digitalAddress} />
-
-        {/* Persisted file inputs so selected files survive step changes */}
-        <input
-          id="registry_builder_event_photo"
-          type="file"
-          name="eventPhoto"
-          accept="image/*"
-          onChange={handlePhotoChange("eventPhoto")}
-          disabled={isPending}
-          className="hidden"
+          name="street_address"
+          value={formData.streetAddress || ""}
         />
         <input
-          id="registry_builder_cover_photo"
-          type="file"
-          name="coverPhoto"
-          accept="image/*"
-          onChange={handlePhotoChange("coverPhoto")}
-          disabled={isPending}
-          className="hidden"
+          type="hidden"
+          name="street_address_2"
+          value={formData.streetAddress2 || ""}
+        />
+        <input type="hidden" name="city" value={formData.city || ""} />
+        <input
+          type="hidden"
+          name="state_province"
+          value={formData.stateProvince || ""}
+        />
+        <input
+          type="hidden"
+          name="postal_code"
+          value={formData.postalCode || ""}
+        />
+        <input
+          type="hidden"
+          name="gps_location"
+          value={formData.gpsLocation || ""}
+        />
+        <input
+          type="hidden"
+          name="digital_address"
+          value={formData.digitalAddress || ""}
         />
 
         <div className="min-h-[320px] max-h-[50vh] overflow-y-auto pr-2">
           {renderStep()}
         </div>
 
-        {/* Footer Buttons */}
         <div className="flex items-center justify-center gap-4 pt-6 mt-6 border-t border-gray-100">
           <DialogClose asChild>
             <button
@@ -272,21 +289,8 @@ export default function RegistryBuilderDialog({ onClose }) {
             </button>
           </DialogClose>
 
-          {/* Skip button for Personalise step */}
-          {currentStep === 3 && (
-            <button
-              type="button"
-              onClick={handleContinue}
-              disabled={isPending}
-              className="px-8 py-2.5 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
-            >
-              Skip
-            </button>
-          )}
-
           {isLastStep ? (
             <button
-              key="registry_builder_submit"
               type="submit"
               disabled={isPending || !canContinue()}
               className="px-8 py-2.5 text-sm font-medium text-white bg-primary rounded-full hover:bg-white hover:text-primary border border-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed min-w-[120px] flex items-center justify-center"
@@ -294,12 +298,11 @@ export default function RegistryBuilderDialog({ onClose }) {
               {isPending ? (
                 <LoaderCircle className="h-4 w-4 animate-spin" />
               ) : (
-                "Complete"
+                "Save"
               )}
             </button>
           ) : (
             <button
-              key="registry_builder_continue"
               type="button"
               onClick={handleContinue}
               disabled={isPending || !canContinue()}

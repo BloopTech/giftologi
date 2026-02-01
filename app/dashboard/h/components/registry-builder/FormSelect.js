@@ -30,10 +30,9 @@ export default function FormSelect({
         <div className="flex items-center justify-between">
           <label htmlFor={name} className="text-sm font-medium text-gray-900">
             {label}
+            {required ? <span className="text-red-600">*</span> : null}
           </label>
-          {optional && (
-            <span className="text-sm text-[#A5914B]">Optional</span>
-          )}
+          {optional && <span className="text-sm text-[#A5914B]">Optional</span>}
         </div>
       )}
       <input type="hidden" name={name} value={value} />
@@ -52,7 +51,7 @@ export default function FormSelect({
             "hover:border-gray-400",
             "[&>span]:text-gray-400 [&[data-state=open]>span]:text-gray-900",
             hasError ? hasErrorInput : "",
-            className
+            className,
           )}
         >
           <SelectValue placeholder={placeholder} />

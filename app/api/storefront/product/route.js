@@ -57,6 +57,7 @@ export async function GET(req) {
         product_code,
         name,
         price,
+        variations,
         images,
         description,
         stock_qty,

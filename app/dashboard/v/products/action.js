@@ -30,6 +30,45 @@ const isValidSelectedFile = (file) => {
 
 const MAX_PRODUCT_IMAGE_FILE_SIZE_BYTES = 1 * 1024 * 1024;
 
+const parseVariationsPayload = (raw) => {
+  if (!raw || typeof raw !== "string") return [];
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  let parsed = [];
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+
+  return parsed
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const label = typeof entry.label === "string" ? entry.label.trim() : "";
+      const color = typeof entry.color === "string" ? entry.color.trim() : "";
+      const size = typeof entry.size === "string" ? entry.size.trim() : "";
+      const sku = typeof entry.sku === "string" ? entry.sku.trim() : "";
+      const rawPrice = entry.price;
+      const priceValue =
+        rawPrice === null || typeof rawPrice === "undefined" || rawPrice === ""
+          ? null
+          : Number(rawPrice);
+      const price = Number.isFinite(priceValue) ? priceValue : null;
+
+      if (!label && !color && !size && !sku && price == null) return null;
+
+      const variation = {};
+      if (label) variation.label = label;
+      if (color) variation.color = color;
+      if (size) variation.size = size;
+      if (sku) variation.sku = sku;
+      if (price != null) variation.price = price;
+      return variation;
+    })
+    .filter(Boolean);
+};
+
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200),
   category_id: z.string().uuid("Please select a category"),
@@ -38,6 +77,7 @@ const productSchema = z.object({
   cost_price: z.coerce.number().min(0).optional(),
   stock_qty: z.coerce.number().int().min(0, "Stock must be 0 or greater"),
   description: z.string().max(2000).optional(),
+  variations: z.string().optional().or(z.literal("")),
 });
 
 const generateProductCode = () =>
@@ -135,6 +175,7 @@ export async function manageProducts(prevState, formData) {
       cost_price: formData.get("cost_price") || undefined,
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
+      variations: formData.get("variations") || "",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -154,6 +195,7 @@ export async function manageProducts(prevState, formData) {
     }
 
     const productCode = generateProductCode();
+    const variations = parseVariationsPayload(rawData.variations);
 
     const { data: newProduct, error: insertError } = await supabase
       .from("products")
@@ -166,10 +208,11 @@ export async function manageProducts(prevState, formData) {
         price: validation.data.price,
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
+        variations: variations.length ? variations : null,
         images: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        active: validation.data.status === "approved",
+        active: true,
       })
       .select("id")
       .single();
@@ -253,7 +296,7 @@ export async function manageProducts(prevState, formData) {
 
         const uploadedUrls = [];
         for (const file of validImageFiles) {
-          const imageUrl = await uploadProductImage(file, vendor.id, newProduct.id);
+          const imageUrl = await uploadProductImage(file, vendor.id, productId);
           if (imageUrl) uploadedUrls.push(imageUrl);
         }
 
@@ -320,6 +363,7 @@ export async function manageProducts(prevState, formData) {
       cost_price: formData.get("cost_price") || undefined,
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
+      variations: formData.get("variations") || "",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -338,6 +382,7 @@ export async function manageProducts(prevState, formData) {
       };
     }
 
+    const variations = parseVariationsPayload(rawData.variations);
     const { error: updateError } = await supabase
       .from("products")
       .update({
@@ -347,6 +392,7 @@ export async function manageProducts(prevState, formData) {
         price: validation.data.price,
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
+        variations: variations.length ? variations : null,
         updated_at: new Date().toISOString(),
         active: true,
       })
@@ -386,6 +432,46 @@ export async function manageProducts(prevState, formData) {
       }
     }
 
+    const rawExistingImages = formData.get("existing_images");
+    const hasExistingImagesPayload =
+      typeof rawExistingImages === "string" && rawExistingImages.trim();
+    let existingImages = [];
+
+    if (hasExistingImagesPayload) {
+      try {
+        const parsed = JSON.parse(rawExistingImages);
+        existingImages = Array.isArray(parsed)
+          ? parsed.filter((url) => typeof url === "string" && url.trim())
+          : [];
+      } catch (err) {
+        console.error("Existing images parse error:", err);
+      }
+    }
+
+    if (!validImageFiles.length && hasExistingImagesPayload) {
+      const featuredRaw = formData.get("featuredImageIndex");
+      const featuredParsed = Number.parseInt(String(featuredRaw ?? ""), 10);
+      const featuredIndex = Number.isFinite(featuredParsed) ? featuredParsed : -1;
+
+      let ordered = existingImages;
+      if (
+        ordered.length &&
+        Number.isInteger(featuredIndex) &&
+        featuredIndex >= 0 &&
+        featuredIndex < ordered.length
+      ) {
+        const clone = [...ordered];
+        const [picked] = clone.splice(featuredIndex, 1);
+        if (picked) ordered = [picked, ...clone];
+      }
+
+      await supabase
+        .from("products")
+        .update({ images: ordered.length ? ordered : [] })
+        .eq("id", productId)
+        .eq("vendor_id", vendor.id);
+    }
+
     if (validImageFiles.length) {
       try {
         const featuredRaw = formData.get("featuredImageIndex");
@@ -394,7 +480,7 @@ export async function manageProducts(prevState, formData) {
 
         const uploadedUrls = [];
         for (const file of validImageFiles) {
-          const imageUrl = await uploadProductImage(file, vendor.id, newProduct.id);
+          const imageUrl = await uploadProductImage(file, vendor.id, productId);
           if (imageUrl) uploadedUrls.push(imageUrl);
         }
 
