@@ -1,5 +1,12 @@
 "use client";
-import React, { useState, useEffect, useActionState, useRef, useMemo } from "react";
+import React, {
+  startTransition,
+  useState,
+  useEffect,
+  useActionState,
+  useRef,
+  useMemo,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -201,6 +208,9 @@ export default function VendorProductsContent() {
     values: {},
   });
 
+  const [editSubmitAttempted, setEditSubmitAttempted] = useState(false);
+  const editSubmitAttemptedRef = useRef(false);
+
   const [editExistingImages, setEditExistingImages] = useState([]);
   const [editImagePreviews, setEditImagePreviews] = useState([]);
   const [editFeaturedIndex, setEditFeaturedIndex] = useState("");
@@ -212,6 +222,43 @@ export default function VendorProductsContent() {
   const [editVariationDrafts, setEditVariationDrafts] = useState([]);
   const [editCurrentStep, setEditCurrentStep] = useState(0);
   const editStepLabels = ["Basics", "Variations", "Images"];
+
+  const handleEditSubmit = (event) => {
+    event.preventDefault();
+  };
+
+  const handleEditSave = () => {
+    const lastStepIndex = editStepLabels.length - 1;
+    if (editCurrentStep !== lastStepIndex) {
+      setEditCurrentStep(lastStepIndex);
+      return;
+    }
+
+    if (!editFormRef.current || editPending) return;
+    const formData = new FormData(editFormRef.current);
+    editSubmitAttemptedRef.current = true;
+    setEditSubmitAttempted(true);
+
+    startTransition(() => {
+      editAction(formData);
+    });
+  };
+
+  const editErrorFor = (key) => editState?.errors?.[key];
+  const hasEditError = (key) => {
+    if (!editSubmitAttempted) return false;
+    const err = editErrorFor(key);
+    if (!err) return false;
+    if (Array.isArray(err)) return err.length > 0;
+    return Boolean(String(err).trim());
+  };
+
+  const toErrorList = (err) => {
+    if (!err) return [];
+    if (Array.isArray(err)) return err.filter(Boolean);
+    const str = String(err).trim();
+    return str ? [str] : [];
+  };
 
   const categoriesById = useMemo(() => {
     const map = new Map();
@@ -291,6 +338,8 @@ export default function VendorProductsContent() {
 
   useEffect(() => {
     if (!editDialogOpen) return;
+    editSubmitAttemptedRef.current = false;
+    setEditSubmitAttempted(false);
     setEditCurrentStep(0);
     const existing = Array.isArray(selectedProduct?.images)
       ? selectedProduct.images.filter(Boolean)
@@ -330,12 +379,31 @@ export default function VendorProductsContent() {
     setEditFeaturedIndex("");
     setEditVariationDrafts([]);
     setEditCurrentStep(0);
+    editSubmitAttemptedRef.current = false;
+    setEditSubmitAttempted(false);
     if (editFileInputRef.current) {
       editFileInputRef.current.value = "";
     }
     editFormRef.current?.reset();
     refreshData?.();
   }, [editState?.success, refreshData]);
+
+  useEffect(() => {
+    if (!editDialogOpen) return;
+    if (!editSubmitAttemptedRef.current) return;
+    if (editState?.success) return;
+
+    const errors = editState?.errors || {};
+    if (!errors || !Object.keys(errors).length) return;
+
+    if (errors.images) {
+      setEditCurrentStep(2);
+    } else if (errors.variations) {
+      setEditCurrentStep(1);
+    } else {
+      setEditCurrentStep(0);
+    }
+  }, [editDialogOpen, editState]);
 
   const buildEditPreviews = (files) => {
     const list = Array.from(files || []).filter((file) =>
@@ -709,7 +777,16 @@ export default function VendorProductsContent() {
         variant="vendor_products"
       />
 
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+      <Dialog
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) {
+            editSubmitAttemptedRef.current = false;
+            setEditSubmitAttempted(false);
+          }
+        }}
+      >
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-[#111827] text-lg font-semibold">
@@ -720,9 +797,14 @@ export default function VendorProductsContent() {
             </DialogDescription>
           </DialogHeader>
 
-          <form ref={editFormRef} action={editAction} className="mt-4 space-y-4">
+          <form
+            ref={editFormRef}
+            onSubmit={handleEditSubmit}
+            className="mt-4 space-y-4"
+          >
             <input type="hidden" name="action" value="update" />
             <input type="hidden" name="product_id" value={selectedProduct?.id || ""} />
+            <input type="hidden" name="variations" value={editVariationsPayload} />
             <input
               type="hidden"
               name="category_id"
@@ -739,7 +821,7 @@ export default function VendorProductsContent() {
               value={editImagePreviews.length ? "" : JSON.stringify(editExistingImages)}
             />
 
-            {editState?.message && !editState?.success && (
+            {editSubmitAttempted && editState?.message && !editState?.success && (
               <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                 {editState.message}
               </div>
@@ -781,8 +863,7 @@ export default function VendorProductsContent() {
               </div>
             </div>
 
-            {editCurrentStep === 0 && (
-              <div>
+            <div className={editCurrentStep === 0 ? "" : "hidden"}>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[#374151] text-sm font-medium">
@@ -794,6 +875,11 @@ export default function VendorProductsContent() {
                       defaultValue={selectedProduct?.name || ""}
                       className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     />
+                    {hasEditError("name") ? (
+                      <span className="text-red-500 text-xs">
+                        {toErrorList(editErrorFor("name"))[0]}
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -808,6 +894,11 @@ export default function VendorProductsContent() {
                       <option value="pending">Pending</option>
                       <option value="inactive">Inactive</option>
                     </select>
+                    {hasEditError("status") ? (
+                      <span className="text-red-500 text-xs">
+                        {toErrorList(editErrorFor("status"))[0]}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -831,6 +922,11 @@ export default function VendorProductsContent() {
                         </option>
                       ))}
                     </select>
+                    {hasEditError("category_id") ? (
+                      <span className="text-red-500 text-xs">
+                        {toErrorList(editErrorFor("category_id"))[0]}
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-col gap-1.5">
@@ -864,6 +960,11 @@ export default function VendorProductsContent() {
                       defaultValue={selectedProduct?.price ?? ""}
                       className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     />
+                    {hasEditError("price") ? (
+                      <span className="text-red-500 text-xs">
+                        {toErrorList(editErrorFor("price"))[0]}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -879,6 +980,11 @@ export default function VendorProductsContent() {
                       defaultValue={selectedProduct?.stock_qty ?? "0"}
                       className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                     />
+                    {hasEditError("stock_qty") ? (
+                      <span className="text-red-500 text-xs">
+                        {toErrorList(editErrorFor("stock_qty"))[0]}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
@@ -892,14 +998,11 @@ export default function VendorProductsContent() {
                   />
                 </div>
               </div>
-            )}
 
-            {editCurrentStep === 1 && (
-              <div className="flex flex-col gap-1.5">
+            <div className={editCurrentStep === 1 ? "flex flex-col gap-1.5" : "hidden"}>
                 <label className="text-[#374151] text-sm font-medium">
                   Variations (optional)
                 </label>
-                <input type="hidden" name="variations" value={editVariationsPayload} />
                 <div className="rounded-lg border border-[#E5E7EB] p-3 space-y-3">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-xs text-[#6B7280]">
@@ -1085,16 +1188,14 @@ export default function VendorProductsContent() {
                     </div>
                   )}
                 </div>
-                {editState?.errors?.variations && (
+                {editSubmitAttempted && editState?.errors?.variations ? (
                   <span className="text-red-500 text-xs">
-                    {editState.errors.variations}
+                    {toErrorList(editState.errors.variations)[0]}
                   </span>
-                )}
+                ) : null}
               </div>
-            )}
 
-            {editCurrentStep === 2 && (
-              <div>
+            <div className={editCurrentStep === 2 ? "" : "hidden"}>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[#374151] text-sm font-medium">
                     Product Images
@@ -1206,13 +1307,11 @@ export default function VendorProductsContent() {
                     )}
                   </div>
 
-                  {(editState?.errors?.images || []).length ? (
+                  {editSubmitAttempted && hasEditError("images") ? (
                     <ul className="mt-1 list-disc pl-5 text-xs text-red-600">
-                      {Array.isArray(editState.errors.images)
-                        ? editState.errors.images.map((err, idx) => (
-                            <li key={idx}>{err}</li>
-                          ))
-                        : null}
+                      {toErrorList(editErrorFor("images")).map((err, idx) => (
+                        <li key={idx}>{err}</li>
+                      ))}
                     </ul>
                   ) : (
                     <p className="text-xs text-[#6B7280]">
@@ -1249,7 +1348,6 @@ export default function VendorProductsContent() {
                   )}
                 </div>
               </div>
-            )}
 
             <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB]">
               <div className="flex w-full items-center justify-between gap-3">
@@ -1284,7 +1382,8 @@ export default function VendorProductsContent() {
                     </button>
                   ) : (
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={handleEditSave}
                       disabled={editPending}
                       className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
