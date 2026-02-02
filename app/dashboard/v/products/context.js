@@ -63,6 +63,7 @@ export const VendorProductsProvider = ({ children }) => {
             .select(`
               id, name, description, price, stock_qty, images, variations, status, product_code, created_at,
               category_id,
+              product_categories (category_id),
               categories:category_id (id, name, slug)
             `)
             .eq("vendor_id", vendorRecord.id)
@@ -76,7 +77,24 @@ export const VendorProductsProvider = ({ children }) => {
         if (productsError) throw productsError;
         if (orderItemsError) throw orderItemsError;
 
-        products = productsData || [];
+        const normalizedProducts = (productsData || []).map((row) => {
+          const relatedCategoryIds = Array.isArray(row.product_categories)
+            ? row.product_categories
+                .map((entry) => entry?.category_id)
+                .filter(Boolean)
+            : [];
+          const mergedCategoryIds = [
+            ...new Set(
+              [...relatedCategoryIds, row.category_id].filter(Boolean),
+            ),
+          ];
+          return {
+            ...row,
+            categoryIds: mergedCategoryIds,
+          };
+        });
+
+        products = normalizedProducts;
         orderItems = orderItemsData || [];
       }
 

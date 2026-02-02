@@ -104,14 +104,20 @@ const buildVariationPayload = (drafts) => {
       const sku = String(draft.sku || "").trim();
       const labelInput = String(draft.label || "").trim();
       const fallbackLabel =
-        labelInput || [color, size].filter(Boolean).join(" / ") || sku || `Variant ${index + 1}`;
+        labelInput ||
+        [color, size].filter(Boolean).join(" / ") ||
+        sku ||
+        `Variant ${index + 1}`;
       const priceValue =
-        draft.price === "" || draft.price === null || typeof draft.price === "undefined"
+        draft.price === "" ||
+        draft.price === null ||
+        typeof draft.price === "undefined"
           ? null
           : Number(draft.price);
       const price = Number.isFinite(priceValue) ? priceValue : null;
 
-      if (!fallbackLabel && !color && !size && !sku && price == null) return null;
+      if (!fallbackLabel && !color && !size && !sku && price == null)
+        return null;
 
       const entry = {};
       if (fallbackLabel) entry.label = fallbackLabel;
@@ -149,11 +155,11 @@ export function AddProductDialog({
   const fileInputRef = useRef(null);
   const formRef = useRef(null);
 
-  const [selectedParentCategoryId, setSelectedParentCategoryId] = useState("");
-  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [variationDrafts, setVariationDrafts] = useState([]);
+  const [activeVariationFieldById, setActiveVariationFieldById] = useState({});
   const [currentStep, setCurrentStep] = useState(0);
-  const stepLabels = ["Basics", "Variations", "Images"];
+  const stepLabels = ["Basics", "Categories", "Variations", "Images"];
 
   const categoriesById = React.useMemo(() => {
     const map = new Map();
@@ -173,7 +179,9 @@ export function AddProductDialog({
     });
 
     for (const [key, list] of map.entries()) {
-      list.sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+      list.sort((a, b) =>
+        String(a.name || "").localeCompare(String(b.name || "")),
+      );
       map.set(key, list);
     }
 
@@ -184,12 +192,42 @@ export function AddProductDialog({
     return categoriesByParentId.get(null) || [];
   }, [categoriesByParentId]);
 
-  const subcategoryOptions = React.useMemo(() => {
-    if (!selectedParentCategoryId) return [];
-    return categoriesByParentId.get(selectedParentCategoryId) || [];
-  }, [categoriesByParentId, selectedParentCategoryId]);
+  const selectedCategoryIdSet = React.useMemo(
+    () => new Set(selectedCategoryIds),
+    [selectedCategoryIds],
+  );
 
-  const selectedCategoryId = selectedSubcategoryId || selectedParentCategoryId;
+  const toggleSelectedCategory = React.useCallback((categoryId) => {
+    if (!categoryId) return;
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId],
+    );
+  }, []);
+
+  const normalizeCategoryIds = React.useCallback((value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.map((id) => String(id).trim()).filter(Boolean);
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((id) => String(id).trim()).filter(Boolean);
+        }
+      } catch (_) {
+        return trimmed
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
+      }
+    }
+    return [];
+  }, []);
 
   const getCategoryDisplayName = React.useCallback(
     (category) => {
@@ -235,28 +273,39 @@ export function AddProductDialog({
     setVariationDrafts((prev) => prev.filter((draft) => draft.id !== id));
   };
 
+  const handleSubmit = React.useCallback(
+    (event) => {
+      event.preventDefault();
+      const lastStepIndex = stepLabels.length - 1;
+      if (currentStep !== lastStepIndex) {
+        setCurrentStep(lastStepIndex);
+        return;
+      }
+      if (isPending) return;
+      const formData = new FormData(event.currentTarget);
+      React.startTransition(() => {
+        formAction(formData);
+      });
+    },
+    [currentStep, formAction, isPending, stepLabels.length],
+  );
+
   useEffect(() => {
     if (!open) return;
     setCurrentStep(0);
+  }, [open]);
 
-    const value = state.values?.category_id;
-    if (!value) return;
-    if (selectedParentCategoryId || selectedSubcategoryId) return;
-
-    const category = categoriesById.get(value);
-    if (category?.parent_category_id) {
-      setSelectedParentCategoryId(category.parent_category_id);
-      setSelectedSubcategoryId(category.id);
-      return;
-    }
-
-    setSelectedParentCategoryId(value);
+  useEffect(() => {
+    if (!open) return;
+    const value = normalizeCategoryIds(state.values?.categoryIds);
+    if (!value.length) return;
+    if (selectedCategoryIds.length) return;
+    setSelectedCategoryIds(value);
   }, [
     open,
-    state.values?.category_id,
-    categoriesById,
-    selectedParentCategoryId,
-    selectedSubcategoryId,
+    normalizeCategoryIds,
+    selectedCategoryIds.length,
+    state.values?.categoryIds,
   ]);
 
   useEffect(() => {
@@ -271,13 +320,26 @@ export function AddProductDialog({
   }, [open, state.message, state.values?.variations]);
 
   useEffect(() => {
+    if (!open) return;
+    if (state.success) return;
+    if (!state?.errors) return;
+
+    if (state.errors?.images) {
+      setCurrentStep(3);
+    } else if (state.errors?.variations) {
+      setCurrentStep(2);
+    } else if (state.errors?.categoryIds) {
+      setCurrentStep(1);
+    }
+  }, [open, state.success, state.errors]);
+
+  useEffect(() => {
     if (state.success) {
       onSuccess?.();
       onOpenChange(false);
       setImagePreviews([]);
       setFeaturedIndex("");
-      setSelectedParentCategoryId("");
-      setSelectedSubcategoryId("");
+      setSelectedCategoryIds([]);
       setVariationDrafts([]);
       setCurrentStep(0);
       formRef.current?.reset();
@@ -286,7 +348,7 @@ export function AddProductDialog({
 
   const buildPreviews = (files) => {
     const list = Array.from(files || []).filter((file) =>
-      Boolean(file && file.type && file.type.startsWith("image/"))
+      Boolean(file && file.type && file.type.startsWith("image/")),
     );
 
     const limited = list.slice(0, 3);
@@ -304,8 +366,8 @@ export function AddProductDialog({
             const reader = new FileReader();
             reader.onloadend = () => resolve({ file, preview: reader.result });
             reader.readAsDataURL(file);
-          })
-      )
+          }),
+      ),
     ).then((items) => {
       setImagePreviews(items);
       setFeaturedIndex("");
@@ -324,7 +386,11 @@ export function AddProductDialog({
   const handleDrop = (e) => {
     e.preventDefault();
     const files = e.dataTransfer.files;
-    if (files && files.length && Array.from(files).some((f) => f?.type?.startsWith("image/"))) {
+    if (
+      files &&
+      files.length &&
+      Array.from(files).some((f) => f?.type?.startsWith("image/"))
+    ) {
       if (fileInputRef.current) {
         const dt = new DataTransfer();
         Array.from(files).forEach((f) => {
@@ -371,18 +437,30 @@ export function AddProductDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-[#111827] text-lg font-semibold">
+          <DialogTitle className="text-xl font-semibold text-[#0A0A0A]">
             Add New Product
           </DialogTitle>
-          <DialogDescription className="text-[#6B7280] text-sm">
-            Enter the details for your new product
-          </DialogDescription>
         </DialogHeader>
 
-        <form ref={formRef} action={formAction} className="mt-4 space-y-4">
+        <form
+          ref={formRef}
+          onSubmit={handleSubmit}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter") return;
+            if (currentStep === stepLabels.length - 1) return;
+            if (e.target?.tagName === "TEXTAREA") return;
+            e.preventDefault();
+          }}
+          className="space-y-6"
+        >
           <input type="hidden" name="action" value={actionValue} />
+          <input
+            type="hidden"
+            name="categoryIds"
+            value={JSON.stringify(selectedCategoryIds || [])}
+          />
           <input
             type="hidden"
             name="featuredImageIndex"
@@ -407,8 +485,8 @@ export function AddProductDialog({
                         isComplete
                           ? "border-primary bg-primary text-white"
                           : isActive
-                          ? "border-primary text-primary"
-                          : "border-[#D1D5DB] text-[#9CA3AF]"
+                            ? "border-primary text-primary"
+                            : "border-[#D1D5DB] text-[#9CA3AF]"
                       }`}
                     >
                       {index + 1}
@@ -431,157 +509,211 @@ export function AddProductDialog({
             </div>
           </div>
 
-          {currentStep === 0 && (
-            <>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[#374151] text-sm font-medium">
-                    Product Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="name"
-                    placeholder="e.g., Ceramic Vase Set"
-                    defaultValue={state.values?.name || ""}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                  {state.errors?.name && (
-                    <span className="text-red-500 text-xs">
-                      {state.errors.name}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[#374151] text-sm font-medium">
-                    Status <span className="text-red-500">*</span>
-                  </label>
-                  <select
-                    name="status"
-                    defaultValue={state.values?.status || "pending"}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[#374151] text-sm font-medium">
-                    Category <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="hidden"
-                    name="category_id"
-                    value={selectedCategoryId || ""}
-                  />
-                  <select
-                    value={selectedParentCategoryId}
-                    onChange={(e) => {
-                      setSelectedParentCategoryId(e.target.value);
-                      setSelectedSubcategoryId("");
-                    }}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-                  >
-                    <option value="">Select category</option>
-                    {parentCategoryOptions.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {cat.name}
-                      </option>
-                    ))}
-                  </select>
-                  {state.errors?.category_id && (
-                    <span className="text-red-500 text-xs">
-                      {state.errors.category_id}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[#374151] text-sm font-medium">Subcategory</label>
-                  <select
-                    value={selectedSubcategoryId}
-                    onChange={(e) => setSelectedSubcategoryId(e.target.value)}
-                    disabled={!selectedParentCategoryId || !subcategoryOptions.length}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-                  >
-                    <option value="">None</option>
-                    {subcategoryOptions.map((cat) => (
-                      <option key={cat.id} value={cat.id}>
-                        {getCategoryDisplayName(cat)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[#374151] text-sm font-medium">
-                    Selling Price(GHS) <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="price"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    defaultValue={state.values?.price || ""}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                  {state.errors?.price && (
-                    <span className="text-red-500 text-xs">
-                      {state.errors.price}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-[#374151] text-sm font-medium">
-                    Initial Stock <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    name="stock_qty"
-                    min="0"
-                    placeholder="0"
-                    defaultValue={state.values?.stock_qty || "0"}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
-                  {state.errors?.stock_qty && (
-                    <span className="text-red-500 text-xs">
-                      {state.errors.stock_qty}
-                    </span>
-                  )}
-                </div>
+          <div className={currentStep === 0 ? "" : "hidden"}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Product Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  placeholder="e.g., Ceramic Vase Set"
+                  defaultValue={state.values?.name || ""}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                {state.errors?.name && (
+                  <span className="text-red-500 text-xs">
+                    {state.errors.name}
+                  </span>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="text-[#374151] text-sm font-medium">Description</label>
-                <textarea
-                  name="description"
-                  rows={3}
-                  placeholder="Product description..."
-                  defaultValue={state.values?.description || ""}
-                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
-                />
+                <label className="text-[#374151] text-sm font-medium">
+                  Status <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="status"
+                  defaultValue={state.values?.status || "pending"}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                >
+                  <option value="pending">Pending</option>
+                  <option value="inactive">Inactive</option>
+                </select>
               </div>
-            </>
-          )}
+            </div>
 
-          {currentStep === 1 && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Selling Price(GHS) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="price"
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  defaultValue={state.values?.price || ""}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                {state.errors?.price && (
+                  <span className="text-red-500 text-xs">
+                    {state.errors.price}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Initial Stock <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="stock_qty"
+                  min="0"
+                  placeholder="0"
+                  defaultValue={state.values?.stock_qty || "0"}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                {state.errors?.stock_qty && (
+                  <span className="text-red-500 text-xs">
+                    {state.errors.stock_qty}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[#374151] text-sm font-medium">
+                Description
+              </label>
+              <textarea
+                name="description"
+                rows={3}
+                placeholder="Product description..."
+                defaultValue={state.values?.description || ""}
+                className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
+              />
+            </div>
+          </div>
+
+          <div className={currentStep === 1 ? "" : "hidden"}>
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-[#374151] text-sm font-medium">
+                  Categories <span className="text-red-500">*</span>
+                </label>
+                {selectedCategoryIds.length ? (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategoryIds([])}
+                    className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
+                  >
+                    Clear
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="rounded-lg border border-[#D1D5DB] bg-white p-3 space-y-3">
+                {selectedCategoryIds.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedCategoryIds.map((id) => {
+                      const category = categoriesById.get(id);
+                      if (!category) return null;
+                      return (
+                        <span
+                          key={id}
+                          className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
+                        >
+                          {getCategoryDisplayName(category)}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#9CA3AF]">
+                    No categories selected yet.
+                  </p>
+                )}
+
+                <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {parentCategoryOptions.length ? (
+                    parentCategoryOptions.map((parent) => {
+                      const children =
+                        categoriesByParentId.get(parent.id) || [];
+                      return (
+                        <div key={parent.id} className="space-y-2">
+                          <label className="flex items-center gap-2 text-[11px] text-[#111827]">
+                            <input
+                              type="checkbox"
+                              checked={selectedCategoryIdSet.has(parent.id)}
+                              onChange={() => toggleSelectedCategory(parent.id)}
+                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                            />
+                            <span className="font-medium">
+                              {parent.name || "Untitled"}
+                            </span>
+                          </label>
+                          {children.length ? (
+                            <div className="ml-6 grid gap-1">
+                              {children.map((child) => (
+                                <label
+                                  key={child.id}
+                                  className="flex items-center gap-2 text-[11px] text-[#4B5563]"
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedCategoryIdSet.has(
+                                      child.id,
+                                    )}
+                                    onChange={() =>
+                                      toggleSelectedCategory(child.id)
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                                  />
+                                  <span>{child.name || "Untitled"}</span>
+                                </label>
+                              ))}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-[11px] text-[#9CA3AF]">
+                      No categories available.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {state.errors?.categoryIds && (
+                <span className="text-red-500 text-xs">
+                  {state.errors.categoryIds}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className={currentStep === 2 ? "" : "hidden"}>
             <div className="flex flex-col gap-1.5">
               <label className="text-[#374151] text-sm font-medium">
                 Variations (optional)
               </label>
-              <input type="hidden" name="variations" value={variationsPayload} />
+              <input
+                type="hidden"
+                name="variations"
+                value={variationsPayload}
+              />
               <div className="rounded-lg border border-[#E5E7EB] p-3 space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <p className="text-xs text-[#6B7280]">
-                    Add color/size options or SKU-only variants. Price overrides the base
-                    price.
+                    Add color/size options or SKU-only variants. Price overrides
+                    the base price.
                   </p>
                   <button
                     type="button"
@@ -594,13 +726,22 @@ export function AddProductDialog({
 
                 {variationDrafts.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-[#D1D5DB] bg-[#F9FAFB] p-4 text-center text-xs text-[#6B7280]">
-                    No variations yet. Add one to offer color, size, or SKU options.
+                    No variations yet. Add one to offer color, size, or SKU
+                    options.
                   </div>
                 ) : (
                   <div className="space-y-4">
                     {variationDrafts.map((draft, index) => {
-                      const colorValue = draft.color || "";
-                      const sizeValue = draft.size || "";
+                      const activeField =
+                        activeVariationFieldById?.[draft.id] || "";
+                      const chips = [
+                        { key: "color", label: "Color", value: draft.color },
+                        { key: "size", label: "Size", value: draft.size },
+                        { key: "sku", label: "SKU", value: draft.sku },
+                        { key: "price", label: "Price", value: draft.price },
+                        { key: "label", label: "Label", value: draft.label },
+                      ].filter((entry) => String(entry.value || "").trim());
+
                       return (
                         <div
                           key={draft.id}
@@ -619,142 +760,296 @@ export function AddProductDialog({
                             </button>
                           </div>
 
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[11px] font-medium text-[#374151]">
-                                Label (auto if blank)
-                              </label>
-                              <input
-                                type="text"
-                                value={draft.label}
-                                onChange={(e) =>
-                                  updateVariationDraft(draft.id, "label", e.target.value)
-                                }
-                                placeholder="e.g., Red / Small"
-                                className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                              />
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[11px] font-medium text-[#374151]">
-                                SKU (optional)
-                              </label>
-                              <input
-                                type="text"
-                                value={draft.sku}
-                                onChange={(e) =>
-                                  updateVariationDraft(draft.id, "sku", e.target.value)
-                                }
-                                placeholder="SKU-RED-S"
-                                className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                              />
-                            </div>
-
-                            <div className="flex flex-col gap-1">
-                              <label className="text-[11px] font-medium text-[#374151]">
-                                Price override (optional)
-                              </label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                value={draft.price}
-                                onChange={(e) =>
-                                  updateVariationDraft(draft.id, "price", e.target.value)
-                                }
-                                placeholder="0.00"
-                                className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                              />
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-medium text-[#374151]">
-                              Color
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              {COLOR_OPTIONS.map((color) => {
-                                const isSelected = colorValue === color;
-                                return (
-                                  <button
-                                    key={color}
-                                    type="button"
-                                    onClick={() =>
-                                      updateVariationDraft(
-                                        draft.id,
-                                        "color",
-                                        isSelected ? "" : color,
-                                      )
-                                    }
-                                    className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
-                                      isSelected
-                                        ? "border-primary bg-primary/10 text-primary"
-                                        : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
-                                    }`}
+                          <div className="space-y-2">
+                            {chips.length ? (
+                              <div className="flex flex-wrap gap-2">
+                                {chips.map((chip) => (
+                                  <span
+                                    key={chip.key}
+                                    className="inline-flex items-center gap-2 rounded-full bg-[#F3F4F6] px-3 py-1 text-[11px] text-[#374151]"
                                   >
-                                    <span
-                                      className="h-3 w-3 rounded-full border"
-                                      style={{
-                                        background:
-                                          COLOR_SWATCHES[color] || "#E5E7EB",
-                                        borderColor:
-                                          color === "White" ? "#E5E7EB" : "transparent",
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setActiveVariationFieldById((prev) => ({
+                                          ...prev,
+                                          [draft.id]: chip.key,
+                                        }))
+                                      }
+                                      className="cursor-pointer hover:text-[#0A0A0A]"
+                                      disabled={isPending}
+                                    >
+                                      {chip.label}: {String(chip.value)}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        updateVariationDraft(
+                                          draft.id,
+                                          chip.key,
+                                          "",
+                                        );
+                                        setActiveVariationFieldById((prev) => ({
+                                          ...prev,
+                                          [draft.id]:
+                                            prev?.[draft.id] === chip.key
+                                              ? ""
+                                              : prev?.[draft.id],
+                                        }));
                                       }}
-                                    />
-                                    {color}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                            <input
-                              type="text"
-                              value={colorValue}
-                              onChange={(e) =>
-                                updateVariationDraft(draft.id, "color", e.target.value)
-                              }
-                              placeholder="Custom color"
-                              className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            />
-                          </div>
+                                      className="cursor-pointer text-[#6B7280] hover:text-red-600"
+                                      disabled={isPending}
+                                    >
+                                      ×
+                                    </button>
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-[#6B7280]">
+                                Choose an option below to start this variation.
+                              </p>
+                            )}
 
-                          <div className="flex flex-col gap-2">
-                            <label className="text-[11px] font-medium text-[#374151]">
-                              Size
-                            </label>
-                            <div className="flex flex-wrap gap-2">
-                              {SIZE_OPTIONS.map((size) => {
-                                const isSelected = sizeValue === size;
-                                return (
-                                  <button
-                                    key={size}
-                                    type="button"
-                                    onClick={() =>
+                            <div
+                              className={`grid gap-2 ${activeField === "color" || activeField === "size" ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}
+                            >
+                              <div className="flex flex-col gap-1">
+                                <label className="text-[11px] font-medium text-[#374151]">
+                                  Add option
+                                </label>
+                                <select
+                                  value={activeField}
+                                  onChange={(e) =>
+                                    setActiveVariationFieldById((prev) => ({
+                                      ...prev,
+                                      [draft.id]: e.target.value,
+                                    }))
+                                  }
+                                  className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                  disabled={isPending}
+                                >
+                                  <option value="">Select option…</option>
+                                  <option value="color">Color</option>
+                                  <option value="size">Size</option>
+                                  <option value="sku">SKU</option>
+                                  <option value="price">Price override</option>
+                                  <option value="label">Label</option>
+                                </select>
+                              </div>
+
+                              <div
+                                className={
+                                  activeField
+                                    ? `flex flex-col gap-1 ${
+                                        activeField === "color" ||
+                                        activeField === "size"
+                                          ? "sm:col-span-2"
+                                          : ""
+                                      }`
+                                    : "hidden"
+                                }
+                              >
+                                <label className="text-[11px] font-medium text-[#374151]">
+                                  Value
+                                </label>
+
+                                {activeField === "price" ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={draft.price}
+                                    onChange={(e) =>
                                       updateVariationDraft(
                                         draft.id,
-                                        "size",
-                                        isSelected ? "" : size,
+                                        "price",
+                                        e.target.value,
                                       )
                                     }
-                                    className={`cursor-pointer inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
-                                      isSelected
-                                        ? "border-primary bg-primary/10 text-primary"
-                                        : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
-                                    }`}
-                                  >
-                                    {size}
-                                  </button>
-                                );
-                              })}
+                                    onBlur={() =>
+                                      setActiveVariationFieldById((prev) => ({
+                                        ...prev,
+                                        [draft.id]: "",
+                                      }))
+                                    }
+                                    placeholder="0.00"
+                                    className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    disabled={isPending}
+                                  />
+                                ) : activeField === "color" ? (
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap gap-2">
+                                      {COLOR_OPTIONS.map((color) => {
+                                        const isSelected =
+                                          String(draft.color || "") === color;
+                                        return (
+                                          <button
+                                            key={color}
+                                            type="button"
+                                            onClick={() =>
+                                              updateVariationDraft(
+                                                draft.id,
+                                                "color",
+                                                isSelected ? "" : color,
+                                              )
+                                            }
+                                            className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                                              isSelected
+                                                ? "border-primary bg-primary/10 text-primary"
+                                                : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
+                                            }`}
+                                            disabled={isPending}
+                                          >
+                                            <span
+                                              className="h-3 w-3 rounded-full border"
+                                              style={{
+                                                background:
+                                                  COLOR_SWATCHES[color] ||
+                                                  "#E5E7EB",
+                                                borderColor:
+                                                  color === "White"
+                                                    ? "#E5E7EB"
+                                                    : "transparent",
+                                              }}
+                                            />
+                                            {color}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <label className="text-[11px] text-[#6B7280]">
+                                        Custom color
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={draft.color}
+                                        onChange={(e) =>
+                                          updateVariationDraft(
+                                            draft.id,
+                                            "color",
+                                            e.target.value,
+                                          )
+                                        }
+                                        onBlur={() =>
+                                          setActiveVariationFieldById(
+                                            (prev) => ({
+                                              ...prev,
+                                              [draft.id]: "",
+                                            }),
+                                          )
+                                        }
+                                        placeholder="Type any color (e.g., Navy, Rose Gold)"
+                                        className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        disabled={isPending}
+                                      />
+                                    </div>
+                                  </div>
+                                ) : activeField === "size" ? (
+                                  <div className="space-y-2">
+                                    <div className="flex flex-wrap gap-2">
+                                      {SIZE_OPTIONS.map((size) => {
+                                        const isSelected =
+                                          String(draft.size || "") === size;
+                                        return (
+                                          <button
+                                            key={size}
+                                            type="button"
+                                            onClick={() =>
+                                              updateVariationDraft(
+                                                draft.id,
+                                                "size",
+                                                isSelected ? "" : size,
+                                              )
+                                            }
+                                            className={`cursor-pointer inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                                              isSelected
+                                                ? "border-primary bg-primary/10 text-primary"
+                                                : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
+                                            }`}
+                                            disabled={isPending}
+                                          >
+                                            {size}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+
+                                    <div className="space-y-1">
+                                      <label className="text-[11px] text-[#6B7280]">
+                                        Custom size
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={draft.size}
+                                        onChange={(e) =>
+                                          updateVariationDraft(
+                                            draft.id,
+                                            "size",
+                                            e.target.value,
+                                          )
+                                        }
+                                        onBlur={() =>
+                                          setActiveVariationFieldById(
+                                            (prev) => ({
+                                              ...prev,
+                                              [draft.id]: "",
+                                            }),
+                                          )
+                                        }
+                                        placeholder="Type any size (e.g., 42, 10.5, 2XL)"
+                                        className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        disabled={isPending}
+                                      />
+                                    </div>
+                                  </div>
+                                ) : activeField === "sku" ? (
+                                  <input
+                                    type="text"
+                                    value={draft.sku}
+                                    onChange={(e) =>
+                                      updateVariationDraft(
+                                        draft.id,
+                                        "sku",
+                                        e.target.value,
+                                      )
+                                    }
+                                    onBlur={() =>
+                                      setActiveVariationFieldById((prev) => ({
+                                        ...prev,
+                                        [draft.id]: "",
+                                      }))
+                                    }
+                                    placeholder="SKU-RED-S"
+                                    className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    disabled={isPending}
+                                  />
+                                ) : activeField === "label" ? (
+                                  <input
+                                    type="text"
+                                    value={draft.label}
+                                    onChange={(e) =>
+                                      updateVariationDraft(
+                                        draft.id,
+                                        "label",
+                                        e.target.value,
+                                      )
+                                    }
+                                    onBlur={() =>
+                                      setActiveVariationFieldById((prev) => ({
+                                        ...prev,
+                                        [draft.id]: "",
+                                      }))
+                                    }
+                                    placeholder="e.g., Red / Small"
+                                    className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                    disabled={isPending}
+                                  />
+                                ) : null}
+                              </div>
                             </div>
-                            <input
-                              type="text"
-                              value={sizeValue}
-                              onChange={(e) =>
-                                updateVariationDraft(draft.id, "size", e.target.value)
-                              }
-                              placeholder="Custom size"
-                              className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                            />
                           </div>
                         </div>
                       );
@@ -763,12 +1058,14 @@ export function AddProductDialog({
                 )}
               </div>
               {state.errors?.variations && (
-                <span className="text-red-500 text-xs">{state.errors.variations}</span>
+                <span className="text-red-500 text-xs">
+                  {state.errors.variations}
+                </span>
               )}
             </div>
-          )}
+          </div>
 
-          {currentStep === 2 && (
+          <div className={currentStep === 3 ? "" : "hidden"}>
             <div className="flex flex-col gap-1.5">
               <label className="text-[#374151] text-sm font-medium">
                 Product Images
@@ -849,12 +1146,16 @@ export function AddProductDialog({
               </div>
 
               {state.errors?.images && (
-                <span className="text-red-500 text-xs">{state.errors.images}</span>
+                <span className="text-red-500 text-xs">
+                  {state.errors.images}
+                </span>
               )}
 
               {imageCount > 0 && (
                 <div className="flex flex-col gap-2">
-                  <label className="text-xs text-[#6B7280]">Featured Image</label>
+                  <label className="text-xs text-[#6B7280]">
+                    Featured Image
+                  </label>
                   <select
                     value={featuredIndex || ""}
                     onChange={(e) => setFeaturedIndex(e.target.value)}
@@ -870,7 +1171,7 @@ export function AddProductDialog({
                 </div>
               )}
             </div>
-          )}
+          </div>
 
           <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB]">
             <div className="flex w-full flex-wrap items-center justify-between gap-3">
@@ -885,7 +1186,9 @@ export function AddProductDialog({
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setCurrentStep((prev) => Math.max(prev - 1, 0))}
+                  onClick={() =>
+                    setCurrentStep((prev) => Math.max(prev - 1, 0))
+                  }
                   disabled={currentStep === 0}
                   className="cursor-pointer px-4 py-2 text-sm font-medium text-[#374151] border border-[#D1D5DB] rounded-lg hover:bg-[#F3F4F6] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -894,11 +1197,12 @@ export function AddProductDialog({
                 {currentStep < stepLabels.length - 1 ? (
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={(event) => {
+                      event.preventDefault();
                       setCurrentStep((prev) =>
                         Math.min(prev + 1, stepLabels.length - 1),
-                      )
-                    }
+                      );
+                    }}
                     className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90"
                   >
                     Next

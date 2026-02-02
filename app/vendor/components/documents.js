@@ -65,7 +65,7 @@ export function DocumentsStep({
                 checked={formData.agreeTerms || false}
                 onChange={() => handleCheckboxChange("agreeTerms")}
                 disabled={disabled}
-                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
               />
               <span className="text-sm text-gray-600">
                 I agree to the{" "}
@@ -88,7 +88,7 @@ export function DocumentsStep({
                 checked={formData.agreeCommission || false}
                 onChange={() => handleCheckboxChange("agreeCommission")}
                 disabled={disabled}
-                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary"
+                className="w-4 h-4 mt-0.5 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
               />
               <span className="text-sm text-gray-600">
                 I agree to the 15% commission rate on all sales and understand

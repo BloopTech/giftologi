@@ -31,6 +31,8 @@ function RegistryContentInner() {
     hostDisplayName,
     products,
     shippingAddress,
+    shippingRegions,
+    defaultShippingRegionId,
     categories,
     welcomeNoteOpen,
     setWelcomeNoteOpen,
@@ -270,6 +272,8 @@ function RegistryContentInner() {
         onOpenChange={setAddMessageOpen}
         product={selectedProduct}
         hostName={hostDisplayName}
+        shippingRegions={shippingRegions}
+        defaultShippingRegionId={defaultShippingRegionId}
         onSubmit={handleMessageSubmit}
         onSkip={handleMessageSkip}
       />

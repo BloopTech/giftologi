@@ -55,6 +55,16 @@ const getVariationPriceStats = (variations) => {
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const vendor = product?.vendor || {};
+  const relatedCategoryIds = Array.isArray(product?.product_categories)
+    ? product.product_categories
+        .map((entry) => entry?.category_id)
+        .filter(Boolean)
+    : [];
+  const mergedCategoryIds = [
+    ...new Set(
+      [...relatedCategoryIds, product?.category_id].filter(Boolean),
+    ),
+  ];
   const variations = normalizeVariations(product?.variations);
   const variationStats = getVariationPriceStats(variations);
   const basePrice = Number(product?.price);
@@ -81,6 +91,7 @@ const mapProduct = (product) => {
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
     categoryId: product?.category_id || null,
+    categoryIds: mergedCategoryIds,
     vendor: {
       id: vendor.id,
       slug: vendor.slug,
@@ -235,6 +246,7 @@ export function ShopProvider({
             description,
             stock_qty,
             category_id,
+            product_categories (category_id),
             vendor:vendors!inner(
               id,
               slug,
@@ -254,7 +266,9 @@ export function ShopProvider({
         }
 
         if (categoryFilter && categoryFilter !== "all") {
-          query = query.eq("category_id", categoryFilter);
+          query = query.or(
+            `category_id.eq.${categoryFilter},product_categories.category_id.eq.${categoryFilter}`,
+          );
         }
 
         if (minPriceParam) {

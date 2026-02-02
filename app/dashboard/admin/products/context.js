@@ -222,6 +222,7 @@ function useManageProductsProviderValue() {
             status,
             images,
             category_id,
+            product_categories (category_id),
             variations,
             rejection_reason,
             vendor_id,
@@ -267,6 +268,16 @@ function useManageProductsProviderValue() {
           const enriched = (data || []).map((row) => {
             const vendor = row.vendor || null;
             const category = row.category || null;
+            const relatedCategoryIds = Array.isArray(row.product_categories)
+              ? row.product_categories
+                  .map((entry) => entry?.category_id)
+                  .filter(Boolean)
+              : [];
+            const mergedCategoryIds = [
+              ...new Set(
+                [...relatedCategoryIds, row.category_id].filter(Boolean),
+              ),
+            ];
 
             return {
               id: row.id,
@@ -275,6 +286,7 @@ function useManageProductsProviderValue() {
               vendorName: vendor?.business_name || "—",
               categoryName: category?.name || "—",
               categoryId: row.category_id || null,
+              categoryIds: mergedCategoryIds,
               price: row.price,
               stockQty: row.stock_qty,
               status: row.status || "pending",

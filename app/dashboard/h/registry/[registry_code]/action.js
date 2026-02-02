@@ -421,6 +421,34 @@ const updateRegistryDetailsSchema = z.object({
   postal_code: z.string().optional(),
   gps_location: z.string().optional(),
   digital_address: z.string().optional(),
+}).superRefine((data, ctx) => {
+  const streetAddress = (data.street_address || "").trim();
+  const city = (data.city || "").trim();
+  const stateProvince = (data.state_province || "").trim();
+
+  if (!streetAddress) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["street_address"],
+      message: "Street address is required",
+    });
+  }
+
+  if (!city) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["city"],
+      message: "City is required",
+    });
+  }
+
+  if (!stateProvince) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["state_province"],
+      message: "Region/State is required",
+    });
+  }
 });
 
 const deleteRegistrySchema = z.object({

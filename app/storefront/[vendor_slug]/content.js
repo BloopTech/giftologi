@@ -68,7 +68,14 @@ export default function StorefrontContent() {
 
     // Category filter
     if (selectedCategory) {
-      result = result.filter((p) => p.category_id === selectedCategory);
+      result = result.filter((p) => {
+        const categoryIds = Array.isArray(p.categoryIds)
+          ? p.categoryIds
+          : p.categoryId
+            ? [p.categoryId]
+            : [];
+        return categoryIds.includes(selectedCategory);
+      });
     }
 
     // Price range filter
@@ -132,7 +139,7 @@ export default function StorefrontContent() {
   }
 
   return (
-    <div className="dark:text-white bg-gradient-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-poppins">
+    <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-poppins">
       <Link
         href="#storefront-main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-9999 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
@@ -141,7 +148,7 @@ export default function StorefrontContent() {
       </Link>
 
       {/* Hero Header */}
-      <div className="relative bg-gradient-to-r from-[#A5914B]/10 via-[#A5914B]/5 to-transparent">
+      <div className="relative bg-linear-to-r from-[#A5914B]/10 via-[#A5914B]/5 to-transparent">
         <div className="mx-auto max-w-6xl w-full px-4 py-8 md:py-12">
           <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center">
             {/* Logo */}

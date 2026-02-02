@@ -147,7 +147,7 @@ export default function RegistryBuilderDialog({ onClose }) {
       case 1:
         return formData.title && formData.type && formData.date;
       case 2:
-        return true;
+        return formData.streetAddress && formData.city && formData.stateProvince;
       case 3:
         return true;
       case 4:

@@ -28,7 +28,7 @@ export async function GET(req) {
 
     const { data: products, error: productsError } = await supabase
       .from("products")
-      .select("category_id")
+      .select("category_id, product_categories (category_id)")
       .eq("vendor_id", vendor.id)
       .eq("status", "approved")
       .eq("active", true);
@@ -37,7 +37,20 @@ export async function GET(req) {
       return NextResponse.json({ message: "Failed to load categories" }, { status: 500 });
     }
 
-    const categoryIds = [...new Set((products || []).map((p) => p.category_id).filter(Boolean))];
+    const categoryIds = [
+      ...new Set(
+        (products || [])
+          .flatMap((product) => {
+            const related = Array.isArray(product.product_categories)
+              ? product.product_categories
+                  .map((entry) => entry?.category_id)
+                  .filter(Boolean)
+              : [];
+            return [product.category_id, ...related].filter(Boolean);
+          })
+          .filter(Boolean),
+      ),
+    ];
 
     if (categoryIds.length === 0) {
       return NextResponse.json({ categories: [] }, { status: 200 });

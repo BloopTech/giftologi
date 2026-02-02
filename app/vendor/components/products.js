@@ -162,7 +162,7 @@ export function ProductsStep({
                   checked={(formData.shippingMethods || []).includes(method)}
                   onChange={() => handleShippingChange(method)}
                   disabled={disabled}
-                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50"
+                  className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary disabled:opacity-50 accent-primary"
                 />
                 <span className="text-sm text-gray-700">{method}</span>
               </label>

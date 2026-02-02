@@ -152,7 +152,7 @@ export default function EditRegistryBuilderDialog({
       case 1:
         return formData.location && formData.date;
       case 2:
-        return true;
+        return formData.streetAddress && formData.city && formData.stateProvince;
       case 3:
         return true;
       default:

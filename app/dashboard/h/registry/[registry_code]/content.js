@@ -373,7 +373,7 @@ export default function HostDashboardRegistryContent(props) {
               )}
 
               {/* Content Overlay - Left Side */}
-              <div className="absolute inset-0 bg-gradient-to-r from-black/30 to-transparent" />
+              <div className="absolute inset-0 bg-linear-to-r from-black/30 to-transparent" />
               <div className="absolute left-8 top-1/2 -translate-y-1/2 z-1 flex flex-col space-y-2">
                 <h1 className="text-white text-2xl font-semibold drop-shadow-lg">
                   {registry?.title || "Registry Name"}

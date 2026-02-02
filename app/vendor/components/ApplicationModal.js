@@ -252,7 +252,7 @@ export default function ApplicationModal({ isOpen, onClose }) {
         <StepIndicator steps={steps} currentStep={currentStep} />
 
         {/* Divider */}
-        <div className="h-1 bg-gradient-to-r from-primary via-[#D4C896] to-[#E8E0C0]" />
+        <div className="h-1 bg-linear-to-r from-primary via-[#D4C896] to-[#E8E0C0]" />
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto">

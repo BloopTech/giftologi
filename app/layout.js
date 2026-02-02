@@ -5,13 +5,17 @@ import {
   Playfair_Display,
   Cormorant_Garamond,
   Bodoni_Moda,
-  Inter
+  Inter,
 } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
 import { createMetadata, getPageSeo } from "./utils/seo";
 import { SkipLink } from "./components/accessibility";
+import { headers } from "next/headers";
+import GoogleAnalytics from "./components/googleanalytics";
+
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   const pageSeo = await getPageSeo("home");
@@ -58,13 +62,21 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
-export default function RootLayout({ children }) {
+export default async function RootLayout({ children }) {
+  const h = await headers();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} antialiased`}
       >
         <ThemeProvider attribute="class">
+          {process.env.NEXT_PUBLIC_GA_ID && (
+            <GoogleAnalytics
+              gaId={process.env.NEXT_PUBLIC_GA_ID}
+              //nonce={nonce || undefined}
+            />
+          )}
           <SkipLink href="#main-content" />
           <Toaster
             position="top-center"

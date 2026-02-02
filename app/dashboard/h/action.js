@@ -40,6 +40,34 @@ const defaultRegistrySchema = z.object({
   date: z.string().min(1, { message: "Date is required" }),
   deadline: z.string().min(1, { message: "Deadline is required" }),
   privacy: z.string().min(1, { message: "Privacy is required" }),
+}).superRefine((data, ctx) => {
+  const streetAddress = (data.streetAddress || "").trim();
+  const city = (data.city || "").trim();
+  const stateProvince = (data.stateProvince || "").trim();
+
+  if (!streetAddress) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["streetAddress"],
+      message: "Street address is required",
+    });
+  }
+
+  if (!city) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["city"],
+      message: "City is required",
+    });
+  }
+
+  if (!stateProvince) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["stateProvince"],
+      message: "Region/State is required",
+    });
+  }
 });
 
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";

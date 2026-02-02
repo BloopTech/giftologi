@@ -10,6 +10,16 @@ const EXPRESSPAY_SUBMIT_URL =
 const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
 const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
 
+const SHIPPING_REGIONS = [
+  { id: "accra", name: "Greater Accra", fee: 25 },
+  { id: "kumasi", name: "Ashanti Region", fee: 35 },
+  { id: "takoradi", name: "Western Region", fee: 40 },
+  { id: "tamale", name: "Northern Region", fee: 50 },
+  { id: "cape_coast", name: "Central Region", fee: 35 },
+  { id: "ho", name: "Volta Region", fee: 40 },
+  { id: "other", name: "Other Regions", fee: 55 },
+];
+
 function generateOrderId() {
   return randomBytes(8).toString("hex");
 }
@@ -26,6 +36,8 @@ export async function POST(request) {
       currency = "GHS",
       gifterInfo,
       message,
+      guestBrowserId,
+      shippingRegionId,
     } = body;
 
     if (!registryId || !registryItemId || !amount) {
@@ -37,6 +49,10 @@ export async function POST(request) {
 
     const supabase = await createClient();
     const supabaseAdmin = createAdminClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const buyerId = user?.id || null;
 
     // Verify registry and item exist
     const { data: registryItem, error: itemError } = await supabase
@@ -69,6 +85,22 @@ export async function POST(request) {
       );
     }
 
+    const shippingRegion = SHIPPING_REGIONS.find(
+      (region) => region.id === shippingRegionId
+    );
+    const shippingFee = Number(shippingRegion?.fee) || 0;
+    const unitPrice = Number(registryItem?.product?.price);
+    const safeUnitPrice = Number.isFinite(unitPrice) ? unitPrice : Number(amount);
+    const subtotal = Number.isFinite(safeUnitPrice)
+      ? safeUnitPrice * quantity
+      : Number(amount);
+    const computedTotal = subtotal + shippingFee;
+    const totalAmount = Number.isFinite(computedTotal)
+      ? computedTotal
+      : Number(amount);
+    const shippingRegionName =
+      shippingRegion?.name || shippingRegionId || null;
+
     // Check if item is still available
     const remaining =
       (registryItem.quantity_needed || 0) - (registryItem.purchased_qty || 0);
@@ -93,9 +125,13 @@ export async function POST(request) {
       .insert({
         order_code: orderId,
         registry_id: registryId,
+        buyer_id: buyerId,
+        guest_browser_id: buyerId ? null : guestBrowserId || null,
         status: "pending",
-        total_amount: amount,
+        total_amount: totalAmount,
         currency,
+        shipping_region: shippingRegionName,
+        shipping_fee: shippingFee,
         gifter_firstname: gifterInfo?.firstName || null,
         gifter_lastname: gifterInfo?.lastName || null,
         gifter_email: gifterInfo?.email || null,
@@ -122,7 +158,9 @@ export async function POST(request) {
       registry_item_id: registryItemId,
       product_id: productId,
       quantity,
-      price: amount,
+      price: Number.isFinite(safeUnitPrice) ? safeUnitPrice : 0,
+      total_price: Number.isFinite(subtotal) ? subtotal : 0,
+      gift_message: message || null,
       created_at: new Date().toISOString(),
     });
 
@@ -140,7 +178,7 @@ export async function POST(request) {
       phonenumber: gifterInfo?.phone || "",
       username: gifterInfo?.email || `guest-${orderId}@giftologi.com`,
       currency,
-      amount: amount.toFixed(2),
+      amount: totalAmount.toFixed(2),
       "order-id": orderId,
       "order-desc": `Gift purchase for ${registryItem.registry?.title || "Registry"}`,
       "redirect-url": redirectUrl,

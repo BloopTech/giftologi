@@ -80,11 +80,13 @@ export default function DeliveryAddressStep({
         <label className="text-sm font-medium text-gray-900">Address</label>
         
         <FormInput
+          label="Street Address"
           name="streetAddress"
           placeholder="Street Address"
           value={formData.streetAddress || ""}
           onChange={(e) => updateFormData("streetAddress", e.target.value)}
           error={errors.streetAddress}
+          required
           disabled={disabled || isLocating}
         />
 
@@ -99,20 +101,24 @@ export default function DeliveryAddressStep({
 
         <div className="grid grid-cols-2 gap-4">
           <FormInput
+            label="City"
             name="city"
             placeholder="City"
             value={formData.city || ""}
             onChange={(e) => updateFormData("city", e.target.value)}
             error={errors.city}
+            required
             disabled={disabled || isLocating}
           />
 
           <FormInput
+            label="State/Province"
             name="stateProvince"
             placeholder="State/Province"
             value={formData.stateProvince || ""}
             onChange={(e) => updateFormData("stateProvince", e.target.value)}
             error={errors.stateProvince}
+            required
             disabled={disabled || isLocating}
           />
         </div>

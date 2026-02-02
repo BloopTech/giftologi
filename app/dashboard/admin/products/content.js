@@ -109,14 +109,20 @@ const buildVariationPayload = (drafts) => {
       const sku = String(draft.sku || "").trim();
       const labelInput = String(draft.label || "").trim();
       const fallbackLabel =
-        labelInput || [color, size].filter(Boolean).join(" / ") || sku || `Variant ${index + 1}`;
+        labelInput ||
+        [color, size].filter(Boolean).join(" / ") ||
+        sku ||
+        `Variant ${index + 1}`;
       const priceValue =
-        draft.price === "" || draft.price === null || typeof draft.price === "undefined"
+        draft.price === "" ||
+        draft.price === null ||
+        typeof draft.price === "undefined"
           ? null
           : Number(draft.price);
       const price = Number.isFinite(priceValue) ? priceValue : null;
 
-      if (!fallbackLabel && !color && !size && !sku && price == null) return null;
+      if (!fallbackLabel && !color && !size && !sku && price == null)
+        return null;
 
       const entry = {};
       if (fallbackLabel) entry.label = fallbackLabel;
@@ -142,13 +148,13 @@ const initialCreateState = {
     price: [],
     stockQty: [],
     productCode: [],
-    categoryId: [],
+    categoryIds: [],
     variations: [],
     images: [],
     featuredImageIndex: [],
     bulkFile: [],
     bulkMapping: [],
-    bulkCategoryId: [],
+    bulkCategoryIds: [],
   },
   values: {},
   data: {},
@@ -224,15 +230,13 @@ export default function ManageProductsContent() {
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
   const [categoriesError, setCategoriesError] = useState("");
-  const [selectedParentCategoryId, setSelectedParentCategoryId] = useState("");
-  const [selectedSubcategoryId, setSelectedSubcategoryId] = useState("");
-
-  const [bulkParentCategoryId, setBulkParentCategoryId] = useState("");
-  const [bulkSubcategoryId, setBulkSubcategoryId] = useState("");
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
+  const [bulkCategoryIds, setBulkCategoryIds] = useState([]);
 
   const [imageCount, setImageCount] = useState(0);
   const [featuredIndex, setFeaturedIndex] = useState("");
   const [variationDrafts, setVariationDrafts] = useState([]);
+  const [activeVariationFieldById, setActiveVariationFieldById] = useState({});
 
   const variationsPayload = useMemo(
     () => buildVariationPayload(variationDrafts),
@@ -357,18 +361,15 @@ export default function ManageProductsContent() {
     return categoriesByParentId.get(null) || [];
   }, [categoriesByParentId]);
 
-  const subcategoryOptions = useMemo(() => {
-    if (!selectedParentCategoryId) return [];
-    return categoriesByParentId.get(selectedParentCategoryId) || [];
-  }, [categoriesByParentId, selectedParentCategoryId]);
+  const selectedCategoryIdSet = useMemo(
+    () => new Set(selectedCategoryIds),
+    [selectedCategoryIds],
+  );
 
-  const bulkSubcategoryOptions = useMemo(() => {
-    if (!bulkParentCategoryId) return [];
-    return categoriesByParentId.get(bulkParentCategoryId) || [];
-  }, [categoriesByParentId, bulkParentCategoryId]);
-
-  const selectedCategoryId = selectedSubcategoryId || selectedParentCategoryId;
-  const bulkCategoryId = bulkSubcategoryId || bulkParentCategoryId;
+  const bulkCategoryIdSet = useMemo(
+    () => new Set(bulkCategoryIds),
+    [bulkCategoryIds],
+  );
 
   const getCategoryDisplayName = useCallback(
     (category) => {
@@ -383,27 +384,75 @@ export default function ManageProductsContent() {
     [categoriesById],
   );
 
+  const normalizeCategoryIds = useCallback((value) => {
+    if (!value) return [];
+    if (Array.isArray(value)) {
+      return value.map((id) => String(id).trim()).filter(Boolean);
+    }
+    if (typeof value === "string") {
+      const trimmed = value.trim();
+      if (!trimmed) return [];
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map((id) => String(id).trim()).filter(Boolean);
+        }
+      } catch (_) {
+        return trimmed
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean);
+      }
+    }
+    return [];
+  }, []);
+
+  const toggleSelectedCategory = useCallback((categoryId) => {
+    if (!categoryId) return;
+    setSelectedCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId],
+    );
+  }, []);
+
+  const toggleBulkCategory = useCallback((categoryId) => {
+    if (!categoryId) return;
+    setBulkCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId],
+    );
+  }, []);
+
   useEffect(() => {
     if (createMode !== "single") return;
 
-    const value = createState?.values?.categoryId;
-    if (!value) return;
-    if (selectedParentCategoryId || selectedSubcategoryId) return;
+    const value = normalizeCategoryIds(createState?.values?.categoryIds);
+    if (!value.length) return;
+    if (selectedCategoryIds.length) return;
 
-    const category = categoriesById.get(value);
-    if (category?.parent_category_id) {
-      setSelectedParentCategoryId(category.parent_category_id);
-      setSelectedSubcategoryId(category.id);
-      return;
-    }
-
-    setSelectedParentCategoryId(value);
+    setSelectedCategoryIds(value);
   }, [
     createMode,
-    createState?.values?.categoryId,
-    categoriesById,
-    selectedParentCategoryId,
-    selectedSubcategoryId,
+    createState?.values?.categoryIds,
+    normalizeCategoryIds,
+    selectedCategoryIds.length,
+  ]);
+
+  useEffect(() => {
+    if (createMode !== "bulk") return;
+
+    const value = normalizeCategoryIds(createState?.values?.bulkCategoryIds);
+    if (!value.length) return;
+    if (bulkCategoryIds.length) return;
+
+    setBulkCategoryIds(value);
+  }, [
+    createMode,
+    createState?.values?.bulkCategoryIds,
+    normalizeCategoryIds,
+    bulkCategoryIds.length,
   ]);
 
   useEffect(() => {
@@ -909,90 +958,140 @@ export default function ManageProductsContent() {
                   value={selectedVendor.id}
                 />
                 <input type="hidden" name="mode" value={createMode} />
+                <input type="hidden" name="categoryId" value="" />
                 <input
                   type="hidden"
-                  name="categoryId"
-                  value={selectedCategoryId || ""}
+                  name="categoryIds"
+                  value={JSON.stringify(selectedCategoryIds)}
                 />
                 <input
                   type="hidden"
                   name="featuredImageIndex"
                   value={featuredIndex || ""}
                 />
+                <input type="hidden" name="bulkCategoryId" value="" />
                 <input
                   type="hidden"
-                  name="bulkCategoryId"
-                  value={bulkCategoryId || ""}
+                  name="bulkCategoryIds"
+                  value={JSON.stringify(bulkCategoryIds)}
                 />
 
                 {createMode === "single" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
+                    <div className="space-y-2 md:col-span-2">
                       <div className="flex items-center justify-between gap-2">
                         <label className="text-xs font-medium text-[#0A0A0A]">
-                          Category <span className="text-red-500">*</span>
+                          Categories <span className="text-red-500">*</span>
+                          <span className="ml-1 text-[11px] font-normal text-[#6A7282]">
+                            (Select all that apply)
+                          </span>
                         </label>
+                        {selectedCategoryIds.length ? (
+                          <button
+                            type="button"
+                            onClick={() => setSelectedCategoryIds([])}
+                            className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
+                            disabled={createPending}
+                          >
+                            Clear
+                          </button>
+                        ) : null}
                       </div>
-                      <Select
-                        value={selectedParentCategoryId || ""}
-                        onValueChange={(value) => {
-                          setSelectedParentCategoryId(value || "");
-                          setSelectedSubcategoryId("");
-                        }}
-                        disabled={categoriesLoading || createPending}
-                      >
-                        <SelectTrigger className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]">
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {parentCategoryOptions.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {cat.name || "Untitled"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="rounded-lg border border-[#D6D6D6] bg-white p-3 space-y-3">
+                        {selectedCategoryIds.length ? (
+                          <div className="flex flex-wrap gap-2">
+                            {selectedCategoryIds.map((id) => {
+                              const category = categoriesById.get(id);
+                              if (!category) return null;
+                              return (
+                                <span
+                                  key={id}
+                                  className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
+                                >
+                                  {getCategoryDisplayName(category)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-[#9CA3AF]">
+                            No categories selected yet.
+                          </p>
+                        )}
+                        <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
+                          {parentCategoryOptions.length ? (
+                            parentCategoryOptions.map((parent) => {
+                              const children =
+                                categoriesByParentId.get(parent.id) || [];
+                              return (
+                                <div key={parent.id} className="space-y-2">
+                                  <label className="flex items-center gap-2 text-[11px] text-[#111827]">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedCategoryIdSet.has(
+                                        parent.id,
+                                      )}
+                                      onChange={() =>
+                                        toggleSelectedCategory(parent.id)
+                                      }
+                                      disabled={
+                                        categoriesLoading || createPending
+                                      }
+                                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                                    />
+                                    <span className="font-medium">
+                                      {parent.name || "Untitled"}
+                                    </span>
+                                  </label>
+                                  {children.length ? (
+                                    <div className="ml-6 grid gap-1">
+                                      {children.map((child) => (
+                                        <label
+                                          key={child.id}
+                                          className="flex items-center gap-2 text-[11px] text-[#4B5563]"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={selectedCategoryIdSet.has(
+                                              child.id,
+                                            )}
+                                            onChange={() =>
+                                              toggleSelectedCategory(child.id)
+                                            }
+                                            disabled={
+                                              categoriesLoading || createPending
+                                            }
+                                            className="accent-primary h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                          />
+                                          <span>
+                                            {child.name || "Untitled"}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-[11px] text-[#9CA3AF]">
+                              No categories available.
+                            </p>
+                          )}
+                        </div>
+                      </div>
                       {categoriesError ? (
                         <p className="mt-1 text-[11px] text-red-600">
                           {categoriesError}
                         </p>
                       ) : null}
-                      {(createState?.errors?.categoryId || []).length ? (
+                      {(createState?.errors?.categoryIds || []).length ? (
                         <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.categoryId.map((err, index) => (
+                          {createState.errors.categoryIds.map((err, index) => (
                             <li key={index}>{err}</li>
                           ))}
                         </ul>
                       ) : null}
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="text-xs font-medium text-[#0A0A0A]">
-                        Subcategory
-                      </label>
-                      <Select
-                        value={selectedSubcategoryId || ""}
-                        onValueChange={(value) =>
-                          setSelectedSubcategoryId(value || "")
-                        }
-                        disabled={
-                          categoriesLoading ||
-                          createPending ||
-                          !selectedParentCategoryId ||
-                          !subcategoryOptions.length
-                        }
-                      >
-                        <SelectTrigger className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]">
-                          <SelectValue placeholder="None" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subcategoryOptions.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {getCategoryDisplayName(cat)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
                     </div>
 
                     <div className="space-y-1">
@@ -1110,12 +1209,16 @@ export default function ManageProductsContent() {
                       >
                         Variations (optional)
                       </label>
-                      <input type="hidden" name="variations" value={variationsPayload} />
+                      <input
+                        type="hidden"
+                        name="variations"
+                        value={variationsPayload}
+                      />
                       <div className="rounded-lg border border-[#D6D6D6] bg-white p-3 space-y-3">
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                           <p className="text-[11px] text-[#717182]">
-                            Add color/size options or SKU-only variants. Price overrides
-                            the base price.
+                            Add color/size options or SKU-only variants. Price
+                            overrides the base price.
                           </p>
                           <button
                             type="button"
@@ -1129,13 +1232,40 @@ export default function ManageProductsContent() {
 
                         {variationDrafts.length === 0 ? (
                           <div className="rounded-lg border border-dashed border-[#D6D6D6] bg-[#F9FAFB] p-4 text-center text-[11px] text-[#6B7280]">
-                            No variations yet. Add one to offer color, size, or SKU options.
+                            No variations yet. Add one to offer color, size, or
+                            SKU options.
                           </div>
                         ) : (
                           <div className="space-y-4">
                             {variationDrafts.map((draft, index) => {
-                              const colorValue = draft.color || "";
-                              const sizeValue = draft.size || "";
+                              const activeField =
+                                activeVariationFieldById?.[draft.id] || "";
+                              const chips = [
+                                {
+                                  key: "color",
+                                  label: "Color",
+                                  value: draft.color,
+                                },
+                                {
+                                  key: "size",
+                                  label: "Size",
+                                  value: draft.size,
+                                },
+                                { key: "sku", label: "SKU", value: draft.sku },
+                                {
+                                  key: "price",
+                                  label: "Price",
+                                  value: draft.price,
+                                },
+                                {
+                                  key: "label",
+                                  label: "Label",
+                                  value: draft.label,
+                                },
+                              ].filter((entry) =>
+                                String(entry.value || "").trim(),
+                              );
+
                               return (
                                 <div
                                   key={draft.id}
@@ -1147,7 +1277,9 @@ export default function ManageProductsContent() {
                                     </span>
                                     <button
                                       type="button"
-                                      onClick={() => removeVariationDraft(draft.id)}
+                                      onClick={() =>
+                                        removeVariationDraft(draft.id)
+                                      }
                                       className="cursor-pointer text-[11px] text-red-500 hover:text-red-600"
                                       disabled={createPending}
                                     >
@@ -1155,171 +1287,315 @@ export default function ManageProductsContent() {
                                     </button>
                                   </div>
 
-                                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-[11px] font-medium text-[#374151]">
-                                        Label (auto if blank)
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={draft.label}
-                                        onChange={(e) =>
-                                          updateVariationDraft(
-                                            draft.id,
-                                            "label",
-                                            e.target.value,
-                                          )
-                                        }
-                                        placeholder="e.g., Red / Small"
-                                        className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                        disabled={createPending}
-                                      />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-[11px] font-medium text-[#374151]">
-                                        SKU (optional)
-                                      </label>
-                                      <input
-                                        type="text"
-                                        value={draft.sku}
-                                        onChange={(e) =>
-                                          updateVariationDraft(
-                                            draft.id,
-                                            "sku",
-                                            e.target.value,
-                                          )
-                                        }
-                                        placeholder="SKU-RED-S"
-                                        className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                        disabled={createPending}
-                                      />
-                                    </div>
-
-                                    <div className="flex flex-col gap-1">
-                                      <label className="text-[11px] font-medium text-[#374151]">
-                                        Price override (optional)
-                                      </label>
-                                      <input
-                                        type="number"
-                                        min="0"
-                                        step="0.01"
-                                        value={draft.price}
-                                        onChange={(e) =>
-                                          updateVariationDraft(
-                                            draft.id,
-                                            "price",
-                                            e.target.value,
-                                          )
-                                        }
-                                        placeholder="0.00"
-                                        className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                        disabled={createPending}
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="flex flex-col gap-2">
-                                    <label className="text-[11px] font-medium text-[#374151]">
-                                      Color
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                      {COLOR_OPTIONS.map((color) => {
-                                        const isSelected = colorValue === color;
-                                        return (
-                                          <button
-                                            key={color}
-                                            type="button"
-                                            onClick={() =>
-                                              updateVariationDraft(
-                                                draft.id,
-                                                "color",
-                                                isSelected ? "" : color,
-                                              )
-                                            }
-                                            className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
-                                              isSelected
-                                                ? "border-primary bg-primary/10 text-primary"
-                                                : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
-                                            }`}
-                                            disabled={createPending}
+                                  <div className="space-y-2">
+                                    {chips.length ? (
+                                      <div className="flex flex-wrap gap-2">
+                                        {chips.map((chip) => (
+                                          <span
+                                            key={chip.key}
+                                            className="inline-flex items-center gap-2 rounded-full bg-[#F3F4F6] px-3 py-1 text-[11px] text-[#374151]"
                                           >
-                                            <span
-                                              className="h-3 w-3 rounded-full border"
-                                              style={{
-                                                background:
-                                                  COLOR_SWATCHES[color] || "#E5E7EB",
-                                                borderColor:
-                                                  color === "White"
-                                                    ? "#E5E7EB"
-                                                    : "transparent",
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                setActiveVariationFieldById(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    [draft.id]: chip.key,
+                                                  }),
+                                                )
+                                              }
+                                              className="cursor-pointer hover:text-[#0A0A0A]"
+                                              disabled={createPending}
+                                            >
+                                              {chip.label}: {String(chip.value)}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                updateVariationDraft(
+                                                  draft.id,
+                                                  chip.key,
+                                                  "",
+                                                );
+                                                setActiveVariationFieldById(
+                                                  (prev) => ({
+                                                    ...prev,
+                                                    [draft.id]:
+                                                      prev?.[draft.id] ===
+                                                      chip.key
+                                                        ? ""
+                                                        : prev?.[draft.id],
+                                                  }),
+                                                );
                                               }}
-                                            />
-                                            {color}
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                    <input
-                                      type="text"
-                                      value={colorValue}
-                                      onChange={(e) =>
-                                        updateVariationDraft(
-                                          draft.id,
-                                          "color",
-                                          e.target.value,
-                                        )
-                                      }
-                                      placeholder="Custom color"
-                                      className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                      disabled={createPending}
-                                    />
-                                  </div>
+                                              className="cursor-pointer text-[#6B7280] hover:text-red-600"
+                                              disabled={createPending}
+                                            >
+                                              ×
+                                            </button>
+                                          </span>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <p className="text-[11px] text-[#6B7280]">
+                                        Choose an option below to start this
+                                        variation.
+                                      </p>
+                                    )}
 
-                                  <div className="flex flex-col gap-2">
-                                    <label className="text-[11px] font-medium text-[#374151]">
-                                      Size
-                                    </label>
-                                    <div className="flex flex-wrap gap-2">
-                                      {SIZE_OPTIONS.map((size) => {
-                                        const isSelected = sizeValue === size;
-                                        return (
-                                          <button
-                                            key={size}
-                                            type="button"
-                                            onClick={() =>
+                                    <div
+                                      className={`grid gap-2 ${activeField === "color" || activeField === "size" ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"}`}
+                                    >
+                                      <div className="flex flex-col gap-1">
+                                        <label className="text-[11px] font-medium text-[#374151]">
+                                          Add option
+                                        </label>
+                                        <select
+                                          value={activeField}
+                                          onChange={(e) =>
+                                            setActiveVariationFieldById(
+                                              (prev) => ({
+                                                ...prev,
+                                                [draft.id]: e.target.value,
+                                              }),
+                                            )
+                                          }
+                                          className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                          disabled={createPending}
+                                        >
+                                          <option value="">
+                                            Select option…
+                                          </option>
+                                          <option value="color">Color</option>
+                                          <option value="size">Size</option>
+                                          <option value="sku">SKU</option>
+                                          <option value="price">
+                                            Price override
+                                          </option>
+                                          <option value="label">Label</option>
+                                        </select>
+                                      </div>
+
+                                      <div
+                                        className={
+                                          activeField
+                                            ? `flex flex-col gap-1 ${
+                                                activeField === "color" ||
+                                                activeField === "size"
+                                                  ? "sm:col-span-2"
+                                                  : ""
+                                              }`
+                                            : "hidden"
+                                        }
+                                      >
+                                        <label className="text-[11px] font-medium text-[#374151]">
+                                          Value
+                                        </label>
+
+                                        {activeField === "price" ? (
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={draft.price}
+                                            onChange={(e) =>
                                               updateVariationDraft(
                                                 draft.id,
-                                                "size",
-                                                isSelected ? "" : size,
+                                                "price",
+                                                e.target.value,
                                               )
                                             }
-                                            className={`cursor-pointer inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
-                                              isSelected
-                                                ? "border-primary bg-primary/10 text-primary"
-                                                : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
-                                            }`}
+                                            onBlur={() =>
+                                              setActiveVariationFieldById(
+                                                (prev) => ({
+                                                  ...prev,
+                                                  [draft.id]: "",
+                                                }),
+                                              )
+                                            }
+                                            placeholder="0.00"
+                                            className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                             disabled={createPending}
-                                          >
-                                            {size}
-                                          </button>
-                                        );
-                                      })}
+                                          />
+                                        ) : activeField === "color" ? (
+                                          <div className="space-y-2">
+                                            <div className="flex flex-wrap gap-2">
+                                              {COLOR_OPTIONS.map((color) => {
+                                                const isSelected =
+                                                  String(draft.color || "") ===
+                                                  color;
+                                                return (
+                                                  <button
+                                                    key={color}
+                                                    type="button"
+                                                    onClick={() =>
+                                                      updateVariationDraft(
+                                                        draft.id,
+                                                        "color",
+                                                        isSelected ? "" : color,
+                                                      )
+                                                    }
+                                                    className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                                                      isSelected
+                                                        ? "border-primary bg-primary/10 text-primary"
+                                                        : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
+                                                    }`}
+                                                    disabled={createPending}
+                                                  >
+                                                    <span
+                                                      className="h-3 w-3 rounded-full border"
+                                                      style={{
+                                                        background:
+                                                          COLOR_SWATCHES[
+                                                            color
+                                                          ] || "#E5E7EB",
+                                                        borderColor:
+                                                          color === "White"
+                                                            ? "#E5E7EB"
+                                                            : "transparent",
+                                                      }}
+                                                    />
+                                                    {color}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                            <div className="space-y-1">
+                                              <label className="text-[11px] text-[#6B7280]">
+                                                Custom color
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={draft.color}
+                                                onChange={(e) =>
+                                                  updateVariationDraft(
+                                                    draft.id,
+                                                    "color",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                onBlur={() =>
+                                                  setActiveVariationFieldById(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [draft.id]: "",
+                                                    }),
+                                                  )
+                                                }
+                                                placeholder="Type any color (e.g., Navy, Rose Gold)"
+                                                className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                disabled={createPending}
+                                              />
+                                            </div>
+                                          </div>
+                                        ) : activeField === "size" ? (
+                                          <div className="space-y-2">
+                                            <div className="flex flex-wrap gap-2">
+                                              {SIZE_OPTIONS.map((size) => {
+                                                const isSelected =
+                                                  String(draft.size || "") ===
+                                                  size;
+                                                return (
+                                                  <button
+                                                    key={size}
+                                                    type="button"
+                                                    onClick={() =>
+                                                      updateVariationDraft(
+                                                        draft.id,
+                                                        "size",
+                                                        isSelected ? "" : size,
+                                                      )
+                                                    }
+                                                    className={`cursor-pointer inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                                                      isSelected
+                                                        ? "border-primary bg-primary/10 text-primary"
+                                                        : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
+                                                    }`}
+                                                    disabled={createPending}
+                                                  >
+                                                    {size}
+                                                  </button>
+                                                );
+                                              })}
+                                            </div>
+                                            <div className="space-y-1">
+                                              <label className="text-[11px] text-[#6B7280]">
+                                                Custom size
+                                              </label>
+                                              <input
+                                                type="text"
+                                                value={draft.size}
+                                                onChange={(e) =>
+                                                  updateVariationDraft(
+                                                    draft.id,
+                                                    "size",
+                                                    e.target.value,
+                                                  )
+                                                }
+                                                onBlur={() =>
+                                                  setActiveVariationFieldById(
+                                                    (prev) => ({
+                                                      ...prev,
+                                                      [draft.id]: "",
+                                                    }),
+                                                  )
+                                                }
+                                                placeholder="Type any size (e.g., 42, 10.5, 2XL)"
+                                                className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                                disabled={createPending}
+                                              />
+                                            </div>
+                                          </div>
+                                        ) : activeField === "sku" ? (
+                                          <input
+                                            type="text"
+                                            value={draft.sku}
+                                            onChange={(e) =>
+                                              updateVariationDraft(
+                                                draft.id,
+                                                "sku",
+                                                e.target.value,
+                                              )
+                                            }
+                                            onBlur={() =>
+                                              setActiveVariationFieldById(
+                                                (prev) => ({
+                                                  ...prev,
+                                                  [draft.id]: "",
+                                                }),
+                                              )
+                                            }
+                                            placeholder="SKU-RED-S"
+                                            className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                            disabled={createPending}
+                                          />
+                                        ) : activeField === "label" ? (
+                                          <input
+                                            type="text"
+                                            value={draft.label}
+                                            onChange={(e) =>
+                                              updateVariationDraft(
+                                                draft.id,
+                                                "label",
+                                                e.target.value,
+                                              )
+                                            }
+                                            onBlur={() =>
+                                              setActiveVariationFieldById(
+                                                (prev) => ({
+                                                  ...prev,
+                                                  [draft.id]: "",
+                                                }),
+                                              )
+                                            }
+                                            placeholder="e.g., Red / Small"
+                                            className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                            disabled={createPending}
+                                          />
+                                        ) : null}
+                                      </div>
                                     </div>
-                                    <input
-                                      type="text"
-                                      value={sizeValue}
-                                      onChange={(e) =>
-                                        updateVariationDraft(
-                                          draft.id,
-                                          "size",
-                                          e.target.value,
-                                        )
-                                      }
-                                      placeholder="Custom size"
-                                      className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                                      disabled={createPending}
-                                    />
                                   </div>
                                 </div>
                               );
@@ -1335,7 +1611,8 @@ export default function ManageProductsContent() {
                         </ul>
                       ) : (
                         <p className="text-[11px] text-[#717182]">
-                          Variations can include label, color, size, sku, and price.
+                          Variations can include label, color, size, sku, and
+                          price.
                         </p>
                       )}
                     </div>
@@ -1420,61 +1697,114 @@ export default function ManageProductsContent() {
                 {createMode === "bulk" && (
                   <div className="space-y-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium text-[#0A0A0A]">
-                        Default Category (optional)
-                      </label>
-                      <Select
-                        value={bulkParentCategoryId || ""}
-                        onValueChange={(value) => {
-                          setBulkParentCategoryId(value || "");
-                          setBulkSubcategoryId("");
-                        }}
-                        disabled={categoriesLoading || createPending}
-                      >
-                        <SelectTrigger className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]">
-                          <SelectValue placeholder="Use category from each product's own settings" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {parentCategoryOptions.map((cat) => (
-                            <SelectItem key={cat.id} value={cat.id}>
-                              {cat.name || "Untitled"}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <div className="mt-2">
-                        <Select
-                          value={bulkSubcategoryId || ""}
-                          onValueChange={(value) =>
-                            setBulkSubcategoryId(value || "")
-                          }
-                          disabled={
-                            categoriesLoading ||
-                            createPending ||
-                            !bulkParentCategoryId ||
-                            !bulkSubcategoryOptions.length
-                          }
-                        >
-                          <SelectTrigger className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]">
-                            <SelectValue placeholder="Subcategory (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {bulkSubcategoryOptions.map((cat) => (
-                              <SelectItem key={cat.id} value={cat.id}>
-                                {getCategoryDisplayName(cat)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-xs font-medium text-[#0A0A0A]">
+                          Default Categories (optional)
+                          <span className="ml-1 text-[11px] font-normal text-[#6A7282]">
+                            (Applied to every CSV row)
+                          </span>
+                        </label>
+                        {bulkCategoryIds.length ? (
+                          <button
+                            type="button"
+                            onClick={() => setBulkCategoryIds([])}
+                            className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
+                            disabled={createPending}
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+                      <div className="rounded-lg border border-[#D6D6D6] bg-white p-3 space-y-3">
+                        {bulkCategoryIds.length ? (
+                          <div className="flex flex-wrap gap-2">
+                            {bulkCategoryIds.map((id) => {
+                              const category = categoriesById.get(id);
+                              if (!category) return null;
+                              return (
+                                <span
+                                  key={id}
+                                  className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
+                                >
+                                  {getCategoryDisplayName(category)}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-[#9CA3AF]">
+                            No default categories selected. CSV rows can define
+                            their own.
+                          </p>
+                        )}
+                        <div className="space-y-3">
+                          {parentCategoryOptions.length ? (
+                            parentCategoryOptions.map((parent) => {
+                              const children =
+                                categoriesByParentId.get(parent.id) || [];
+                              return (
+                                <div key={parent.id} className="space-y-2">
+                                  <label className="flex items-center gap-2 text-[11px] text-[#111827]">
+                                    <input
+                                      type="checkbox"
+                                      checked={bulkCategoryIdSet.has(parent.id)}
+                                      onChange={() =>
+                                        toggleBulkCategory(parent.id)
+                                      }
+                                      disabled={
+                                        categoriesLoading || createPending
+                                      }
+                                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                                    />
+                                    <span className="font-medium">
+                                      {parent.name || "Untitled"}
+                                    </span>
+                                  </label>
+                                  {children.length ? (
+                                    <div className="ml-6 grid gap-1">
+                                      {children.map((child) => (
+                                        <label
+                                          key={child.id}
+                                          className="flex items-center gap-2 text-[11px] text-[#4B5563]"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={bulkCategoryIdSet.has(
+                                              child.id,
+                                            )}
+                                            onChange={() =>
+                                              toggleBulkCategory(child.id)
+                                            }
+                                            disabled={
+                                              categoriesLoading || createPending
+                                            }
+                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
+                                          />
+                                          <span>
+                                            {child.name || "Untitled"}
+                                          </span>
+                                        </label>
+                                      ))}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <p className="text-[11px] text-[#9CA3AF]">
+                              No categories available.
+                            </p>
+                          )}
+                        </div>
                       </div>
                       {categoriesError ? (
                         <p className="mt-1 text-[11px] text-red-600">
                           {categoriesError}
                         </p>
                       ) : null}
-                      {(createState?.errors?.bulkCategoryId || []).length ? (
+                      {(createState?.errors?.bulkCategoryIds || []).length ? (
                         <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.bulkCategoryId.map(
+                          {createState.errors.bulkCategoryIds.map(
                             (err, index) => (
                               <li key={index}>{err}</li>
                             ),
@@ -1483,7 +1813,7 @@ export default function ManageProductsContent() {
                       ) : null}
                       <p className="text-[11px] text-[#717182]">
                         When set, all products created from this CSV will use
-                        this category.
+                        these categories.
                       </p>
                     </div>
 

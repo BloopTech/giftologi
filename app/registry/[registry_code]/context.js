@@ -12,6 +12,104 @@ import { createClient as createSupabaseClient } from "../../utils/supabase/clien
 
 const GuestRegistryCodeContext = createContext();
 
+const GUEST_BROWSER_ID_KEY = "giftologi_guest_browser_id";
+const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_ID;
+
+const getOrCreateGuestBrowserId = () => {
+  if (typeof window === "undefined") return null;
+  const existing = window.localStorage.getItem(GUEST_BROWSER_ID_KEY);
+  if (existing) return existing;
+
+  let nextId;
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    nextId = crypto.randomUUID();
+  } else {
+    nextId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  try {
+    window.localStorage.setItem(GUEST_BROWSER_ID_KEY, nextId);
+  } catch {
+    // ignore storage failures
+  }
+
+  return nextId;
+};
+
+const getGoogleAnalyticsClientId = () => {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (!window.gtag || !GA_MEASUREMENT_ID) return Promise.resolve(null);
+
+  return new Promise((resolve) => {
+    let resolved = false;
+    try {
+      window.gtag("get", GA_MEASUREMENT_ID, "client_id", (clientId) => {
+        if (!resolved) {
+          resolved = true;
+          resolve(clientId || null);
+        }
+      });
+    } catch (error) {
+      resolved = true;
+      resolve(null);
+    }
+
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true;
+        resolve(null);
+      }
+    }, 1000);
+  });
+};
+
+const getGuestIdentifier = async () => {
+  const gaClientId = await getGoogleAnalyticsClientId();
+  if (gaClientId) {
+    return `ga_${gaClientId}`;
+  }
+  return getOrCreateGuestBrowserId();
+};
+
+const SHIPPING_REGIONS = [
+  { id: "accra", name: "Greater Accra", fee: 25 },
+  { id: "kumasi", name: "Ashanti Region", fee: 35 },
+  { id: "takoradi", name: "Western Region", fee: 40 },
+  { id: "tamale", name: "Northern Region", fee: 50 },
+  { id: "cape_coast", name: "Central Region", fee: 35 },
+  { id: "ho", name: "Volta Region", fee: 40 },
+  { id: "other", name: "Other Regions", fee: 55 },
+];
+
+const DEFAULT_SHIPPING_REGION_ID = SHIPPING_REGIONS[0]?.id || "";
+
+const getShippingRegionById = (regionId) =>
+  SHIPPING_REGIONS.find((region) => region.id === regionId) ||
+  SHIPPING_REGIONS[0] ||
+  null;
+
+const getDerivedShippingRegionId = (shippingAddress) => {
+  const city = String(shippingAddress?.city || "").toLowerCase();
+  const state = String(shippingAddress?.stateProvince || "").toLowerCase();
+  const combined = `${city} ${state}`.trim();
+
+  if (!combined) return DEFAULT_SHIPPING_REGION_ID;
+
+  if (combined.includes("accra") || combined.includes("greater accra")) return "accra";
+  if (combined.includes("kumasi") || combined.includes("ashanti")) return "kumasi";
+  if (
+    combined.includes("takoradi") ||
+    combined.includes("western region") ||
+    combined.includes("western")
+  )
+    return "takoradi";
+  if (combined.includes("tamale") || combined.includes("northern")) return "tamale";
+  if (combined.includes("cape coast") || combined.includes("central")) return "cape_coast";
+  if (combined.includes("ho") || combined.includes("volta")) return "ho";
+
+  return "other";
+};
+
 // Purchase flow steps
 const PURCHASE_STEPS = {
   IDLE: "idle",
@@ -48,13 +146,15 @@ export const GuestRegistryCodeProvider = ({
   const [event, setEvent] = useState(initialEvent);
   const [host, setHost] = useState(initialHost);
   const [products, setProducts] = useState(initialProducts || []);
-  const [shippingAddress, setShippingAddress] = useState(initialShippingAddress);
+  const [shippingAddress, setShippingAddress] = useState(
+    initialShippingAddress,
+  );
   const [categories, setCategories] = useState(initialCategories || []);
 
   const [error, setError] = useState(null);
 
   const [isLoading, setIsLoading] = useState(
-    !initialRegistry && Boolean(registryCode)
+    !initialRegistry && Boolean(registryCode),
   );
 
   const refresh = useCallback(async () => {
@@ -82,7 +182,7 @@ export const GuestRegistryCodeProvider = ({
           location,
           description
         )
-      `
+      `,
       )
       .eq("registry_code", registryCode)
       .maybeSingle();
@@ -126,9 +226,10 @@ export const GuestRegistryCodeProvider = ({
           name,
           price,
           images,
-          category_id
+          category_id,
+          product_categories (category_id)
         )
-      `
+      `,
       )
       .eq("registry_id", registryData.id);
 
@@ -147,6 +248,17 @@ export const GuestRegistryCodeProvider = ({
       ? registryItems.map((item) => {
           const product = item.product || {};
           const images = Array.isArray(product.images) ? product.images : [];
+          const relatedCategoryIds = Array.isArray(product.product_categories)
+            ? product.product_categories
+                .map((entry) => entry?.category_id)
+                .filter(Boolean)
+            : [];
+          const mergedCategoryIds = [
+            ...new Set(
+              [...relatedCategoryIds, product.category_id].filter(Boolean),
+            ),
+          ];
+
           return {
             id: item.id,
             productId: product.id,
@@ -157,6 +269,7 @@ export const GuestRegistryCodeProvider = ({
             desired: item.quantity_needed ?? 0,
             purchased: item.purchased_qty ?? 0,
             categoryId: product.category_id,
+            categoryIds: mergedCategoryIds,
           };
         })
       : [];
@@ -217,93 +330,29 @@ export const GuestRegistryCodeProvider = ({
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("default");
 
-  // ... rest of the code remains the same ...
-  // Check for payment callback on mount
-  useEffect(() => {
-    const paymentStatus = searchParams.get("payment");
-    const orderId = searchParams.get("order");
-
-    if (paymentStatus === "success" && orderId) {
-      setCompletedOrderId(orderId);
-      setPurchaseCompleteOpen(true);
-      // Clean up URL
-      router.replace(window.location.pathname, { scroll: false });
-    } else if (paymentStatus === "failed" || paymentStatus === "pending") {
-      setError(
-        paymentStatus === "failed"
-          ? "Payment was not successful. Please try again."
-          : "Payment is pending. You will be notified once confirmed."
-      );
-      router.replace(window.location.pathname, { scroll: false });
-    }
-  }, [searchParams, router]);
-
-  // Show welcome note on first visit (using sessionStorage)
-  useEffect(() => {
-    const hasSeenWelcome = sessionStorage.getItem(
-      `welcome_seen_${registry?.id}`
-    );
-    if (!hasSeenWelcome && registry?.id) {
-      setWelcomeNoteOpen(true);
-      sessionStorage.setItem(`welcome_seen_${registry?.id}`, "true");
-    }
-  }, [registry?.id]);
-
-  // Open product detail modal
-  const openProductDetail = useCallback((product) => {
-    setSelectedProduct(product);
-    setPurchaseQuantity(1);
-    setProductDetailOpen(true);
-    setPurchaseStep(PURCHASE_STEPS.PRODUCT_DETAIL);
-  }, []);
-
-  // Close product detail and reset
-  const closeProductDetail = useCallback(() => {
-    setProductDetailOpen(false);
-    if (purchaseStep === PURCHASE_STEPS.PRODUCT_DETAIL) {
-      setPurchaseStep(PURCHASE_STEPS.IDLE);
-      setSelectedProduct(null);
-    }
-  }, [purchaseStep]);
-
-  // Start buy flow for single item
-  const startBuyThis = useCallback((product) => {
-    setSelectedProduct(product);
-    setPurchaseQuantity(1);
-    setProductDetailOpen(false);
-    setGifterInfoOpen(true);
-    setPurchaseStep(PURCHASE_STEPS.GIFTER_INFO);
-  }, []);
-
-  // Start buy flow for multiple items
-  const startBuyMultiple = useCallback((product) => {
-    setSelectedProduct(product);
-    // For now, default to 1, could show quantity selector
-    setPurchaseQuantity(1);
-    setProductDetailOpen(false);
-    setGifterInfoOpen(true);
-    setPurchaseStep(PURCHASE_STEPS.GIFTER_INFO);
-  }, []);
-
-  // Handle gifter info submission
-  const handleGifterInfoSubmit = useCallback((info) => {
-    setGifterInfo(info);
-    setGifterInfoOpen(false);
-    setAddMessageOpen(true);
-    setPurchaseStep(PURCHASE_STEPS.ADD_MESSAGE);
-  }, []);
-
-  // Skip gifter info
-  const handleGifterInfoSkip = useCallback(() => {
-    setGifterInfo(null);
-    setGifterInfoOpen(false);
-    setAddMessageOpen(true);
-    setPurchaseStep(PURCHASE_STEPS.ADD_MESSAGE);
-  }, []);
+  const derivedDefaultShippingRegionId = useMemo(
+    () => getDerivedShippingRegionId(shippingAddress),
+    [shippingAddress]
+  );
 
   // Handle message submission and initiate payment
   const handleMessageSubmit = useCallback(
-    async (message) => {
+    async (payload) => {
+      const message =
+        typeof payload === "string" ? payload : payload?.message || "";
+      const shippingRegionId =
+        typeof payload === "string"
+          ? derivedDefaultShippingRegionId
+          : payload?.shippingRegionId || derivedDefaultShippingRegionId;
+      const shippingRegion = getShippingRegionById(shippingRegionId);
+
+      const unitPrice = Number(selectedProduct?.rawPrice);
+      const subtotal = Number.isFinite(unitPrice)
+        ? unitPrice * purchaseQuantity
+        : 0;
+      const shippingFee = Number(shippingRegion?.fee) || 0;
+      const totalAmount = subtotal + shippingFee;
+
       setGiftMessage(message);
       setAddMessageOpen(false);
       setPurchaseStep(PURCHASE_STEPS.PROCESSING);
@@ -311,6 +360,7 @@ export const GuestRegistryCodeProvider = ({
       setError(null);
 
       try {
+        const guestIdentifier = await getGuestIdentifier();
         const response = await fetch("/api/registry/payment/submit", {
           method: "POST",
           headers: {
@@ -321,12 +371,12 @@ export const GuestRegistryCodeProvider = ({
             registryItemId: selectedProduct?.id,
             productId: selectedProduct?.productId,
             quantity: purchaseQuantity,
-            amount: parseFloat(
-              selectedProduct?.price?.replace(/[^0-9.]/g, "") || "0"
-            ),
+            amount: totalAmount,
             currency: "GHS",
             gifterInfo,
             message,
+            shippingRegionId,
+            guestBrowserId: guestIdentifier,
           }),
         });
 
@@ -345,13 +395,16 @@ export const GuestRegistryCodeProvider = ({
         setPurchaseStep(PURCHASE_STEPS.IDLE);
       }
     },
-    [registry?.id, selectedProduct, purchaseQuantity, gifterInfo]
+    [registry?.id, selectedProduct, purchaseQuantity, gifterInfo, derivedDefaultShippingRegionId],
   );
 
   // Skip message and initiate payment
-  const handleMessageSkip = useCallback(() => {
-    handleMessageSubmit("");
-  }, [handleMessageSubmit]);
+  const handleMessageSkip = useCallback(
+    (payload) => {
+      handleMessageSubmit(payload || "");
+    },
+    [handleMessageSubmit],
+  );
 
   // Handle purchase complete actions
   const handleTrackOrder = useCallback(
@@ -360,7 +413,7 @@ export const GuestRegistryCodeProvider = ({
       // Could navigate to order tracking page
       router.push(`/order/${orderId}`);
     },
-    [router]
+    [router],
   );
 
   const handleContinueShopping = useCallback(() => {
@@ -380,7 +433,14 @@ export const GuestRegistryCodeProvider = ({
 
     // Apply category filter
     if (categoryFilter && categoryFilter !== "all") {
-      result = result.filter((p) => p.categoryId === categoryFilter);
+      result = result.filter((p) => {
+        const ids = Array.isArray(p.categoryIds)
+          ? p.categoryIds
+          : p.categoryId
+            ? [p.categoryId]
+            : [];
+        return ids.includes(categoryFilter);
+      });
     }
 
     // Apply sorting
@@ -427,6 +487,8 @@ export const GuestRegistryCodeProvider = ({
       products: filteredProducts,
       allProducts: products,
       shippingAddress,
+      shippingRegions: SHIPPING_REGIONS,
+      defaultShippingRegionId: derivedDefaultShippingRegionId,
       categories,
       refresh,
       isLoading,
@@ -481,6 +543,7 @@ export const GuestRegistryCodeProvider = ({
       filteredProducts,
       products,
       shippingAddress,
+      derivedDefaultShippingRegionId,
       categories,
       welcomeNoteOpen,
       productDetailOpen,
@@ -507,7 +570,7 @@ export const GuestRegistryCodeProvider = ({
       handleMessageSkip,
       handleTrackOrder,
       handleContinueShopping,
-    ]
+    ],
   );
 
   return (

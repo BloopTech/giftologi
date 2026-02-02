@@ -20,6 +20,16 @@ const formatPrice = (value) => {
 
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
+  const relatedCategoryIds = Array.isArray(product?.product_categories)
+    ? product.product_categories
+        .map((entry) => entry?.category_id)
+        .filter(Boolean)
+    : [];
+  const mergedCategoryIds = [
+    ...new Set(
+      [...relatedCategoryIds, product?.category_id].filter(Boolean),
+    ),
+  ];
   return {
     id: product?.id,
     product_code: product?.product_code || null,
@@ -29,7 +39,8 @@ const mapProduct = (product) => {
     rawPrice: product?.price,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
-    category_id: product?.category_id || null,
+    categoryId: product?.category_id || null,
+    categoryIds: mergedCategoryIds,
   };
 };
 

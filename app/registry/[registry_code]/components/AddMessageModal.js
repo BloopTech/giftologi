@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../../components/Dialog";
 import { X } from "lucide-react";
@@ -9,18 +9,46 @@ export default function AddMessageModal({
   onOpenChange,
   product,
   hostName,
+  shippingRegions = [],
+  defaultShippingRegionId,
   onSubmit,
   onSkip,
 }) {
   const [message, setMessage] = useState("");
+  const fallbackRegionId =
+    defaultShippingRegionId || shippingRegions[0]?.id || "";
+  const [selectedRegionId, setSelectedRegionId] = useState(fallbackRegionId);
+
+  useEffect(() => {
+    if (open) {
+      setSelectedRegionId(fallbackRegionId);
+    }
+  }, [fallbackRegionId, open]);
+
+  const selectedRegion = shippingRegions.find(
+    (region) => region.id === selectedRegionId
+  );
+
+  const formatPrice = (value) => {
+    if (value === null || value === undefined) return "GHS 0.00";
+    const num = Number(value);
+    if (!Number.isFinite(num)) return "GHS 0.00";
+    return `GHS ${num.toFixed(2)}`;
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit?.(message);
+    onSubmit?.({
+      message,
+      shippingRegionId: selectedRegionId,
+    });
   };
 
   const handleSkip = () => {
-    onSkip?.();
+    onSkip?.({
+      message: "",
+      shippingRegionId: selectedRegionId,
+    });
   };
 
   return (
@@ -63,6 +91,28 @@ export default function AddMessageModal({
                     className="w-full px-4 py-3 border border-[#F6E9B7] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] resize-none"
                   />
                 </div>
+
+                {shippingRegions.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Delivery region
+                    </label>
+                    <select
+                      value={selectedRegionId}
+                      onChange={(e) => setSelectedRegionId(e.target.value)}
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"
+                    >
+                      {shippingRegions.map((region) => (
+                        <option key={region.id} value={region.id}>
+                          {region.name} - {formatPrice(region.fee)}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-gray-500">
+                      Shipping fee: {formatPrice(selectedRegion?.fee)}
+                    </p>
+                  </div>
+                )}
 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-2">

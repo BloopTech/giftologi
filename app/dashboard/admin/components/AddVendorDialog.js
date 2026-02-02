@@ -275,6 +275,7 @@ export default function AddVendorDialog({ onClose }) {
                         checked={checked}
                         onChange={() => handleCategoryToggle(label)}
                         disabled={isPending || categoriesLoading || !label}
+                        className="accent-primary"
                       />
                       <span>{label}</span>
                     </label>

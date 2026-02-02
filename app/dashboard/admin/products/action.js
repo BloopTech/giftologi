@@ -16,6 +16,35 @@ const productImagesS3Client = new S3Client({
   region: "auto",
 });
 
+const parseCategoryIds = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((id) => String(id).trim()).filter(Boolean))];
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return [
+          ...new Set(parsed.map((id) => String(id).trim()).filter(Boolean)),
+        ];
+      }
+    } catch (_) {
+      return [
+        ...new Set(
+          trimmed
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean),
+        ),
+      ];
+    }
+  }
+  return [];
+};
+
 const randomImageName = (bytes = 32) =>
   crypto.randomBytes(bytes).toString("hex");
 
@@ -675,13 +704,13 @@ const defaultCreateProductValues = {
   price: [],
   stockQty: [],
   productCode: [],
-  categoryId: [],
+  categoryIds: [],
   variations: [],
   images: [],
   featuredImageIndex: [],
   bulkFile: [],
   bulkMapping: [],
-  bulkCategoryId: [],
+  bulkCategoryIds: [],
 };
 
 const defaultUpdateProductValues = {
@@ -690,7 +719,7 @@ const defaultUpdateProductValues = {
   description: [],
   price: [],
   stockQty: [],
-  categoryId: [],
+  categoryIds: [],
   variations: [],
   images: [],
   featuredImageIndex: [],
@@ -730,7 +759,9 @@ const updateProductSchema = z.object({
       const num = Number(value.replace(/,/g, ""));
       return Number.isInteger(num) && num >= 0;
     }, "Enter a valid stock quantity"),
-  categoryId: z.string().trim().uuid({ message: "Select a category" }),
+  categoryIds: z
+    .array(z.string().trim().uuid({ message: "Select a valid category" }))
+    .min(1, { message: "Select at least one category" }),
   variations: z.string().trim().optional().or(z.literal("")),
   featuredImageIndex: z
     .string()
@@ -1372,7 +1403,7 @@ export async function updateProduct(prevState, formData) {
     description: formData.get("description") || "",
     price: formData.get("price") || "",
     stockQty: formData.get("stockQty") || "",
-    categoryId: formData.get("categoryId") || "",
+    categoryIds: parseCategoryIds(formData.get("categoryIds")),
     variations: formData.get("variations") || "",
     featuredImageIndex: formData.get("featuredImageIndex") || "",
     existingImages: formData.get("existing_images") || "",
@@ -1398,7 +1429,7 @@ export async function updateProduct(prevState, formData) {
     description,
     price,
     stockQty,
-    categoryId,
+    categoryIds,
     variations: variationsRaw,
     featuredImageIndex,
     existingImages: existingImagesRaw,
@@ -1419,18 +1450,21 @@ export async function updateProduct(prevState, formData) {
     };
   }
 
-  const { data: category, error: categoryError } = await supabase
+  const { data: categoryRows, error: categoryError } = await supabase
     .from("categories")
     .select("id")
-    .eq("id", categoryId)
-    .maybeSingle();
+    .in("id", categoryIds);
 
-  if (categoryError || !category) {
+  if (
+    categoryError ||
+    !Array.isArray(categoryRows) ||
+    categoryRows.length !== categoryIds.length
+  ) {
     return {
       message: categoryError?.message || "Select a valid category.",
       errors: {
         ...defaultUpdateProductValues,
-        categoryId: ["Select a valid category."],
+        categoryIds: ["Select at least one valid category."],
       },
       values: raw,
       data: {},
@@ -1518,9 +1552,9 @@ export async function updateProduct(prevState, formData) {
         stockNumber != null && Number.isFinite(stockNumber)
           ? stockNumber
           : null,
-      category_id: categoryId,
+      category_id: categoryIds[0] || null,
       variations: variations.length ? variations : null,
-      images: orderedImages.length ? orderedImages : [],
+      images: orderedImages.length ? orderedImages : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
@@ -1532,6 +1566,43 @@ export async function updateProduct(prevState, formData) {
       values: raw,
       data: {},
     };
+  }
+
+  const { error: deleteCategoriesError } = await supabase
+    .from("product_categories")
+    .delete()
+    .eq("product_id", productId);
+
+  if (deleteCategoriesError) {
+    return {
+      message:
+        deleteCategoriesError.message ||
+        "Failed to update product categories.",
+      errors: { ...defaultUpdateProductValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (categoryIds.length) {
+    const categoryRows = categoryIds.map((categoryId) => ({
+      product_id: productId,
+      category_id: categoryId,
+    }));
+    const { error: insertCategoriesError } = await supabase
+      .from("product_categories")
+      .insert(categoryRows);
+
+    if (insertCategoriesError) {
+      return {
+        message:
+          insertCategoriesError.message ||
+          "Failed to update product categories.",
+        errors: { ...defaultUpdateProductValues },
+        values: raw,
+        data: {},
+      };
+    }
   }
 
   await logAdminActivityWithClient(supabase, {
@@ -1588,7 +1659,9 @@ const createSingleProductSchema = z.object({
       return Number.isInteger(num) && num >= 0;
     }, "Enter a valid stock quantity"),
   productCode: z.string().trim().optional().or(z.literal("")),
-  categoryId: z.string().trim().uuid({ message: "Select a category" }),
+  categoryIds: z
+    .array(z.string().trim().uuid({ message: "Select a valid category" }))
+    .min(1, { message: "Select at least one category" }),
   variations: z.string().trim().optional().or(z.literal("")),
   featuredImageIndex: z
     .string()
@@ -1737,7 +1810,7 @@ export async function createVendorProducts(prevState, formData) {
       price: formData.get("price") || "",
       stockQty: formData.get("stockQty") || "",
       productCode: formData.get("productCode") || "",
-      categoryId: formData.get("categoryId") || "",
+      categoryIds: parseCategoryIds(formData.get("categoryIds")),
       variations: formData.get("variations") || "",
       featuredImageIndex: formData.get("featuredImageIndex") || "",
     };
@@ -1760,19 +1833,22 @@ export async function createVendorProducts(prevState, formData) {
 
     const single = parsedSingle.data;
 
-    // Ensure the selected category exists
-    const { data: category, error: categoryError } = await supabase
+    // Ensure the selected categories exist
+    const { data: categoryRows, error: categoryError } = await supabase
       .from("categories")
       .select("id")
-      .eq("id", single.categoryId)
-      .maybeSingle();
+      .in("id", single.categoryIds);
 
-    if (categoryError || !category) {
+    if (
+      categoryError ||
+      !Array.isArray(categoryRows) ||
+      categoryRows.length !== single.categoryIds.length
+    ) {
       return {
         message: categoryError?.message || "Select a valid category.",
         errors: {
           ...defaultCreateProductValues,
-          categoryId: ["Select a valid category."],
+          categoryIds: ["Select at least one valid category."],
         },
         values: { ...rawBase, ...rawSingle },
         data: {},
@@ -1841,7 +1917,7 @@ export async function createVendorProducts(prevState, formData) {
 
     const productPayload = {
       vendor_id: vendorId,
-      category_id: single.categoryId,
+      category_id: single.categoryIds[0] || null,
       name: single.name,
       description: single.description || null,
       price: Number.isFinite(priceNumber) ? priceNumber : null,
@@ -1878,6 +1954,28 @@ export async function createVendorProducts(prevState, formData) {
       };
     }
 
+    if (single.categoryIds.length) {
+      const categoryRows = single.categoryIds.map((categoryId) => ({
+        product_id: created.id,
+        category_id: categoryId,
+      }));
+      const { error: categoryInsertError } = await supabase
+        .from("product_categories")
+        .insert(categoryRows);
+
+      if (categoryInsertError) {
+        await supabase.from("products").delete().eq("id", created.id);
+        return {
+          message:
+            categoryInsertError.message ||
+            "Failed to save product categories.",
+          errors: { ...defaultCreateProductValues },
+          values: { ...rawBase, ...rawSingle },
+          data: {},
+        };
+      }
+    }
+
     await logAdminActivityWithClient(supabase, {
       adminId: currentProfile?.id || user.id,
       adminRole: currentProfile?.role || null,
@@ -1905,8 +2003,8 @@ export async function createVendorProducts(prevState, formData) {
 
   const bulkFile = formData.get("bulk_file");
   const rawMappingString = formData.get("bulk_mapping") || "";
-  const rawBulkCategoryId = formData.get("bulkCategoryId") || "";
-  let bulkCategoryId = null;
+  const rawBulkCategoryIds = formData.get("bulkCategoryIds") || "";
+  const bulkCategoryIds = parseCategoryIds(rawBulkCategoryIds);
 
   if (!isFileLike(bulkFile)) {
     return {
@@ -1920,51 +2018,29 @@ export async function createVendorProducts(prevState, formData) {
     };
   }
 
-  // Optional: validate default category for all bulk rows
-  if (typeof rawBulkCategoryId === "string" && rawBulkCategoryId.trim()) {
-    const trimmed = rawBulkCategoryId.trim();
-
-    const bulkCategorySchema = z
-      .string()
-      .trim()
-      .uuid({ message: "Select a valid default category." });
-
-    const parsedBulkCategory = bulkCategorySchema.safeParse(trimmed);
-
-    if (!parsedBulkCategory.success) {
-      return {
-        message:
-          parsedBulkCategory.error.issues?.[0]?.message ||
-          "Select a valid default category.",
-        errors: {
-          ...defaultCreateProductValues,
-          bulkCategoryId: ["Select a valid default category."],
-        },
-        values: rawBase,
-        data: {},
-      };
-    }
-
-    const { data: bulkCategory, error: bulkCategoryError } = await supabase
+  // Optional: validate default categories for all bulk rows
+  if (bulkCategoryIds.length) {
+    const { data: bulkCategories, error: bulkCategoryError } = await supabase
       .from("categories")
       .select("id")
-      .eq("id", parsedBulkCategory.data)
-      .maybeSingle();
+      .in("id", bulkCategoryIds);
 
-    if (bulkCategoryError || !bulkCategory) {
+    if (
+      bulkCategoryError ||
+      !Array.isArray(bulkCategories) ||
+      bulkCategories.length !== bulkCategoryIds.length
+    ) {
       return {
         message:
-          bulkCategoryError?.message || "Select a valid default category.",
+          bulkCategoryError?.message || "Select valid default categories.",
         errors: {
           ...defaultCreateProductValues,
-          bulkCategoryId: ["Select a valid default category."],
+          bulkCategoryIds: ["Select valid default categories."],
         },
         values: rawBase,
         data: {},
       };
     }
-
-    bulkCategoryId = bulkCategory.id;
   }
 
   let mappingJson = null;
@@ -2136,7 +2212,7 @@ export async function createVendorProducts(prevState, formData) {
   const nowIso = new Date().toISOString();
   const payloads = rows.map((row) => ({
     vendor_id: vendorId,
-    category_id: bulkCategoryId,
+    category_id: bulkCategoryIds[0] || null,
     name: row.name,
     description: row.description || null,
     price: row.price,
@@ -2164,6 +2240,30 @@ export async function createVendorProducts(prevState, formData) {
       values: rawBase,
       data: {},
     };
+  }
+
+  if (bulkCategoryIds.length && Array.isArray(createdBulk)) {
+    const categoryRows = createdBulk.flatMap((created) =>
+      bulkCategoryIds.map((categoryId) => ({
+        product_id: created.id,
+        category_id: categoryId,
+      })),
+    );
+    if (categoryRows.length) {
+      const { error: bulkCategoryInsertError } = await supabase
+        .from("product_categories")
+        .insert(categoryRows);
+      if (bulkCategoryInsertError) {
+        return {
+          message:
+            bulkCategoryInsertError.message ||
+            "Products were created but categories failed to save.",
+          errors: { ...defaultCreateProductValues },
+          values: rawBase,
+          data: {},
+        };
+      }
+    }
   }
 
   const createdCount = Array.isArray(createdBulk)

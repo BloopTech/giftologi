@@ -7,7 +7,9 @@ import crypto from "crypto";
 
 const productSchema = z.object({
   name: z.string().min(1, "Product name is required").max(200),
-  category_id: z.string().uuid("Please select a category"),
+  categoryIds: z
+    .array(z.string().uuid("Please select a category"))
+    .min(1, "Please select a category"),
   status: z.enum(["pending", "approved", "rejected", "inactive"]),
   price: z.coerce.number().min(0.01, "Price must be greater than 0"),
   cost_price: z.coerce.number().min(0).optional(),
@@ -56,6 +58,35 @@ const parseVariationsPayload = (raw) => {
       return variation;
     })
     .filter(Boolean);
+};
+
+const parseCategoryIds = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return [...new Set(value.map((id) => String(id).trim()).filter(Boolean))];
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return [
+          ...new Set(parsed.map((id) => String(id).trim()).filter(Boolean)),
+        ];
+      }
+    } catch (_) {
+      return [
+        ...new Set(
+          trimmed
+            .split(",")
+            .map((id) => id.trim())
+            .filter(Boolean),
+        ),
+      ];
+    }
+  }
+  return [];
 };
 
 const s3Client = new S3Client({
@@ -133,7 +164,7 @@ export async function manageVendor(prevState, formData) {
 
     const rawData = {
       name: formData.get("name"),
-      category_id: formData.get("category_id"),
+      categoryIds: parseCategoryIds(formData.get("categoryIds")),
       status: formData.get("status") || "pending",
       price: formData.get("price"),
       cost_price: formData.get("cost_price") || undefined,
@@ -161,13 +192,32 @@ export async function manageVendor(prevState, formData) {
     const productCode = generateProductCode();
 
     const variations = parseVariationsPayload(rawData.variations);
+    const { data: categoryRows, error: categoryError } = await supabase
+      .from("categories")
+      .select("id")
+      .in("id", validation.data.categoryIds);
+
+    if (
+      categoryError ||
+      !Array.isArray(categoryRows) ||
+      categoryRows.length !== validation.data.categoryIds.length
+    ) {
+      return {
+        success: false,
+        message: categoryError?.message || "Please select a valid category.",
+        errors: {
+          categoryIds: "Please select a valid category.",
+        },
+        values: rawData,
+      };
+    }
     const { data: newProduct, error: insertError } = await supabase
       .from("products")
       .insert({
         vendor_id: vendor.id,
         name: validation.data.name,
         product_code: productCode,
-        category_id: validation.data.category_id,
+        category_id: validation.data.categoryIds[0] || null,
         status: validation.data.status,
         price: validation.data.price,
         stock_qty: validation.data.stock_qty,
@@ -187,6 +237,28 @@ export async function manageVendor(prevState, formData) {
         errors: {},
         values: rawData,
       };
+    }
+
+    if (validation.data.categoryIds.length) {
+      const categoryRows = validation.data.categoryIds.map((categoryId) => ({
+        product_id: newProduct.id,
+        category_id: categoryId,
+      }));
+      const { error: categoryInsertError } = await supabase
+        .from("product_categories")
+        .insert(categoryRows);
+
+      if (categoryInsertError) {
+        await supabase.from("products").delete().eq("id", newProduct.id);
+        return {
+          success: false,
+          message:
+            categoryInsertError.message ||
+            "Failed to save product categories.",
+          errors: {},
+          values: rawData,
+        };
+      }
     }
 
     const imageFile = formData.get("image");

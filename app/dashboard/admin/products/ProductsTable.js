@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
   useActionState,
+  useCallback
 } from "react";
 import {
   ChevronsUpDown,
@@ -205,7 +206,7 @@ const initialUpdateState = {
     description: [],
     price: [],
     stockQty: [],
-    categoryId: [],
+    categoryIds: [],
     variations: [],
     images: [],
     featuredImageIndex: [],
@@ -299,9 +300,9 @@ export default function ProductsTable({
   const editFileInputRef = useRef(null);
   const editFormRef = useRef(null);
 
-  const [editParentCategoryId, setEditParentCategoryId] = useState("");
-  const [editSubcategoryId, setEditSubcategoryId] = useState("");
+  const [editCategoryIds, setEditCategoryIds] = useState([]);
   const [editVariationDrafts, setEditVariationDrafts] = useState([]);
+  const [editActiveVariationFieldById, setEditActiveVariationFieldById] = useState({});
   const [editStep, setEditStep] = useState(0);
 
   const handleEditSubmit = (event) => {
@@ -309,8 +310,8 @@ export default function ProductsTable({
   };
 
   const handleEditSave = () => {
-    if (editStep !== 2) {
-      setEditStep(2);
+    if (editStep !== 3) {
+      setEditStep(3);
       return;
     }
     if (!editFormRef.current || editPending) return;
@@ -453,16 +454,23 @@ export default function ProductsTable({
     return map;
   }, [categories]);
 
-  const editSubcategoryOptions = useMemo(() => {
-    if (!editParentCategoryId) return [];
-    return categoriesByParentId.get(editParentCategoryId) || [];
-  }, [categoriesByParentId, editParentCategoryId]);
-
   const parentCategoryOptions = useMemo(() => {
     return categoriesByParentId.get(null) || [];
   }, [categoriesByParentId]);
 
-  const editSelectedCategoryId = editSubcategoryId || editParentCategoryId;
+  const editCategoryIdSet = useMemo(
+    () => new Set(editCategoryIds),
+    [editCategoryIds],
+  );
+
+  const toggleEditCategory = useCallback((categoryId) => {
+    if (!categoryId) return;
+    setEditCategoryIds((prev) =>
+      prev.includes(categoryId)
+        ? prev.filter((id) => id !== categoryId)
+        : [...prev, categoryId],
+    );
+  }, []);
 
   const getCategoryDisplayName = useMemo(() => {
     return (category) => {
@@ -540,20 +548,20 @@ export default function ProductsTable({
     if (editFileInputRef.current) {
       editFileInputRef.current.value = "";
     }
-    const selectedCategory = selectedProduct?.categoryId
-      ? categoriesById.get(selectedProduct.categoryId)
-      : null;
-    if (selectedCategory?.parent_category_id) {
-      setEditParentCategoryId(selectedCategory.parent_category_id);
-      setEditSubcategoryId(selectedCategory.id);
-    } else {
-      setEditParentCategoryId(selectedCategory?.id || "");
-      setEditSubcategoryId("");
-    }
+    const seededCategoryIds = Array.isArray(selectedProduct?.categoryIds)
+      ? selectedProduct.categoryIds
+      : [];
+    const mergedCategoryIds = [
+      ...new Set(
+        [...seededCategoryIds, selectedProduct?.categoryId].filter(Boolean),
+      ),
+    ];
+    setEditCategoryIds(mergedCategoryIds);
     setEditVariationDrafts(
       parseVariationDrafts(selectedProduct?.variations || [])
     );
-  }, [editOpen, selectedProduct?.id, categoriesById, selectedProduct?.variations]);
+    setEditActiveVariationFieldById({});
+  }, [editOpen, selectedProduct?.id, selectedProduct?.categoryIds, selectedProduct?.variations]);
 
   const buildEditPreviews = (files) => {
     const list = Array.from(files || []).filter((file) =>
@@ -663,11 +671,45 @@ export default function ProductsTable({
         header: ({ column }) => (
           <SortableHeader column={column} title="Category" />
         ),
-        cell: (info) => (
-          <span className="text-xs text-[#6A7282]">
-            {info.getValue() || "—"}
-          </span>
-        ),
+        cell: (info) => {
+          const row = info.row.original;
+          const categoryIds = Array.isArray(row?.categoryIds)
+            ? row.categoryIds
+            : row?.categoryId
+              ? [row.categoryId]
+              : [];
+
+          const labels = categoryIds
+            .map((id) => categoriesById.get(id))
+            .filter(Boolean)
+            .map((cat) => getCategoryDisplayName(cat));
+
+          if (!labels.length) {
+            return <span className="text-xs text-[#6A7282]">—</span>;
+          }
+
+          const visible = labels.slice(0, 3);
+          const remaining = labels.length - visible.length;
+
+          return (
+            <div className="flex flex-wrap gap-1.5 max-w-[240px]">
+              {visible.map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] text-[#374151]"
+                  title={label}
+                >
+                  {label}
+                </span>
+              ))}
+              {remaining > 0 ? (
+                <span className="rounded-full bg-[#F3F4F6] px-2 py-0.5 text-[11px] text-[#374151]">
+                  +{remaining}
+                </span>
+              ) : null}
+            </div>
+          );
+        },
       }),
       columnHelper.accessor("price", {
         header: ({ column }) => (
@@ -940,7 +982,7 @@ export default function ProductsTable({
                   className={cx(
                     bodyRow(),
                     isFocused &&
-                      "outline outline-[#3979D2] outline-offset-[-1px] bg-[#EEF4FF]"
+                      "outline outline-[#3979D2] -outline-offset-1 bg-[#EEF4FF]"
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -981,7 +1023,9 @@ export default function ProductsTable({
             setEditImagePreviews([]);
             setEditFeaturedIndex("");
             setEditVariationDrafts([]);
+            setEditActiveVariationFieldById({});
             setEditStep(0);
+            setEditCategoryIds([]);
           }
         }}
         product={selectedProduct}
@@ -991,20 +1035,22 @@ export default function ProductsTable({
         setEditStep={setEditStep}
         editFormRef={editFormRef}
         editFileInputRef={editFileInputRef}
-        editParentCategoryId={editParentCategoryId}
-        setEditParentCategoryId={setEditParentCategoryId}
-        editSubcategoryId={editSubcategoryId}
-        setEditSubcategoryId={setEditSubcategoryId}
-        editSubcategoryOptions={editSubcategoryOptions}
+        editCategoryIds={editCategoryIds}
+        editCategoryIdSet={editCategoryIdSet}
+        toggleEditCategory={toggleEditCategory}
+        clearEditCategories={() => setEditCategoryIds([])}
         parentCategoryOptions={parentCategoryOptions}
+        categoriesByParentId={categoriesByParentId}
         categoriesLoading={categoriesLoading}
         categoriesError={categoriesError}
-        editSelectedCategoryId={editSelectedCategoryId}
+        categoriesById={categoriesById}
         editVariationsPayload={editVariationsPayload}
         editVariationDrafts={editVariationDrafts}
         addEditVariationDraft={addEditVariationDraft}
         removeEditVariationDraft={removeEditVariationDraft}
         updateEditVariationDraft={updateEditVariationDraft}
+        editActiveVariationFieldById={editActiveVariationFieldById}
+        setEditActiveVariationFieldById={setEditActiveVariationFieldById}
         editExistingImages={editExistingImages}
         removeExistingImageAt={removeExistingImageAt}
         removeAllExistingImages={removeAllExistingImages}
