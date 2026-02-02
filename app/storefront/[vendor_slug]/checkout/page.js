@@ -12,6 +12,35 @@ const formatPrice = (value) => {
   return `GHS ${num.toFixed(2)}`;
 };
 
+const normalizeVariations = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((variation) => variation && typeof variation === "object");
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((variation) => variation && typeof variation === "object")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const buildVariationOptions = (variations = []) =>
+  variations
+    .map((variation, index) => ({
+      key: String(variation?.id || variation?.sku || index),
+      label:
+        variation?.label ||
+        [variation?.color, variation?.size].filter(Boolean).join(" / ") ||
+        `Option ${index + 1}`,
+      price: variation?.price,
+      raw: variation,
+    }))
+    .filter((option) => option.label);
+
 export async function generateMetadata({ params }) {
   const { vendor_slug } = await params;
   const supabase = await createClient();
@@ -33,13 +62,14 @@ export async function generateMetadata({ params }) {
 
 export default async function CheckoutPage({ params, searchParams }) {
   const { vendor_slug } = await params;
-  const { product: productId, qty } = await searchParams;
+  const { product: productId, qty, variant } = await searchParams;
 
   if (!vendor_slug || !productId) {
     return notFound();
   }
 
   const quantity = Math.max(1, parseInt(qty || "1", 10) || 1);
+  const variantKey = typeof variant === "string" ? variant : "";
 
   const supabase = await createClient();
 
@@ -92,10 +122,12 @@ export default async function CheckoutPage({ params, searchParams }) {
       id,
       name,
       price,
+      variations,
       images,
       description,
       stock_qty,
-      status
+      status,
+      product_code
     `)
     .eq("id", productId)
     .eq("vendor_id", vendor.id)
@@ -109,18 +141,29 @@ export default async function CheckoutPage({ params, searchParams }) {
 
   // Check stock
   if (product.stock_qty <= 0) {
-    redirect(`/storefront/${vendor_slug}/${productId}`);
+    redirect(`/storefront/${vendor_slug}/${product.product_code}`);
   }
 
   const images = Array.isArray(product.images) ? product.images : [];
   const actualQuantity = Math.min(quantity, product.stock_qty);
+  const variations = normalizeVariations(product.variations);
+  const variationOptions = buildVariationOptions(variations);
+  const selectedVariation = variantKey
+    ? variationOptions.find((option) => option.key === variantKey) || null
+    : null;
+
+  if (variations.length > 0 && !selectedVariation) {
+    redirect(`/storefront/${vendor_slug}/${product.product_code}`);
+  }
+  const basePrice = Number(product.price);
 
   const formattedProduct = {
     id: product.id,
     name: product.name || "Product",
     image: images[0] || "/host/toaster.png",
     price: formatPrice(product.price),
-    rawPrice: product.price,
+    rawPrice: Number.isFinite(basePrice) ? basePrice : product.price,
+    basePrice: Number.isFinite(basePrice) ? basePrice : null,
     description: product.description || "",
     stock: product.stock_qty ?? 0,
   };
@@ -130,6 +173,7 @@ export default async function CheckoutPage({ params, searchParams }) {
       vendor={vendor}
       product={formattedProduct}
       initialQuantity={actualQuantity}
+      selectedVariation={selectedVariation}
     />
   );
 }

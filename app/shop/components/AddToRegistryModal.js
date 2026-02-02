@@ -16,6 +16,45 @@ const PRIORITY_OPTIONS = [
   { value: "nice-to-have", label: "Nice to Have", color: "bg-blue-100 text-blue-700" },
 ];
 
+const COLOR_OPTIONS = [
+  "Black",
+  "White",
+  "Gray",
+  "Red",
+  "Orange",
+  "Yellow",
+  "Green",
+  "Blue",
+  "Purple",
+  "Pink",
+  "Brown",
+  "Gold",
+  "Silver",
+];
+
+const COLOR_SWATCHES = {
+  Black: "#111827",
+  White: "#F9FAFB",
+  Gray: "#9CA3AF",
+  Red: "#EF4444",
+  Orange: "#F97316",
+  Yellow: "#FACC15",
+  Green: "#22C55E",
+  Blue: "#3B82F6",
+  Purple: "#8B5CF6",
+  Pink: "#EC4899",
+  Brown: "#A16207",
+  Gold: "#D4AF37",
+  Silver: "#CBD5F5",
+};
+
+const formatPrice = (value) => {
+  if (value === null || value === undefined) return "";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "";
+  return `GHS ${num.toFixed(2)}`;
+};
+
 const initialState = {
   message: "",
   errors: {},
@@ -33,9 +72,9 @@ export default function AddToRegistryModal({
   const [quantity, setQuantity] = useState(1);
   const [priority, setPriority] = useState("nice-to-have");
   const [notes, setNotes] = useState("");
-  const [color, setColor] = useState("");
-  const [size, setSize] = useState("");
-  const [selectedVariation, setSelectedVariation] = useState("");
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedVariantKey, setSelectedVariantKey] = useState("");
 
   const [state, formAction, isPending] = useActionState(
     addProductToRegistry,
@@ -63,9 +102,9 @@ export default function AddToRegistryModal({
         setQuantity(1);
         setPriority("nice-to-have");
         setNotes("");
-        setColor("");
-        setSize("");
-        setSelectedVariation("");
+        setSelectedColor("");
+        setSelectedSize("");
+        setSelectedVariantKey("");
         // Trigger refresh of registry items in context
         window.dispatchEvent(new CustomEvent("registry-item-updated"));
       }
@@ -101,17 +140,80 @@ export default function AddToRegistryModal({
         price: variation?.price,
         color: variation?.color,
         size: variation?.size,
+        sku: variation?.sku,
         raw: variation,
       }))
       .filter((option) => option.label);
   }, [variations]);
 
-  const handleVariationChange = (value) => {
-    setSelectedVariation(value);
-    const selected = variationOptions.find((option) => option.key === value);
-    if (selected?.color) setColor(String(selected.color));
-    if (selected?.size) setSize(String(selected.size));
-  };
+  const hasColor = useMemo(
+    () => variationOptions.some((option) => option.color),
+    [variationOptions]
+  );
+  const hasSize = useMemo(
+    () => variationOptions.some((option) => option.size),
+    [variationOptions]
+  );
+
+  const colorOptions = useMemo(() => {
+    if (!hasColor) return [];
+    const filtered = selectedSize
+      ? variationOptions.filter((opt) => opt.size === selectedSize)
+      : variationOptions;
+    return Array.from(
+      new Set(filtered.map((opt) => opt.color).filter(Boolean))
+    );
+  }, [hasColor, selectedSize, variationOptions]);
+
+  const sizeOptions = useMemo(() => {
+    if (!hasSize) return [];
+    const filtered = selectedColor
+      ? variationOptions.filter((opt) => opt.color === selectedColor)
+      : variationOptions;
+    return Array.from(new Set(filtered.map((opt) => opt.size).filter(Boolean)));
+  }, [hasSize, selectedColor, variationOptions]);
+
+  const matchingOptions = useMemo(() => {
+    if (!hasColor && !hasSize) return variationOptions;
+    return variationOptions.filter(
+      (option) =>
+        (!selectedColor || option.color === selectedColor) &&
+        (!selectedSize || option.size === selectedSize)
+    );
+  }, [hasColor, hasSize, selectedColor, selectedSize, variationOptions]);
+
+  const selectedVariation = useMemo(() => {
+    if (selectedVariantKey) {
+      return variationOptions.find((option) => option.key === selectedVariantKey) || null;
+    }
+    if (matchingOptions.length === 1) return matchingOptions[0];
+    if (!hasSize && selectedColor && matchingOptions.length) return matchingOptions[0];
+    if (!hasColor && selectedSize && matchingOptions.length) return matchingOptions[0];
+    return null;
+  }, [hasColor, hasSize, matchingOptions, selectedColor, selectedSize, selectedVariantKey, variationOptions]);
+
+  const selectionRequired = variationOptions.length > 0;
+  const selectionComplete = !selectionRequired || !!selectedVariation;
+
+  useEffect(() => {
+    if (variationOptions.length !== 1) return;
+    const [option] = variationOptions;
+    setSelectedVariantKey(option.key);
+    setSelectedColor(option.color || "");
+    setSelectedSize(option.size || "");
+  }, [variationOptions]);
+
+  useEffect(() => {
+    if (!selectedVariantKey) return;
+    const option = variationOptions.find((opt) => opt.key === selectedVariantKey);
+    if (!option) return;
+    if (option.color && option.color !== selectedColor) {
+      setSelectedColor(option.color);
+    }
+    if (option.size && option.size !== selectedSize) {
+      setSelectedSize(option.size);
+    }
+  }, [selectedVariantKey, selectedColor, selectedSize, variationOptions]);
 
   const handleQuantityChange = (delta) => {
     setQuantity((prev) => {
@@ -123,6 +225,11 @@ export default function AddToRegistryModal({
   };
 
   if (!product) return null;
+
+  const basePrice = Number(product?.rawPrice);
+  const displayPrice =
+    selectedVariation?.price != null ? Number(selectedVariation.price) : basePrice;
+  const formattedPrice = formatPrice(displayPrice) || product.price;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -161,7 +268,7 @@ export default function AddToRegistryModal({
                 {product.name}
               </p>
               <p className="text-sm text-[#A5914B] font-semibold">
-                {product.price}
+                {formattedPrice || product.price}
               </p>
             </div>
           </div>
@@ -231,65 +338,148 @@ export default function AddToRegistryModal({
 
             {variationOptions.length > 0 ? (
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                <div className="space-y-3">
+                  <label className="block text-sm font-medium text-gray-700">
                     Choose a variation
                   </label>
-                  <select
-                    value={selectedVariation}
-                    onChange={(e) => handleVariationChange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none bg-white"
-                  >
-                    <option value="">Select an option</option>
-                    {variationOptions.map((option) => (
-                      <option key={option.key} value={option.key}>
-                        {option.label}
-                        {option.price != null ? ` - GHS ${option.price}` : ""}
-                      </option>
-                    ))}
-                  </select>
+
+                  {!hasColor && !hasSize ? (
+                    <div className="flex flex-wrap gap-2">
+                      {variationOptions.map((option) => {
+                        const isSelected = selectedVariantKey === option.key;
+                        return (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() =>
+                              setSelectedVariantKey(isSelected ? "" : option.key)
+                            }
+                            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                              isSelected
+                                ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
+                                : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
+                            }`}
+                          >
+                            {option.label}
+                            {option.price != null ? ` · ${formatPrice(option.price)}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {hasColor && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-medium text-gray-600">Color</span>
+                          <div className="flex flex-wrap gap-2">
+                            {(colorOptions.length ? colorOptions : COLOR_OPTIONS).map(
+                              (color) => {
+                                const isSelected = selectedColor === color;
+                                return (
+                                  <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => {
+                                      const next = isSelected ? "" : color;
+                                      setSelectedColor(next);
+                                      setSelectedVariantKey("");
+                                      if (next && selectedSize && !sizeOptions.includes(selectedSize)) {
+                                        setSelectedSize("");
+                                      }
+                                    }}
+                                    className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                      isSelected
+                                        ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
+                                        : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
+                                    }`}
+                                  >
+                                    <span
+                                      className="h-3 w-3 rounded-full border"
+                                      style={{
+                                        background:
+                                          COLOR_SWATCHES[color] || "#E5E7EB",
+                                        borderColor:
+                                          color === "White" ? "#E5E7EB" : "transparent",
+                                      }}
+                                    />
+                                    {color}
+                                  </button>
+                                );
+                              }
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {hasSize && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-medium text-gray-600">Size</span>
+                          <div className="flex flex-wrap gap-2">
+                            {(sizeOptions.length ? sizeOptions : [])
+                              .map((size) => {
+                                const isSelected = selectedSize === size;
+                                return (
+                                  <button
+                                    key={size}
+                                    type="button"
+                                    onClick={() => {
+                                      const next = isSelected ? "" : size;
+                                      setSelectedSize(next);
+                                      setSelectedVariantKey("");
+                                    }}
+                                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                      isSelected
+                                        ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
+                                        : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
+                                    }`}
+                                  >
+                                    {size}
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectionComplete && selectedVariation ? (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[#A5914B]/30 bg-[#A5914B]/10 px-2 py-1 text-[#8B7A3F]">
+                        Selected: {selectedVariation.label}
+                      </span>
+                      {selectedVariation.price != null && (
+                        <span className="font-semibold text-[#A5914B]">
+                          {formatPrice(selectedVariation.price)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-500">
+                      Select a variation to continue.
+                    </p>
+                  )}
+
                   <input
                     type="hidden"
                     name="variation"
                     value={
-                      selectedVariation
-                        ? JSON.stringify(
-                            variationOptions.find(
-                              (option) => option.key === selectedVariation
-                            )?.raw || {}
-                          )
-                        : ""
+                      selectedVariation ? JSON.stringify(selectedVariation.raw || {}) : ""
                     }
                     readOnly
                   />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Preferred Color
-                    </label>
-                    <input
-                      type="text"
-                      name="color"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      placeholder="e.g., Blue, Silver"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Preferred Size
-                    </label>
-                    <input
-                      type="text"
-                      name="size"
-                      value={size}
-                      onChange={(e) => setSize(e.target.value)}
-                      placeholder="e.g., Large, 10x12"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                    />
-                  </div>
+                  <input
+                    type="hidden"
+                    name="color"
+                    value={selectedVariation?.color || selectedColor || ""}
+                    readOnly
+                  />
+                  <input
+                    type="hidden"
+                    name="size"
+                    value={selectedVariation?.size || selectedSize || ""}
+                    readOnly
+                  />
                 </div>
               </div>
             ) : null}
@@ -323,7 +513,7 @@ export default function AddToRegistryModal({
               </button>
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || !selectionComplete}
                 className="flex-1 py-3 bg-[#A5914B] text-white font-medium rounded-full hover:bg-[#8B7A3F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isPending ? (

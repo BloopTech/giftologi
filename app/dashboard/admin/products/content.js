@@ -40,6 +40,109 @@ import {
   deleteCategory,
 } from "./action";
 
+const COLOR_OPTIONS = [
+  "Black",
+  "White",
+  "Gray",
+  "Red",
+  "Orange",
+  "Yellow",
+  "Green",
+  "Blue",
+  "Purple",
+  "Pink",
+  "Brown",
+  "Gold",
+  "Silver",
+];
+
+const COLOR_SWATCHES = {
+  Black: "#111827",
+  White: "#F9FAFB",
+  Gray: "#9CA3AF",
+  Red: "#EF4444",
+  Orange: "#F97316",
+  Yellow: "#FACC15",
+  Green: "#22C55E",
+  Blue: "#3B82F6",
+  Purple: "#8B5CF6",
+  Pink: "#EC4899",
+  Brown: "#A16207",
+  Gold: "#D4AF37",
+  Silver: "#CBD5F5",
+};
+
+const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "One Size"];
+
+const createVariationId = () => {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+};
+
+const parseVariationDrafts = (raw) => {
+  if (!raw) return [];
+  let parsed = raw;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      return {
+        id: createVariationId(),
+        label: typeof entry.label === "string" ? entry.label : "",
+        color: typeof entry.color === "string" ? entry.color : "",
+        size: typeof entry.size === "string" ? entry.size : "",
+        sku: typeof entry.sku === "string" ? entry.sku : "",
+        price:
+          entry.price === null || typeof entry.price === "undefined"
+            ? ""
+            : String(entry.price),
+      };
+    })
+    .filter(Boolean);
+};
+
+const buildVariationPayload = (drafts) => {
+  if (!Array.isArray(drafts)) return "";
+  const normalized = drafts
+    .map((draft, index) => {
+      if (!draft || typeof draft !== "object") return null;
+      const color = String(draft.color || "").trim();
+      const size = String(draft.size || "").trim();
+      const sku = String(draft.sku || "").trim();
+      const labelInput = String(draft.label || "").trim();
+      const fallbackLabel =
+        labelInput || [color, size].filter(Boolean).join(" / ") || sku || `Variant ${index + 1}`;
+      const priceValue =
+        draft.price === "" || draft.price === null || typeof draft.price === "undefined"
+          ? null
+          : Number(draft.price);
+      const price = Number.isFinite(priceValue) ? priceValue : null;
+
+      if (!fallbackLabel && !color && !size && !sku && price == null) return null;
+
+      const entry = {};
+      if (fallbackLabel) entry.label = fallbackLabel;
+      if (color) entry.color = color;
+      if (size) entry.size = size;
+      if (sku) entry.sku = sku;
+      if (price != null) entry.price = price;
+      return entry;
+    })
+    .filter(Boolean);
+
+  if (!normalized.length) return "";
+  return JSON.stringify(normalized);
+};
+
 // Category management component
 function CategoriesSection({
   categories,
@@ -795,6 +898,38 @@ export default function ManageProductsContent() {
 
   const [imageCount, setImageCount] = useState(0);
   const [featuredIndex, setFeaturedIndex] = useState("");
+  const [variationDrafts, setVariationDrafts] = useState([]);
+
+  const variationsPayload = useMemo(
+    () => buildVariationPayload(variationDrafts),
+    [variationDrafts],
+  );
+
+  const addVariationDraft = useCallback(() => {
+    setVariationDrafts((prev) => [
+      ...prev,
+      {
+        id: createVariationId(),
+        label: "",
+        color: "",
+        size: "",
+        sku: "",
+        price: "",
+      },
+    ]);
+  }, []);
+
+  const updateVariationDraft = useCallback((id, field, value) => {
+    setVariationDrafts((prev) =>
+      prev.map((draft) =>
+        draft.id === id ? { ...draft, [field]: value } : draft,
+      ),
+    );
+  }, []);
+
+  const removeVariationDraft = useCallback((id) => {
+    setVariationDrafts((prev) => prev.filter((draft) => draft.id !== id));
+  }, []);
 
   const isLoadingMetrics = !!loadingMetrics;
 
@@ -938,9 +1073,24 @@ export default function ManageProductsContent() {
   ]);
 
   useEffect(() => {
+    if (createMode !== "single") {
+      setVariationDrafts([]);
+      return;
+    }
+    if (createState?.values?.variations) {
+      setVariationDrafts(parseVariationDrafts(createState.values.variations));
+      return;
+    }
+    if (!createState?.message) {
+      setVariationDrafts([]);
+    }
+  }, [createMode, createState?.message, createState?.values?.variations]);
+
+  useEffect(() => {
     if (createState.data && Object.keys(createState.data || {}).length > 0) {
       toast.success(createState.message);
       refreshProducts?.();
+      setVariationDrafts([]);
     }
     if (
       createState.message &&
@@ -1626,15 +1776,223 @@ export default function ManageProductsContent() {
                       >
                         Variations (optional)
                       </label>
-                      <textarea
-                        id="product-variations"
-                        name="variations"
-                        rows={4}
-                        defaultValue={createState?.values?.variations || ""}
-                        placeholder='[{"label":"Red / Small","color":"Red","size":"S","sku":"SKU-RED-S","price":120}]'
-                        className="w-full rounded-lg border px-3 py-2 text-xs font-mono shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
-                        disabled={createPending}
-                      />
+                      <input type="hidden" name="variations" value={variationsPayload} />
+                      <div className="rounded-lg border border-[#D6D6D6] bg-white p-3 space-y-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-[11px] text-[#717182]">
+                            Add color/size options or SKU-only variants. Price overrides
+                            the base price.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={addVariationDraft}
+                            className="cursor-pointer inline-flex items-center justify-center rounded-full border border-[#D6D6D6] px-3 py-1 text-[11px] font-medium text-[#0A0A0A] hover:border-primary hover:text-primary"
+                            disabled={createPending}
+                          >
+                            + Add variation
+                          </button>
+                        </div>
+
+                        {variationDrafts.length === 0 ? (
+                          <div className="rounded-lg border border-dashed border-[#D6D6D6] bg-[#F9FAFB] p-4 text-center text-[11px] text-[#6B7280]">
+                            No variations yet. Add one to offer color, size, or SKU options.
+                          </div>
+                        ) : (
+                          <div className="space-y-4">
+                            {variationDrafts.map((draft, index) => {
+                              const colorValue = draft.color || "";
+                              const sizeValue = draft.size || "";
+                              return (
+                                <div
+                                  key={draft.id}
+                                  className="rounded-lg border border-[#E5E7EB] p-3 space-y-3"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[11px] font-medium text-[#6B7280]">
+                                      Variation {index + 1}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => removeVariationDraft(draft.id)}
+                                      className="cursor-pointer text-[11px] text-red-500 hover:text-red-600"
+                                      disabled={createPending}
+                                    >
+                                      Remove
+                                    </button>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-[11px] font-medium text-[#374151]">
+                                        Label (auto if blank)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={draft.label}
+                                        onChange={(e) =>
+                                          updateVariationDraft(
+                                            draft.id,
+                                            "label",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="e.g., Red / Small"
+                                        className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        disabled={createPending}
+                                      />
+                                    </div>
+
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-[11px] font-medium text-[#374151]">
+                                        SKU (optional)
+                                      </label>
+                                      <input
+                                        type="text"
+                                        value={draft.sku}
+                                        onChange={(e) =>
+                                          updateVariationDraft(
+                                            draft.id,
+                                            "sku",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="SKU-RED-S"
+                                        className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        disabled={createPending}
+                                      />
+                                    </div>
+
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-[11px] font-medium text-[#374151]">
+                                        Price override (optional)
+                                      </label>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        step="0.01"
+                                        value={draft.price}
+                                        onChange={(e) =>
+                                          updateVariationDraft(
+                                            draft.id,
+                                            "price",
+                                            e.target.value,
+                                          )
+                                        }
+                                        placeholder="0.00"
+                                        className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        disabled={createPending}
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="flex flex-col gap-2">
+                                    <label className="text-[11px] font-medium text-[#374151]">
+                                      Color
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                      {COLOR_OPTIONS.map((color) => {
+                                        const isSelected = colorValue === color;
+                                        return (
+                                          <button
+                                            key={color}
+                                            type="button"
+                                            onClick={() =>
+                                              updateVariationDraft(
+                                                draft.id,
+                                                "color",
+                                                isSelected ? "" : color,
+                                              )
+                                            }
+                                            className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                                              isSelected
+                                                ? "border-primary bg-primary/10 text-primary"
+                                                : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
+                                            }`}
+                                            disabled={createPending}
+                                          >
+                                            <span
+                                              className="h-3 w-3 rounded-full border"
+                                              style={{
+                                                background:
+                                                  COLOR_SWATCHES[color] || "#E5E7EB",
+                                                borderColor:
+                                                  color === "White"
+                                                    ? "#E5E7EB"
+                                                    : "transparent",
+                                              }}
+                                            />
+                                            {color}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={colorValue}
+                                      onChange={(e) =>
+                                        updateVariationDraft(
+                                          draft.id,
+                                          "color",
+                                          e.target.value,
+                                        )
+                                      }
+                                      placeholder="Custom color"
+                                      className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                      disabled={createPending}
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-2">
+                                    <label className="text-[11px] font-medium text-[#374151]">
+                                      Size
+                                    </label>
+                                    <div className="flex flex-wrap gap-2">
+                                      {SIZE_OPTIONS.map((size) => {
+                                        const isSelected = sizeValue === size;
+                                        return (
+                                          <button
+                                            key={size}
+                                            type="button"
+                                            onClick={() =>
+                                              updateVariationDraft(
+                                                draft.id,
+                                                "size",
+                                                isSelected ? "" : size,
+                                              )
+                                            }
+                                            className={`cursor-pointer inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium transition-colors ${
+                                              isSelected
+                                                ? "border-primary bg-primary/10 text-primary"
+                                                : "border-[#E5E7EB] text-[#6B7280] hover:border-primary/50"
+                                            }`}
+                                            disabled={createPending}
+                                          >
+                                            {size}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                    <input
+                                      type="text"
+                                      value={sizeValue}
+                                      onChange={(e) =>
+                                        updateVariationDraft(
+                                          draft.id,
+                                          "size",
+                                          e.target.value,
+                                        )
+                                      }
+                                      placeholder="Custom size"
+                                      className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                      disabled={createPending}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
                       {(createState?.errors?.variations || []).length ? (
                         <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
                           {createState.errors.variations.map((err, index) => (
@@ -1643,8 +2001,7 @@ export default function ManageProductsContent() {
                         </ul>
                       ) : (
                         <p className="text-[11px] text-[#717182]">
-                          Provide a JSON array of variations with fields like label,
-                          color, size, sku, and price.
+                          Variations can include label, color, size, sku, and price.
                         </p>
                       )}
                     </div>
@@ -2034,7 +2391,11 @@ export default function ManageProductsContent() {
       </div>
 
       {/* <VendorRequestsTable /> */}
-      <ProductsTable />
+      <ProductsTable
+        categories={categories}
+        categoriesLoading={categoriesLoading}
+        categoriesError={categoriesError}
+      />
 
       <CategoriesSection
         categories={categories}

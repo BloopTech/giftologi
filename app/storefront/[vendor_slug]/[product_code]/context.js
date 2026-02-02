@@ -18,16 +18,60 @@ const formatPrice = (value) => {
   return `GHS ${num.toFixed(2)}`;
 };
 
+const normalizeVariations = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((variation) => variation && typeof variation === "object");
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((variation) => variation && typeof variation === "object")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const getVariationPriceStats = (variations) => {
+  const prices = (variations || [])
+    .map((variation) => Number(variation?.price))
+    .filter((value) => Number.isFinite(value));
+  if (!prices.length) {
+    return { min: null, max: null };
+  }
+  return {
+    min: Math.min(...prices),
+    max: Math.max(...prices),
+  };
+};
+
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
+  const variations = normalizeVariations(product?.variations);
+  const variationStats = getVariationPriceStats(variations);
+  const basePrice = Number(product?.price);
+  const displayPrice =
+    variationStats.min != null && Number.isFinite(variationStats.min)
+      ? variationStats.min
+      : Number.isFinite(basePrice)
+      ? basePrice
+      : null;
   return {
     id: product?.id,
     product_code: product?.product_code || null,
     name: product?.name || "Product",
     images: images.length > 0 ? images : ["/host/toaster.png"],
     image: images[0] || "/host/toaster.png",
-    price: formatPrice(product?.price),
-    rawPrice: product?.price,
+    price: formatPrice(displayPrice),
+    rawPrice: displayPrice,
+    basePrice: Number.isFinite(basePrice) ? basePrice : null,
+    variationPriceRange:
+      variationStats.min != null && variationStats.max != null
+        ? variationStats
+        : null,
+    variations,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
     category: product?.category || null,

@@ -182,7 +182,8 @@ export async function manageProducts(prevState, formData) {
 
     if (!validation.success) {
       const fieldErrors = {};
-      validation.error.errors.forEach((err) => {
+      const issues = validation.error?.errors || validation.error?.issues || [];
+      issues.forEach((err) => {
         const field = err.path[0];
         fieldErrors[field] = err.message;
       });
@@ -370,7 +371,8 @@ export async function manageProducts(prevState, formData) {
 
     if (!validation.success) {
       const fieldErrors = {};
-      validation.error.errors.forEach((err) => {
+      const issues = validation.error?.errors || validation.error?.issues || [];
+      issues.forEach((err) => {
         const field = err.path[0];
         fieldErrors[field] = err.message;
       });

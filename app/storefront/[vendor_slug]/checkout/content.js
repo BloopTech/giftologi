@@ -37,7 +37,12 @@ const formatPrice = (value) => {
   return `GHS ${num.toFixed(2)}`;
 };
 
-export default function CheckoutContent({ vendor, product, initialQuantity }) {
+export default function CheckoutContent({
+  vendor,
+  product,
+  initialQuantity,
+  selectedVariation,
+}) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(initialQuantity);
   const [selectedRegion, setSelectedRegion] = useState(SHIPPING_REGIONS[0]);
@@ -53,7 +58,14 @@ export default function CheckoutContent({ vendor, product, initialQuantity }) {
   });
 
   const logoSrc = vendor?.logo_url || vendor?.logo || "/host/toaster.png";
-  const subtotal = (product.rawPrice || 0) * quantity;
+  const basePrice = Number(product?.rawPrice ?? product?.basePrice);
+  const variationPrice = Number(selectedVariation?.price);
+  const unitPrice = Number.isFinite(variationPrice)
+    ? variationPrice
+    : Number.isFinite(basePrice)
+    ? basePrice
+    : 0;
+  const subtotal = unitPrice * quantity;
   const shippingFee = selectedRegion.fee;
   const total = subtotal + shippingFee;
 
@@ -383,8 +395,13 @@ export default function CheckoutContent({ vendor, product, initialQuantity }) {
                       {product.name}
                     </p>
                     <p className="text-sm text-[#A5914B] font-semibold mt-1">
-                      {product.price}
+                      {formatPrice(unitPrice)}
                     </p>
+                    {selectedVariation?.label && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        {selectedVariation.label}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -437,6 +454,20 @@ export default function CheckoutContent({ vendor, product, initialQuantity }) {
               <input type="hidden" name="productId" value={product.id} />
               <input type="hidden" name="quantity" value={quantity} />
               <input type="hidden" name="subtotal" value={subtotal} />
+              <input
+                type="hidden"
+                name="variantKey"
+                value={selectedVariation?.key || ""}
+              />
+              <input
+                type="hidden"
+                name="variation"
+                value={
+                  selectedVariation?.raw
+                    ? JSON.stringify(selectedVariation.raw)
+                    : ""
+                }
+              />
               <input type="hidden" name="shippingFee" value={shippingFee} />
               <input type="hidden" name="shippingRegion" value={selectedRegion.name} />
               <input type="hidden" name="total" value={total} />

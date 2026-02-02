@@ -25,6 +25,8 @@ export async function processStorefrontCheckout(prevState, formData) {
     const shippingFee = parseFloat(formData.get("shippingFee") || "0");
     const shippingRegion = formData.get("shippingRegion");
     const total = parseFloat(formData.get("total") || "0");
+    const variantKey = formData.get("variantKey")?.trim();
+    const variationRaw = formData.get("variation")?.trim();
 
     const firstName = formData.get("firstName")?.trim();
     const lastName = formData.get("lastName")?.trim();
@@ -47,6 +49,17 @@ export async function processStorefrontCheckout(prevState, formData) {
 
     const supabase = await createClient();
 
+    const parseVariationPayload = (raw) => {
+      if (!raw || typeof raw !== "string") return null;
+      try {
+        const parsed = JSON.parse(raw);
+        if (!parsed || typeof parsed !== "object") return null;
+        return parsed;
+      } catch {
+        return null;
+      }
+    };
+
     // Verify product exists and has stock
     const { data: product, error: productError } = await supabase
       .from("products")
@@ -68,6 +81,17 @@ export async function processStorefrontCheckout(prevState, formData) {
       };
     }
 
+    const selectedVariation = parseVariationPayload(variationRaw);
+    const variationPrice = Number(selectedVariation?.price);
+    const basePrice = Number(product.price);
+    const unitPrice = Number.isFinite(variationPrice)
+      ? variationPrice
+      : Number.isFinite(basePrice)
+      ? basePrice
+      : 0;
+    const computedSubtotal = unitPrice * quantity;
+    const computedTotal = computedSubtotal + (Number.isFinite(shippingFee) ? shippingFee : 0);
+
     // Generate unique order code
     const orderId = generateOrderId();
 
@@ -82,7 +106,7 @@ export async function processStorefrontCheckout(prevState, formData) {
       .insert({
         order_code: orderId,
         status: "pending",
-        total_amount: total,
+        total_amount: Number.isFinite(computedTotal) ? computedTotal : total,
         currency: "GHS",
         buyer_firstname: firstName,
         buyer_lastname: lastName,
@@ -112,8 +136,9 @@ export async function processStorefrontCheckout(prevState, formData) {
       product_id: productId,
       vendor_id: vendorId,
       quantity,
-      price: product.price,
-      total_price: subtotal,
+      price: unitPrice,
+      total_price: Number.isFinite(computedSubtotal) ? computedSubtotal : subtotal,
+      variation: selectedVariation,
       created_at: new Date().toISOString(),
     });
 
@@ -131,7 +156,7 @@ export async function processStorefrontCheckout(prevState, formData) {
       phonenumber: phone,
       username: email,
       currency: "GHS",
-      amount: total.toFixed(2),
+      amount: (Number.isFinite(computedTotal) ? computedTotal : total).toFixed(2),
       "order-id": orderId,
       "order-desc": `Purchase from Giftologi - ${product.name}`,
       "redirect-url": redirectUrl,

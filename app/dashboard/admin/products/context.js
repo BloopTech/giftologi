@@ -221,6 +221,10 @@ function useManageProductsProviderValue() {
             stock_qty,
             status,
             images,
+            category_id,
+            variations,
+            rejection_reason,
+            vendor_id,
             created_at,
             vendor:vendors!Products_vendor_id_fkey (
               id,
@@ -270,11 +274,15 @@ function useManageProductsProviderValue() {
               name: row.name || "Untitled product",
               vendorName: vendor?.business_name || "—",
               categoryName: category?.name || "—",
+              categoryId: row.category_id || null,
               price: row.price,
               stockQty: row.stock_qty,
               status: row.status || "pending",
               createdAt: row.created_at,
               images: Array.isArray(row.images) ? row.images : [],
+              variations: Array.isArray(row.variations) ? row.variations : [],
+              rejection_reason: row.rejection_reason || null,
+              vendorId: row.vendor_id || null,
               __raw: row,
             };
           });

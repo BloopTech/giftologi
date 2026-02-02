@@ -684,6 +684,19 @@ const defaultCreateProductValues = {
   bulkCategoryId: [],
 };
 
+const defaultUpdateProductValues = {
+  productId: [],
+  name: [],
+  description: [],
+  price: [],
+  stockQty: [],
+  categoryId: [],
+  variations: [],
+  images: [],
+  featuredImageIndex: [],
+  existingImages: [],
+};
+
 const defaultCreateCategoryValues = {
   name: [],
   subcategories: [],
@@ -694,6 +707,43 @@ const defaultUpdateCategoryValues = {
 };
 
 const defaultDeleteCategoryValues = {};
+
+const updateProductSchema = z.object({
+  productId: z.string().uuid({ message: "Invalid product" }),
+  name: z.string().trim().min(1, { message: "Product name is required" }),
+  description: z.string().trim().optional().or(z.literal("")),
+  price: z
+    .string()
+    .trim()
+    .min(1, { message: "Enter a price" })
+    .refine((value) => {
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num >= 0;
+    }, "Enter a valid price"),
+  stockQty: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => {
+      if (!value) return true;
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isInteger(num) && num >= 0;
+    }, "Enter a valid stock quantity"),
+  categoryId: z.string().trim().uuid({ message: "Select a category" }),
+  variations: z.string().trim().optional().or(z.literal("")),
+  featuredImageIndex: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => {
+      if (!value) return true;
+      const idx = Number(value);
+      return Number.isInteger(idx) && idx >= 0 && idx <= 2;
+    }, "Invalid featured image selection"),
+  existingImages: z.string().optional().or(z.literal("")),
+});
 
 const createCategorySchema = z.object({
   name: z.string().trim().min(1, { message: "Category name is required" }),
@@ -1276,6 +1326,233 @@ export async function deleteCategory(prevState, formData) {
     errors: {},
     values: {},
     data: { category },
+  };
+}
+
+export async function updateProduct(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to update products.",
+      errors: { ...defaultUpdateProductValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to update products.",
+      errors: { ...defaultUpdateProductValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    productId: formData.get("productId"),
+    name: formData.get("name") || "",
+    description: formData.get("description") || "",
+    price: formData.get("price") || "",
+    stockQty: formData.get("stockQty") || "",
+    categoryId: formData.get("categoryId") || "",
+    variations: formData.get("variations") || "",
+    featuredImageIndex: formData.get("featuredImageIndex") || "",
+    existingImages: formData.get("existing_images") || "",
+  };
+
+  const parsed = updateProductSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: {
+        ...defaultUpdateProductValues,
+        ...parsed.error.flatten().fieldErrors,
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const {
+    productId,
+    name,
+    description,
+    price,
+    stockQty,
+    categoryId,
+    variations: variationsRaw,
+    featuredImageIndex,
+    existingImages: existingImagesRaw,
+  } = parsed.data;
+
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id, name, vendor_id, images")
+    .eq("id", productId)
+    .single();
+
+  if (productError || !product) {
+    return {
+      message: productError?.message || "Product not found.",
+      errors: { ...defaultUpdateProductValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { data: category, error: categoryError } = await supabase
+    .from("categories")
+    .select("id")
+    .eq("id", categoryId)
+    .maybeSingle();
+
+  if (categoryError || !category) {
+    return {
+      message: categoryError?.message || "Select a valid category.",
+      errors: {
+        ...defaultUpdateProductValues,
+        categoryId: ["Select a valid category."],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const priceNumber = Number(price.replace(/,/g, ""));
+  const stockNumber = stockQty ? Number(stockQty.replace(/,/g, "")) : null;
+  const variations = parseVariationsPayload(variationsRaw);
+
+  let existingImages = Array.isArray(product.images) ? product.images : [];
+  if (typeof existingImagesRaw === "string" && existingImagesRaw.trim()) {
+    try {
+      const parsedImages = JSON.parse(existingImagesRaw);
+      if (Array.isArray(parsedImages)) {
+        existingImages = parsedImages.filter(
+          (url) => typeof url === "string" && url.trim(),
+        );
+      }
+    } catch (error) {
+      console.error("Failed to parse existing images:", error);
+    }
+  }
+
+  const rawImages = formData.getAll("product_images");
+  const validImageFiles = Array.isArray(rawImages)
+    ? rawImages.filter((file) => isValidSelectedFile(file))
+    : [];
+
+  if (validImageFiles.length > 3) {
+    const message = "You can upload a maximum of 3 images per product.";
+    return {
+      message,
+      errors: {
+        ...defaultUpdateProductValues,
+        images: [message],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
+  let nextImages = existingImages;
+
+  if (validImageFiles.length) {
+    const uploads = [];
+    for (const file of validImageFiles) {
+      uploads.push(uploadProductImage(file, `products/${product.vendor_id || "admin"}`));
+    }
+
+    if (uploads.length) {
+      try {
+        const results = await Promise.all(uploads);
+        nextImages = results.filter(Boolean);
+      } catch (error) {
+        return {
+          message:
+            error?.message ||
+            "Failed to upload one or more product images. Please try again.",
+          errors: { ...defaultUpdateProductValues },
+          values: raw,
+          data: {},
+        };
+      }
+    }
+  }
+
+  let orderedImages = nextImages;
+  if (featuredImageIndex && orderedImages.length) {
+    const idx = Number(featuredImageIndex);
+    if (Number.isInteger(idx) && idx >= 0 && idx < orderedImages.length) {
+      const clone = [...orderedImages];
+      const [featured] = clone.splice(idx, 1);
+      orderedImages = featured ? [featured, ...clone] : clone;
+    }
+  }
+
+  const { error: updateError } = await supabase
+    .from("products")
+    .update({
+      name,
+      description: description || null,
+      price: Number.isFinite(priceNumber) ? priceNumber : null,
+      stock_qty:
+        stockNumber != null && Number.isFinite(stockNumber)
+          ? stockNumber
+          : null,
+      category_id: categoryId,
+      variations: variations.length ? variations : null,
+      images: orderedImages.length ? orderedImages : [],
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", productId);
+
+  if (updateError) {
+    return {
+      message: updateError.message,
+      errors: { ...defaultUpdateProductValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile?.id || user.id,
+    adminRole: currentProfile?.role || null,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "updated_product",
+    entity: "products",
+    targetId: productId,
+    details: `Updated product ${product.name || productId}`,
+  });
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
+
+  return {
+    message: "Product updated successfully.",
+    errors: {},
+    values: {},
+    data: { productId },
   };
 }
 

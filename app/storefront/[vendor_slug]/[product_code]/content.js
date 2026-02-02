@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useProductDetail } from "./context";
 import Image from "next/image";
 import Link from "next/link";
@@ -35,6 +35,47 @@ const formatDate = (dateString) => {
   });
 };
 
+const formatPrice = (value) => {
+  if (value === null || value === undefined) return "";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "";
+  return `GHS ${num.toFixed(2)}`;
+};
+
+const COLOR_OPTIONS = [
+  "Black",
+  "White",
+  "Gray",
+  "Red",
+  "Orange",
+  "Yellow",
+  "Green",
+  "Blue",
+  "Purple",
+  "Pink",
+  "Brown",
+  "Gold",
+  "Silver",
+];
+
+const COLOR_SWATCHES = {
+  Black: "#111827",
+  White: "#F9FAFB",
+  Gray: "#9CA3AF",
+  Red: "#EF4444",
+  Orange: "#F97316",
+  Yellow: "#FACC15",
+  Green: "#22C55E",
+  Blue: "#3B82F6",
+  Purple: "#8B5CF6",
+  Pink: "#EC4899",
+  Brown: "#A16207",
+  Gold: "#D4AF37",
+  Silver: "#CBD5F5",
+};
+
+const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "One Size"];
+
 export default function ProductCodeDetailContent() {
   const { vendor, product, loading, relatedProducts, reviews } =
     useProductDetail();
@@ -44,6 +85,9 @@ export default function ProductCodeDetailContent() {
   const [showGallery, setShowGallery] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [selectedColor, setSelectedColor] = useState("");
+  const [selectedSize, setSelectedSize] = useState("");
+  const [selectedVariantKey, setSelectedVariantKey] = useState("");
 
   const router = useRouter();
 
@@ -81,12 +125,112 @@ export default function ProductCodeDetailContent() {
     [product?.stock],
   );
 
-  const handleBuyNow = useCallback(() => {
-    if (!canPurchase || !isAuthed) return;
-    router.push(
-      `/storefront/${vendor?.slug}/checkout?product=${product?.id}&qty=${quantity}`,
+  const variations = useMemo(
+    () => (Array.isArray(product?.variations) ? product.variations : []),
+    [product?.variations],
+  );
+
+  const variationOptions = useMemo(() => {
+    return variations
+      .map((variation, index) => ({
+        key: String(variation?.id || variation?.sku || index),
+        label:
+          variation?.label ||
+          [variation?.color, variation?.size].filter(Boolean).join(" / ") ||
+          `Option ${index + 1}`,
+        price: variation?.price,
+        color: variation?.color,
+        size: variation?.size,
+        sku: variation?.sku,
+        raw: variation,
+      }))
+      .filter((option) => option.label);
+  }, [variations]);
+
+  const hasColor = useMemo(
+    () => variationOptions.some((option) => option.color),
+    [variationOptions],
+  );
+  const hasSize = useMemo(
+    () => variationOptions.some((option) => option.size),
+    [variationOptions],
+  );
+
+  const colorOptions = useMemo(() => {
+    if (!hasColor) return [];
+    const filtered = selectedSize
+      ? variationOptions.filter((opt) => opt.size === selectedSize)
+      : variationOptions;
+    return Array.from(new Set(filtered.map((opt) => opt.color).filter(Boolean)));
+  }, [hasColor, selectedSize, variationOptions]);
+
+  const sizeOptions = useMemo(() => {
+    if (!hasSize) return [];
+    const filtered = selectedColor
+      ? variationOptions.filter((opt) => opt.color === selectedColor)
+      : variationOptions;
+    return Array.from(new Set(filtered.map((opt) => opt.size).filter(Boolean)));
+  }, [hasSize, selectedColor, variationOptions]);
+
+  const matchingOptions = useMemo(() => {
+    if (!hasColor && !hasSize) return variationOptions;
+    return variationOptions.filter(
+      (option) =>
+        (!selectedColor || option.color === selectedColor) &&
+        (!selectedSize || option.size === selectedSize),
     );
-  }, [canPurchase, isAuthed, router, vendor?.slug, product?.id, quantity]);
+  }, [hasColor, hasSize, selectedColor, selectedSize, variationOptions]);
+
+  const selectedVariation = useMemo(() => {
+    if (selectedVariantKey) {
+      return variationOptions.find((option) => option.key === selectedVariantKey) || null;
+    }
+    if (matchingOptions.length === 1) return matchingOptions[0];
+    if (!hasSize && selectedColor && matchingOptions.length) return matchingOptions[0];
+    if (!hasColor && selectedSize && matchingOptions.length) return matchingOptions[0];
+    return null;
+  }, [hasColor, hasSize, matchingOptions, selectedColor, selectedSize, selectedVariantKey, variationOptions]);
+
+  const selectionRequired = variationOptions.length > 0;
+  const selectionComplete = !selectionRequired || !!selectedVariation;
+
+  useEffect(() => {
+    setSelectedColor("");
+    setSelectedSize("");
+    setSelectedVariantKey("");
+  }, [product?.id]);
+
+  useEffect(() => {
+    if (variationOptions.length !== 1) return;
+    const [option] = variationOptions;
+    setSelectedVariantKey(option.key);
+    setSelectedColor(option.color || "");
+    setSelectedSize(option.size || "");
+  }, [variationOptions]);
+
+  useEffect(() => {
+    if (!selectedVariantKey) return;
+    const option = variationOptions.find((opt) => opt.key === selectedVariantKey);
+    if (!option) return;
+    if (option.color && option.color !== selectedColor) {
+      setSelectedColor(option.color);
+    }
+    if (option.size && option.size !== selectedSize) {
+      setSelectedSize(option.size);
+    }
+  }, [selectedVariantKey, selectedColor, selectedSize, variationOptions]);
+
+  const handleBuyNow = useCallback(() => {
+    if (!canPurchase || !isAuthed || !selectionComplete) return;
+    const params = new URLSearchParams({
+      product: product?.id || "",
+      qty: String(quantity),
+    });
+    if (selectedVariation?.key) {
+      params.set("variant", selectedVariation.key);
+    }
+    router.push(`/storefront/${vendor?.slug}/checkout?${params.toString()}`);
+  }, [canPurchase, isAuthed, router, vendor?.slug, product?.id, quantity, selectedVariation?.key, selectionComplete]);
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
@@ -151,6 +295,17 @@ export default function ProductCodeDetailContent() {
   if (!vendor || !product) {
     return <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950" />;
   }
+
+  const selectedPrice =
+    selectedVariation?.price != null ? Number(selectedVariation.price) : null;
+  const basePrice = product?.basePrice ?? product?.rawPrice ?? null;
+  const priceLabel = selectedPrice != null
+    ? formatPrice(selectedPrice)
+    : product?.variationPriceRange
+    ? `${formatPrice(product.variationPriceRange.min)} - ${formatPrice(product.variationPriceRange.max)}`
+    : product.price;
+  const showBasePrice =
+    selectedPrice != null && Number.isFinite(basePrice) && basePrice !== selectedPrice;
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-poppins">
@@ -300,8 +455,16 @@ export default function ProductCodeDetailContent() {
               </div>
             )}
 
-            <div className="text-3xl font-bold text-[#A5914B] mb-6">
-              {product.price}
+            <div className="mb-6">
+              <div className="text-3xl font-bold text-[#A5914B]">{priceLabel}</div>
+              {product?.variationPriceRange && !selectedVariation && (
+                <p className="text-xs text-gray-500 mt-1">Price varies by option.</p>
+              )}
+              {showBasePrice && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Base price {formatPrice(basePrice)}
+                </p>
+              )}
             </div>
 
             {/* Category Pill */}
@@ -342,6 +505,127 @@ export default function ProductCodeDetailContent() {
               )}
             </div>
 
+            {variationOptions.length > 0 && (
+              <div className="mb-6 space-y-4">
+                <div className="space-y-3">
+                  <h2 className="text-sm font-semibold text-gray-900">Choose a variation</h2>
+
+                  {!hasColor && !hasSize ? (
+                    <div className="flex flex-wrap gap-2">
+                      {variationOptions.map((option) => {
+                        const isSelected = selectedVariantKey === option.key;
+                        return (
+                          <button
+                            key={option.key}
+                            type="button"
+                            onClick={() =>
+                              setSelectedVariantKey(isSelected ? "" : option.key)
+                            }
+                            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                              isSelected
+                                ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
+                                : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
+                            }`}
+                          >
+                            {option.label}
+                            {option.price != null ? ` · ${formatPrice(option.price)}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {hasColor && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-medium text-gray-600">Color</span>
+                          <div className="flex flex-wrap gap-2">
+                            {(colorOptions.length ? colorOptions : COLOR_OPTIONS).map(
+                              (color) => {
+                                const isSelected = selectedColor === color;
+                                return (
+                                  <button
+                                    key={color}
+                                    type="button"
+                                    onClick={() => {
+                                      const next = isSelected ? "" : color;
+                                      setSelectedColor(next);
+                                      setSelectedVariantKey("");
+                                      if (next && selectedSize && !sizeOptions.includes(selectedSize)) {
+                                        setSelectedSize("");
+                                      }
+                                    }}
+                                    className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                      isSelected
+                                        ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
+                                        : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
+                                    }`}
+                                  >
+                                    <span
+                                      className="h-3 w-3 rounded-full border"
+                                      style={{
+                                        background: COLOR_SWATCHES[color] || "#E5E7EB",
+                                        borderColor:
+                                          color === "White" ? "#E5E7EB" : "transparent",
+                                      }}
+                                    />
+                                    {color}
+                                  </button>
+                                );
+                              },
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {hasSize && (
+                        <div className="space-y-2">
+                          <span className="text-xs font-medium text-gray-600">Size</span>
+                          <div className="flex flex-wrap gap-2">
+                            {(sizeOptions.length ? sizeOptions : SIZE_OPTIONS).map((size) => {
+                              const isSelected = selectedSize === size;
+                              return (
+                                <button
+                                  key={size}
+                                  type="button"
+                                  onClick={() => {
+                                    const next = isSelected ? "" : size;
+                                    setSelectedSize(next);
+                                    setSelectedVariantKey("");
+                                  }}
+                                  className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                    isSelected
+                                      ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
+                                      : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
+                                  }`}
+                                >
+                                  {size}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {selectionComplete && selectedVariation ? (
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-[#A5914B]/30 bg-[#A5914B]/10 px-2 py-1 text-[#8B7A3F]">
+                        Selected: {selectedVariation.label}
+                      </span>
+                      {selectedVariation.price != null && (
+                        <span className="font-semibold text-[#A5914B]">
+                          {formatPrice(selectedVariation.price)}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-red-500">Select a variation to continue.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Quantity Selector */}
             {canPurchase && (
               <div className="flex items-center gap-4 mb-6">
@@ -378,7 +662,7 @@ export default function ProductCodeDetailContent() {
                 <>
                   <button
                     onClick={handleBuyNow}
-                    disabled={!isAuthed}
+                    disabled={!isAuthed || !selectionComplete}
                     className="flex-1 bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ShoppingCart className="size-5" />

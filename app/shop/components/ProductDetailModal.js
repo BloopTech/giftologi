@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "../../components/Dialog";
 import { X, Store, BadgeCheck, Plus, ExternalLink, Trash2, Loader2 } from "lucide-react";
-import { addProductToRegistry, removeProductFromRegistry } from "../actions";
+import { removeProductFromRegistry } from "../actions";
 import { toast } from "sonner";
 import { useShop } from "../context";
 
@@ -27,35 +27,12 @@ export default function ProductDetailModal({
   isHost,
   registry,
 }) {
-  const addToastKeyRef = useRef(0);
   const removeToastKeyRef = useRef(0);
-  const { getRegistryItem } = useShop();
-  const [addState, addAction, isAddPending] = useActionState(
-    addProductToRegistry,
-    initialState
-  );
+  const { getRegistryItem, openAddToRegistry } = useShop();
   const [removeState, removeAction, isRemovePending] = useActionState(
     removeProductFromRegistry,
     initialState
   );
-
-  // Show toast notifications based on action states
-  useEffect(() => {
-    if (!addState?.message) return;
-    if (addToastKeyRef.current === addState.message) return;
-
-    if (Object.keys(addState?.errors || {}).length > 0) {
-      toast.error(addState.message);
-    } else {
-      toast.success(addState.message);
-      if (addState?.data?.item) {
-        onOpenChange(false);
-        window.dispatchEvent(new CustomEvent("registry-item-updated"));
-      }
-    }
-
-    addToastKeyRef.current = addState.message;
-  }, [addState, onOpenChange]);
 
   useEffect(() => {
     if (!removeState?.message) return;
