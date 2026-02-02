@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { createClient } from "../../../utils/supabase/server";
+import { createAdminClient, createClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
@@ -87,6 +87,7 @@ const approveVendorSchema = z.object({
 
 export async function approveVendorRequest(prevState, formData) {
   const supabase = await createClient();
+  const adminSupabase = createAdminClient();
 
   const {
     data: { user },
@@ -270,7 +271,7 @@ export async function approveVendorRequest(prevState, formData) {
     updated_at: new Date().toISOString(),
   };
 
-  const { data: existingPaymentInfo, error: existingPaymentError } = await supabase
+  const { data: existingPaymentInfo, error: existingPaymentError } = await adminSupabase
     .from("payment_info")
     .select("id")
     .eq("vendor_id", vendor.id)
@@ -286,7 +287,7 @@ export async function approveVendorRequest(prevState, formData) {
   }
 
   if (existingPaymentInfo?.id) {
-    const { error: paymentUpdateError } = await supabase
+    const { error: paymentUpdateError } = await adminSupabase
       .from("payment_info")
       .update(paymentPayload)
       .eq("id", existingPaymentInfo.id)
@@ -301,7 +302,7 @@ export async function approveVendorRequest(prevState, formData) {
       };
     }
   } else if (Object.values(paymentPayload).some((value) => value)) {
-    const { error: paymentInsertError } = await supabase
+    const { error: paymentInsertError } = await adminSupabase
       .from("payment_info")
       .insert({ ...paymentPayload, vendor_id: vendor.id, created_at: new Date().toISOString() })
       .select("id")
