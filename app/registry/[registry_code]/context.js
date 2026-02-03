@@ -226,7 +226,9 @@ export const GuestRegistryCodeProvider = ({
           name,
           price,
           images,
+          vendor_id,
           category_id,
+          vendor:vendors(slug),
           product_categories (category_id)
         )
       `,
@@ -268,6 +270,8 @@ export const GuestRegistryCodeProvider = ({
             rawPrice: product.price,
             desired: item.quantity_needed ?? 0,
             purchased: item.purchased_qty ?? 0,
+            vendorId: product.vendor_id,
+            vendorSlug: product.vendor?.slug || null,
             categoryId: product.category_id,
             categoryIds: mergedCategoryIds,
           };
@@ -335,6 +339,47 @@ export const GuestRegistryCodeProvider = ({
     [shippingAddress]
   );
 
+  const openProductDetail = useCallback((product) => {
+    if (!product) return;
+    setSelectedProduct(product);
+    setPurchaseQuantity(1);
+    setProductDetailOpen(true);
+  }, []);
+
+  const closeProductDetail = useCallback(() => {
+    setProductDetailOpen(false);
+    setSelectedProduct(null);
+  }, []);
+
+  const startBuyThis = useCallback((product) => {
+    if (!product) return;
+    setSelectedProduct(product);
+    setPurchaseQuantity(1);
+    setProductDetailOpen(false);
+    setGifterInfoOpen(true);
+  }, []);
+
+  const startBuyMultiple = useCallback((product) => {
+    if (!product) return;
+    const remaining = Math.max(1, (product.desired || 0) - (product.purchased || 0));
+    setSelectedProduct(product);
+    setPurchaseQuantity(remaining);
+    setProductDetailOpen(false);
+    setGifterInfoOpen(true);
+  }, []);
+
+  const handleGifterInfoSubmit = useCallback((payload) => {
+    setGifterInfo(payload || null);
+    setGifterInfoOpen(false);
+    setAddMessageOpen(true);
+  }, []);
+
+  const handleGifterInfoSkip = useCallback(() => {
+    setGifterInfo(null);
+    setGifterInfoOpen(false);
+    setAddMessageOpen(true);
+  }, []);
+
   // Handle message submission and initiate payment
   const handleMessageSubmit = useCallback(
     async (payload) => {
@@ -344,15 +389,6 @@ export const GuestRegistryCodeProvider = ({
         typeof payload === "string"
           ? derivedDefaultShippingRegionId
           : payload?.shippingRegionId || derivedDefaultShippingRegionId;
-      const shippingRegion = getShippingRegionById(shippingRegionId);
-
-      const unitPrice = Number(selectedProduct?.rawPrice);
-      const subtotal = Number.isFinite(unitPrice)
-        ? unitPrice * purchaseQuantity
-        : 0;
-      const shippingFee = Number(shippingRegion?.fee) || 0;
-      const totalAmount = subtotal + shippingFee;
-
       setGiftMessage(message);
       setAddMessageOpen(false);
       setPurchaseStep(PURCHASE_STEPS.PROCESSING);
@@ -361,41 +397,42 @@ export const GuestRegistryCodeProvider = ({
 
       try {
         const guestIdentifier = await getGuestIdentifier();
-        const response = await fetch("/api/registry/payment/submit", {
+        const vendorSlug = selectedProduct?.vendorSlug;
+        const vendorId = selectedProduct?.vendorId;
+        if (!vendorSlug && !vendorId) {
+          throw new Error("Vendor not found for this gift.");
+        }
+
+        const response = await fetch("/api/storefront/cart", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            registryId: registry?.id,
-            registryItemId: selectedProduct?.id,
+            vendorId,
+            vendorSlug,
             productId: selectedProduct?.productId,
+            registryItemId: selectedProduct?.id,
             quantity: purchaseQuantity,
-            amount: totalAmount,
-            currency: "GHS",
-            gifterInfo,
-            message,
-            shippingRegionId,
             guestBrowserId: guestIdentifier,
           }),
         });
 
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
 
-        if (!response.ok || !data.success) {
-          throw new Error(data.error || "Payment initialization failed");
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to add item to cart.");
         }
 
-        // Redirect to ExpressPay checkout
-        window.location.href = data.checkoutUrl;
+        router.push(`/storefront/${vendorSlug}/checkout?cart=1`);
       } catch (err) {
         console.error("Payment error:", err);
-        setError(err.message || "Failed to process payment");
+        setError(err.message || "Failed to add item to cart");
         setIsProcessing(false);
         setPurchaseStep(PURCHASE_STEPS.IDLE);
       }
     },
-    [registry?.id, selectedProduct, purchaseQuantity, gifterInfo, derivedDefaultShippingRegionId],
+    [selectedProduct, purchaseQuantity, derivedDefaultShippingRegionId, router],
   );
 
   // Skip message and initiate payment

@@ -62,9 +62,10 @@ export async function generateMetadata({ params }) {
 
 export default async function CheckoutPage({ params, searchParams }) {
   const { vendor_slug } = await params;
-  const { product: productId, qty, variant } = await searchParams;
+  const { product: productId, qty, variant, cart } = await searchParams;
+  const isCartCheckout = cart === "1" || cart === "true";
 
-  if (!vendor_slug || !productId) {
+  if (!vendor_slug || (!isCartCheckout && !productId)) {
     return notFound();
   }
 
@@ -78,7 +79,9 @@ export default async function CheckoutPage({ params, searchParams }) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    const next = `/storefront/${vendor_slug}/checkout?product=${productId}&qty=${quantity}`;
+    const next = isCartCheckout
+      ? `/storefront/${vendor_slug}/checkout?cart=1`
+      : `/storefront/${vendor_slug}/checkout?product=${productId}&qty=${quantity}`;
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
@@ -113,6 +116,10 @@ export default async function CheckoutPage({ params, searchParams }) {
   // Check if shop is closed
   if ((vendor.shop_status || "").toLowerCase() === "closed") {
     redirect(`/storefront/${vendor_slug}`);
+  }
+
+  if (isCartCheckout) {
+    return <CheckoutContent vendor={vendor} cartMode />;
   }
 
   // Fetch product

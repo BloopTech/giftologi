@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
+import { getGuestIdentifier } from "../../../utils/guest";
 import Footer from "../../../components/footer";
 import {
   Store,
@@ -15,6 +16,7 @@ import {
   Minus,
   Plus,
   ShoppingCart,
+  CreditCard,
   Heart,
   Share2,
   Star,
@@ -88,6 +90,8 @@ export default function ProductCodeDetailContent() {
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedVariantKey, setSelectedVariantKey] = useState("");
+  const [cartFeedback, setCartFeedback] = useState(null);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const router = useRouter();
 
@@ -231,6 +235,42 @@ export default function ProductCodeDetailContent() {
     }
     router.push(`/storefront/${vendor?.slug}/checkout?${params.toString()}`);
   }, [canPurchase, isAuthed, router, vendor?.slug, product?.id, quantity, selectedVariation?.key, selectionComplete]);
+
+  const handleAddToCart = useCallback(async () => {
+    if (!canPurchase || !selectionComplete) return;
+    setCartFeedback(null);
+    setIsAddingToCart(true);
+    try {
+      const guestBrowserId = await getGuestIdentifier();
+      const response = await fetch("/api/storefront/cart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vendorSlug: vendor?.slug,
+          productId: product?.id,
+          quantity,
+          variationKey: selectedVariation?.key || null,
+          variation: selectedVariation?.raw || null,
+          guestBrowserId,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.message || "Unable to add item to cart.");
+      }
+      setCartFeedback({
+        type: "success",
+        message: "Added to cart. You can continue shopping or checkout anytime.",
+      });
+    } catch (error) {
+      setCartFeedback({
+        type: "error",
+        message: error?.message || "Unable to add item to cart.",
+      });
+    } finally {
+      setIsAddingToCart(false);
+    }
+  }, [canPurchase, selectionComplete, vendor?.slug, product?.id, quantity, selectedVariation?.key, selectedVariation?.raw]);
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
@@ -661,11 +701,19 @@ export default function ProductCodeDetailContent() {
               {canPurchase ? (
                 <>
                   <button
+                    onClick={handleAddToCart}
+                    disabled={!selectionComplete || isAddingToCart}
+                    className="flex-1 border border-[#A5914B] text-[#8B7A3F] font-semibold py-3 px-6 rounded-xl hover:bg-[#A5914B]/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ShoppingCart className="size-5" />
+                    {isAddingToCart ? "Adding..." : "Add to Cart"}
+                  </button>
+                  <button
                     onClick={handleBuyNow}
                     disabled={!isAuthed || !selectionComplete}
                     className="flex-1 bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <ShoppingCart className="size-5" />
+                    <CreditCard className="size-5" />
                     Buy Now
                   </button>
                   <button
@@ -701,6 +749,27 @@ export default function ProductCodeDetailContent() {
                 </div>
               )}
             </div>
+
+            {cartFeedback && (
+              <div
+                className={`mb-6 rounded-xl border px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 ${
+                  cartFeedback.type === "success"
+                    ? "border-green-200 bg-green-50 text-green-700"
+                    : "border-red-200 bg-red-50 text-red-600"
+                }`}
+              >
+                <span>{cartFeedback.message}</span>
+                {cartFeedback.type === "success" && vendor?.slug && (
+                  <button
+                    type="button"
+                    onClick={() => router.push(`/storefront/${vendor.slug}/checkout?cart=1`)}
+                    className="text-xs font-semibold text-[#8B7A3F] hover:text-[#6F6136]"
+                  >
+                    Checkout cart
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Trust Badges */}
             <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl">

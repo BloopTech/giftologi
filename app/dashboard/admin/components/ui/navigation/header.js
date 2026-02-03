@@ -30,6 +30,7 @@ import {
   AvatarImage,
 } from "../../../../../components/Avatar";
 import { cx } from "../../../../../components/utils";
+import NotificationBell from "../../../../../components/NotificationBell";
 import { DropdownUserProfile } from "./dropdownUserProfile";
 import Image from "next/image";
 import logo from "../../../../../../public/giftologi-logo.png";
@@ -227,6 +228,7 @@ export default function Header() {
                 </div>
               </>
             ) : null}
+            <NotificationBell userId={userData?.id} />
             <div
               className={cx(
                 "flex items-center space-x-4 py-3 px-6 mx-auto w-xs",

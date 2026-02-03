@@ -70,6 +70,8 @@ export const VendorOrdersProvider = ({ children }) => {
           product_id,
           quantity,
           price,
+          wrapping,
+          gift_wrap_option_id,
           vendor_status,
           created_at,
           orders (
@@ -103,6 +105,12 @@ export const VendorOrdersProvider = ({ children }) => {
             product_code,
             price,
             images
+          ),
+          gift_wrap_options (
+            id,
+            name,
+            fee,
+            description
           )
         `)
         .eq("vendor_id", vendorRecord.id)
@@ -124,6 +132,9 @@ export const VendorOrdersProvider = ({ children }) => {
         customer: item.orders?.profiles,
         registry: item.orders?.registries,
         registryOwner: item.orders?.registries?.profiles,
+        wrapping: item.wrapping ?? false,
+        giftWrapOptionId: item.gift_wrap_option_id || null,
+        giftWrapOption: item.gift_wrap_options || null,
       }));
 
       const stats = {

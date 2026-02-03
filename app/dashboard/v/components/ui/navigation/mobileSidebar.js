@@ -20,6 +20,7 @@ import {
   AvatarFallback,
   AvatarImage,
 } from "../../../../../components/Avatar";
+import NotificationBell from "../../../../../components/NotificationBell";
 
 import { toast } from "sonner";
 
@@ -193,6 +194,9 @@ export default function MobileSidebar(props) {
                 );
               })}
             </nav>
+            <div className="px-4">
+              <NotificationBell userId={userData?.id} variant="sidebar" />
+            </div>
             <div className="mt-8 border-t border-gray-200 pt-4 space-y-4">
               {userData && (
                 <div className="flex items-center space-x-3">

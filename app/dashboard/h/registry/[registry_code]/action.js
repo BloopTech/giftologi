@@ -7,7 +7,14 @@ import {
 import sharp from "sharp";
 import crypto from "crypto";
 import z from "zod";
-import { createClient } from "@/app/utils/supabase/server";
+import nodemailer from "nodemailer";
+import { render, pretty } from "@react-email/render";
+import RegistryInviteEmail from "@/app/registry/emails/RegistryInviteEmail";
+import RegistryThankYouEmail from "@/app/registry/emails/RegistryThankYouEmail";
+import {
+  createClient,
+  createAdminClient,
+} from "@/app/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -37,6 +44,115 @@ const extractFilenameFromUrl = (url) => {
   if (!url) return null;
   const parts = url.split("/");
   return parts[parts.length - 1];
+};
+
+const emailSchema = z.string().email();
+
+const getSiteUrl = () =>
+  process.env.NEXTAUTH_URL ||
+  (process.env.NEXT_PUBLIC_VERCEL_URL
+    ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
+    : "http://localhost:3000");
+
+const createEmailTransport = () => {
+  const host = process.env.SMTP_HOST;
+  if (!host) return null;
+
+  const port = Number(process.env.SMTP_PORT || 587);
+  const secure = process.env.SMTP_SECURE === "true";
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: user && pass ? { user, pass } : undefined,
+  });
+};
+
+const parseInviteEmails = (value) => {
+  if (!value) return [];
+  const candidates = value
+    .split(/[\n,;]+/)
+    .map((email) => email.trim())
+    .filter(Boolean);
+  return Array.from(new Set(candidates));
+};
+
+const getHostName = (profile) =>
+  [profile?.firstname, profile?.lastname].filter(Boolean).join(" ").trim();
+
+const sendRegistryInviteEmail = async ({
+  to,
+  registryTitle,
+  registryUrl,
+  hostName,
+  message,
+}) => {
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const transport = createEmailTransport();
+
+  if (!to || !fromAddress || !transport) {
+    console.warn("Email not sent: missing SMTP configuration or recipient.");
+    return;
+  }
+
+  const html = await pretty(
+    await render(
+      <RegistryInviteEmail
+        hostName={hostName}
+        registryTitle={registryTitle}
+        registryUrl={registryUrl}
+        message={message}
+      />
+    )
+  );
+
+  await transport.sendMail({
+    from: `Giftologi <${fromAddress}>`,
+    to,
+    subject: hostName
+      ? `${hostName} invited you to a registry`
+      : "You're invited to a Giftologi registry",
+    html,
+  });
+};
+
+const sendRegistryThankYouEmail = async ({
+  to,
+  recipientName,
+  hostName,
+  registryTitle,
+  message,
+}) => {
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const transport = createEmailTransport();
+
+  if (!to || !fromAddress || !transport) {
+    console.warn("Email not sent: missing SMTP configuration or recipient.");
+    return;
+  }
+
+  const html = await pretty(
+    await render(
+      <RegistryThankYouEmail
+        hostName={hostName}
+        recipientName={recipientName}
+        registryTitle={registryTitle}
+        message={message}
+      />
+    )
+  );
+
+  await transport.sendMail({
+    from: `Giftologi <${fromAddress}>`,
+    to,
+    subject: hostName
+      ? `A thank-you note from ${hostName}`
+      : "A thank-you note from Giftologi",
+    html,
+  });
 };
 
 export async function saveRegistryCoverPhoto(prev, queryData) {
@@ -403,6 +519,338 @@ export async function updateDeliveryAddress(prev, queryData) {
   return {
     message: "Delivery address saved successfully",
     data: deliveryAddress,
+    errors: {},
+    status_code: 200,
+  };
+}
+
+export async function sendRegistryInvites(prev, queryData) {
+  const supabase = await createClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, firstname, lastname, email")
+    .single();
+
+  if (profileError || !profile?.id) {
+    return {
+      errors: { emails: [profileError?.message || "Unable to load profile"] },
+      message: "Failed to send invitations",
+      data: {},
+    };
+  }
+
+  const registry_id = queryData.get("registry_id");
+  const event_id = queryData.get("event_id");
+  const message = (queryData.get("message") || "").toString().trim();
+  const rawEmails = (queryData.get("emails") || "").toString();
+  const emailList = parseInviteEmails(rawEmails);
+
+  if (!emailList.length) {
+    return {
+      errors: { emails: ["Add at least one email address."] },
+      message: "Please enter at least one email address",
+      data: {},
+    };
+  }
+
+  const invalidEmails = emailList.filter(
+    (email) => !emailSchema.safeParse(email).success
+  );
+
+  if (invalidEmails.length) {
+    return {
+      errors: {
+        emails: invalidEmails.map((email) => `${email} is not a valid email.`),
+      },
+      message: "One or more email addresses are invalid",
+      data: {},
+    };
+  }
+
+  const { data: eventData, error: eventError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("host_id", profile.id)
+    .eq("id", event_id)
+    .single();
+
+  if (eventError) {
+    return {
+      errors: { emails: [eventError.message] },
+      message: "Failed to send invitations",
+      data: {},
+    };
+  }
+
+  const { data: registryData, error: registryError } = await supabase
+    .from("registries")
+    .select("id, registry_code, title")
+    .eq("event_id", eventData.id)
+    .eq("id", registry_id)
+    .single();
+
+  if (registryError) {
+    return {
+      errors: { emails: [registryError.message] },
+      message: "Failed to send invitations",
+      data: {},
+    };
+  }
+
+  const invitedAt = new Date().toISOString();
+  const invitePayload = emailList.map((email) => ({
+    registry_id: registryData.id,
+    email,
+    invited_by: profile.id,
+    status: "sent",
+    invited_at: invitedAt,
+  }));
+
+  const { error: inviteError } = await supabase
+    .from("registry_invites")
+    .insert(invitePayload);
+
+  if (inviteError) {
+    return {
+      errors: { emails: [inviteError.message] },
+      message: "Failed to save invitations",
+      data: {},
+    };
+  }
+
+  const hostName = getHostName(profile);
+  const registryUrl = registryData?.registry_code
+    ? `${getSiteUrl()}/registry/${registryData.registry_code}`
+    : getSiteUrl();
+
+  await Promise.allSettled(
+    emailList.map((email) =>
+      sendRegistryInviteEmail({
+        to: email,
+        registryTitle: registryData?.title,
+        registryUrl,
+        hostName,
+        message,
+      })
+    )
+  );
+
+  if (registryData?.registry_code) {
+    revalidatePath(`/dashboard/h/registry/${registryData.registry_code}`);
+  }
+
+  return {
+    message: "Invitations sent successfully",
+    data: { count: emailList.length },
+    errors: {},
+    status_code: 200,
+  };
+}
+
+export async function sendRegistryThankYou(prev, queryData) {
+  const supabase = await createClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id, firstname, lastname, email")
+    .single();
+
+  if (profileError || !profile?.id) {
+    return {
+      errors: { recipient_email: [profileError?.message || "Unable to load profile"] },
+      message: "Failed to send thank-you",
+      data: {},
+    };
+  }
+
+  const registry_id = queryData.get("registry_id");
+  const event_id = queryData.get("event_id");
+  const order_id = (queryData.get("order_id") || "").toString().trim();
+  const message = (queryData.get("message") || "").toString().trim();
+  const inputRecipientName =
+    (queryData.get("recipient_name") || "").toString().trim() || "";
+
+  if (!order_id) {
+    return {
+      errors: { order_id: ["Please select a purchase."] },
+      message: "Select a purchase to send a thank-you note",
+      data: {},
+    };
+  }
+
+  if (!message) {
+    return {
+      errors: { message: ["Please write a thank-you message."] },
+      message: "Thank-you message is required",
+      data: {},
+    };
+  }
+
+  const { data: eventData, error: eventError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("host_id", profile.id)
+    .eq("id", event_id)
+    .single();
+
+  if (eventError) {
+    return {
+      errors: { recipient_email: [eventError.message] },
+      message: "Failed to send thank-you",
+      data: {},
+    };
+  }
+
+  const { data: registryData, error: registryError } = await supabase
+    .from("registries")
+    .select("id, registry_code, title")
+    .eq("event_id", eventData.id)
+    .eq("id", registry_id)
+    .single();
+
+  if (registryError) {
+    return {
+      errors: { recipient_email: [registryError.message] },
+      message: "Failed to send thank-you",
+      data: {},
+    };
+  }
+
+  const { data: orderData, error: orderError } = await supabase
+    .from("orders")
+    .select(
+      "id, status, registry_id, buyer_firstname, buyer_lastname, buyer_email, gifter_firstname, gifter_lastname, gifter_email, gifter_anonymous"
+    )
+    .eq("id", order_id)
+    .maybeSingle();
+
+  if (orderError || !orderData) {
+    return {
+      errors: { order_id: [orderError?.message || "Purchase not found."] },
+      message: "Failed to load purchase details",
+      data: {},
+    };
+  }
+
+  if (orderData.registry_id !== registryData.id) {
+    return {
+      errors: { order_id: ["Purchase does not belong to this registry."] },
+      message: "Failed to send thank-you",
+      data: {},
+    };
+  }
+
+  const orderStatus = String(orderData.status || "").toLowerCase();
+  if (!["paid", "processing", "completed"].includes(orderStatus)) {
+    return {
+      errors: { order_id: ["Purchase is not successful yet."] },
+      message: "You can only thank successful purchases",
+      data: {},
+    };
+  }
+
+  const gifterName = orderData
+    ? [orderData.gifter_firstname, orderData.gifter_lastname]
+        .filter(Boolean)
+        .join(" ")
+        .trim()
+    : "";
+  const buyerName = orderData
+    ? [orderData.buyer_firstname, orderData.buyer_lastname]
+        .filter(Boolean)
+        .join(" ")
+        .trim()
+    : "";
+  const recipientEmail =
+    orderData?.gifter_email ||
+    orderData?.buyer_email ||
+    "";
+  const recipientName = inputRecipientName || gifterName || buyerName || "";
+
+  if (!recipientEmail) {
+    return {
+      errors: { recipient_email: ["Recipient email is required."] },
+      message: "Recipient email is required",
+      data: {},
+    };
+  }
+
+  if (!emailSchema.safeParse(recipientEmail).success) {
+    return {
+      errors: { recipient_email: ["Recipient email is invalid."] },
+      message: "Recipient email is invalid",
+      data: {},
+    };
+  }
+
+  const sentAt = new Date().toISOString();
+  const thankYouPayload = {
+    registry_id: registryData.id,
+    order_id: orderData?.id || null,
+    created_by: profile.id,
+    recipient_email: recipientEmail,
+    recipient_name: recipientName || null,
+    message,
+    sent_at: sentAt,
+    created_at: sentAt,
+  };
+
+  const { data: thankYouData, error: thankYouError } = await supabase
+    .from("registry_thank_you")
+    .insert(thankYouPayload)
+    .select()
+    .single();
+
+  if (thankYouError) {
+    return {
+      errors: { recipient_email: [thankYouError.message] },
+      message: "Failed to save thank-you note",
+      data: {},
+    };
+  }
+
+  const hostName = getHostName(profile);
+
+  await sendRegistryThankYouEmail({
+    to: recipientEmail,
+    recipientName,
+    hostName,
+    registryTitle: registryData?.title,
+    message,
+  });
+
+  try {
+    const adminClient = createAdminClient();
+    const { data: recipientProfile } = await adminClient
+      .from("profiles")
+      .select("id")
+      .eq("email", recipientEmail)
+      .maybeSingle();
+
+    if (recipientProfile?.id) {
+      await adminClient.from("notifications").insert({
+        user_id: recipientProfile.id,
+        type: "registry_thank_you",
+        message: hostName
+          ? `${hostName} sent you a thank-you note.`
+          : "You received a thank-you note from Giftologi.",
+        read: false,
+        created_at: sentAt,
+        updated_at: sentAt,
+      });
+    }
+  } catch (error) {
+    console.error("Failed to create thank-you notification:", error);
+  }
+
+  if (registryData?.registry_code) {
+    revalidatePath(`/dashboard/h/registry/${registryData.registry_code}`);
+  }
+
+  return {
+    message: "Thank-you note sent successfully",
+    data: thankYouData || {},
     errors: {},
     status_code: 200,
   };

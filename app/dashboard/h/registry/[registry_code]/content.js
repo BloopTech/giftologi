@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useActionState } from "react";
+import React, { useState, useEffect, useActionState, useMemo } from "react";
 import Image from "next/image";
 import {
   PiFileImageLight,
@@ -24,6 +24,8 @@ import {
   updateDeliveryAddress,
   updateRegistryDetails,
   deleteRegistry,
+  sendRegistryInvites,
+  sendRegistryThankYou,
 } from "./action";
 import { toast } from "sonner";
 import { useHostRegistryCodeContext } from "./context";
@@ -60,6 +62,9 @@ export default function HostDashboardRegistryContent(props) {
     event: eventFromContext,
     deliveryAddress: deliveryAddressFromContext,
     registryItems,
+    registryInvites,
+    thankYouNotes,
+    registryOrders,
     totals,
     refresh,
   } = useHostRegistryCodeContext() || {};
@@ -86,6 +91,14 @@ export default function HostDashboardRegistryContent(props) {
     deleteRegistry,
     initialState,
   );
+  const [inviteState, inviteFormAction, isInvitePending] = useActionState(
+    sendRegistryInvites,
+    initialState,
+  );
+  const [thankYouState, thankYouFormAction, isThankYouPending] = useActionState(
+    sendRegistryThankYou,
+    initialState,
+  );
   const [cover_photo, setCoverPhoto] = useState(null);
   const [cover_photoInput, setCoverPhotoInput] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
@@ -95,7 +108,16 @@ export default function HostDashboardRegistryContent(props) {
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [welcomeNoteInput, setWelcomeNoteInput] = useState("");
   const [addressOpen, setAddressOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [thankYouOpen, setThankYouOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [inviteEmails, setInviteEmails] = useState("");
+  const [inviteMessage, setInviteMessage] = useState("");
+  const [selectedOrderId, setSelectedOrderId] = useState("");
+  const [thankYouRecipientEmail, setThankYouRecipientEmail] = useState("");
+  const [thankYouRecipientName, setThankYouRecipientName] = useState("");
+  const [thankYouMessage, setThankYouMessage] = useState("");
+  const [showThankYouSuggestions, setShowThankYouSuggestions] = useState(false);
   const [addressInput, setAddressInput] = useState({
     street_address: "",
     street_address_2: "",
@@ -216,10 +238,70 @@ export default function HostDashboardRegistryContent(props) {
   }, [deleteState, router]);
 
   useEffect(() => {
+    if (inviteState?.message && Object.keys(inviteState?.errors || {}).length > 0) {
+      toast.error(inviteState?.message);
+    }
+
+    if (inviteState?.message && inviteState?.status_code === 200) {
+      toast.success(inviteState?.message);
+      setInviteEmails("");
+      setInviteMessage("");
+      setInviteOpen(false);
+      refresh?.();
+    }
+  }, [inviteState, refresh]);
+
+  useEffect(() => {
+    if (
+      thankYouState?.message &&
+      Object.keys(thankYouState?.errors || {}).length > 0
+    ) {
+      toast.error(thankYouState?.message);
+    }
+
+    if (thankYouState?.message && thankYouState?.status_code === 200) {
+      toast.success(thankYouState?.message);
+      setSelectedOrderId("");
+      setThankYouRecipientEmail("");
+      setThankYouRecipientName("");
+      setThankYouMessage("");
+      setShowThankYouSuggestions(false);
+      setThankYouOpen(false);
+      refresh?.();
+    }
+  }, [thankYouState, refresh]);
+
+  useEffect(() => {
     if (!deleteOpen) {
       setDeleteConfirmText("");
     }
   }, [deleteOpen]);
+
+  useEffect(() => {
+    if (!selectedOrderId) return;
+    const orders = Array.isArray(registryOrders) ? registryOrders : [];
+    const order = orders.find((item) => item?.id === selectedOrderId);
+    if (!order) return;
+
+    const fallbackName = order.gifterAnonymous ? "Anonymous Gifter" : "";
+    setThankYouRecipientEmail(order.gifterEmail || order.buyerEmail || "");
+    setThankYouRecipientName(
+      order.gifterName || order.buyerName || fallbackName || ""
+    );
+    setShowThankYouSuggestions(false);
+  }, [selectedOrderId, registryOrders]);
+
+  const handleSelectThankYouRecipient = (recipient) => {
+    if (!recipient?.email) return;
+    setThankYouRecipientEmail(recipient.email);
+    setThankYouRecipientName(recipient.name || "");
+    if (recipient.orderId) {
+      setSelectedOrderId(recipient.orderId);
+    } else {
+      setSelectedOrderId("");
+    }
+    setShowThankYouSuggestions(false);
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -266,6 +348,53 @@ export default function HostDashboardRegistryContent(props) {
   const purchasedQty =
     totals?.purchasedQty ??
     products.reduce((s, p) => s + (p.purchased ?? 0), 0);
+  const inviteErrors = inviteState?.errors?.emails || [];
+  const thankYouEmailErrors = thankYouState?.errors?.recipient_email || [];
+  const thankYouMessageErrors = thankYouState?.errors?.message || [];
+  const inviteList = Array.isArray(registryInvites) ? registryInvites : [];
+  const thankYouList = Array.isArray(thankYouNotes) ? thankYouNotes : [];
+  const ordersList = Array.isArray(registryOrders) ? registryOrders : [];
+  const eligibleOrders = useMemo(
+    () =>
+      ordersList.filter((order) =>
+        ["paid", "completed", "processing"].includes(
+          String(order?.status || "").toLowerCase()
+        )
+      ),
+    [ordersList]
+  );
+  const thankYouRecipients = useMemo(() => {
+    const seen = new Set();
+    const recipients = [];
+    eligibleOrders.forEach((order) => {
+      const email = order?.gifterEmail || order?.buyerEmail;
+      if (!email || seen.has(email)) return;
+      const name =
+        order?.gifterName ||
+        order?.buyerName ||
+        (order?.gifterAnonymous ? "Anonymous Gifter" : "");
+      recipients.push({
+        email,
+        name,
+        orderId: order?.id || "",
+        label: `${email}${name ? ` · ${name}` : ""}`,
+      });
+      seen.add(email);
+    });
+    return recipients;
+  }, [eligibleOrders]);
+  const filteredThankYouRecipients = useMemo(() => {
+    const query = (thankYouRecipientEmail || "").trim().toLowerCase();
+    const matches = query
+      ? thankYouRecipients.filter((recipient) =>
+          `${recipient.email} ${recipient.name || ""}`
+            .toLowerCase()
+            .includes(query)
+        )
+      : thankYouRecipients;
+    return matches.slice(0, 5);
+  }, [thankYouRecipientEmail, thankYouRecipients]);
+  const hasSelectedPurchase = Boolean(selectedOrderId);
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
@@ -504,6 +633,136 @@ export default function HostDashboardRegistryContent(props) {
           </div>
         </div>
 
+        <div className="w-full space-y-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[#394B71] font-semibold">
+                Invitations & Thank-you notes
+              </p>
+              <p className="text-xs text-[#6B7280]">
+                Manage outreach and gratitude messages from quick dialogs.
+              </p>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 space-y-5">
+              <div>
+                <p className="text-[#394B71] font-semibold">Registry Invitations</p>
+                <p className="text-xs text-[#6B7280]">
+                  Send multiple invites with a personal message.
+                </p>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+                <div>
+                  <p className="text-sm font-medium text-[#111827]">
+                    {inviteList.length} invite{inviteList.length === 1 ? "" : "s"} sent
+                  </p>
+                  <p className="text-xs text-[#6B7280]">
+                    Share your registry with friends and family.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setInviteOpen(true)}
+                  className="cursor-pointer px-4 py-2 text-xs font-medium text-white bg-[#5CAE2D] border border-[#5CAE2D] rounded-full hover:bg-white hover:text-[#5CAE2D] transition-colors"
+                >
+                  New invite
+                </button>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-[#9CA3AF]">
+                  Recent invitations
+                </p>
+                {inviteList.length ? (
+                  <div className="mt-3 space-y-2">
+                    {inviteList.slice(0, 3).map((invite) => (
+                      <div
+                        key={invite.id}
+                        className="flex items-center justify-between rounded-xl bg-[#F9FAFB] px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm text-[#111827]">{invite.email}</p>
+                          <p className="text-xs text-[#6B7280]">
+                            {invite.invited_at
+                              ? format(new Date(invite.invited_at), "MMM d, yyyy")
+                              : ""}
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-[#5CAE2D]">
+                          {invite.status || "sent"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-[#9CA3AF]">
+                    No invitations yet.
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white border border-[#E5E7EB] rounded-2xl p-6 space-y-5">
+              <div>
+                <p className="text-[#394B71] font-semibold">Thank-you Notes</p>
+                <p className="text-xs text-[#6B7280]">
+                  Pick a gifter and send a warm thank-you note.
+                </p>
+              </div>
+              <div className="flex items-center justify-between rounded-2xl border border-[#E5E7EB] bg-[#F9FAFB] p-4">
+                <div>
+                  <p className="text-sm font-medium text-[#111827]">
+                    {thankYouList.length} note{thankYouList.length === 1 ? "" : "s"} sent
+                  </p>
+                  <p className="text-xs text-[#6B7280]">
+                    Choose a purchase or search for an email.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setThankYouOpen(true)}
+                  className="cursor-pointer px-4 py-2 text-xs font-medium text-white bg-[#247ACB] border border-[#247ACB] rounded-full hover:bg-white hover:text-[#247ACB] transition-colors"
+                >
+                  New thank-you
+                </button>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-[#9CA3AF]">
+                  Recent thank-you notes
+                </p>
+                {thankYouList.length ? (
+                  <div className="mt-3 space-y-2">
+                    {thankYouList.slice(0, 3).map((note) => (
+                      <div
+                        key={note.id}
+                        className="flex items-center justify-between rounded-xl bg-[#F9FAFB] px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm text-[#111827]">
+                            {note.recipient_name || note.recipient_email || "Recipient"}
+                          </p>
+                          <p className="text-xs text-[#6B7280]">
+                            {note.sent_at
+                              ? format(new Date(note.sent_at), "MMM d, yyyy")
+                              : "Draft"}
+                          </p>
+                        </div>
+                        <span className="text-xs font-medium text-[#247ACB]">
+                          Sent
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-[#9CA3AF]">
+                    No thank-you notes yet.
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {itemsCount === 0 ? (
           <div className="flex items-center justify-center mx-auto max-w-md w-full rounded-4xl border border-[#A9C4FC] px-4 py-8 bg-white flex-col space-y-4">
             <div className="inline-block">
@@ -640,6 +899,208 @@ export default function HostDashboardRegistryContent(props) {
                 className="px-5 py-2 text-sm font-medium text-white bg-[#A5914B] border border-[#A5914B] rounded-full hover:bg-white hover:text-[#A5914B] transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isWelcomePending ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={inviteOpen} onOpenChange={setInviteOpen}>
+        <DialogContent className="w-full max-w-xl rounded-2xl shadow-xl p-6">
+          <DialogClose className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 transition-colors cursor-pointer">
+            <X className="h-5 w-5 text-gray-500" />
+          </DialogClose>
+
+          <DialogTitle className="text-xl font-semibold text-gray-900 mb-2">
+            Send registry invitations
+          </DialogTitle>
+          <p className="text-sm text-gray-500 mb-4">
+            Invite friends and family with a short note.
+          </p>
+
+          <form action={inviteFormAction} className="space-y-4">
+            <input type="hidden" name="registry_id" value={registry?.id || ""} readOnly />
+            <input type="hidden" name="event_id" value={event?.id || ""} readOnly />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900">
+                Email addresses
+              </label>
+              <textarea
+                name="emails"
+                value={inviteEmails}
+                onChange={(e) => setInviteEmails(e.target.value)}
+                rows={4}
+                placeholder="Enter emails separated by commas or new lines"
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                disabled={isInvitePending}
+              />
+              {inviteErrors.length ? (
+                <ul className="list-disc pl-5 text-xs text-red-600">
+                  {inviteErrors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900">
+                Personal message (optional)
+              </label>
+              <textarea
+                name="message"
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+                rows={3}
+                placeholder="Add a short note to include in the invite"
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                disabled={isInvitePending}
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="px-5 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={isInvitePending}
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={isInvitePending}
+                className="px-5 py-2 text-sm font-medium text-white bg-[#5CAE2D] border border-[#5CAE2D] rounded-full hover:bg-white hover:text-[#5CAE2D] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isInvitePending ? "Sending..." : "Send invites"}
+              </button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={thankYouOpen} onOpenChange={setThankYouOpen}>
+        <DialogContent className="w-full max-w-2xl rounded-2xl shadow-xl p-6">
+          <DialogClose className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 transition-colors cursor-pointer">
+            <X className="h-5 w-5 text-gray-500" />
+          </DialogClose>
+
+          <DialogTitle className="text-xl font-semibold text-gray-900 mb-2">
+            Send a thank-you note
+          </DialogTitle>
+          <p className="text-sm text-gray-500 mb-4">
+            Search for a purchase email or pick a purchase below.
+          </p>
+
+          <form action={thankYouFormAction} className="space-y-4">
+            <input type="hidden" name="registry_id" value={registry?.id || ""} readOnly />
+            <input type="hidden" name="event_id" value={event?.id || ""} readOnly />
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900">Purchase</label>
+              <select
+                name="order_id"
+                value={selectedOrderId}
+                onChange={(e) => setSelectedOrderId(e.target.value)}
+                className="w-full rounded-full border border-gray-300 px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition hover:border-gray-400"
+                disabled={isThankYouPending}
+              >
+                <option value="" disabled>
+                  Select a purchase
+                </option>
+                {eligibleOrders.length ? (
+                  eligibleOrders.map((order) => {
+                    const nameLabel =
+                      order.gifterName ||
+                      order.buyerName ||
+                      (order.gifterAnonymous ? "Anonymous Gifter" : "Guest");
+                    const dateLabel = order.createdAt
+                      ? format(new Date(order.createdAt), "MMM d, yyyy")
+                      : "";
+                    return (
+                      <option key={order.id} value={order.id}>
+                        {`Order ${order.id.slice(0, 6)} · ${nameLabel} ${dateLabel ? `· ${dateLabel}` : ""}`}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <option value="" disabled>
+                    No successful purchases yet
+                  </option>
+                )}
+              </select>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2 relative">
+                <label className="text-sm font-medium text-gray-900">
+                  Recipient email
+                </label>
+                <input
+                  type="email"
+                  name="recipient_email"
+                  value={thankYouRecipientEmail}
+                  readOnly
+                  placeholder={
+                    hasSelectedPurchase
+                      ? "Recipient email"
+                      : "Select a purchase to load the recipient"
+                  }
+                  className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                  disabled={isThankYouPending}
+                />
+                {thankYouEmailErrors.length ? (
+                  <ul className="list-disc pl-5 text-xs text-red-600">
+                    {thankYouEmailErrors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+              <FormInput
+                label="Recipient name"
+                name="recipient_name"
+                placeholder="Full name"
+                optional
+                value={thankYouRecipientName}
+                onChange={(e) => setThankYouRecipientName(e.target.value)}
+                disabled={isThankYouPending}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-900">
+                Thank-you message
+              </label>
+              <textarea
+                name="message"
+                value={thankYouMessage}
+                onChange={(e) => setThankYouMessage(e.target.value)}
+                rows={4}
+                placeholder="Write your thank-you note"
+                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
+                disabled={isThankYouPending}
+              />
+              {thankYouMessageErrors.length ? (
+                <ul className="list-disc pl-5 text-xs text-red-600">
+                  {thankYouMessageErrors.map((err, idx) => (
+                    <li key={idx}>{err}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <DialogClose asChild>
+                <button
+                  type="button"
+                  className="px-5 py-2 text-sm font-medium text-gray-600 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors cursor-pointer disabled:opacity-50"
+                  disabled={isThankYouPending}
+                >
+                  Cancel
+                </button>
+              </DialogClose>
+              <button
+                type="submit"
+                disabled={isThankYouPending || !hasSelectedPurchase}
+                className="px-5 py-2 text-sm font-medium text-white bg-[#247ACB] border border-[#247ACB] rounded-full hover:bg-white hover:text-[#247ACB] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isThankYouPending ? "Sending..." : "Send thank-you"}
               </button>
             </div>
           </form>

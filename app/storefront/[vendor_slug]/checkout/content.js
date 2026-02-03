@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useActionState } from "react";
+import React, { useState, useCallback, useActionState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,6 +19,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { processStorefrontCheckout } from "./actions";
+import { getGuestIdentifier } from "../../../utils/guest";
 
 const SHIPPING_REGIONS = [
   { id: "accra", name: "Greater Accra", fee: 25 },
@@ -42,10 +43,34 @@ export default function CheckoutContent({
   product,
   initialQuantity,
   selectedVariation,
+  cartMode = false,
 }) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(initialQuantity);
   const [selectedRegion, setSelectedRegion] = useState(SHIPPING_REGIONS[0]);
+  const [shippingQuote, setShippingQuote] = useState({
+    amount: null,
+    loading: false,
+    error: null,
+  });
+  const [guestBrowserId, setGuestBrowserId] = useState("");
+  const [cartState, setCartState] = useState({
+    items: [],
+    subtotal: 0,
+    loading: false,
+    error: null,
+  });
+  const [cartActionState, setCartActionState] = useState({
+    loading: false,
+    itemId: null,
+    error: null,
+  });
+  const [giftWrapOptions, setGiftWrapOptions] = useState([]);
+  const [giftWrapState, setGiftWrapState] = useState({
+    loading: false,
+    error: null,
+  });
+  const [selectedGiftWrapOptionId, setSelectedGiftWrapOptionId] = useState("");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -65,9 +90,12 @@ export default function CheckoutContent({
     : Number.isFinite(basePrice)
     ? basePrice
     : 0;
-  const subtotal = unitPrice * quantity;
-  const shippingFee = selectedRegion.fee;
-  const total = subtotal + shippingFee;
+  const cartSubtotal = Number(cartState.subtotal) || 0;
+  const subtotal = cartMode ? cartSubtotal : unitPrice * quantity;
+  const fallbackShippingFee = selectedRegion.fee;
+  const shippingFee = Number.isFinite(shippingQuote.amount)
+    ? shippingQuote.amount
+    : fallbackShippingFee;
 
   const [state, formAction, isPending] = useActionState(
     processStorefrontCheckout,
@@ -79,11 +107,12 @@ export default function CheckoutContent({
       setQuantity((prev) => {
         const next = prev + delta;
         if (next < 1) return 1;
-        if (next > product.stock) return product.stock;
+        const stockLimit = Number(product?.stock ?? 0);
+        if (stockLimit > 0 && next > stockLimit) return stockLimit;
         return next;
       });
     },
-    [product.stock]
+    [product?.stock]
   );
 
   const handleInputChange = useCallback((e) => {
@@ -95,6 +124,286 @@ export default function CheckoutContent({
     const region = SHIPPING_REGIONS.find((r) => r.id === e.target.value);
     if (region) setSelectedRegion(region);
   }, []);
+
+  useEffect(() => {
+    if (!cartMode) return;
+    let active = true;
+    const resolveGuestId = async () => {
+      const id = await getGuestIdentifier();
+      if (active && id) setGuestBrowserId(id);
+    };
+    resolveGuestId();
+    return () => {
+      active = false;
+    };
+  }, [cartMode]);
+
+  useEffect(() => {
+    let active = true;
+    const loadGiftWrapOptions = async () => {
+      setGiftWrapState({ loading: true, error: null });
+      try {
+        const response = await fetch("/api/gift-wrap-options");
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || "Failed to load gift wrap options.");
+        }
+        if (!active) return;
+        setGiftWrapOptions(Array.isArray(payload?.options) ? payload.options : []);
+        setGiftWrapState({ loading: false, error: null });
+      } catch (error) {
+        if (!active) return;
+        setGiftWrapState({
+          loading: false,
+          error: error?.message || "Failed to load gift wrap options.",
+        });
+      }
+    };
+
+    loadGiftWrapOptions();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const fetchCart = useCallback(
+    async (shouldAbort) => {
+      if (!cartMode || !vendor?.slug) return;
+      setCartState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const url = new URL("/api/storefront/cart", window.location.origin);
+        url.searchParams.set("vendor_slug", vendor.slug);
+        if (guestBrowserId) {
+          url.searchParams.set("guest_browser_id", guestBrowserId);
+        }
+        const response = await fetch(url.toString(), { method: "GET" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || "Failed to load cart.");
+        }
+        if (shouldAbort?.()) return;
+        setCartState({
+          items: Array.isArray(payload?.items) ? payload.items : [],
+          subtotal: Number(payload?.subtotal) || 0,
+          loading: false,
+          error: null,
+        });
+      } catch (error) {
+        if (shouldAbort?.()) return;
+        setCartState((prev) => ({
+          ...prev,
+          loading: false,
+          error: error?.message || "Failed to load cart.",
+        }));
+      }
+    },
+    [cartMode, vendor?.slug, guestBrowserId]
+  );
+
+  useEffect(() => {
+    if (!cartMode || !vendor?.slug) return;
+    let cancelled = false;
+    fetchCart(() => cancelled);
+    return () => {
+      cancelled = true;
+    };
+  }, [cartMode, vendor?.slug, guestBrowserId, fetchCart]);
+
+  const updateCartItemQuantity = useCallback(
+    async (itemId, nextQuantity) => {
+      if (!itemId) return;
+      setCartActionState({ loading: true, itemId, error: null });
+      try {
+        const response = await fetch("/api/storefront/cart", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            cartItemId: itemId,
+            quantity: nextQuantity,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || "Failed to update cart.");
+        }
+        await fetchCart();
+        setCartActionState({ loading: false, itemId: null, error: null });
+      } catch (error) {
+        setCartActionState({
+          loading: false,
+          itemId: null,
+          error: error?.message || "Failed to update cart.",
+        });
+      }
+    },
+    [fetchCart]
+  );
+
+  const updateCartItemGiftWrap = useCallback(
+    async (itemId, optionId) => {
+      if (!itemId) return;
+      setCartActionState({ loading: true, itemId, error: null });
+      try {
+        const response = await fetch("/api/storefront/cart", {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            cartItemId: itemId,
+            giftWrapOptionId: optionId || null,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || "Failed to update gift wrap.");
+        }
+        await fetchCart();
+        setCartActionState({ loading: false, itemId: null, error: null });
+      } catch (error) {
+        setCartActionState({
+          loading: false,
+          itemId: null,
+          error: error?.message || "Failed to update gift wrap.",
+        });
+      }
+    },
+    [fetchCart]
+  );
+
+  const handleRemoveItem = useCallback(
+    (itemId) => {
+      updateCartItemQuantity(itemId, 0);
+    },
+    [updateCartItemQuantity]
+  );
+
+  const cartItems = useMemo(
+    () => (cartMode ? cartState.items : []),
+    [cartMode, cartState.items]
+  );
+  const totalPieces = useMemo(() => {
+    if (cartMode) {
+      return cartItems.reduce(
+        (sum, item) => sum + (Number(item?.quantity) || 0),
+        0
+      );
+    }
+    return quantity;
+  }, [cartMode, cartItems, quantity]);
+  const giftWrapOptionMap = useMemo(() => {
+    const map = new Map();
+    (giftWrapOptions || []).forEach((option) => {
+      if (option?.id) map.set(option.id, option);
+    });
+    return map;
+  }, [giftWrapOptions]);
+  const giftWrapFee = useMemo(() => {
+    if (cartMode) {
+      return cartItems.reduce((sum, item) => {
+        const option = giftWrapOptionMap.get(item?.gift_wrap_option_id);
+        const fee = Number(option?.fee || 0);
+        return sum + fee * (item?.quantity || 0);
+      }, 0);
+    }
+    if (!selectedGiftWrapOptionId) return 0;
+    const option = giftWrapOptionMap.get(selectedGiftWrapOptionId);
+    const fee = Number(option?.fee || 0);
+    return fee * quantity;
+  }, [cartMode, cartItems, giftWrapOptionMap, selectedGiftWrapOptionId, quantity]);
+  const originAddress = useMemo(
+    () => ({
+      line1: vendor?.address_street || "",
+      line2: vendor?.digital_address || "",
+      city: vendor?.address_city || "",
+      state: vendor?.address_state || "",
+      postalCode: "",
+      countryCode: vendor?.address_country || "GH",
+    }),
+    [vendor]
+  );
+  const destinationAddress = useMemo(
+    () => ({
+      line1: formData.address || "",
+      line2: formData.digitalAddress || "",
+      city: formData.city || "",
+      state: selectedRegion?.name || formData.region || "",
+      postalCode: "",
+      countryCode: vendor?.address_country || "GH",
+    }),
+    [formData.address, formData.city, formData.digitalAddress, formData.region, selectedRegion?.name, vendor?.address_country]
+  );
+  useEffect(() => {
+    if (cartMode && (cartLoading || cartUpdating)) return;
+    if (!originAddress.line1 || !originAddress.city) return;
+    if (!destinationAddress.line1 || !destinationAddress.city || !destinationAddress.state) {
+      setShippingQuote((prev) => ({ ...prev, amount: null, error: null }));
+      return;
+    }
+
+    let cancelled = false;
+    const timeoutId = setTimeout(async () => {
+      setShippingQuote({ amount: null, loading: true, error: null });
+      try {
+        const response = await fetch("/api/shipping/aramex/rate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            origin: originAddress,
+            destination: destinationAddress,
+            shipment: {
+              weight: Math.max(1, totalPieces || 1),
+              numberOfPieces: Math.max(1, totalPieces || 1),
+              goodsValue: subtotal,
+              currency: "GHS",
+            },
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            payload?.details || payload?.error || "Failed to fetch shipping rate."
+          );
+        }
+        if (!cancelled) {
+          setShippingQuote({
+            amount: Number(payload?.amount) || null,
+            loading: false,
+            error: null,
+          });
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setShippingQuote({
+            amount: null,
+            loading: false,
+            error: error?.message || "Failed to fetch shipping rate.",
+          });
+        }
+      }
+    }, 600);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timeoutId);
+    };
+  }, [
+    cartMode,
+    cartLoading,
+    cartUpdating,
+    originAddress,
+    destinationAddress,
+    subtotal,
+    totalPieces,
+  ]);
+  const cartHasItems = cartItems.length > 0;
+  const cartLoading = cartMode && cartState.loading;
+  const cartUpdating = cartMode && cartActionState.loading;
+  const total = subtotal + shippingFee + giftWrapFee;
 
   if (state.success && state.checkoutUrl) {
     return (
@@ -128,11 +437,17 @@ export default function CheckoutContent({
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <Link
-            href={`/storefront/${vendor.slug}/${product.id}`}
+            href={
+              cartMode
+                ? `/storefront/${vendor.slug}`
+                : `/storefront/${vendor.slug}/${product?.id}`
+            }
             className="flex items-center gap-2 text-gray-600 hover:text-[#A5914B] transition-colors"
           >
             <ChevronLeft className="size-5" />
-            <span className="text-sm font-medium">Back to Product</span>
+            <span className="text-sm font-medium">
+              {cartMode ? "Back to Store" : "Back to Product"}
+            </span>
           </Link>
           <div className="flex items-center gap-2">
             <Lock className="size-4 text-green-600" />
@@ -378,58 +693,211 @@ export default function CheckoutContent({
                 </span>
               </div>
 
-              {/* Product */}
-              <div className="py-4 border-b border-gray-100">
-                <div className="flex gap-4">
-                  <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
-                    <Image
-                      src={product.image}
-                      alt={product.name}
-                      width={80}
-                      height={80}
-                      className="object-contain w-full h-full p-1"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                      {product.name}
-                    </p>
-                    <p className="text-sm text-[#A5914B] font-semibold mt-1">
-                      {formatPrice(unitPrice)}
-                    </p>
-                    {selectedVariation?.label && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        {selectedVariation.label}
-                      </p>
-                    )}
-                  </div>
-                </div>
+              {/* Product / Cart Items */}
+              <div className="py-4 border-b border-gray-100 space-y-4">
+                {cartMode ? (
+                  cartLoading ? (
+                    <div className="text-sm text-gray-500">Loading cart...</div>
+                  ) : cartState.error ? (
+                    <div className="text-sm text-red-600">{cartState.error}</div>
+                  ) : cartHasItems ? (
+                    <div className="space-y-4">
+                      {cartItems.map((item) => {
+                        const itemImage =
+                          item?.product?.images?.[0] || "/host/toaster.png";
+                        const itemName = item?.product?.name || "Product";
+                        const itemPrice = Number(item?.price || 0);
+                        const itemTotal = itemPrice * (item.quantity || 0);
+                        const isUpdating =
+                          cartActionState.loading && cartActionState.itemId === item.id;
+                        return (
+                          <div key={item.id} className="flex gap-4">
+                            <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
+                              <Image
+                                src={itemImage}
+                                alt={itemName}
+                                width={64}
+                                height={64}
+                                className="object-contain w-full h-full p-1"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-0 space-y-2">
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                                  {itemName}
+                                </p>
+                                <p className="text-xs text-gray-500">
+                                  {item?.variation?.label
+                                    ? `Variant: ${item.variation.label}`
+                                    : ""}
+                                </p>
+                              </div>
+                              {giftWrapOptions.length ? (
+                                <div className="space-y-1">
+                                  <label className="text-xs text-gray-500">
+                                    Gift wrap
+                                  </label>
+                                  <select
+                                    value={item?.gift_wrap_option_id || ""}
+                                    onChange={(e) =>
+                                      updateCartItemGiftWrap(item.id, e.target.value)
+                                    }
+                                    disabled={isUpdating || giftWrapState.loading}
+                                    className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm outline-none transition hover:border-gray-300 disabled:opacity-50"
+                                  >
+                                    <option value="">No gift wrap</option>
+                                    {giftWrapOptions.map((option) => (
+                                      <option key={option.id} value={option.id}>
+                                        {option.name} (+{formatPrice(option.fee)})
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ) : giftWrapState.loading ? (
+                                <p className="text-xs text-gray-400">
+                                  Loading gift wrap options...
+                                </p>
+                              ) : giftWrapState.error ? (
+                                <p className="text-xs text-red-500">
+                                  {giftWrapState.error}
+                                </p>
+                              ) : null}
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center border border-gray-200 rounded-lg">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateCartItemQuantity(item.id, (item.quantity || 1) - 1)
+                                    }
+                                    disabled={isUpdating || (item.quantity || 1) <= 1}
+                                    className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Minus className="size-3" />
+                                  </button>
+                                  <span className="w-8 text-center text-sm font-medium">
+                                    {item.quantity}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      updateCartItemQuantity(item.id, (item.quantity || 0) + 1)
+                                    }
+                                    disabled={isUpdating}
+                                    className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    <Plus className="size-3" />
+                                  </button>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  disabled={isUpdating}
+                                  className="text-xs text-red-500 hover:text-red-600 disabled:opacity-50"
+                                >
+                                  Remove
+                                </button>
+                                {isUpdating && (
+                                  <Loader2 className="size-4 animate-spin text-gray-400" />
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-sm font-semibold text-[#A5914B]">
+                              {formatPrice(itemTotal)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {cartActionState.error && (
+                        <p className="text-xs text-red-600">
+                          {cartActionState.error}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-gray-500">
+                      Your cart is empty.
+                    </div>
+                  )
+                ) : (
+                  <>
+                    <div className="flex gap-4">
+                      <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
+                        <Image
+                          src={product.image}
+                          alt={product.name}
+                          width={80}
+                          height={80}
+                          className="object-contain w-full h-full p-1"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-2">
+                          {product.name}
+                        </p>
+                        <p className="text-sm text-[#A5914B] font-semibold mt-1">
+                          {formatPrice(unitPrice)}
+                        </p>
+                        {selectedVariation?.label && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            {selectedVariation.label}
+                          </p>
+                        )}
+                      </div>
+                    </div>
 
-                {/* Quantity */}
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-sm text-gray-600">Quantity:</span>
-                  <div className="flex items-center border border-gray-300 rounded-lg">
-                    <button
-                      type="button"
-                      onClick={() => handleQuantityChange(-1)}
-                      disabled={quantity <= 1}
-                      className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Minus className="size-3" />
-                    </button>
-                    <span className="w-8 text-center text-sm font-medium">
-                      {quantity}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => handleQuantityChange(1)}
-                      disabled={quantity >= product.stock}
-                      className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                    >
-                      <Plus className="size-3" />
-                    </button>
-                  </div>
-                </div>
+                    {/* Quantity */}
+                    <div className="flex items-center justify-between mt-4">
+                      <span className="text-sm text-gray-600">Quantity:</span>
+                      <div className="flex items-center border border-gray-300 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(-1)}
+                          disabled={quantity <= 1}
+                          className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Minus className="size-3" />
+                        </button>
+                        <span className="w-8 text-center text-sm font-medium">
+                          {quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleQuantityChange(1)}
+                          disabled={quantity >= product.stock}
+                          className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <Plus className="size-3" />
+                        </button>
+                      </div>
+                    </div>
+                    {giftWrapOptions.length ? (
+                      <div className="mt-4 space-y-2">
+                        <label className="text-sm text-gray-600">Gift wrap</label>
+                        <select
+                          value={selectedGiftWrapOptionId}
+                          onChange={(e) => setSelectedGiftWrapOptionId(e.target.value)}
+                          disabled={giftWrapState.loading}
+                          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm outline-none transition hover:border-gray-400 disabled:opacity-50"
+                        >
+                          <option value="">No gift wrap</option>
+                          {giftWrapOptions.map((option) => (
+                            <option key={option.id} value={option.id}>
+                              {option.name} (+{formatPrice(option.fee)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : giftWrapState.loading ? (
+                      <p className="mt-3 text-xs text-gray-500">
+                        Loading gift wrap options...
+                      </p>
+                    ) : giftWrapState.error ? (
+                      <p className="mt-3 text-xs text-red-500">
+                        {giftWrapState.error}
+                      </p>
+                    ) : null}
+                  </>
+                )}
               </div>
 
               {/* Totals */}
@@ -442,6 +910,12 @@ export default function CheckoutContent({
                   <span className="text-gray-600">Shipping</span>
                   <span className="font-medium">{formatPrice(shippingFee)}</span>
                 </div>
+                {giftWrapFee > 0 ? (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Gift wrapping</span>
+                    <span className="font-medium">{formatPrice(giftWrapFee)}</span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-100">
                   <span>Total</span>
                   <span className="text-[#A5914B]">{formatPrice(total)}</span>
@@ -451,23 +925,40 @@ export default function CheckoutContent({
               {/* Hidden fields */}
               <input type="hidden" name="vendorId" value={vendor.id} />
               <input type="hidden" name="vendorSlug" value={vendor.slug} />
-              <input type="hidden" name="productId" value={product.id} />
-              <input type="hidden" name="quantity" value={quantity} />
-              <input type="hidden" name="subtotal" value={subtotal} />
-              <input
-                type="hidden"
-                name="variantKey"
-                value={selectedVariation?.key || ""}
-              />
-              <input
-                type="hidden"
-                name="variation"
-                value={
-                  selectedVariation?.raw
-                    ? JSON.stringify(selectedVariation.raw)
-                    : ""
-                }
-              />
+              {cartMode ? (
+                <>
+                  <input type="hidden" name="cartMode" value="1" />
+                  <input type="hidden" name="guestBrowserId" value={guestBrowserId} />
+                  <input type="hidden" name="subtotal" value={subtotal} />
+                  <input type="hidden" name="giftWrapFee" value={giftWrapFee} />
+                </>
+              ) : (
+                <>
+                  <input type="hidden" name="productId" value={product.id} />
+                  <input type="hidden" name="quantity" value={quantity} />
+                  <input type="hidden" name="subtotal" value={subtotal} />
+                  <input
+                    type="hidden"
+                    name="giftWrapOptionId"
+                    value={selectedGiftWrapOptionId}
+                  />
+                  <input
+                    type="hidden"
+                    name="variantKey"
+                    value={selectedVariation?.key || ""}
+                  />
+                  <input
+                    type="hidden"
+                    name="variation"
+                    value={
+                      selectedVariation?.raw
+                        ? JSON.stringify(selectedVariation.raw)
+                        : ""
+                    }
+                  />
+                </>
+              )}
+              <input type="hidden" name="giftWrapFee" value={giftWrapFee} />
               <input type="hidden" name="shippingFee" value={shippingFee} />
               <input type="hidden" name="shippingRegion" value={selectedRegion.name} />
               <input type="hidden" name="total" value={total} />
@@ -475,7 +966,10 @@ export default function CheckoutContent({
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={
+                  isPending ||
+                  (cartMode && (!cartHasItems || cartLoading || cartUpdating))
+                }
                 className="w-full mt-4 bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isPending ? (

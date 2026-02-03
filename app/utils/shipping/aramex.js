@@ -3,6 +3,8 @@ const DEFAULT_CURRENCY = "GHS";
 const DEFAULT_WEIGHT_UNIT = "KG";
 const DEFAULT_REPORT_ID = "9729";
 const DEFAULT_REPORT_TYPE = "URL";
+const DEFAULT_RATE_SOAP_ACTION =
+  "http://ws.dev.aramex.net/ShippingAPI/v1/Service_1_0/CalculateRate";
 
 const getRequiredEnv = (key) => {
   const value = process.env[key];
@@ -56,6 +58,16 @@ const buildPartyXml = (party) => {
     </Contact>
   `;
 };
+
+const buildAddressXml = (address) => `
+  <Line1>${escapeXml(address?.line1 || address?.address || "")}</Line1>
+  <Line2>${escapeXml(address?.line2 || "")}</Line2>
+  <Line3>${escapeXml(address?.line3 || "")}</Line3>
+  <City>${escapeXml(address?.city)}</City>
+  <StateOrProvinceCode>${escapeXml(address?.state)}</StateOrProvinceCode>
+  <PostCode>${escapeXml(address?.postalCode)}</PostCode>
+  <CountryCode>${escapeXml(address?.countryCode)}</CountryCode>
+`;
 
 const getClientInfoXml = () => {
   const username = getRequiredEnv("ARAMEX_USERNAME");
@@ -225,5 +237,95 @@ export const trackAramexShipment = async ({ trackingNumber }) => {
     hasErrors,
     description,
     updateDate,
+  };
+};
+
+export const calculateAramexRate = async ({
+  origin,
+  destination,
+  shipment,
+  reference,
+}) => {
+  const rateUrl =
+    process.env.ARAMEX_RATE_URL || getRequiredEnv("ARAMEX_SHIPPING_URL");
+  const soapAction =
+    process.env.ARAMEX_RATE_SOAP_ACTION || DEFAULT_RATE_SOAP_ACTION;
+  const productGroup = shipment?.productGroup || process.env.ARAMEX_PRODUCT_GROUP || "EXP";
+  const productType = shipment?.productType || process.env.ARAMEX_PRODUCT_TYPE || "PPX";
+  const paymentType = shipment?.paymentType || process.env.ARAMEX_PAYMENT_TYPE || "P";
+  const currency = shipment?.currency || process.env.ARAMEX_CURRENCY || DEFAULT_CURRENCY;
+  const weightUnit = shipment?.weightUnit || DEFAULT_WEIGHT_UNIT;
+  const weightValue = Number.isFinite(Number(shipment?.weight))
+    ? Number(shipment.weight)
+    : 1;
+
+  const detailsXml = `
+    <ShipmentDetails>
+      <Dimensions>
+        <Length>${escapeXml(shipment?.dimensions?.length || 0)}</Length>
+        <Width>${escapeXml(shipment?.dimensions?.width || 0)}</Width>
+        <Height>${escapeXml(shipment?.dimensions?.height || 0)}</Height>
+        <Unit>${escapeXml(shipment?.dimensions?.unit || "CM")}</Unit>
+      </Dimensions>
+      <ActualWeight>
+        <Unit>${escapeXml(weightUnit)}</Unit>
+        <Value>${escapeXml(weightValue)}</Value>
+      </ActualWeight>
+      <ChargeableWeight>
+        <Unit>${escapeXml(weightUnit)}</Unit>
+        <Value>${escapeXml(weightValue)}</Value>
+      </ChargeableWeight>
+      <DescriptionOfGoods>${escapeXml(shipment?.description || "Gift items")}</DescriptionOfGoods>
+      <GoodsOriginCountry>${escapeXml(
+        shipment?.originCountryCode || origin?.countryCode || "GH"
+      )}</GoodsOriginCountry>
+      <NumberOfPieces>${escapeXml(shipment?.numberOfPieces || 1)}</NumberOfPieces>
+      <ProductGroup>${escapeXml(productGroup)}</ProductGroup>
+      <ProductType>${escapeXml(productType)}</ProductType>
+      <PaymentType>${escapeXml(paymentType)}</PaymentType>
+      <CustomsValueAmount>
+        <Value>${escapeXml(shipment?.goodsValue || shipment?.declaredValue || 0)}</Value>
+        <CurrencyCode>${escapeXml(currency)}</CurrencyCode>
+      </CustomsValueAmount>
+    </ShipmentDetails>
+  `;
+
+  const body = `
+    <RateCalculatorRequest xmlns="http://ws.aramex.net/ShippingAPI/v1/">
+      ${getClientInfoXml()}
+      <Transaction>
+        <Reference1>${escapeXml(reference || "")}</Reference1>
+      </Transaction>
+      <OriginAddress>
+        ${buildAddressXml(origin)}
+      </OriginAddress>
+      <DestinationAddress>
+        ${buildAddressXml(destination)}
+      </DestinationAddress>
+      ${detailsXml}
+    </RateCalculatorRequest>
+  `;
+
+  const xml = await requestAramex({
+    url: rateUrl,
+    action: soapAction,
+    body: buildSoapEnvelope(body),
+  });
+
+  const hasErrors = /<HasErrors>true<\/HasErrors>/i.test(xml);
+  const notifications = getXmlValues(xml, "Notification");
+  const message = getXmlValue(xml, "Message");
+  const totalAmountXml = getXmlValue(xml, "TotalAmount");
+  const totalValue = totalAmountXml ? getXmlValue(totalAmountXml, "Value") : "";
+  const totalCurrency = totalAmountXml
+    ? getXmlValue(totalAmountXml, "CurrencyCode")
+    : "";
+
+  return {
+    raw: xml,
+    hasErrors,
+    message: message || notifications.join(" ").trim(),
+    totalAmount: totalValue ? Number(totalValue) : null,
+    currency: totalCurrency || currency,
   };
 };

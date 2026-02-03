@@ -19,6 +19,7 @@ import { UserProfileDesktop, UserProfileMobile } from "./userProfile";
 import { useNavigationData } from "./utils";
 import { DropdownTheme, DropdownUserProfile } from "./dropdownUserProfile";
 import { createClient } from "../../../../../utils/supabase/client";
+import NotificationBell from "../../../../../components/NotificationBell";
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -192,6 +193,9 @@ export default function AdminSidebar() {
               );
             })}
           </nav>
+          <div className="px-4 mb-6">
+            <NotificationBell userId={userData?.id} variant="sidebar" />
+          </div>
           <div>
             <CloseShopButton />
           </div>

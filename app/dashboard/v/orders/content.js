@@ -76,6 +76,17 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
     ? `${order.registryOwner.firstname || ""} ${order.registryOwner.lastname || ""}`.trim()
     : null;
 
+  const giftWrapFee = Number(order.giftWrapOption?.fee || 0);
+  const giftWrapLabel = order.giftWrapOption?.name
+    ? `${order.giftWrapOption.name}${
+        Number.isFinite(giftWrapFee) && giftWrapFee > 0
+          ? ` (${formatCurrency(giftWrapFee)})`
+          : ""
+      }`
+    : order.wrapping
+    ? "Gift wrap selected"
+    : "No gift wrap";
+
   const statusOptions = [
     { value: "pending", label: "Pending", icon: PiClock },
     { value: "confirmed", label: "Confirmed", icon: PiCheckCircle },
@@ -130,6 +141,10 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
                 <span className="text-[#111827] text-sm">
                   {formatCurrency(order.price)}
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#6B7280] text-sm">Gift wrap:</span>
+                <span className="text-[#111827] text-sm">{giftWrapLabel}</span>
               </div>
               <div className="flex justify-between pt-2 border-t border-[#E5E7EB]">
                 <span className="text-[#6B7280] text-sm font-medium">

@@ -331,6 +331,17 @@ export default function TransactionDetailsContent({ transaction }) {
           ? unitPriceValue * qtyRaw
           : 0;
 
+      const wrapFeeValue = Number(item?.gift_wrap_options?.fee || 0);
+      const wrapLabel = item?.gift_wrap_options?.name
+        ? `${item.gift_wrap_options.name}${
+            Number.isFinite(wrapFeeValue) && wrapFeeValue > 0
+              ? ` (${formatCurrencyGHS(wrapFeeValue)})`
+              : ""
+          }`
+        : item.wrapping
+        ? "Gift wrap selected"
+        : "";
+
       return {
         id: item.id || String(index),
         name,
@@ -339,6 +350,7 @@ export default function TransactionDetailsContent({ transaction }) {
         unitPriceLabel: formatCurrencyGHS(unitPriceValue),
         subtotalLabel: formatCurrencyGHS(subtotalValue),
         wrapping: !!item.wrapping,
+        giftWrapLabel: wrapLabel,
         giftMessage: item.gift_message || "",
       };
     });
@@ -770,6 +782,11 @@ function OrderItemsSection({ loading, items }) {
                             Gift message: {item.giftMessage}
                           </span>
                         )}
+                        {item.giftWrapLabel ? (
+                          <span className="text-[10px] text-[#6A7282]">
+                            Gift wrap: {item.giftWrapLabel}
+                          </span>
+                        ) : null}
                       </div>
                     </td>
                     <td className="px-4 py-2 text-xs text-[#0A0A0A]">

@@ -97,10 +97,10 @@ export async function POST(request) {
       // Get order items
       const { data: orderItems } = await supabase
         .from("order_items")
-        .select("product_id, quantity")
+        .select("product_id, quantity, registry_item_id")
         .eq("order_id", order.id);
 
-      // Update stock for each product
+      // Update stock for each product + registry purchased quantities
       if (orderItems) {
         for (const item of orderItems) {
           // Get current stock and decrement
@@ -116,6 +116,27 @@ export async function POST(request) {
               .from("products")
               .update({ stock_qty: newStock, updated_at: new Date().toISOString() })
               .eq("id", item.product_id);
+          }
+
+          if (item.registry_item_id) {
+            const { data: registryItem } = await supabase
+              .from("registry_items")
+              .select("purchased_qty")
+              .eq("id", item.registry_item_id)
+              .single();
+
+            if (registryItem) {
+              const newPurchasedQty =
+                (registryItem.purchased_qty || 0) + (item.quantity || 0);
+
+              await supabase
+                .from("registry_items")
+                .update({
+                  purchased_qty: newPurchasedQty,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", item.registry_item_id);
+            }
           }
         }
       }
