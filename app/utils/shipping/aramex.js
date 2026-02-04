@@ -5,6 +5,10 @@ const DEFAULT_REPORT_ID = "9729";
 const DEFAULT_REPORT_TYPE = "URL";
 const DEFAULT_RATE_SOAP_ACTION =
   "http://ws.dev.aramex.net/ShippingAPI/v1/Service_1_0/CalculateRate";
+const DEFAULT_LOCATION_URL =
+  "https://ws.aramex.net/ShippingAPI.V2/Location/Service_1_0.svc";
+const DEFAULT_STATES_SOAP_ACTION =
+  "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/FetchStates";
 
 const getRequiredEnv = (key) => {
   const value = process.env[key];
@@ -35,6 +39,28 @@ const getXmlValues = (xml, tag) => {
     values.push(match[1].trim());
   }
   return values;
+};
+
+const normalizeMessage = (value) => String(value ?? "").trim();
+
+const getNotificationMessages = (xml) => {
+  const notifications = getXmlValues(xml, "Notification");
+  return notifications
+    .map((notification) => getXmlValue(notification, "Message") || notification)
+    .map((message) => normalizeMessage(message))
+    .filter(Boolean);
+};
+
+const extractStatesFromXml = (xml) => {
+  const statesContainer = getXmlValue(xml, "States");
+  const source = statesContainer || xml;
+  const stateBlocks = getXmlValues(source, "State");
+  return stateBlocks
+    .map((stateBlock) => ({
+      code: getXmlValue(stateBlock, "Code"),
+      name: getXmlValue(stateBlock, "Name"),
+    }))
+    .filter((state) => state.name);
 };
 
 const buildPartyXml = (party) => {
@@ -237,6 +263,41 @@ export const trackAramexShipment = async ({ trackingNumber }) => {
     hasErrors,
     description,
     updateDate,
+  };
+};
+
+export const fetchAramexStates = async ({ countryCode }) => {
+  const locationUrl = process.env.ARAMEX_LOCATION_URL || DEFAULT_LOCATION_URL;
+  const soapAction =
+    process.env.ARAMEX_STATES_SOAP_ACTION || DEFAULT_STATES_SOAP_ACTION;
+  const safeCountryCode = countryCode || "";
+
+  const body = `
+    <StatesFetchingRequest xmlns="http://ws.aramex.net/ShippingAPI/v1/">
+      ${getClientInfoXml()}
+      <Transaction>
+        <Reference1>${escapeXml(safeCountryCode)}</Reference1>
+      </Transaction>
+      <CountryCode>${escapeXml(safeCountryCode)}</CountryCode>
+    </StatesFetchingRequest>
+  `;
+
+  const xml = await requestAramex({
+    url: locationUrl,
+    action: soapAction,
+    body: buildSoapEnvelope(body),
+  });
+
+  const hasErrors = /<HasErrors>true<\/HasErrors>/i.test(xml);
+  const message = getXmlValue(xml, "Message");
+  const notifications = getNotificationMessages(xml);
+  const states = extractStatesFromXml(xml);
+
+  return {
+    raw: xml,
+    hasErrors,
+    message: message || notifications.join(" ").trim(),
+    states,
   };
 };
 

@@ -4,6 +4,10 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
+import {
+  createNotification,
+  fetchVendorNotificationPreferences,
+} from "../../../utils/notifications";
 
 const defaultUpdatePayoutValues = {
   vendorId: [],
@@ -168,7 +172,7 @@ export async function updateVendorPayoutApproval(prevState, formData) {
   if (!fullyApprovedError && Array.isArray(fullyApprovedItems) && fullyApprovedItems.length) {
     const { data: vendor, error: vendorError } = await supabase
       .from("vendors")
-      .select("id, commission_rate")
+      .select("id, commission_rate, profiles_id, business_name")
       .eq("id", vendorId)
       .single();
 
@@ -254,6 +258,32 @@ export async function updateVendorPayoutApproval(prevState, formData) {
             .from("order_items")
             .update({ vendor_payout_id: payoutId })
             .in("id", linkIds);
+        }
+
+        if (vendor?.profiles_id) {
+          try {
+            const { data: preferences } =
+              await fetchVendorNotificationPreferences({
+                client: supabase,
+                vendorId: vendor.id,
+              });
+            if (preferences?.payout_alerts) {
+              await createNotification({
+                client: supabase,
+                userId: vendor.profiles_id,
+                type: "payout_status",
+                message: "Your payout has been initiated.",
+                link: "/dashboard/v/payouts",
+                data: {
+                  payout_id: payoutId,
+                  vendor_id: vendor.id,
+                  status: "pending",
+                },
+              });
+            }
+          } catch (error) {
+            console.error("Failed to notify vendor payout", error);
+          }
         }
       }
     }
@@ -371,6 +401,37 @@ export async function rejectVendorPayout(prevState, formData) {
       values: raw,
       data: {},
     };
+  }
+
+  try {
+    const { data: vendor } = await supabase
+      .from("vendors")
+      .select("id, profiles_id")
+      .eq("id", vendorId)
+      .maybeSingle();
+
+    if (vendor?.profiles_id) {
+      const { data: preferences } = await fetchVendorNotificationPreferences({
+        client: supabase,
+        vendorId: vendor.id,
+      });
+      if (preferences?.payout_alerts) {
+        await createNotification({
+          client: supabase,
+          userId: vendor.profiles_id,
+          type: "payout_status",
+          message: "Your payout request was rejected.",
+          link: "/dashboard/v/payouts",
+          data: {
+            vendor_id: vendor.id,
+            status: "rejected",
+            reason,
+          },
+        });
+      }
+    }
+  } catch (error) {
+    console.error("Failed to notify vendor payout rejection", error);
   }
 
   await logAdminActivityWithClient(supabase, {

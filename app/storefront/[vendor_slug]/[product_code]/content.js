@@ -79,7 +79,7 @@ const COLOR_SWATCHES = {
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "One Size"];
 
 export default function ProductCodeDetailContent() {
-  const { vendor, product, loading, relatedProducts, reviews } =
+  const { vendor, product, loading, relatedProducts, reviews, submitReview } =
     useProductDetail();
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
@@ -92,6 +92,11 @@ export default function ProductCodeDetailContent() {
   const [selectedVariantKey, setSelectedVariantKey] = useState("");
   const [cartFeedback, setCartFeedback] = useState(null);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewError, setReviewError] = useState(null);
+  const [reviewSuccess, setReviewSuccess] = useState(null);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const router = useRouter();
 
@@ -288,6 +293,31 @@ export default function ProductCodeDetailContent() {
       navigator.clipboard.writeText(url);
     }
   }, [product?.name, vendor?.business_name]);
+
+  const handleSubmitReview = useCallback(
+    async (event) => {
+      event.preventDefault();
+      if (!submitReview || !isAuthed) return;
+      setReviewError(null);
+      setReviewSuccess(null);
+      setReviewSubmitting(true);
+
+      const { data, error } = await submitReview({
+        rating: reviewRating,
+        comment: reviewComment,
+      });
+
+      if (error) {
+        setReviewError(error);
+      } else {
+        setReviewSuccess("Review submitted. Thanks for the feedback!");
+        setReviewComment("");
+      }
+
+      setReviewSubmitting(false);
+    },
+    [isAuthed, reviewComment, reviewRating, submitReview]
+  );
 
   const openGallery = useCallback((index) => {
     setGalleryIndex(index);
@@ -790,70 +820,154 @@ export default function ProductCodeDetailContent() {
         </main>
 
         {/* Reviews Section */}
-        {reviews.length > 0 && (
-          <section className="mt-12">
-            <h2 className="text-xl font-bold text-gray-900 mb-6">
-              Customer Reviews
-            </h2>
-            <div className="grid gap-4">
-              {reviews.map((review) => (
-                <div
-                  key={review.id}
-                  className="bg-white rounded-xl border border-gray-200 p-4"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
-                      {review.reviewer?.image ? (
-                        <Image
-                          src={review.reviewer.image}
-                          alt=""
-                          width={40}
-                          height={40}
-                          priority
-                          className="object-cover w-full h-full"
-                        />
-                      ) : (
-                        <span className="text-sm font-medium text-gray-600">
-                          {(
-                            review.reviewer?.firstname?.[0] || "A"
-                          ).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-gray-900">
-                          {review.reviewer?.firstname || "Anonymous"}{" "}
-                          {review.reviewer?.lastname?.[0] || ""}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {formatDate(review.created_at)}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1 mb-2">
-                        {[1, 2, 3, 4, 5].map((star) => (
+        <section className="mt-12">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
+            <div className="lg:w-[360px]">
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sticky top-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                  Leave a review
+                </h2>
+                <p className="text-xs text-gray-500 mb-4">
+                  Share your experience with other shoppers.
+                </p>
+                {!isAuthed && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    Sign in to submit a review.
+                  </div>
+                )}
+                <form onSubmit={handleSubmitReview} className="mt-4 space-y-4">
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                      Rating
+                    </label>
+                    <div className="mt-2 flex items-center gap-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => setReviewRating(star)}
+                          className="p-1"
+                          disabled={!isAuthed || reviewSubmitting}
+                        >
                           <Star
-                            key={star}
-                            className={`size-3 ${
-                              star <= (review.rating || 0)
+                            className={`size-5 ${
+                              star <= reviewRating
                                 ? "fill-yellow-400 text-yellow-400"
                                 : "text-gray-300"
                             }`}
                           />
-                        ))}
-                      </div>
-                      {review.comment && (
-                        <p className="text-sm text-gray-600">
-                          {review.comment}
-                        </p>
-                      )}
+                        </button>
+                      ))}
                     </div>
                   </div>
-                </div>
-              ))}
+                  <div>
+                    <label className="text-xs font-semibold text-gray-600 uppercase tracking-wide">
+                      Comment
+                    </label>
+                    <textarea
+                      value={reviewComment}
+                      onChange={(event) => setReviewComment(event.target.value)}
+                      rows={4}
+                      className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#A5914B]"
+                      placeholder="Tell us what you loved about this product."
+                      disabled={!isAuthed || reviewSubmitting}
+                    />
+                  </div>
+                  {reviewError && (
+                    <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-600">
+                      {reviewError}
+                    </div>
+                  )}
+                  {reviewSuccess && (
+                    <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-700">
+                      {reviewSuccess}
+                    </div>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={!isAuthed || reviewSubmitting}
+                    className="w-full rounded-full bg-[#A5914B] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#8B7A3F] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {reviewSubmitting ? "Submitting..." : "Submit review"}
+                  </button>
+                </form>
+              </div>
             </div>
-          </section>
-        )}
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-bold text-gray-900">
+                  Customer Reviews
+                </h2>
+                <span className="text-xs text-gray-500">
+                  {reviews.length} review{reviews.length === 1 ? "" : "s"}
+                </span>
+              </div>
+              {reviews.length === 0 ? (
+                <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm text-gray-500">
+                  No reviews yet. Be the first to share your feedback.
+                </div>
+              ) : (
+                <div className="grid gap-4">
+                  {reviews.map((review) => (
+                    <div
+                      key={review.id}
+                      className="bg-white rounded-xl border border-gray-200 p-4"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                          {review.reviewer?.image ? (
+                            <Image
+                              src={review.reviewer.image}
+                              alt=""
+                              width={40}
+                              height={40}
+                              priority
+                              className="object-cover w-full h-full"
+                            />
+                          ) : (
+                            <span className="text-sm font-medium text-gray-600">
+                              {(
+                                review.reviewer?.firstname?.[0] || "A"
+                              ).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-gray-900">
+                              {review.reviewer?.firstname || "Anonymous"}{" "}
+                              {review.reviewer?.lastname?.[0] || ""}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatDate(review.created_at)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 mb-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <Star
+                                key={star}
+                                className={`size-3 ${
+                                  star <= (review.rating || 0)
+                                    ? "fill-yellow-400 text-yellow-400"
+                                    : "text-gray-300"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          {review.comment && (
+                            <p className="text-sm text-gray-600">
+                              {review.comment}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
         {/* Related Products */}
         {relatedProducts.length > 0 && (

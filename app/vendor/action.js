@@ -8,6 +8,7 @@ import { render, pretty } from "@react-email/render";
 import VendorApplicationSubmittedEmail from "./emails/VendorApplicationSubmittedEmail";
 import { createAdminClient, createClient } from "../utils/supabase/server";
 import { generateUniqueVendorSlug } from "../utils/vendorSlug";
+import { createNotifications, fetchUserIdsByRole } from "../utils/notifications";
 
 import {
   DOCUMENT_TITLE_LOOKUP,
@@ -1153,9 +1154,9 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  
+
   let actingClient = supabase;
-  
+
   let userId = user?.id || null;
 
   if (!userId) {
@@ -1402,6 +1403,12 @@ export async function uploadVendorApplicationDocument(prevState, formData) {
 
 export async function submitVendorApplication(payload) {
   const supabase = await createClient();
+  let adminClient = null;
+  try {
+    adminClient = createAdminClient();
+  } catch (error) {
+    adminClient = null;
+  }
 
   let actingClient = supabase;
   let userId = null;
@@ -1633,6 +1640,28 @@ export async function submitVendorApplication(payload) {
     bank_account_token: bankAccountToken,
   };
 
+  const notifyAdmins = async (applicationId, vendorName) => {
+    if (!adminClient || !applicationId) return;
+    const { data: adminIds } = await fetchUserIdsByRole({
+      client: adminClient,
+      roles: ["super_admin", "operations_manager_admin"],
+    });
+    if (!adminIds.length) return;
+
+    await createNotifications({
+      client: adminClient,
+      userIds: adminIds,
+      type: "vendor_application",
+      message: `New vendor application submitted${
+        vendorName ? `: ${vendorName}` : "."
+      }`,
+      link: "/dashboard/admin/vendor_requests",
+      data: {
+        application_id: applicationId,
+      },
+    });
+  };
+
   const syncVendorProfile = async () => {
     const { data: existingVendor, error: vendorError } = await actingClient
       .from("vendors")
@@ -1760,8 +1789,7 @@ export async function submitVendorApplication(payload) {
       return {
         vendorId,
         error:
-          existingPaymentError.message ||
-          "Failed to load payment information.",
+          existingPaymentError.message || "Failed to load payment information.",
       };
     }
 
@@ -1803,8 +1831,7 @@ export async function submitVendorApplication(payload) {
       return {
         vendorId,
         error:
-          paymentInsertError?.message ||
-          "Failed to create payment information.",
+          paymentInsertError?.message || "Failed to create payment information.",
       };
     }
 
@@ -1862,6 +1889,12 @@ export async function submitVendorApplication(payload) {
 
     revalidatePath("/vendor");
 
+    try {
+      await notifyAdmins(updated.id, applicationFields?.business_name);
+    } catch (error) {
+      console.error("Failed to notify admins about vendor submission", error);
+    }
+
     return {
       success: true,
       message: syncResult?.error
@@ -1869,57 +1902,63 @@ export async function submitVendorApplication(payload) {
         : "Application submitted successfully.",
       data: { applicationId: updated.id },
     };
-  }
+  } else {
+    const insertPayload = {
+      user_id: userId,
+      status: "pending",
+      created_by: userId,
+      submitted_at: now,
+      updated_at: now,
+      draft_data: mergedDraft,
+      current_step: typeof payload?.currentStep === "number" ? payload.currentStep : 0,
+      documents: Array.isArray(payload?.documents) ? payload.documents : null,
+      ...applicationFields,
+      ...bankAccountFields,
+    };
 
-  const insertPayload = {
-    user_id: userId,
-    status: "pending",
-    created_by: userId,
-    submitted_at: now,
-    updated_at: now,
-    draft_data: mergedDraft,
-    current_step: typeof payload?.currentStep === "number" ? payload.currentStep : 0,
-    documents: Array.isArray(payload?.documents) ? payload.documents : null,
-    ...applicationFields,
-    ...bankAccountFields,
-  };
+    const { data: inserted, error: insertError } = await actingClient
+      .from("vendor_applications")
+      .insert([insertPayload])
+      .select("id")
+      .single();
 
-  const { data: inserted, error: insertError } = await actingClient
-    .from("vendor_applications")
-    .insert([insertPayload])
-    .select("id")
-    .single();
+    if (insertError || !inserted) {
+      return {
+        success: false,
+        message: insertError?.message || "Failed to submit application.",
+        data: null,
+      };
+    }
 
-  if (insertError || !inserted) {
+    const syncResult = await syncVendorProfile();
+    if (syncResult?.error) {
+      console.error("Vendor profile sync failed", syncResult.error);
+    }
+
+    try {
+      await sendVendorApplicationSubmittedEmail({
+        to: mergedDraft.email || userEmail,
+        applicationId: inserted.id,
+        vendorName: mergedDraft.businessName || mergedDraft.legalBusinessName,
+      });
+    } catch (emailError) {
+      console.error("Failed to send vendor submission email", emailError);
+    }
+
+    revalidatePath("/vendor");
+
+    try {
+      await notifyAdmins(inserted.id, applicationFields?.business_name);
+    } catch (error) {
+      console.error("Failed to notify admins about vendor submission", error);
+    }
+
     return {
-      success: false,
-      message: insertError?.message || "Failed to submit application.",
-      data: null,
+      success: true,
+      message: syncResult?.error
+        ? "Application submitted, but we couldn't finish setting up your vendor profile yet."
+        : "Application submitted successfully.",
+      data: { applicationId: inserted.id },
     };
   }
-
-  const syncResult = await syncVendorProfile();
-  if (syncResult?.error) {
-    console.error("Vendor profile sync failed", syncResult.error);
-  }
-
-  try {
-    await sendVendorApplicationSubmittedEmail({
-      to: mergedDraft.email || userEmail,
-      applicationId: inserted.id,
-      vendorName: mergedDraft.businessName || mergedDraft.legalBusinessName,
-    });
-  } catch (emailError) {
-    console.error("Failed to send vendor submission email", emailError);
-  }
-
-  revalidatePath("/vendor");
-
-  return {
-    success: true,
-    message: syncResult?.error
-      ? "Application submitted, but we couldn't finish setting up your vendor profile yet."
-      : "Application submitted successfully.",
-    data: { applicationId: inserted.id },
-  };
 }

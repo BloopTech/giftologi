@@ -71,7 +71,7 @@ const getGuestIdentifier = async () => {
   return getOrCreateGuestBrowserId();
 };
 
-const SHIPPING_REGIONS = [
+const DEFAULT_SHIPPING_REGIONS = [
   { id: "accra", name: "Greater Accra", fee: 25 },
   { id: "kumasi", name: "Ashanti Region", fee: 35 },
   { id: "takoradi", name: "Western Region", fee: 40 },
@@ -81,33 +81,23 @@ const SHIPPING_REGIONS = [
   { id: "other", name: "Other Regions", fee: 55 },
 ];
 
-const DEFAULT_SHIPPING_REGION_ID = SHIPPING_REGIONS[0]?.id || "";
+const DEFAULT_SHIPPING_REGION_ID = DEFAULT_SHIPPING_REGIONS[0]?.id || "";
 
-const getShippingRegionById = (regionId) =>
-  SHIPPING_REGIONS.find((region) => region.id === regionId) ||
-  SHIPPING_REGIONS[0] ||
-  null;
-
-const getDerivedShippingRegionId = (shippingAddress) => {
+const getDerivedShippingRegionId = (shippingAddress, regions) => {
   const city = String(shippingAddress?.city || "").toLowerCase();
   const state = String(shippingAddress?.stateProvince || "").toLowerCase();
   const combined = `${city} ${state}`.trim();
+  const source = Array.isArray(regions) && regions.length > 0 ? regions : [];
 
-  if (!combined) return DEFAULT_SHIPPING_REGION_ID;
+  if (!combined) return source[0]?.id || DEFAULT_SHIPPING_REGION_ID;
 
-  if (combined.includes("accra") || combined.includes("greater accra")) return "accra";
-  if (combined.includes("kumasi") || combined.includes("ashanti")) return "kumasi";
-  if (
-    combined.includes("takoradi") ||
-    combined.includes("western region") ||
-    combined.includes("western")
-  )
-    return "takoradi";
-  if (combined.includes("tamale") || combined.includes("northern")) return "tamale";
-  if (combined.includes("cape coast") || combined.includes("central")) return "cape_coast";
-  if (combined.includes("ho") || combined.includes("volta")) return "ho";
+  const match = source.find((region) => {
+    const name = String(region?.name || "").toLowerCase();
+    if (!name) return false;
+    return combined.includes(name) || name.includes(combined);
+  });
 
-  return "other";
+  return match?.id || source[0]?.id || DEFAULT_SHIPPING_REGION_ID;
 };
 
 // Purchase flow steps
@@ -150,6 +140,13 @@ export const GuestRegistryCodeProvider = ({
     initialShippingAddress,
   );
   const [categories, setCategories] = useState(initialCategories || []);
+  const [shippingRegions, setShippingRegions] = useState(
+    DEFAULT_SHIPPING_REGIONS
+  );
+  const [zonesState, setZonesState] = useState({
+    loading: false,
+    error: null,
+  });
 
   const [error, setError] = useState(null);
 
@@ -314,6 +311,44 @@ export const GuestRegistryCodeProvider = ({
     refresh();
   }, [initialRegistry, registryCode, refresh]);
 
+  useEffect(() => {
+    let active = true;
+    const loadZones = async () => {
+      const countryCode = shippingAddress?.countryCode || "GH";
+      setZonesState({ loading: true, error: null });
+      try {
+        const response = await fetch(
+          `/api/shipping/aramex/zones?country=${encodeURIComponent(countryCode)}`
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            payload?.details || payload?.error || "Failed to load shipping zones."
+          );
+        }
+        const zones = Array.isArray(payload?.zones) ? payload.zones : [];
+        if (active && zones.length > 0) {
+          setShippingRegions(zones);
+        }
+        if (active) {
+          setZonesState({ loading: false, error: null });
+        }
+      } catch (error) {
+        if (!active) return;
+        setZonesState({
+          loading: false,
+          error: error?.message || "Failed to load shipping zones.",
+        });
+      }
+    };
+
+    loadZones();
+
+    return () => {
+      active = false;
+    };
+  }, [shippingAddress?.countryCode]);
+
   // Modal states
   const [welcomeNoteOpen, setWelcomeNoteOpen] = useState(false);
   const [productDetailOpen, setProductDetailOpen] = useState(false);
@@ -335,8 +370,8 @@ export const GuestRegistryCodeProvider = ({
   const [sortBy, setSortBy] = useState("default");
 
   const derivedDefaultShippingRegionId = useMemo(
-    () => getDerivedShippingRegionId(shippingAddress),
-    [shippingAddress]
+    () => getDerivedShippingRegionId(shippingAddress, shippingRegions),
+    [shippingAddress, shippingRegions]
   );
 
   const openProductDetail = useCallback((product) => {
@@ -524,8 +559,9 @@ export const GuestRegistryCodeProvider = ({
       products: filteredProducts,
       allProducts: products,
       shippingAddress,
-      shippingRegions: SHIPPING_REGIONS,
+      shippingRegions,
       defaultShippingRegionId: derivedDefaultShippingRegionId,
+      zonesState,
       categories,
       refresh,
       isLoading,
@@ -581,6 +617,8 @@ export const GuestRegistryCodeProvider = ({
       products,
       shippingAddress,
       derivedDefaultShippingRegionId,
+      shippingRegions,
+      zonesState,
       categories,
       welcomeNoteOpen,
       productDetailOpen,

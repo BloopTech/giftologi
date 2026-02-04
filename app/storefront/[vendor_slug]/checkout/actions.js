@@ -378,10 +378,12 @@ export async function processStorefrontCheckout(prevState, formData) {
       return { success: false, error: "Failed to create order. Please try again." };
     }
 
-    if (Number.isFinite(giftWrapFee)) {
+    if (Number.isFinite(giftWrapFee) || Number.isFinite(shippingFee)) {
       await adminClient.from("order_delivery_details").insert({
         order_id: order.id,
-        gift_wrapping_fee: giftWrapFee,
+        gift_wrapping_fee: Number.isFinite(giftWrapFee) ? giftWrapFee : 0,
+        outbound_shipping_fee: Number.isFinite(shippingFee) ? shippingFee : 0,
+        courier_partner: Number.isFinite(shippingFee) ? "aramex" : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });

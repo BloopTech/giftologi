@@ -194,6 +194,47 @@ export function ProductDetailProvider({ vendorSlug, productCode, children }) {
     }
   }, [productCode, reviewsHasMore, reviewsLoading, reviewsPage, vendorSlug]);
 
+  const submitReview = useCallback(
+    async ({ rating, comment }) => {
+      if (!vendorSlug || !productCode) {
+        return { data: null, error: "Missing product details." };
+      }
+
+      try {
+        const res = await fetch("/api/storefront/product-reviews", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            vendor_slug: vendorSlug,
+            product_code: productCode,
+            rating,
+            comment,
+          }),
+        });
+        const payload = await res.json().catch(() => ({}));
+
+        if (!res.ok) {
+          return {
+            data: null,
+            error: payload?.message || "Unable to submit review.",
+          };
+        }
+
+        if (payload?.review) {
+          setReviews((prev) => [payload.review, ...prev]);
+        }
+
+        return { data: payload?.review || null, error: null };
+      } catch (error) {
+        return {
+          data: null,
+          error: error?.message || "Unable to submit review.",
+        };
+      }
+    },
+    [productCode, vendorSlug]
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -254,6 +295,7 @@ export function ProductDetailProvider({ vendorSlug, productCode, children }) {
       reviewsLoading,
       reviewsHasMore,
       loadMoreReviews,
+      submitReview,
     }),
     [
       vendor,
@@ -265,6 +307,7 @@ export function ProductDetailProvider({ vendorSlug, productCode, children }) {
       reviewsLoading,
       reviewsHasMore,
       loadMoreReviews,
+      submitReview,
     ]
   );
 

@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../utils/supabase/server";
+import {
+  createAdminClient,
+  createClient,
+} from "../../../../utils/supabase/server";
+import { createNotification } from "../../../../utils/notifications";
 
 const EXPRESSPAY_QUERY_URL =
   process.env.EXPRESSPAY_ENV === "live"
@@ -24,11 +28,12 @@ export async function POST(request) {
     }
 
     const supabase = await createClient();
+    const adminClient = createAdminClient();
 
     // Find the order
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .select("id, order_code, status")
+      .select("id, order_code, status, registry_id")
       .eq("order_code", orderId)
       .single();
 
@@ -111,6 +116,41 @@ export async function POST(request) {
               .eq("id", item.registry_item_id);
           }
         }
+      }
+
+      try {
+        if (order.registry_id) {
+          const { data: registry } = await adminClient
+            .from("registries")
+            .select("id, registry_code, registry_owner_id, title")
+            .eq("id", order.registry_id)
+            .maybeSingle();
+
+          if (registry?.registry_owner_id) {
+            await createNotification({
+              client: adminClient,
+              userId: registry.registry_owner_id,
+              type: "registry_purchase",
+              message: registry.title
+                ? `New gift purchase for ${registry.title}.`
+                : "You received a new registry purchase.",
+              link: registry.registry_code
+                ? `/dashboard/h/registry/${registry.registry_code}`
+                : "/dashboard/h/registry",
+              data: {
+                order_id: order.id,
+                order_code: order.order_code || null,
+                registry_id: registry.id,
+                status: newStatus,
+              },
+            });
+          }
+        }
+      } catch (error) {
+        console.error(
+          "Failed to send registry purchase notification:",
+          error
+        );
       }
     }
 

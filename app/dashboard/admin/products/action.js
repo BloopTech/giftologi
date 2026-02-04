@@ -3,6 +3,10 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
+import {
+  createNotification,
+  fetchVendorNotificationPreferences,
+} from "../../../utils/notifications";
 import { logAdminActivityWithClient } from "../activity_log/logger";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
@@ -226,7 +230,7 @@ export async function approveProduct(prevState, formData) {
 
   const { data: product, error: productError } = await supabase
     .from("products")
-    .select("id, status")
+    .select("id, status, name, vendor_id")
     .eq("id", productId)
     .single();
 
@@ -276,6 +280,47 @@ export async function approveProduct(prevState, formData) {
     targetId: productId,
     details: `Approved product ${productId}`,
   });
+
+  if (product?.vendor_id) {
+    try {
+      const { data: vendor, error: vendorError } = await supabase
+        .from("vendors")
+        .select("id, profiles_id")
+        .eq("id", product.vendor_id)
+        .maybeSingle();
+
+      if (vendorError) {
+        throw vendorError;
+      }
+
+      if (vendor?.profiles_id) {
+        const { data: preferences } =
+          await fetchVendorNotificationPreferences({
+            client: supabase,
+            vendorId: vendor.id,
+          });
+
+        if (preferences?.product_reviews) {
+          await createNotification({
+            client: supabase,
+            userId: vendor.profiles_id,
+            type: "product_review",
+            message: product?.name
+              ? `Your product "${product.name}" has been approved.`
+              : "Your product has been approved.",
+            link: "/dashboard/v/products",
+            data: {
+              product_id: productId,
+              vendor_id: vendor.id,
+              status: "approved",
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to notify vendor product approval", error);
+    }
+  }
 
   revalidatePath("/dashboard/admin/products");
   revalidatePath("/dashboard/admin");
@@ -410,6 +455,48 @@ export async function rejectProduct(prevState, formData) {
     targetId: productId,
     details: `Rejected product ${productId}. Reason: ${reason}`,
   });
+
+  if (product?.vendor_id) {
+    try {
+      const { data: vendor, error: vendorError } = await supabase
+        .from("vendors")
+        .select("id, profiles_id")
+        .eq("id", product.vendor_id)
+        .maybeSingle();
+
+      if (vendorError) {
+        throw vendorError;
+      }
+
+      if (vendor?.profiles_id) {
+        const { data: preferences } =
+          await fetchVendorNotificationPreferences({
+            client: supabase,
+            vendorId: vendor.id,
+          });
+
+        if (preferences?.product_reviews) {
+          await createNotification({
+            client: supabase,
+            userId: vendor.profiles_id,
+            type: "product_review",
+            message: product?.name
+              ? `Your product "${product.name}" was rejected.`
+              : "Your product was rejected.",
+            link: "/dashboard/v/products",
+            data: {
+              product_id: productId,
+              vendor_id: vendor.id,
+              status: "rejected",
+              reason,
+            },
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to notify vendor product rejection", error);
+    }
+  }
 
   revalidatePath("/dashboard/admin/products");
   revalidatePath("/dashboard/admin");

@@ -820,30 +820,6 @@ export async function sendRegistryThankYou(prev, queryData) {
     message,
   });
 
-  try {
-    const adminClient = createAdminClient();
-    const { data: recipientProfile } = await adminClient
-      .from("profiles")
-      .select("id")
-      .eq("email", recipientEmail)
-      .maybeSingle();
-
-    if (recipientProfile?.id) {
-      await adminClient.from("notifications").insert({
-        user_id: recipientProfile.id,
-        type: "registry_thank_you",
-        message: hostName
-          ? `${hostName} sent you a thank-you note.`
-          : "You received a thank-you note from Giftologi.",
-        read: false,
-        created_at: sentAt,
-        updated_at: sentAt,
-      });
-    }
-  } catch (error) {
-    console.error("Failed to create thank-you notification:", error);
-  }
-
   if (registryData?.registry_code) {
     revalidatePath(`/dashboard/h/registry/${registryData.registry_code}`);
   }

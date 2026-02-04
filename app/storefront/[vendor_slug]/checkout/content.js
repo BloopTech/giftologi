@@ -21,7 +21,7 @@ import {
 import { processStorefrontCheckout } from "./actions";
 import { getGuestIdentifier } from "../../../utils/guest";
 
-const SHIPPING_REGIONS = [
+const DEFAULT_SHIPPING_REGIONS = [
   { id: "accra", name: "Greater Accra", fee: 25 },
   { id: "kumasi", name: "Ashanti Region", fee: 35 },
   { id: "takoradi", name: "Western Region", fee: 40 },
@@ -47,7 +47,16 @@ export default function CheckoutContent({
 }) {
   const router = useRouter();
   const [quantity, setQuantity] = useState(initialQuantity);
-  const [selectedRegion, setSelectedRegion] = useState(SHIPPING_REGIONS[0]);
+  const [shippingRegions, setShippingRegions] = useState(
+    DEFAULT_SHIPPING_REGIONS
+  );
+  const [selectedRegion, setSelectedRegion] = useState(
+    DEFAULT_SHIPPING_REGIONS[0] || null
+  );
+  const [zonesState, setZonesState] = useState({
+    loading: false,
+    error: null,
+  });
   const [shippingQuote, setShippingQuote] = useState({
     amount: null,
     loading: false,
@@ -92,10 +101,11 @@ export default function CheckoutContent({
     : 0;
   const cartSubtotal = Number(cartState.subtotal) || 0;
   const subtotal = cartMode ? cartSubtotal : unitPrice * quantity;
-  const fallbackShippingFee = selectedRegion.fee;
+  const fallbackShippingFee = Number(selectedRegion?.fee) || 0;
   const shippingFee = Number.isFinite(shippingQuote.amount)
     ? shippingQuote.amount
     : fallbackShippingFee;
+  const selectedRegionName = selectedRegion?.name || "";
 
   const [state, formAction, isPending] = useActionState(
     processStorefrontCheckout,
@@ -120,10 +130,65 @@ export default function CheckoutContent({
     setFormData((prev) => ({ ...prev, [name]: value }));
   }, []);
 
-  const handleRegionChange = useCallback((e) => {
-    const region = SHIPPING_REGIONS.find((r) => r.id === e.target.value);
-    if (region) setSelectedRegion(region);
+  const resolveSelectedRegion = useCallback((regions, current) => {
+    if (!Array.isArray(regions) || regions.length === 0) return current || null;
+    if (current?.id) {
+      const match = regions.find((region) => region.id === current.id);
+      if (match) return match;
+    }
+    if (current?.name) {
+      const match = regions.find((region) => region.name === current.name);
+      if (match) return match;
+    }
+    return regions[0];
   }, []);
+
+  const handleRegionChange = useCallback(
+    (e) => {
+      const region = shippingRegions.find((r) => r.id === e.target.value);
+      if (region) setSelectedRegion(region);
+    },
+    [shippingRegions]
+  );
+
+  useEffect(() => {
+    let active = true;
+    const loadZones = async () => {
+      const countryCode = vendor?.address_country || "GH";
+      setZonesState({ loading: true, error: null });
+      try {
+        const response = await fetch(
+          `/api/shipping/aramex/zones?country=${encodeURIComponent(countryCode)}`
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            payload?.details || payload?.error || "Failed to load shipping zones."
+          );
+        }
+        const zones = Array.isArray(payload?.zones) ? payload.zones : [];
+        if (active && zones.length > 0) {
+          setShippingRegions(zones);
+          setSelectedRegion((prev) => resolveSelectedRegion(zones, prev));
+        }
+        if (active) {
+          setZonesState({ loading: false, error: null });
+        }
+      } catch (error) {
+        if (!active) return;
+        setZonesState({
+          loading: false,
+          error: error?.message || "Failed to load shipping zones.",
+        });
+      }
+    };
+
+    loadZones();
+
+    return () => {
+      active = false;
+    };
+  }, [resolveSelectedRegion, vendor?.address_country]);
 
   useEffect(() => {
     if (!cartMode) return;
@@ -313,6 +378,9 @@ export default function CheckoutContent({
     const fee = Number(option?.fee || 0);
     return fee * quantity;
   }, [cartMode, cartItems, giftWrapOptionMap, selectedGiftWrapOptionId, quantity]);
+  const cartHasItems = cartItems.length > 0;
+  const cartLoading = cartMode && cartState.loading;
+  const cartUpdating = cartMode && cartActionState.loading;
   const originAddress = useMemo(
     () => ({
       line1: vendor?.address_street || "",
@@ -400,9 +468,6 @@ export default function CheckoutContent({
     subtotal,
     totalPieces,
   ]);
-  const cartHasItems = cartItems.length > 0;
-  const cartLoading = cartMode && cartState.loading;
-  const cartUpdating = cartMode && cartActionState.loading;
   const total = subtotal + shippingFee + giftWrapFee;
 
   if (state.success && state.checkoutUrl) {
@@ -571,16 +636,29 @@ export default function CheckoutContent({
                     id="region"
                     name="region"
                     required
-                    value={selectedRegion.id}
+                    value={selectedRegion?.id || ""}
                     onChange={handleRegionChange}
                     className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors bg-white"
                   >
-                    {SHIPPING_REGIONS.map((region) => (
+                    {shippingRegions.map((region) => (
                       <option key={region.id} value={region.id}>
                         {region.name} - {formatPrice(region.fee)} shipping
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {zonesState.loading
+                      ? "Loading delivery zones..."
+                      : zonesState.error
+                      ? "Using default shipping zones."
+                      : shippingQuote.loading
+                      ? "Calculating Aramex rate..."
+                      : shippingQuote.amount
+                      ? `Aramex rate: ${formatPrice(shippingQuote.amount)}`
+                      : shippingQuote.error
+                      ? "Aramex rate unavailable, using standard shipping."
+                      : "Enter your address to get an Aramex rate."}
+                  </p>
                 </div>
                 <div>
                   <label
@@ -960,7 +1038,7 @@ export default function CheckoutContent({
               )}
               <input type="hidden" name="giftWrapFee" value={giftWrapFee} />
               <input type="hidden" name="shippingFee" value={shippingFee} />
-              <input type="hidden" name="shippingRegion" value={selectedRegion.name} />
+              <input type="hidden" name="shippingRegion" value={selectedRegionName} />
               <input type="hidden" name="total" value={total} />
 
               {/* Submit Button */}

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createAdminClient, createClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
+import { createNotification } from "../../../utils/notifications";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import { generateUniqueVendorSlug } from "../../../utils/vendorSlug";
@@ -337,6 +338,22 @@ export async function approveVendorRequest(prevState, formData) {
     };
   }
 
+  try {
+    await createNotification({
+      client: adminSupabase,
+      userId: application.user_id,
+      type: "vendor_request",
+      message: "Your vendor application has been approved.",
+      link: "/dashboard/v/profile",
+      data: {
+        application_id: applicationId,
+        status: "approved",
+      },
+    });
+  } catch (error) {
+    console.error("Failed to notify vendor approval", error);
+  }
+
   await logAdminActivityWithClient(supabase, {
     adminId: currentProfile?.id || user.id,
     adminRole: currentProfile?.role || null,
@@ -464,6 +481,22 @@ export async function rejectVendorRequest(prevState, formData) {
       values: raw,
       data: {},
     };
+  }
+
+  try {
+    await createNotification({
+      client: adminSupabase,
+      userId: application.user_id,
+      type: "vendor_request",
+      message: "Your vendor application has been rejected.",
+      link: "/dashboard/v/profile",
+      data: {
+        application_id: applicationId,
+        status: "rejected",
+      },
+    });
+  } catch (error) {
+    console.error("Failed to notify vendor rejection", error);
   }
 
   await logAdminActivityWithClient(supabase, {

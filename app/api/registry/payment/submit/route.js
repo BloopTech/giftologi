@@ -10,15 +10,6 @@ const EXPRESSPAY_SUBMIT_URL =
 const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
 const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
 
-const SHIPPING_REGIONS = [
-  { id: "accra", name: "Greater Accra", fee: 25 },
-  { id: "kumasi", name: "Ashanti Region", fee: 35 },
-  { id: "takoradi", name: "Western Region", fee: 40 },
-  { id: "tamale", name: "Northern Region", fee: 50 },
-  { id: "cape_coast", name: "Central Region", fee: 35 },
-  { id: "ho", name: "Volta Region", fee: 40 },
-  { id: "other", name: "Other Regions", fee: 55 },
-];
 
 function generateOrderId() {
   return randomBytes(8).toString("hex");
@@ -85,9 +76,25 @@ export async function POST(request) {
       );
     }
 
-    const shippingRegion = SHIPPING_REGIONS.find(
-      (region) => region.id === shippingRegionId
-    );
+    let shippingRegion = null;
+    if (shippingRegionId) {
+      const { data: zoneById } = await supabaseAdmin
+        .from("shipping_zones")
+        .select("id, name, fee")
+        .eq("id", shippingRegionId)
+        .maybeSingle();
+      shippingRegion = zoneById;
+
+      if (!shippingRegion) {
+        const { data: zoneByName } = await supabaseAdmin
+          .from("shipping_zones")
+          .select("id, name, fee")
+          .eq("name", shippingRegionId)
+          .maybeSingle();
+        shippingRegion = zoneByName;
+      }
+    }
+
     const shippingFee = Number(shippingRegion?.fee) || 0;
     const unitPrice = Number(registryItem?.product?.price);
     const safeUnitPrice = Number.isFinite(unitPrice) ? unitPrice : Number(amount);

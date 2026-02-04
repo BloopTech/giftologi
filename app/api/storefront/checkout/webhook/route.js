@@ -1,5 +1,16 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../utils/supabase/server";
+import {
+  createAdminClient,
+  createClient,
+} from "../../../../utils/supabase/server";
+import {
+  buildAramexTrackingUrl,
+  createAramexShipment,
+} from "../../../../utils/shipping/aramex";
+import {
+  createNotification,
+  fetchVendorNotificationPreferences,
+} from "../../../../utils/notifications";
 
 const EXPRESSPAY_QUERY_URL =
   process.env.EXPRESSPAY_ENV === "live"
@@ -20,6 +31,7 @@ export async function POST(request) {
     }
 
     const supabase = await createClient();
+    const admin = createAdminClient();
 
     // Find order by token or order code
     let order = null;
@@ -97,7 +109,7 @@ export async function POST(request) {
       // Get order items
       const { data: orderItems } = await supabase
         .from("order_items")
-        .select("product_id, quantity, registry_item_id")
+        .select("product_id, quantity, registry_item_id, vendor_id")
         .eq("order_id", order.id);
 
       // Update stock for each product + registry purchased quantities
@@ -141,6 +153,47 @@ export async function POST(request) {
         }
       }
 
+      // Notify vendors about the new order
+      try {
+        const vendorIds = Array.from(
+          new Set(orderItems?.map((item) => item?.vendor_id).filter(Boolean))
+        );
+
+        if (vendorIds.length) {
+          const { data: vendorRows } = await admin
+            .from("vendors")
+            .select("id, profiles_id, business_name")
+            .in("id", vendorIds);
+
+          for (const vendor of vendorRows || []) {
+            if (!vendor?.profiles_id) continue;
+            const { data: preferences } =
+              await fetchVendorNotificationPreferences({
+                client: admin,
+                vendorId: vendor.id,
+              });
+            if (!preferences?.new_orders) continue;
+
+            await createNotification({
+              client: admin,
+              userId: vendor.profiles_id,
+              type: "new_order",
+              message: `New order received${
+                vendor.business_name ? ` for ${vendor.business_name}` : ""
+              }.`,
+              link: "/dashboard/v/orders",
+              data: {
+                order_id: order.id,
+                order_code: order.order_code || null,
+                vendor_id: vendor.id,
+              },
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to notify vendors:", error);
+      }
+
       // Create payment record
       await supabase.from("order_payments").insert({
         order_id: order.id,
@@ -151,6 +204,121 @@ export async function POST(request) {
         status: "completed",
         created_at: new Date().toISOString(),
       });
+
+      try {
+        const vendorId = orderItems?.find((item) => item?.vendor_id)?.vendor_id;
+        const totalPieces = orderItems?.reduce(
+          (sum, item) => sum + (Number(item?.quantity) || 0),
+          0
+        );
+
+        if (vendorId) {
+          const { data: existingShipment } = await admin
+            .from("order_shipments")
+            .select("id")
+            .eq("order_id", order.id)
+            .eq("provider", "aramex")
+            .maybeSingle();
+
+          if (!existingShipment?.id) {
+            const { data: orderDetails } = await admin
+              .from("orders")
+              .select(
+                "order_code, buyer_firstname, buyer_lastname, buyer_email, buyer_phone, shipping_address, shipping_city, shipping_region, shipping_digital_address, shipping_fee, total_amount"
+              )
+              .eq("id", order.id)
+              .single();
+            const { data: vendor } = await admin
+              .from("vendors")
+              .select(
+                "business_name, phone, email, address_street, digital_address, address_city, address_state, address_country"
+              )
+              .eq("id", vendorId)
+              .single();
+
+            if (orderDetails && vendor) {
+              const consigneeName = [
+                orderDetails.buyer_firstname,
+                orderDetails.buyer_lastname,
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              const shipmentResult = await createAramexShipment({
+                shipper: {
+                  name: vendor.business_name || "Giftologi Vendor",
+                  company: vendor.business_name || "",
+                  phone: vendor.phone || "",
+                  email: vendor.email || "",
+                  address: vendor.address_street || "",
+                  address2: vendor.digital_address || "",
+                  city: vendor.address_city || "",
+                  state: vendor.address_state || "",
+                  postalCode: "",
+                  countryCode: vendor.address_country || "GH",
+                },
+                consignee: {
+                  name: consigneeName || "Recipient",
+                  company: "",
+                  phone: orderDetails.buyer_phone || "",
+                  email: orderDetails.buyer_email || "",
+                  address: orderDetails.shipping_address || "",
+                  address2: orderDetails.shipping_digital_address || "",
+                  city: orderDetails.shipping_city || "",
+                  state: orderDetails.shipping_region || "",
+                  postalCode: "",
+                  countryCode: vendor.address_country || "GH",
+                },
+                shipment: {
+                  weight: Math.max(1, totalPieces || 1),
+                  numberOfPieces: Math.max(1, totalPieces || 1),
+                  goodsValue: Number(orderDetails.total_amount || 0),
+                  currency: "GHS",
+                  description: `Order ${orderDetails.order_code}`,
+                  originCountryCode: vendor.address_country || "GH",
+                },
+                reference: orderDetails.order_code,
+              });
+
+              if (!shipmentResult.hasErrors && shipmentResult.shipmentNumber) {
+                const trackingUrl = buildAramexTrackingUrl(
+                  shipmentResult.shipmentNumber
+                );
+                await admin.from("order_shipments").insert({
+                  order_id: order.id,
+                  provider: "aramex",
+                  status: "created",
+                  tracking_number: shipmentResult.shipmentNumber,
+                  tracking_url: trackingUrl,
+                  label_url: shipmentResult.labelUrl || null,
+                  shipment_reference: orderDetails.order_code,
+                  cost: orderDetails.shipping_fee || null,
+                  currency: "GHS",
+                  metadata: { source: "expresspay_webhook" },
+                  last_status_at: new Date().toISOString(),
+                });
+
+                await admin
+                  .from("order_delivery_details")
+                  .update({
+                    courier_partner: "aramex",
+                    tracking_id: shipmentResult.shipmentNumber,
+                    delivery_status: "created",
+                    updated_at: new Date().toISOString(),
+                  })
+                  .eq("order_id", order.id);
+              } else if (shipmentResult.hasErrors) {
+                console.error(
+                  "Aramex shipment error:",
+                  shipmentResult.message || shipmentResult.raw
+                );
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Aramex auto-shipment error:", error);
+      }
     }
 
     return NextResponse.json({ success: true, status: newStatus });
