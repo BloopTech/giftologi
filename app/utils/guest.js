@@ -1,4 +1,5 @@
 const GUEST_BROWSER_ID_KEY = "giftologi_guest_browser_id";
+const PRODUCT_VIEW_SESSION_ID_KEY = "product_page_view_session_id";
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_ID;
 
 export const getOrCreateGuestBrowserId = () => {
@@ -69,4 +70,35 @@ export const getGuestBrowserId = () => {
   } catch {
     return null;
   }
+};
+
+export const getProductSessionId = () => {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(PRODUCT_VIEW_SESSION_ID_KEY);
+  } catch {
+    return null;
+  }
+};
+
+export const getOrCreateProductSessionId = () => {
+  if (typeof window === "undefined") return null;
+
+  const existing = getProductSessionId();
+  if (existing) return existing;
+
+  let nextId;
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    nextId = crypto.randomUUID();
+  } else {
+    nextId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  try {
+    window.localStorage.setItem(PRODUCT_VIEW_SESSION_ID_KEY, nextId);
+  } catch {
+    // ignore storage failures
+  }
+
+  return nextId;
 };

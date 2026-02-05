@@ -1,29 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-
-function getOrCreateProductSessionId() {
-  if (typeof window === "undefined") return null;
-
-  const KEY = "product_page_view_session_id";
-  let existing = window.localStorage.getItem(KEY);
-  if (existing) return existing;
-
-  let next;
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    next = crypto.randomUUID();
-  } else {
-    next = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  }
-
-  try {
-    window.localStorage.setItem(KEY, next);
-  } catch {
-    // ignore storage failures
-  }
-
-  return next;
-}
+import { getOrCreateProductSessionId } from "../utils/guest";
 
 function isLocalhost() {
   if (typeof window === "undefined") return false;
@@ -49,7 +27,15 @@ export default function ProductPageViewTracker({ productId }) {
         product_id: productId,
         session_id: sessionId,
       }),
-    }).catch(() => {});
+    })
+      .then(() => {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("product-viewed", { detail: { productId } })
+          );
+        }
+      })
+      .catch(() => {});
   }, [productId]);
 
   return null;

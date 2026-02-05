@@ -36,6 +36,18 @@ export default function ShopContent() {
     loading,
     hasMore,
     loadMore,
+    featuredProducts,
+    featuredLoading,
+    featuredHasMore,
+    loadMoreFeaturedProducts,
+    recommendedProducts,
+    recommendedLoading,
+    recommendedHasMore,
+    loadMoreRecommendedProducts,
+    recentlyViewedProducts,
+    recentlyViewedLoading,
+    recentlyViewedHasMore,
+    loadMoreRecentlyViewedProducts,
     searchQuery,
     setSearchQuery,
     categoryFilter,
@@ -96,6 +108,9 @@ export default function ShopContent() {
   }, [applyFilters]);
 
   const hasProducts = products.length > 0;
+  const hasFeatured = featuredProducts.length > 0;
+  const hasRecommended = recommendedProducts.length > 0;
+  const hasRecentlyViewed = recentlyViewedProducts.length > 0;
 
   return (
     <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-poppins">
@@ -158,6 +173,266 @@ export default function ShopContent() {
         aria-label="Gift shop"
         className="mx-auto max-w-6xl w-full px-4 py-6"
       >
+        {/* Featured & Personalized Surfaces */}
+        {(featuredLoading || hasFeatured) && (
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Featured gifts
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Handpicked highlights from our vendors.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {featuredLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`featured-skeleton-${index}`}
+                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))
+                : featuredProducts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
+                    >
+                      <div
+                        className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
+                        onClick={() => openProductDetail(p)}
+                      >
+                        <Image
+                          src={p.image}
+                          alt={p.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {p.vendor?.verified && (
+                          <div className="absolute top-2 right-2">
+                            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full">
+                              <BadgeCheck className="size-3" />
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <Link
+                          href={`/storefront/${p.vendor?.slug}`}
+                          className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
+                        >
+                          <Store className="size-3" />
+                          {p.vendor?.name}
+                        </Link>
+                        <p
+                          className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
+                          onClick={() => openProductDetail(p)}
+                        >
+                          {p.name}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-[#A5914B]">
+                            {p.price}
+                          </p>
+                          {isHost && p.stock > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openAddToRegistry(p)}
+                              className="p-2 bg-[#A5914B] text-white rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
+                              aria-label="Add to registry"
+                            >
+                              <Plus className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+            </div>
+            {featuredHasMore && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  disabled={featuredLoading}
+                  onClick={loadMoreFeaturedProducts}
+                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {featuredLoading ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {(recommendedLoading || hasRecommended) && (
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Recommended for you
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Popular picks based on recent interest.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {recommendedLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`recommended-skeleton-${index}`}
+                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))
+                : recommendedProducts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
+                    >
+                      <div
+                        className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
+                        onClick={() => openProductDetail(p)}
+                      >
+                        <Image
+                          src={p.image}
+                          alt={p.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <Link
+                          href={`/storefront/${p.vendor?.slug}`}
+                          className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
+                        >
+                          <Store className="size-3" />
+                          {p.vendor?.name}
+                        </Link>
+                        <p
+                          className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
+                          onClick={() => openProductDetail(p)}
+                        >
+                          {p.name}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-[#A5914B]">
+                            {p.price}
+                          </p>
+                          {isHost && p.stock > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openAddToRegistry(p)}
+                              className="p-2 bg-[#A5914B] text-white rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
+                              aria-label="Add to registry"
+                            >
+                              <Plus className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+            </div>
+            {recommendedHasMore && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  disabled={recommendedLoading}
+                  onClick={loadMoreRecommendedProducts}
+                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {recommendedLoading ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {(recentlyViewedLoading || hasRecentlyViewed) && (
+          <section className="mb-10">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Recently viewed
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Continue where you left off.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {recentlyViewedLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`recent-skeleton-${index}`}
+                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))
+                : recentlyViewedProducts.map((p) => (
+                    <div
+                      key={p.id}
+                      className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
+                    >
+                      <div
+                        className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
+                        onClick={() => openProductDetail(p)}
+                      >
+                        <Image
+                          src={p.image}
+                          alt={p.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <Link
+                          href={`/storefront/${p.vendor?.slug}`}
+                          className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
+                        >
+                          <Store className="size-3" />
+                          {p.vendor?.name}
+                        </Link>
+                        <p
+                          className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
+                          onClick={() => openProductDetail(p)}
+                        >
+                          {p.name}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-[#A5914B]">
+                            {p.price}
+                          </p>
+                          {isHost && p.stock > 0 && (
+                            <button
+                              type="button"
+                              onClick={() => openAddToRegistry(p)}
+                              className="p-2 bg-[#A5914B] text-white rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
+                              aria-label="Add to registry"
+                            >
+                              <Plus className="size-4" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+            </div>
+            {recentlyViewedHasMore && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  disabled={recentlyViewedLoading}
+                  onClick={loadMoreRecentlyViewedProducts}
+                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {recentlyViewedLoading ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Search & Filter Bar */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 mb-6 shadow-sm">
           <div className="flex flex-col md:flex-row gap-4">

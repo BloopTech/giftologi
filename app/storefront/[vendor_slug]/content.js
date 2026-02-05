@@ -41,6 +41,18 @@ export default function StorefrontContent() {
     productsLoading,
     hasMore,
     loadMore,
+    featuredProducts,
+    featuredLoading,
+    featuredHasMore,
+    loadMoreFeaturedProducts,
+    recommendedProducts,
+    recommendedLoading,
+    recommendedHasMore,
+    loadMoreRecommendedProducts,
+    recentlyViewedProducts,
+    recentlyViewedLoading,
+    recentlyViewedHasMore,
+    loadMoreRecentlyViewedProducts,
   } = useStorefront();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState(null);
@@ -115,6 +127,9 @@ export default function StorefrontContent() {
 
   const hasProducts = filteredProducts.length > 0;
   const totalProducts = Array.isArray(products) ? products.length : 0;
+  const hasFeatured = featuredProducts.length > 0;
+  const hasRecommended = recommendedProducts.length > 0;
+  const hasRecentlyViewed = recentlyViewedProducts.length > 0;
 
   const clearFilters = useCallback(() => {
     setSearchQuery("");
@@ -272,6 +287,258 @@ export default function StorefrontContent() {
               </p>
             </div>
           </div>
+        )}
+
+        {(featuredLoading || hasFeatured) && (
+          <section className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Tag className="size-4 text-[#A5914B]" />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Featured picks
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Highlights handpicked from this storefront.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {featuredLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`storefront-featured-skeleton-${index}`}
+                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))
+                : featuredProducts.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/storefront/${vendor.slug}/${p.product_code || p.id}`}
+                      className={`group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300 ${
+                        isClosed ? "opacity-75" : ""
+                      }`}
+                    >
+                      <div className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden">
+                        <Image
+                          src={p.image}
+                          alt={p.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {p.stock <= 0 && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <span className="bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
+                        {isClosed && (
+                          <div className="absolute top-2 right-2">
+                            <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-1 rounded-full">
+                              Closed
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors">
+                          {p.name}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-[#A5914B]">
+                            {p.price}
+                          </p>
+                          {!isClosed && p.stock > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {p.stock} left
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+            </div>
+            {featuredHasMore && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  disabled={featuredLoading}
+                  onClick={loadMoreFeaturedProducts}
+                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {featuredLoading ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {(recommendedLoading || hasRecommended) && (
+          <section className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Star className="size-4 text-[#A5914B]" />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Recommended for you
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Popular items from this shop.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {recommendedLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`storefront-recommended-skeleton-${index}`}
+                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))
+                : recommendedProducts.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/storefront/${vendor.slug}/${p.product_code || p.id}`}
+                      className={`group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300 ${
+                        isClosed ? "opacity-75" : ""
+                      }`}
+                    >
+                      <div className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden">
+                        <Image
+                          src={p.image}
+                          alt={p.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {p.stock <= 0 && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <span className="bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
+                        {isClosed && (
+                          <div className="absolute top-2 right-2">
+                            <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-1 rounded-full">
+                              Closed
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors">
+                          {p.name}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-[#A5914B]">
+                            {p.price}
+                          </p>
+                          {!isClosed && p.stock > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {p.stock} left
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+            </div>
+            {recommendedHasMore && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  disabled={recommendedLoading}
+                  onClick={loadMoreRecommendedProducts}
+                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {recommendedLoading ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+          </section>
+        )}
+
+        {(recentlyViewedLoading || hasRecentlyViewed) && (
+          <section className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <ShoppingBag className="size-4 text-[#A5914B]" />
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  Recently viewed
+                </h2>
+                <p className="text-sm text-gray-500">
+                  Pick up where you left off.
+                </p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              {recentlyViewedLoading
+                ? Array.from({ length: 4 }).map((_, index) => (
+                    <div
+                      key={`storefront-recent-skeleton-${index}`}
+                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
+                    />
+                  ))
+                : recentlyViewedProducts.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/storefront/${vendor.slug}/${p.product_code || p.id}`}
+                      className={`group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300 ${
+                        isClosed ? "opacity-75" : ""
+                      }`}
+                    >
+                      <div className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden">
+                        <Image
+                          src={p.image}
+                          alt={p.name}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        {p.stock <= 0 && (
+                          <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                            <span className="bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full">
+                              Out of Stock
+                            </span>
+                          </div>
+                        )}
+                        {isClosed && (
+                          <div className="absolute top-2 right-2">
+                            <span className="bg-red-100 text-red-700 text-xs font-medium px-2 py-1 rounded-full">
+                              Closed
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-4">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors">
+                          {p.name}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-bold text-[#A5914B]">
+                            {p.price}
+                          </p>
+                          {!isClosed && p.stock > 0 && (
+                            <span className="text-xs text-gray-500">
+                              {p.stock} left
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+            </div>
+            {recentlyViewedHasMore && (
+              <div className="mt-6 flex justify-center">
+                <button
+                  type="button"
+                  disabled={recentlyViewedLoading}
+                  onClick={loadMoreRecentlyViewedProducts}
+                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {recentlyViewedLoading ? "Loading..." : "Load more"}
+                </button>
+              </div>
+            )}
+          </section>
         )}
 
         {/* Search & Filter Bar */}

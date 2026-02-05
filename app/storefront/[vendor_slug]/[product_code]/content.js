@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import { getGuestIdentifier } from "../../../utils/guest";
 import Footer from "../../../components/footer";
+import ProductPageViewTracker from "../../../components/ProductPageViewTracker";
 import {
   Store,
   MapPin,
@@ -379,6 +380,7 @@ export default function ProductCodeDetailContent() {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-poppins">
+      {product?.id && <ProductPageViewTracker productId={product.id} />}
       <div className="mx-auto max-w-6xl w-full py-6 px-4">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-6">

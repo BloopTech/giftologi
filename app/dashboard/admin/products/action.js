@@ -175,6 +175,19 @@ const approveProductSchema = z.object({
   productId: z.string().uuid({ message: "Invalid product" }),
 });
 
+const defaultFeaturedStateValues = {
+  productId: [],
+  featured: [],
+};
+
+const setFeaturedProductSchema = z.object({
+  productId: z.string().uuid({ message: "Invalid product" }),
+  featured: z
+    .string()
+    .trim()
+    .transform((value) => value === "1" || value.toLowerCase() === "true"),
+});
+
 export async function approveProduct(prevState, formData) {
   const supabase = await createClient();
 
@@ -330,6 +343,124 @@ export async function approveProduct(prevState, formData) {
     errors: {},
     values: {},
     data: { productId },
+  };
+}
+
+export async function setFeaturedProduct(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      message: "You must be logged in to update featured products.",
+      errors: { ...defaultFeaturedStateValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = [
+    "super_admin",
+    "operations_manager_admin",
+    "store_manager_admin",
+  ];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return {
+      message: "You are not authorized to feature products.",
+      errors: { ...defaultFeaturedStateValues },
+      values: {},
+      data: {},
+    };
+  }
+
+  const raw = {
+    productId: formData.get("productId"),
+    featured: formData.get("featured"),
+  };
+
+  const parsed = setFeaturedProductSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { productId, featured } = parsed.data;
+
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id")
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (productError || !product) {
+    return {
+      message: productError?.message || "Product not found.",
+      errors: { ...defaultFeaturedStateValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (featured) {
+    const now = new Date().toISOString();
+    const { error: upsertError } = await supabase
+      .from("featured_products")
+      .upsert(
+        {
+          product_id: productId,
+          active: true,
+          updated_at: now,
+        },
+        { onConflict: "product_id" },
+      );
+
+    if (upsertError) {
+      return {
+        message: upsertError.message || "Failed to feature product.",
+        errors: { ...defaultFeaturedStateValues },
+        values: raw,
+        data: {},
+      };
+    }
+  } else {
+    const { error: updateError } = await supabase
+      .from("featured_products")
+      .update({ active: false, updated_at: new Date().toISOString() })
+      .eq("product_id", productId);
+
+    if (updateError) {
+      return {
+        message: updateError.message || "Failed to unfeature product.",
+        errors: { ...defaultFeaturedStateValues },
+        values: raw,
+        data: {},
+      };
+    }
+  }
+
+  revalidatePath("/dashboard/admin/products");
+  revalidatePath("/dashboard/admin");
+
+  return {
+    message: featured ? "Product featured" : "Product unfeatured",
+    errors: {},
+    values: {},
+    data: { productId, featured },
   };
 }
 

@@ -13,6 +13,10 @@ import { toast } from "sonner";
 import { useQueryState, parseAsString } from "nuqs";
 
 import { createClient as createSupabaseClient } from "../utils/supabase/client";
+import {
+  getProductSessionId,
+  getOrCreateProductSessionId,
+} from "../utils/guest";
 
 const ShopContext = createContext(null);
 
@@ -126,6 +130,19 @@ export function ShopProvider({
     Array.isArray(initialCategories) ? initialCategories : []
   );
 
+  const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [featuredPage, setFeaturedPage] = useState(1);
+  const [featuredHasMore, setFeaturedHasMore] = useState(false);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [recommendedLoading, setRecommendedLoading] = useState(false);
+  const [recommendedPage, setRecommendedPage] = useState(1);
+  const [recommendedHasMore, setRecommendedHasMore] = useState(false);
+  const [recentlyViewedProducts, setRecentlyViewedProducts] = useState([]);
+  const [recentlyViewedLoading, setRecentlyViewedLoading] = useState(false);
+  const [recentlyViewedPage, setRecentlyViewedPage] = useState(1);
+  const [recentlyViewedHasMore, setRecentlyViewedHasMore] = useState(false);
+
   // Registry items state
   const [registryItems, setRegistryItems] = useState([]);
 
@@ -204,6 +221,177 @@ export function ShopProvider({
       ignore = true;
     };
   }, [supabase]);
+
+  const fetchFeaturedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
+    setFeaturedLoading(true);
+    try {
+      const url = new URL("/api/product/featured", window.location.origin);
+      url.searchParams.set("limit", "8");
+      url.searchParams.set("page", String(page));
+
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        if (!append) setFeaturedProducts([]);
+        setFeaturedHasMore(false);
+        return;
+      }
+
+      const body = await res.json().catch(() => ({}));
+      const next = Array.isArray(body?.products) ? body.products : [];
+      const mapped = next.map(mapProduct).filter((p) => p?.id);
+      setFeaturedHasMore(!!body?.has_more);
+      setFeaturedPage(page);
+      setFeaturedProducts((prev) => {
+        if (!append) return mapped;
+        const existing = new Set(prev.map((p) => p.id));
+        const merged = [...prev];
+        mapped.forEach((p) => {
+          if (!existing.has(p.id)) merged.push(p);
+        });
+        return merged;
+      });
+    } finally {
+      setFeaturedLoading(false);
+    }
+  }, []);
+
+  const loadMoreFeaturedProducts = useCallback(async () => {
+    if (featuredLoading || !featuredHasMore) return;
+    const nextPage = featuredPage + 1;
+    await fetchFeaturedProducts({ page: nextPage, append: true });
+  }, [fetchFeaturedProducts, featuredHasMore, featuredLoading, featuredPage]);
+
+  const fetchRecommendedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
+    setRecommendedLoading(true);
+    try {
+      const url = new URL("/api/product/recommended", window.location.origin);
+      url.searchParams.set("limit", "8");
+      url.searchParams.set("page", String(page));
+
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        if (!append) setRecommendedProducts([]);
+        setRecommendedHasMore(false);
+        return;
+      }
+
+      const body = await res.json().catch(() => ({}));
+      const next = Array.isArray(body?.products) ? body.products : [];
+      const mapped = next.map(mapProduct).filter((p) => p?.id);
+      setRecommendedHasMore(!!body?.has_more);
+      setRecommendedPage(page);
+      setRecommendedProducts((prev) => {
+        if (!append) return mapped;
+        const existing = new Set(prev.map((p) => p.id));
+        const merged = [...prev];
+        mapped.forEach((p) => {
+          if (!existing.has(p.id)) merged.push(p);
+        });
+        return merged;
+      });
+    } finally {
+      setRecommendedLoading(false);
+    }
+  }, []);
+
+  const loadMoreRecommendedProducts = useCallback(async () => {
+    if (recommendedLoading || !recommendedHasMore) return;
+    const nextPage = recommendedPage + 1;
+    await fetchRecommendedProducts({ page: nextPage, append: true });
+  }, [
+    fetchRecommendedProducts,
+    recommendedHasMore,
+    recommendedLoading,
+    recommendedPage,
+  ]);
+
+  const fetchRecentlyViewedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
+    setRecentlyViewedLoading(true);
+    try {
+      const sessionId = getProductSessionId() || getOrCreateProductSessionId();
+      if (!sessionId) {
+        if (!append) setRecentlyViewedProducts([]);
+        setRecentlyViewedHasMore(false);
+        return;
+      }
+
+      const url = new URL(
+        "/api/product/recently-viewed",
+        window.location.origin
+      );
+      url.searchParams.set("limit", "8");
+      url.searchParams.set("page", String(page));
+      url.searchParams.set("session_id", sessionId);
+
+      const res = await fetch(url.toString(), {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        if (!append) setRecentlyViewedProducts([]);
+        setRecentlyViewedHasMore(false);
+        return;
+      }
+
+      const body = await res.json().catch(() => ({}));
+      const next = Array.isArray(body?.products) ? body.products : [];
+      const mapped = next.map(mapProduct).filter((p) => p?.id);
+      setRecentlyViewedHasMore(!!body?.has_more);
+      setRecentlyViewedPage(page);
+      setRecentlyViewedProducts((prev) => {
+        if (!append) return mapped;
+        const existing = new Set(prev.map((p) => p.id));
+        const merged = [...prev];
+        mapped.forEach((p) => {
+          if (!existing.has(p.id)) merged.push(p);
+        });
+        return merged;
+      });
+    } finally {
+      setRecentlyViewedLoading(false);
+    }
+  }, []);
+
+  const loadMoreRecentlyViewedProducts = useCallback(async () => {
+    if (recentlyViewedLoading || !recentlyViewedHasMore) return;
+    const nextPage = recentlyViewedPage + 1;
+    await fetchRecentlyViewedProducts({ page: nextPage, append: true });
+  }, [
+    fetchRecentlyViewedProducts,
+    recentlyViewedHasMore,
+    recentlyViewedLoading,
+    recentlyViewedPage,
+  ]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    fetchFeaturedProducts({ page: 1, append: false });
+    fetchRecommendedProducts({ page: 1, append: false });
+    fetchRecentlyViewedProducts({ page: 1, append: false });
+
+    const handleProductViewed = () => {
+      fetchRecentlyViewedProducts({ page: 1, append: false });
+    };
+
+    window.addEventListener("product-viewed", handleProductViewed);
+    return () => {
+      window.removeEventListener("product-viewed", handleProductViewed);
+    };
+  }, [
+    fetchFeaturedProducts,
+    fetchRecommendedProducts,
+    fetchRecentlyViewedProducts,
+  ]);
 
   const filterKey = useMemo(
     () =>
@@ -497,6 +685,20 @@ export function ShopProvider({
       hasMore,
       loadMore,
 
+      // Surfaces
+      featuredProducts,
+      featuredLoading,
+      featuredHasMore,
+      loadMoreFeaturedProducts,
+      recommendedProducts,
+      recommendedLoading,
+      recommendedHasMore,
+      loadMoreRecommendedProducts,
+      recentlyViewedProducts,
+      recentlyViewedLoading,
+      recentlyViewedHasMore,
+      loadMoreRecentlyViewedProducts,
+
       // Filters
       searchQuery,
       setSearchQuery,
@@ -536,6 +738,18 @@ export function ShopProvider({
       loading,
       hasMore,
       loadMore,
+      featuredProducts,
+      featuredLoading,
+      featuredHasMore,
+      loadMoreFeaturedProducts,
+      recommendedProducts,
+      recommendedLoading,
+      recommendedHasMore,
+      loadMoreRecommendedProducts,
+      recentlyViewedProducts,
+      recentlyViewedLoading,
+      recentlyViewedHasMore,
+      loadMoreRecentlyViewedProducts,
       searchQuery,
       categoryFilter,
       sortBy,

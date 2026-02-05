@@ -38,7 +38,13 @@ import FlagProductDialog from "./FlagProductDialog";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Tooltip";
 import { useManageProductsContext } from "./context";
 import { useDashboardContext } from "../context";
-import { approveProduct, flagProduct, unflagProduct, updateProduct } from "./action";
+import {
+  approveProduct,
+  flagProduct,
+  unflagProduct,
+  updateProduct,
+  setFeaturedProduct,
+} from "./action";
 import RejectProductDialog from "./RejectProductDialog";
 
 const tableStyles = tv({
@@ -294,6 +300,15 @@ export default function ProductsTable({
     initialUpdateState
   );
 
+  const [featuredState, featuredAction, featuredPending] = useActionState(
+    setFeaturedProduct,
+    {
+      errors: { productId: [], featured: [] },
+      values: {},
+      data: {},
+    },
+  );
+
   const [editExistingImages, setEditExistingImages] = useState([]);
   const [editImagePreviews, setEditImagePreviews] = useState([]);
   const [editFeaturedIndex, setEditFeaturedIndex] = useState("");
@@ -405,6 +420,24 @@ export default function ProductsTable({
       toast.error(editState.message);
     }
   }, [editState, refreshProducts]);
+
+  useEffect(() => {
+    if (!featuredState) return;
+    if (
+      featuredState.message &&
+      featuredState.data &&
+      Object.keys(featuredState.data).length
+    ) {
+      toast.success(featuredState.message);
+      refreshProducts?.();
+    } else if (
+      featuredState.message &&
+      featuredState.errors &&
+      Object.keys(featuredState.errors).length
+    ) {
+      toast.error(featuredState.message);
+    }
+  }, [featuredState, refreshProducts]);
 
   const tableRows = useMemo(() => {
     if (!products || !products.length) return [];
@@ -755,6 +788,7 @@ export default function ProductsTable({
           const original = row.original;
           const isPending = original.normalizedStatus === "pending";
           const isFlagged = original.normalizedStatus === "flagged";
+          const isFeatured = !!original.isFeatured;
 
           if (!canModerate) {
             return (
@@ -807,6 +841,40 @@ export default function ProductsTable({
                 </TooltipTrigger>
                 <TooltipContent>Edit product</TooltipContent>
               </Tooltip>
+
+              <form action={featuredAction}>
+                <input type="hidden" name="productId" value={original.id} />
+                <input type="hidden" name="featured" value={isFeatured ? "0" : "1"} />
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="submit"
+                      disabled={featuredPending}
+                      aria-label={isFeatured ? "Unfeature product" : "Feature product"}
+                      className={cx(
+                        "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                        isFeatured
+                          ? "border-gray-400 text-gray-700 bg-gray-50 hover:bg-gray-100"
+                          : "border-primary text-primary bg-white hover:bg-primary hover:text-white",
+                        featuredPending &&
+                          "opacity-60 cursor-not-allowed hover:bg-white hover:text-primary",
+                      )}
+                    >
+                      {featuredPending ? (
+                        <LoaderIcon className="h-4 w-4 animate-spin" />
+                      ) : isFeatured ? (
+                        "Unfeature"
+                      ) : (
+                        "Feature"
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isFeatured ? "Remove from featured" : "Add to featured"}
+                  </TooltipContent>
+                </Tooltip>
+              </form>
+
               {isFlagged ? (
                 <form action={unflagAction}>
                   <input type="hidden" name="productId" value={original.id} />
@@ -905,6 +973,8 @@ export default function ProductsTable({
       unflagAction,
       unflagPending,
       approvePending,
+      featuredAction,
+      featuredPending,
       refreshProducts,
     ]
   );

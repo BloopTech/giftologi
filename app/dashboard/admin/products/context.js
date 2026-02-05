@@ -40,6 +40,7 @@ function useManageProductsProviderValue() {
     approved: null,
     rejected: null,
     flagged: null,
+    featured: null,
     total: null,
   });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
@@ -136,6 +137,7 @@ function useManageProductsProviderValue() {
           { count: approvedCount, error: approvedError },
           { count: rejectedCount, error: rejectedError },
           { count: flaggedCount, error: flaggedError },
+          { count: featuredCount, error: featuredError },
         ] = await Promise.all([
           supabase.from("products").select("id", { count: "exact" }),
           supabase
@@ -154,6 +156,10 @@ function useManageProductsProviderValue() {
             .from("products")
             .select("id", { count: "exact" })
             .eq("status", "flagged"),
+          supabase
+            .from("featured_products")
+            .select("id", { count: "exact" })
+            .eq("active", true),
         ]);
 
         if (ignore) return;
@@ -163,7 +169,8 @@ function useManageProductsProviderValue() {
           pendingError ||
           approvedError ||
           rejectedError ||
-          flaggedError
+          flaggedError ||
+          featuredError
         ) {
           const message =
             totalError?.message ||
@@ -171,6 +178,7 @@ function useManageProductsProviderValue() {
             approvedError?.message ||
             rejectedError?.message ||
             flaggedError?.message ||
+            featuredError?.message ||
             "Failed to load product metrics";
           setMetricsError(message);
         }
@@ -181,6 +189,7 @@ function useManageProductsProviderValue() {
           approved: typeof approvedCount === "number" ? approvedCount : null,
           rejected: typeof rejectedCount === "number" ? rejectedCount : null,
           flagged: typeof flaggedCount === "number" ? flaggedCount : null,
+          featured: typeof featuredCount === "number" ? featuredCount : null,
         });
       } catch (error) {
         if (!ignore) {
@@ -227,6 +236,10 @@ function useManageProductsProviderValue() {
             rejection_reason,
             vendor_id,
             created_at,
+            featured_products (
+              id,
+              active
+            ),
             vendor:vendors!Products_vendor_id_fkey (
               id,
               business_name
@@ -248,7 +261,11 @@ function useManageProductsProviderValue() {
         }
 
         if (statusFilter && statusFilter !== "all") {
-          query = query.eq("status", statusFilter);
+          if (statusFilter === "featured") {
+            query = query.eq("featured_products.active", true);
+          } else {
+            query = query.eq("status", statusFilter);
+          }
         }
 
         const { data, error, count } = await query
@@ -268,6 +285,10 @@ function useManageProductsProviderValue() {
           const enriched = (data || []).map((row) => {
             const vendor = row.vendor || null;
             const category = row.category || null;
+            const featuredRows = Array.isArray(row.featured_products)
+              ? row.featured_products
+              : [];
+            const isFeatured = featuredRows.some((entry) => entry?.active);
             const relatedCategoryIds = Array.isArray(row.product_categories)
               ? row.product_categories
                   .map((entry) => entry?.category_id)
@@ -295,6 +316,7 @@ function useManageProductsProviderValue() {
               variations: Array.isArray(row.variations) ? row.variations : [],
               rejection_reason: row.rejection_reason || null,
               vendorId: row.vendor_id || null,
+              isFeatured,
               __raw: row,
             };
           });
@@ -336,7 +358,11 @@ function useManageProductsProviderValue() {
                 }
 
                 if (statusFilter && statusFilter !== "all") {
-                  verifyQuery = verifyQuery.eq("status", statusFilter);
+                  if (statusFilter === "featured") {
+                    verifyQuery = verifyQuery.eq("featured_products.active", true);
+                  } else {
+                    verifyQuery = verifyQuery.eq("status", statusFilter);
+                  }
                 }
 
                 const verifyResult = await verifyQuery.maybeSingle();
@@ -359,7 +385,11 @@ function useManageProductsProviderValue() {
                   }
 
                   if (statusFilter && statusFilter !== "all") {
-                    rankQuery = rankQuery.eq("status", statusFilter);
+                    if (statusFilter === "featured") {
+                      rankQuery = rankQuery.eq("featured_products.active", true);
+                    } else {
+                      rankQuery = rankQuery.eq("status", statusFilter);
+                    }
                   }
 
                   const rankResult = await rankQuery;
