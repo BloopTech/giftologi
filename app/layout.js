@@ -71,7 +71,7 @@ const didotBold = localFont({
 });
 
 const brasleySemibold = localFont({
-  src: "../public/fonts/BrasleySemibold.otf",
+  src: "../public/fonts/BrasleySemiBold.otf",
   variable: "--font-brasley-semibold",
   weight: "600",
   display: "swap",
