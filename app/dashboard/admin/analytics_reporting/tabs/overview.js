@@ -4,7 +4,7 @@ import { PiClock, PiCurrencyDollar, PiFile, PiPackage, PiShoppingCart, PiUsers, 
 
 function MetricCard({ title, value, description, Icon }) {
   return (
-    <div className="font-inter flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+    <div className="font-brasley-medium flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
       <div className="flex items-center justify-between w-full">
         <h2 className="text-[#4A5565] text-xs/4">{title}</h2>
         {Icon}
@@ -26,7 +26,7 @@ export default function AnalyticsReportOverview(props) {
     if (isLoading) return skeleton;
     if (!metrics) {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">—</p>
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">—</p>
       );
     }
     if (type === "revenue" || type === "serviceCharges") {

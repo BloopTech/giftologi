@@ -15,6 +15,9 @@
   --font-cormorant-garamond: Cormorant_Garamond, sans-serif;
   --font-bodoni-moda: Bodoni_Moda, sans-serif;
   --font-inter: Inter, sans-serif;
+  --font-didot-bold: var(--font-didot-bold), "Didot", "Bodoni MT", "GFS Didot", serif;
+  --font-brasley-semibold: var(--font-brasley-semibold), "Brasley", serif;
+  --font-brasley-medium: var(--font-brasley-medium), "Brasley", serif;
   --color-primary: #BBA96C;
   --color-secondary: #FFFCEF;
 }
@@ -29,7 +32,19 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-brasley-medium), serif;
+}
+
+h1,
+h2 {
+  font-family: var(--font-didot-bold), serif;
+}
+
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-brasley-semibold), serif;
 }
 
 /* Accessibility: Focus visible styles */

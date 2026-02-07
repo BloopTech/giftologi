@@ -169,6 +169,7 @@ export const GuestRegistryCodeProvider = ({
         cover_photo,
         deadline,
         welcome_note,
+        category_ids,
         event:events(
           id,
           host_id,
@@ -222,6 +223,8 @@ export const GuestRegistryCodeProvider = ({
           id,
           name,
           price,
+          weight_kg,
+          service_charge,
           images,
           vendor_id,
           category_id,
@@ -238,10 +241,20 @@ export const GuestRegistryCodeProvider = ({
       return;
     }
 
-    const { data: categoriesData } = await supabase
-      .from("categories")
-      .select("id, name, slug")
-      .order("name");
+    // Only fetch categories that are in this registry's denormalized category_ids
+    const registryCategoryIds = Array.isArray(registryData.category_ids)
+      ? registryData.category_ids.filter(Boolean)
+      : [];
+
+    let categoriesData = [];
+    if (registryCategoryIds.length > 0) {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name, slug")
+        .in("id", registryCategoryIds)
+        .order("name");
+      categoriesData = data || [];
+    }
 
     const productsData = Array.isArray(registryItems)
       ? registryItems.map((item) => {
@@ -258,19 +271,26 @@ export const GuestRegistryCodeProvider = ({
             ),
           ];
 
+          const serviceCharge = Number(product.service_charge || 0);
+          const basePrice = Number(product.price);
+          const totalPrice = Number.isFinite(basePrice)
+            ? basePrice + serviceCharge
+            : serviceCharge;
           return {
             id: item.id,
             productId: product.id,
             title: product.name || "Gift item",
             image: images[0] || "/host/toaster.png",
-            price: formatPrice(product.price),
-            rawPrice: product.price,
+            price: formatPrice(totalPrice),
+            rawPrice: totalPrice,
             desired: item.quantity_needed ?? 0,
             purchased: item.purchased_qty ?? 0,
             vendorId: product.vendor_id,
             vendorSlug: product.vendor?.slug || null,
             categoryId: product.category_id,
             categoryIds: mergedCategoryIds,
+            serviceCharge,
+            weightKg: product.weight_kg ?? null,
           };
         })
       : [];
@@ -365,6 +385,49 @@ export const GuestRegistryCodeProvider = ({
   const [completedOrderId, setCompletedOrderId] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Cart state
+  const [cartItems, setCartItems] = useState([]);
+  const [cartCount, setCartCount] = useState(0);
+  const [cartLoading, setCartLoading] = useState(false);
+  const [addingProductId, setAddingProductId] = useState(null);
+
+  // Set of product IDs already in the cart for this registry
+  const cartProductIds = useMemo(
+    () => new Set(cartItems.map((i) => i.product_id).filter(Boolean)),
+    [cartItems],
+  );
+
+  // Fetch existing cart for this registry on mount so widget persists across refreshes
+  useEffect(() => {
+    if (!registry?.id) return;
+    let cancelled = false;
+    const loadCart = async () => {
+      setCartLoading(true);
+      try {
+        const guestIdentifier = await getGuestIdentifier();
+        const url = new URL("/api/storefront/cart", window.location.origin);
+        url.searchParams.set("registry_id", registry.id);
+        if (guestIdentifier) {
+          url.searchParams.set("guest_browser_id", guestIdentifier);
+        }
+        const response = await fetch(url.toString(), { method: "GET" });
+        const payload = await response.json().catch(() => ({}));
+        if (cancelled) return;
+        if (response.ok) {
+          const items = Array.isArray(payload?.items) ? payload.items : [];
+          setCartItems(items);
+          setCartCount(items.reduce((sum, i) => sum + (i.quantity || 0), 0));
+        }
+      } catch (err) {
+        console.error("Failed to load registry cart:", err);
+      } finally {
+        if (!cancelled) setCartLoading(false);
+      }
+    };
+    loadCart();
+    return () => { cancelled = true; };
+  }, [registry?.id]);
+
   // Filter states
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("default");
@@ -386,22 +449,146 @@ export const GuestRegistryCodeProvider = ({
     setSelectedProduct(null);
   }, []);
 
-  const startBuyThis = useCallback((product) => {
-    if (!product) return;
-    setSelectedProduct(product);
-    setPurchaseQuantity(1);
-    setProductDetailOpen(false);
-    setGifterInfoOpen(true);
-  }, []);
+  // Add a product to the guest cart
+  const addToCart = useCallback(
+    async (product, quantity = 1) => {
+      if (!product || !registry?.id) return;
+      const productId = product.productId || product.id;
 
-  const startBuyMultiple = useCallback((product) => {
-    if (!product) return;
-    const remaining = Math.max(1, (product.desired || 0) - (product.purchased || 0));
-    setSelectedProduct(product);
-    setPurchaseQuantity(remaining);
-    setProductDetailOpen(false);
-    setGifterInfoOpen(true);
-  }, []);
+      // Prevent duplicate adds — product already in this registry's cart
+      if (cartProductIds.has(productId)) return;
+      const vendorSlug = product.vendorSlug;
+      const vendorId = product.vendorId;
+      if (!vendorSlug && !vendorId) {
+        setError("Vendor not found for this gift.");
+        return;
+      }
+
+      setAddingProductId(productId);
+      setError(null);
+
+      try {
+        const guestIdentifier = await getGuestIdentifier();
+        const response = await fetch("/api/storefront/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            vendorId,
+            vendorSlug,
+            productId,
+            registryItemId: product.id,
+            registryId: registry.id,
+            quantity,
+            guestBrowserId: guestIdentifier,
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.message || "Failed to add item to cart.");
+        }
+
+        const items = Array.isArray(data?.items) ? data.items : [];
+        setCartItems(items);
+        setCartCount(items.reduce((sum, i) => sum + (i.quantity || 0), 0));
+      } catch (err) {
+        console.error("Add to cart error:", err);
+        setError(err.message || "Failed to add item to cart.");
+      } finally {
+        setAddingProductId(null);
+      }
+    },
+    [registry?.id, cartProductIds],
+  );
+
+  const startBuyThis = useCallback(
+    (product) => {
+      if (!product) return;
+      setProductDetailOpen(false);
+      addToCart(product, 1);
+    },
+    [addToCart],
+  );
+
+  // Remove a product from the cart by product ID
+  const removeFromCart = useCallback(
+    async (productId) => {
+      if (!productId || !registry?.id) return;
+
+      // Find the cart item for this product
+      const cartItem = cartItems.find(
+        (item) => item.product_id === productId || item.product?.id === productId
+      );
+      if (!cartItem?.id) return;
+
+      setAddingProductId(productId);
+      setError(null);
+
+      try {
+        const response = await fetch("/api/storefront/cart", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cartItemId: cartItem.id,
+            quantity: 0,
+          }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data.message || "Failed to remove item from cart.");
+        }
+
+        // Refresh cart to reflect removal
+        const guestIdentifier = await getGuestIdentifier();
+        const url = new URL("/api/storefront/cart", window.location.origin);
+        url.searchParams.set("registry_id", registry.id);
+        if (guestIdentifier) {
+          url.searchParams.set("guest_browser_id", guestIdentifier);
+        }
+        const getResponse = await fetch(url.toString(), { method: "GET" });
+        const payload = await getResponse.json().catch(() => ({}));
+        if (getResponse.ok) {
+          const items = Array.isArray(payload?.items) ? payload.items : [];
+          setCartItems(items);
+          setCartCount(items.reduce((sum, i) => sum + (i.quantity || 0), 0));
+        }
+      } catch (err) {
+        console.error("Remove from cart error:", err);
+        setError(err.message || "Failed to remove item from cart.");
+      } finally {
+        setAddingProductId(null);
+      }
+    },
+    [registry?.id, cartItems],
+  );
+
+  const startBuyMultiple = useCallback(
+    (product) => {
+      if (!product) return;
+      const remaining = Math.max(1, (product.desired || 0) - (product.purchased || 0));
+      setProductDetailOpen(false);
+      addToCart(product, remaining);
+    },
+    [addToCart],
+  );
+
+  // Navigate to checkout — use first product's vendor slug for the URL,
+  // pass registry_id so the checkout fetches the unified registry cart.
+  const goToCheckout = useCallback(() => {
+    if (cartCount === 0) return;
+    // Try registry products first, then fall back to cart items (which include vendor data)
+    const vendorSlug =
+      products.find((p) => p.vendorSlug)?.vendorSlug ||
+      cartItems.find((i) => i.product?.vendor?.slug)?.product?.vendor?.slug;
+    if (!vendorSlug) {
+      setError("Vendor not found.");
+      return;
+    }
+    router.push(
+      `/storefront/${vendorSlug}/checkout?cart=1&registry_id=${encodeURIComponent(registry?.id)}`
+    );
+  }, [cartCount, products, cartItems, registry?.id, router]);
 
   const handleGifterInfoSubmit = useCallback((payload) => {
     setGifterInfo(payload || null);
@@ -424,6 +611,8 @@ export const GuestRegistryCodeProvider = ({
         typeof payload === "string"
           ? derivedDefaultShippingRegionId
           : payload?.shippingRegionId || derivedDefaultShippingRegionId;
+      const promoCode =
+        typeof payload === "string" ? "" : payload?.promoCode || "";
       setGiftMessage(message);
       setAddMessageOpen(false);
       setPurchaseStep(PURCHASE_STEPS.PROCESSING);
@@ -448,6 +637,7 @@ export const GuestRegistryCodeProvider = ({
             vendorSlug,
             productId: selectedProduct?.productId,
             registryItemId: selectedProduct?.id,
+            registryId: registry?.id || null,
             quantity: purchaseQuantity,
             guestBrowserId: guestIdentifier,
           }),
@@ -459,7 +649,13 @@ export const GuestRegistryCodeProvider = ({
           throw new Error(data.message || "Failed to add item to cart.");
         }
 
-        router.push(`/storefront/${vendorSlug}/checkout?cart=1`);
+        const promoParam = promoCode
+          ? `&promo=${encodeURIComponent(promoCode)}`
+          : "";
+        const registryParam = registry?.id
+          ? `&registry_id=${encodeURIComponent(registry.id)}`
+          : "";
+        router.push(`/storefront/${vendorSlug}/checkout?cart=1${registryParam}${promoParam}`);
       } catch (err) {
         console.error("Payment error:", err);
         setError(err.message || "Failed to add item to cart");
@@ -467,7 +663,7 @@ export const GuestRegistryCodeProvider = ({
         setPurchaseStep(PURCHASE_STEPS.IDLE);
       }
     },
-    [selectedProduct, purchaseQuantity, derivedDefaultShippingRegionId, router],
+    [selectedProduct, purchaseQuantity, derivedDefaultShippingRegionId, registry?.id, router],
   );
 
   // Skip message and initiate payment
@@ -590,6 +786,16 @@ export const GuestRegistryCodeProvider = ({
       error,
       setError,
 
+      // Cart state
+      cartItems,
+      cartCount,
+      cartLoading,
+      addingProductId,
+      cartProductIds,
+      addToCart,
+      removeFromCart,
+      goToCheckout,
+
       // Filter states
       categoryFilter,
       setCategoryFilter,
@@ -633,6 +839,14 @@ export const GuestRegistryCodeProvider = ({
       completedOrderId,
       isProcessing,
       error,
+      cartItems,
+      cartCount,
+      cartLoading,
+      addingProductId,
+      cartProductIds,
+      addToCart,
+      removeFromCart,
+      goToCheckout,
       categoryFilter,
       sortBy,
       openProductDetail,

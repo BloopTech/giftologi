@@ -4,11 +4,11 @@ import React from "react";
 function MetricCard({ title, value, description }) {
   return (
     <div className="flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-      <h2 className="text-[#4A5565] text-xs/4 font-inter">{title}</h2>
-      <div className="flex justify-between items-center font-inter text-[#101828]">
+      <h2 className="text-[#4A5565] text-xs/4 font-brasley-medium">{title}</h2>
+      <div className="flex justify-between items-center font-brasley-medium text-[#101828]">
         {value}
       </div>
-      <span className="font-inter text-[#6A7282] text-[10px]">
+      <span className="font-brasley-medium text-[#6A7282] text-[10px]">
         {description}
       </span>
     </div>
@@ -28,11 +28,11 @@ export default function AnalyticsReportRegistryUser(props) {
     if (isLoading) return skeleton;
     if (!metrics) {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">—</p>
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">—</p>
       );
     }
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(metrics.registriesCreated)}
       </p>
     );
@@ -42,13 +42,13 @@ export default function AnalyticsReportRegistryUser(props) {
     if (isLoading) return skeleton;
     if (!metrics) {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">—</p>
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">—</p>
       );
     }
     const active = formatCount(metrics.activeRegistries || 0);
     const completed = formatCount(metrics.completedRegistries || 0);
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {active} / {completed}
       </p>
     );
@@ -58,7 +58,7 @@ export default function AnalyticsReportRegistryUser(props) {
     if (isLoading) return skeleton;
     if (!metrics) {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">—</p>
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">—</p>
       );
     }
     return renderMetricValue("avgGifts", metrics);
@@ -68,14 +68,14 @@ export default function AnalyticsReportRegistryUser(props) {
     if (isLoading) return skeleton;
     if (!metrics || raw === null || typeof raw === "undefined") {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">—</p>
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">—</p>
       );
     }
     const num = Number(raw);
     const label =
       Number.isFinite(num) && num >= 0 ? `${(num * 100).toFixed(1)}%` : "—";
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">{label}</p>
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">{label}</p>
     );
   };
 
@@ -102,10 +102,10 @@ export default function AnalyticsReportRegistryUser(props) {
       <div className="w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col">
-            <h2 className="text-[#0A0A0A] font-medium text-sm font-inter">
+            <h2 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
               Most Popular Registry Types
             </h2>
-            <p className="text-xs text-[#717182] font-inter mt-1">
+            <p className="text-xs text-[#717182] font-brasley-medium mt-1">
               Distribution by event category.
             </p>
           </div>
@@ -113,7 +113,7 @@ export default function AnalyticsReportRegistryUser(props) {
         <div className="mt-[1rem] overflow-x-auto">
           <table className="min-w-full text-xs text-left">
             <thead>
-              <tr className="text-[#0A0A0A] font-inter font-medium">
+              <tr className="text-[#0A0A0A] font-brasley-medium font-medium">
                 <th className="pb-1 pr-4 font-medium">Registry Type</th>
                 <th className="pb-1 pr-4 font-medium text-right">Count</th>
                 <th className="pb-1 font-medium text-right">Percentage</th>

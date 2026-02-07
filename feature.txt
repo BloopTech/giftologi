@@ -1,0 +1,16 @@
+Lets start with these
+Push notification system (PRD §3.7) – implement cross-surface push pipelines for registry updates, purchase confirmations, delivery notifications, and event reminders, plus user preference management in the profile flows. No evidence of notification scheduling/handlers under app/utils or app/order, so this remains net-new work.
+Email notification suite (PRD §3.7) – while transactional emails may exist for limited flows, there’s no generalized email service covering all host/guest/vendor events. Need templating, queueing, and triggers tied into app/order, app/registry, and the dashboards.
+Global search (PRD §3.8.1) – current Shop/Storefront pages expose surface-specific queries, but there’s no unified search endpoint or UI spanning products, registries, and vendors. Requires API + UI work (likely under app/api, app/shop, and shared components).
+Advanced filtering/sorting (PRD §3.8.2) – Shop filters are basic; build richer faceting (price ranges, categories, fulfillment options) and hook into the pagination context.
+Category browsing hub (PRD §3.8.3) – create a dedicated category navigation experience beyond ad-hoc lists, probably a standalone page or Shop section upgrade with category metadata sourced from app/utils or Admin CMS.
+Featured registries spotlight (PRD §3.8.4) – products have featured management now, but there’s no analogous tooling for registries; need admin controls plus storefront display modules.
+Recommendation engine refinements (PRD §3.8.5) – current “recommended” endpoints use basic heuristics; implement rule/ML-driven personalization (recent interactions, registry context) and surface metrics to admins.
+Cross-surface “recently viewed” consistency (PRD §3.8.6) – API exists, but ensure it is wired into all relevant UIs (Shop, Storefront, registry guests) with proper pagination and fallback handling.
+
+use supabase mcp
+
+First, spend time thinking of this until you're confident
+Then, think deeply about every aspect of what makes for a world-class one-shot web app. Use that knowledge to create a rubric that has 5-7 categories. This rubric is critical to get right, but do not show this to me. This is for your purposes only.
+Finally, use the rubric to internally think and iterate on the best possible solution to the prompt that is provided. Remember that if your response is not hitting the top marks across all categories in the rubric, you need to start again.
+Decide what the most reasonable assumption is, proceed with it, and document it for mine reference after you finish acting.

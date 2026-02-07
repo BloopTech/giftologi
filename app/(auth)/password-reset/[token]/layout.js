@@ -8,7 +8,7 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <>
-      <div className="font-poppins bg-white text-black dark:bg-gray-950 dark:text-white w-full min-h-screen">{children}</div>
+      <div className="font-brasley-medium bg-white text-black dark:bg-gray-950 dark:text-white w-full min-h-screen">{children}</div>
     </>
   );
 }

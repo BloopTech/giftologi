@@ -248,7 +248,7 @@ export default function CategoriesSection({
     <div className="mt-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <h2 className="text-[#0A0A0A] text-xs font-medium font-inter">
+          <h2 className="text-[#0A0A0A] text-xs font-medium font-brasley-medium">
             Categories
           </h2>
           <button
@@ -259,7 +259,7 @@ export default function CategoriesSection({
             + New Category
           </button>
         </div>
-        <p className="text-[#717182] text-[11px] font-poppins">
+        <p className="text-[#717182] text-[11px] font-brasley-medium">
           Manage product categories. Categories in use cannot be deleted.
         </p>
       </div>

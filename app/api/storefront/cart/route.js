@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/app/utils/supabase/server";
+import { unstable_cache } from "next/cache";
 
 const normalizeVariations = (raw) => {
   if (!raw) return [];
@@ -43,7 +44,7 @@ const fetchCartPayload = async (adminClient, cartId) => {
   const { data: items, error } = await adminClient
     .from("cart_items")
     .select(
-      "id, cart_id, product_id, registry_item_id, quantity, price, total_price, variation, wrapping, gift_wrap_option_id, created_at, product:products(id, name, price, stock_qty, images, product_code)"
+      "id, cart_id, product_id, registry_item_id, quantity, price, total_price, variation, wrapping, gift_wrap_option_id, created_at, product:products(id, name, price, weight_kg, service_charge, stock_qty, images, product_code, vendor_id, vendor:vendors(id, slug, business_name, logo, logo_url))"
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });
@@ -63,6 +64,18 @@ const fetchCartPayload = async (adminClient, cartId) => {
     subtotal,
   };
 };
+
+const CART_CACHE_SECONDS = 30;
+
+const getCachedCartPayload = unstable_cache(
+  async (cartId) => {
+    if (!cartId) return null;
+    const adminClient = createAdminClient();
+    return fetchCartPayload(adminClient, cartId);
+  },
+  ["cart-payload"],
+  { revalidate: CART_CACHE_SECONDS }
+);
 
 const resolveCartOwner = async (supabase, guestBrowserId) => {
   const {
@@ -198,6 +211,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const vendorId = searchParams.get("vendor_id");
     const vendorSlug = searchParams.get("vendor_slug");
+    const registryId = searchParams.get("registry_id");
     const guestBrowserId = searchParams.get("guest_browser_id");
 
     const supabase = await createClient();
@@ -208,20 +222,24 @@ export async function GET(request) {
       return NextResponse.json({ message: "Owner not found" }, { status: 401 });
     }
 
-    const resolvedVendorId = await resolveVendorId(adminClient, vendorId, vendorSlug);
-    if (!resolvedVendorId) {
-      return NextResponse.json({ cart: null, items: [], subtotal: 0 }, { status: 200 });
-    }
-
-    if (owner.hostId && guestBrowserId) {
-      await mergeGuestCartIntoHost(adminClient, resolvedVendorId, owner.hostId, guestBrowserId);
-    }
-
+    // Registry carts are keyed by registry_id; storefront carts by vendor_id
     let cartQuery = adminClient
       .from("carts")
-      .select("id, vendor_id, host_id, guest_browser_id, status, currency")
-      .eq("vendor_id", resolvedVendorId)
+      .select("id, vendor_id, host_id, guest_browser_id, registry_id, status, currency")
       .eq("status", "active");
+
+    if (registryId) {
+      cartQuery = cartQuery.eq("registry_id", registryId);
+    } else {
+      const resolvedVendorId = await resolveVendorId(adminClient, vendorId, vendorSlug);
+      if (!resolvedVendorId) {
+        return NextResponse.json({ cart: null, items: [], subtotal: 0 }, { status: 200 });
+      }
+      if (owner.hostId && guestBrowserId) {
+        await mergeGuestCartIntoHost(adminClient, resolvedVendorId, owner.hostId, guestBrowserId);
+      }
+      cartQuery = cartQuery.eq("vendor_id", resolvedVendorId);
+    }
 
     if (owner.hostId) {
       cartQuery = cartQuery.eq("host_id", owner.hostId);
@@ -235,7 +253,7 @@ export async function GET(request) {
       return NextResponse.json({ cart: null, items: [], subtotal: 0 }, { status: 200 });
     }
 
-    const payload = await fetchCartPayload(adminClient, cart.id);
+    const payload = await getCachedCartPayload(cart.id);
 
     return NextResponse.json(
       {
@@ -259,6 +277,7 @@ export async function POST(request) {
       vendorSlug,
       productId,
       registryItemId,
+      registryId,
       quantity = 1,
       variationKey,
       variation,
@@ -279,23 +298,33 @@ export async function POST(request) {
       return NextResponse.json({ message: "Owner not found" }, { status: 401 });
     }
 
+    // For registry carts we still resolve the vendor to validate the product,
+    // but the cart itself is keyed by registry_id (not vendor_id) so items from
+    // multiple vendors can live in one cart.
     const resolvedVendorId = await resolveVendorId(adminClient, vendorId, vendorSlug);
     if (!resolvedVendorId) {
       return NextResponse.json({ message: "Vendor not found" }, { status: 404 });
     }
 
-    if (owner.hostId && guestBrowserId) {
+    if (!registryId && owner.hostId && guestBrowserId) {
       await mergeGuestCartIntoHost(adminClient, resolvedVendorId, owner.hostId, guestBrowserId);
     }
 
-    const { data: product, error: productError } = await adminClient
+    let productQuery = adminClient
       .from("products")
-      .select("id, vendor_id, price, stock_qty, variations, status, active")
+      .select(
+        "id, vendor_id, price, service_charge, stock_qty, variations, status, active"
+      )
       .eq("id", productId)
-      .eq("vendor_id", resolvedVendorId)
       .eq("status", "approved")
-      .eq("active", true)
-      .single();
+      .eq("active", true);
+
+    // For non-registry carts, validate product belongs to the vendor
+    if (!registryId) {
+      productQuery = productQuery.eq("vendor_id", resolvedVendorId);
+    }
+
+    const { data: product, error: productError } = await productQuery.single();
 
     if (productError || !product) {
       return NextResponse.json({ message: "Product not available" }, { status: 404 });
@@ -315,18 +344,28 @@ export async function POST(request) {
       : buildVariationPayload(variation, variationKey);
 
     const variationPrice = Number(matchedVariation?.price);
+    const serviceCharge = Number(product.service_charge || 0);
     const basePrice = Number(product.price);
+    const baseWithCharge = Number.isFinite(basePrice)
+      ? basePrice + serviceCharge
+      : serviceCharge;
     const unitPrice = Number.isFinite(variationPrice)
-      ? variationPrice
-      : Number.isFinite(basePrice)
-      ? basePrice
+      ? variationPrice + serviceCharge
+      : Number.isFinite(baseWithCharge)
+      ? baseWithCharge
       : 0;
 
+    // Registry carts are keyed by registry_id; storefront carts by vendor_id
     let cartQuery = adminClient
       .from("carts")
       .select("id")
-      .eq("vendor_id", resolvedVendorId)
       .eq("status", "active");
+
+    if (registryId) {
+      cartQuery = cartQuery.eq("registry_id", registryId);
+    } else {
+      cartQuery = cartQuery.eq("vendor_id", resolvedVendorId);
+    }
 
     if (owner.hostId) {
       cartQuery = cartQuery.eq("host_id", owner.hostId);
@@ -340,9 +379,10 @@ export async function POST(request) {
       const { data: createdCart, error: cartError } = await adminClient
         .from("carts")
         .insert({
-          vendor_id: resolvedVendorId,
+          vendor_id: registryId ? null : resolvedVendorId,
           host_id: owner.hostId,
           guest_browser_id: owner.guestId,
+          registry_id: registryId || null,
           status: "active",
           currency: "GHS",
           created_at: new Date().toISOString(),

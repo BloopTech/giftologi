@@ -23,7 +23,7 @@ export const EmailSignup = () => {
   };
 
   return (
-    <div className="gift-card rounded-2xl p-8 max-w-6xl mx-auto fade-in-up delay-3 border border-slate-400 font-poppins">
+    <div className="gift-card rounded-2xl p-8 max-w-6xl mx-auto fade-in-up delay-3 border border-slate-400 font-brasley-medium">
       <div className="text-center mb-6">
         <div className="flex justify-center mb-4">
           <div className="p-3 rounded-full bg-[#f4f4f4]">

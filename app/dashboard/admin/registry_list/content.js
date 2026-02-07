@@ -6,6 +6,7 @@ import {
   PiShoppingBagOpen,
   PiShoppingCart,
   PiStorefront,
+  PiStarFill,
   PiTicket,
   PiWarning,
   PiXCircle,
@@ -48,7 +49,7 @@ export default function RegistryListContent() {
       return <div className="h-4 w-10 rounded bg-[#E5E7EB] animate-pulse" />;
     }
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(value)}
       </p>
     );
@@ -64,10 +65,10 @@ export default function RegistryListContent() {
     <section aria-label="Registry list management" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             Open Registry List
           </h1>
-          <span className="text-[#717182] text-xs/4 font-poppins">
+          <span className="text-[#717182] text-xs/4 font-brasley-medium">
             Monitor, audit, and manage all event registries.
           </span>
         </div>
@@ -75,46 +76,55 @@ export default function RegistryListContent() {
 
       {/* Card Overview */}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         {/* Active Registries */}
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Active Registries
           </h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.activeRegistries)}
             <PiShoppingBagOpen className="size-4 text-[#6EA30B]" />
           </div>
-          <div className="border-t-[2px] border-[#6EA30B]" />
+          <div className="border-t-2 border-[#6EA30B]" />
         </div>
         {/* Expired */}
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">Expired</h2>
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">Expired</h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.expiredRegistries)}
             <PiXCircle className="size-4 text-[#CB7428]" />
           </div>
-          <div className="border-t-[2px] border-[#FFCA57]" />
+          <div className="border-t-2 border-[#FFCA57]" />
         </div>
         {/* Flagged */}
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">Flagged</h2>
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">Flagged</h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.flaggedRegistries)}
             <PiFlag className="size-4 text-[#C52721]" />
           </div>
-          <div className="border-t-[2px] border-[#FF908B]" />
+          <div className="border-t-2 border-[#FF908B]" />
+        </div>
+        {/* Featured Registries */}
+        <div className="flex flex-col space-y-2 w-full">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">Featured</h2>
+          <div className="flex justify-between items-center">
+            {renderMetricCount(metrics?.featuredRegistries)}
+            <PiStarFill className="size-4 text-[#F5A524]" />
+          </div>
+          <div className="border-t-2 border-[#FBD38D]" />
         </div>
         {/* Total Registries */}
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Total Registries
           </h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.totalRegistries)}
             <PiTicket className="size-4 text-[#286AD4]" />
           </div>
-          <div className="border-t-[2px] border-[#5797FF]" />
+          <div className="border-t-2 border-[#5797FF]" />
         </div>
       </div>
 
@@ -167,6 +177,7 @@ export default function RegistryListContent() {
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="flagged">Flagged</SelectItem>
+              <SelectItem value="featured">Featured</SelectItem>
               <SelectItem value="archived">Archived</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="expired">Expired</SelectItem>

@@ -39,11 +39,33 @@ export function DocumentsStep({
           </p>
         </div>
 
-        {DOCUMENT_UPLOAD_OPTIONS.map((option) => (
+        {DOCUMENT_UPLOAD_OPTIONS.filter((o) => !o.optional).map((option) => (
           <FileUploadArea
             key={option.value}
             label={option.label}
             required
+            documentType={option.value}
+            documents={documents}
+            onUpload={onUpload}
+            uploadingDocumentType={uploadingDocumentType}
+            error={documentErrors?.[option.value]}
+            disabled={disabled}
+          />
+        ))}
+
+        <div className="pt-2">
+          <p className="text-sm font-semibold text-gray-900">
+            Optional Documents
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            These are not required but may help speed up your application review
+          </p>
+        </div>
+
+        {DOCUMENT_UPLOAD_OPTIONS.filter((o) => o.optional).map((option) => (
+          <FileUploadArea
+            key={option.value}
+            label={option.label}
             documentType={option.value}
             documents={documents}
             onUpload={onUpload}

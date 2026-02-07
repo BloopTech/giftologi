@@ -24,6 +24,7 @@ const formatPrice = (value) => {
 
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
+  const serviceCharge = Number(product?.service_charge || 0);
   const relatedCategoryIds = Array.isArray(product?.product_categories)
     ? product.product_categories
         .map((entry) => entry?.category_id)
@@ -34,17 +35,22 @@ const mapProduct = (product) => {
       [...relatedCategoryIds, product?.category_id].filter(Boolean),
     ),
   ];
+  const basePrice = Number(product?.price);
+  const baseWithCharge = Number.isFinite(basePrice)
+    ? basePrice + serviceCharge
+    : serviceCharge;
   return {
     id: product?.id,
     product_code: product?.product_code || null,
     name: product?.name || "Product",
     image: images[0] || "/host/toaster.png",
-    price: formatPrice(product?.price),
-    rawPrice: product?.price,
+    price: formatPrice(baseWithCharge),
+    rawPrice: baseWithCharge,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
     categoryId: product?.category_id || null,
     categoryIds: mergedCategoryIds,
+    serviceCharge,
   };
 };
 

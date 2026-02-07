@@ -12,6 +12,9 @@ const productSchema = z.object({
     .min(1, "Please select a category"),
   status: z.enum(["pending", "approved", "rejected", "inactive"]),
   price: z.coerce.number().min(0.01, "Price must be greater than 0"),
+  weight_kg: z.coerce
+    .number()
+    .positive("Weight must be greater than 0"),
   cost_price: z.coerce.number().min(0).optional(),
   stock_qty: z.coerce.number().int().min(0, "Stock must be 0 or greater"),
   description: z.string().max(2000).optional(),
@@ -167,6 +170,7 @@ export async function manageVendor(prevState, formData) {
       categoryIds: parseCategoryIds(formData.get("categoryIds")),
       status: formData.get("status") || "pending",
       price: formData.get("price"),
+      weight_kg: formData.get("weight_kg"),
       cost_price: formData.get("cost_price") || undefined,
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
@@ -220,6 +224,7 @@ export async function manageVendor(prevState, formData) {
         category_id: validation.data.categoryIds[0] || null,
         status: validation.data.status,
         price: validation.data.price,
+        weight_kg: validation.data.weight_kg,
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
         variations: variations.length ? variations : null,

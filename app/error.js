@@ -57,7 +57,7 @@ export default function Error({ reset }) {
       }}
     >
       <main className="flex flex-col items-center justify-center w-full">
-        <div className="rounded-2xl relative overflow-hidden max-w-3xl w-full bg-[#FFFCEF] border border-transparent shadow-lg font-poppins">
+        <div className="rounded-2xl relative overflow-hidden max-w-3xl w-full bg-[#FFFCEF] border border-transparent shadow-lg font-brasley-medium">
           <div
             aria-hidden="true"
             className="pointer-events-none absolute top-[55px] -right-2 w-[100%] h-[10px] bg-[#D2BF7C] origin-top-right rotate-40 z-10"
@@ -78,7 +78,7 @@ export default function Error({ reset }) {
 
             <h1
               className="text-2xl md:text-3xl leading-tight text-[#16150F]"
-              style={{ fontFamily: "var(--font-playfair-display)" }}
+              style={{ fontFamily: "var(--font-didot-bold)" }}
             >
               Our ribbons got a little tangled
             </h1>

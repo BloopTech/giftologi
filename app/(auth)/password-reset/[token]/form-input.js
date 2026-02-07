@@ -15,7 +15,7 @@ export default function FormInput(props) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   return (
-    <div className="flex flex-col space-y-4 w-full items-center justify-center md:my-0 font-poppins">
+    <div className="flex flex-col space-y-4 w-full items-center justify-center md:my-0 font-brasley-medium">
       <form
         action={formAction}
         className="flex flex-col w-full space-y-8 items-center justify-center"

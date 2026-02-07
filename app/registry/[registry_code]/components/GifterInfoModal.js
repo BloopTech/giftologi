@@ -129,6 +129,7 @@ export default function GifterInfoModal({
                     Email Address <span className="text-red-500">*</span>
                   </label>
                   <input
+                    required
                     type="email"
                     value={formData.email}
                     onChange={(e) => updateField("email", e.target.value)}

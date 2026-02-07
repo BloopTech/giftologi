@@ -19,7 +19,7 @@ export default function RootLayout({ children }) {
   return (
     <>
       <div
-        className={`w-full font-poppins bg-[#FAFAFA] scroll-auto antialiased selection:bg-primary selection:text-primary dark:bg-gray-950`}
+        className={`w-full font-brasley-medium bg-[#FAFAFA] scroll-auto antialiased selection:bg-primary selection:text-primary dark:bg-gray-950`}
       >
         <VendorDashboardProvider>
           <TooltipProvider>

@@ -23,7 +23,7 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -39,12 +39,12 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Operations",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -60,12 +60,12 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Operations",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -81,17 +81,17 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Operations",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Store Manager",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -107,12 +107,12 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Operations",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -128,7 +128,7 @@ export const overviewModules = [
       {
         name: "Finance",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -144,25 +144,25 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
 
       {
         name: "Operations",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
 
       {
         name: "Finance",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
 
       {
         name: "Customer Service",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -178,12 +178,12 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Operations",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -199,12 +199,12 @@ export const overviewModules = [
       {
         name: "Customer Support",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Disabled",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#D4183D] border border-[#D4183D] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#D4183D] border border-[#D4183D] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -219,7 +219,7 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -235,22 +235,22 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Operations",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Finance",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Marketing",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {
@@ -266,17 +266,17 @@ export const overviewModules = [
       {
         name: "Super Admin",
         color:
-          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Customer Support",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
       {
         name: "Marketing",
         color:
-          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium",
+          "text-[8px] cursor-pointer bg-white text-[#686868] border border-[#D2D2D2] rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium",
       },
     ],
     icons: {

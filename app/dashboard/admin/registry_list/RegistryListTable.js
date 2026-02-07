@@ -42,6 +42,8 @@ import {
   flagRegistry,
   unflagRegistry,
   deleteRegistry,
+  setFeaturedRegistry,
+  setFeaturedRegistrySortOrder,
 } from "./action";
 
 const tableStyles = tv({
@@ -104,6 +106,26 @@ const initialDeleteRegistryState = {
   errors: {
     registryId: [],
     confirmText: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialFeaturedRegistryState = {
+  message: "",
+  errors: {
+    registryId: [],
+    featured: [],
+  },
+  values: {},
+  data: {},
+};
+
+const initialFeaturedOrderState = {
+  message: "",
+  errors: {
+    registryId: [],
+    sortOrder: [],
   },
   values: {},
   data: {},
@@ -185,6 +207,12 @@ export default function RegistryListTable() {
     deleteRegistry,
     initialDeleteRegistryState
   );
+  const [featuredState, featuredAction, featuredPending] = useActionState(
+    setFeaturedRegistry,
+    initialFeaturedRegistryState
+  );
+  const [featuredOrderState, featuredOrderAction, featuredOrderPending] =
+    useActionState(setFeaturedRegistrySortOrder, initialFeaturedOrderState);
 
   const updateErrorFor = (key) => updateState?.errors?.[key] ?? [];
   const hasUpdateError = (key) => (updateErrorFor(key)?.length ?? 0) > 0;
@@ -272,6 +300,42 @@ export default function RegistryListTable() {
       toast.error(deleteState.message);
     }
   }, [deleteState, refreshRegistries]);
+
+  useEffect(() => {
+    if (
+      featuredState.message &&
+      featuredState.data &&
+      Object.keys(featuredState.data).length
+    ) {
+      toast.success(featuredState.message);
+      refreshRegistries?.();
+    }
+    if (
+      featuredState.message &&
+      featuredState.errors &&
+      Object.keys(featuredState.errors).length
+    ) {
+      toast.error(featuredState.message);
+    }
+  }, [featuredState, refreshRegistries]);
+
+  useEffect(() => {
+    if (
+      featuredOrderState.message &&
+      featuredOrderState.data &&
+      Object.keys(featuredOrderState.data).length
+    ) {
+      toast.success(featuredOrderState.message);
+      refreshRegistries?.();
+    }
+    if (
+      featuredOrderState.message &&
+      featuredOrderState.errors &&
+      Object.keys(featuredOrderState.errors).length
+    ) {
+      toast.error(featuredOrderState.message);
+    }
+  }, [featuredOrderState, refreshRegistries]);
 
   const tableRows = useMemo(() => {
     if (!registries || !registries.length) return [];
@@ -369,6 +433,53 @@ export default function RegistryListTable() {
           </Badge>
         ),
       }),
+      columnHelper.accessor("isFeatured", {
+        header: "Featured",
+        cell: (info) =>
+          info.getValue() ? (
+            <Badge variant="warning" className="text-[11px]">
+              Featured
+            </Badge>
+          ) : (
+            <span className="text-[11px] text-[#B0B7C3]">—</span>
+          ),
+      }),
+      columnHelper.accessor("featuredSortOrder", {
+        header: "Order",
+        cell: (info) => {
+          const original = info.row.original;
+          if (!original?.isFeatured) {
+            return <span className="text-[11px] text-[#B0B7C3]">—</span>;
+          }
+
+          return (
+            <form action={featuredOrderAction} className="flex items-center gap-2">
+              <input type="hidden" name="registryId" value={original.id} />
+              <input
+                name="sortOrder"
+                defaultValue={
+                  typeof original.featuredSortOrder === "number"
+                    ? String(original.featuredSortOrder)
+                    : ""
+                }
+                inputMode="numeric"
+                className="w-16 rounded-md border border-gray-200 bg-white px-2 py-1 text-[11px] text-[#0A0A0A]"
+              />
+              <button
+                type="submit"
+                disabled={featuredOrderPending}
+                className={cx(
+                  "rounded-md border px-2 py-1 text-[11px]",
+                  "border-gray-200 text-gray-700 bg-gray-50 hover:bg-gray-100",
+                  featuredOrderPending && "opacity-60 cursor-not-allowed"
+                )}
+              >
+                Save
+              </button>
+            </form>
+          );
+        },
+      }),
       columnHelper.accessor("eventDateLabel", {
         header: ({ column }) => (
           <SortableHeader column={column} title="Event Date" />
@@ -408,6 +519,10 @@ export default function RegistryListTable() {
           const original = row.original;
           const raw = original.__raw;
           const isFlagged = original.status === "Flagged";
+          const isFeatured = original.isFeatured;
+          const isPublicRegistry =
+            (original.privacy || "").toLowerCase() === "public";
+          const canToggleFeatured = isPublicRegistry || isFeatured;
 
           const handleView = () => {
             setViewRow(original);
@@ -448,6 +563,48 @@ export default function RegistryListTable() {
                     </TooltipTrigger>
                     <TooltipContent>Edit registry</TooltipContent>
                   </Tooltip>
+                  <form action={featuredAction}>
+                    <input type="hidden" name="registryId" value={original.id} />
+                    <input
+                      type="hidden"
+                      name="featured"
+                      value={isFeatured ? "0" : "1"}
+                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="submit"
+                          disabled={featuredPending || !canToggleFeatured}
+                          aria-label={
+                            isFeatured ? "Unfeature registry" : "Feature registry"
+                          }
+                          className={cx(
+                            "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
+                            isFeatured
+                              ? "border-gray-400 text-gray-700 bg-gray-50 hover:bg-gray-100"
+                              : "border-primary text-primary bg-white hover:bg-primary hover:text-white",
+                            (featuredPending || !canToggleFeatured) &&
+                              "opacity-60 cursor-not-allowed hover:bg-white hover:text-primary"
+                          )}
+                        >
+                          {featuredPending ? (
+                            "Updating..."
+                          ) : isFeatured ? (
+                            "Unfeature"
+                          ) : (
+                            "Feature"
+                          )}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {!canToggleFeatured
+                          ? "Only public registries can be featured"
+                          : isFeatured
+                            ? "Remove from featured"
+                            : "Add to featured"}
+                      </TooltipContent>
+                    </Tooltip>
+                  </form>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       {isFlagged ? (
@@ -507,7 +664,13 @@ export default function RegistryListTable() {
         },
       }),
     ],
-    [isSuperAdmin]
+    [
+      isSuperAdmin,
+      featuredAction,
+      featuredPending,
+      featuredOrderAction,
+      featuredOrderPending,
+    ]
   );
 
   const tableInstance = useReactTable({

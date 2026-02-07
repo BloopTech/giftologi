@@ -113,6 +113,8 @@ const initialCreateState = {
     name: [],
     description: [],
     price: [],
+    weightKg: [],
+    serviceCharge: [],
     stockQty: [],
     productCode: [],
     categoryIds: [],
@@ -187,6 +189,7 @@ export default function ManageProductsContent() {
   const [bulkMapping, setBulkMapping] = useState({
     name: "",
     price: "",
+    weightKg: "",
     description: "",
     stockQty: "",
     imageUrl: "",
@@ -200,7 +203,6 @@ export default function ManageProductsContent() {
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [bulkCategoryIds, setBulkCategoryIds] = useState([]);
 
-  const [imageCount, setImageCount] = useState(0);
   const [featuredIndex, setFeaturedIndex] = useState("");
   const [variationDrafts, setVariationDrafts] = useState([]);
   const [activeVariationFieldById, setActiveVariationFieldById] = useState({});
@@ -250,7 +252,7 @@ export default function ManageProductsContent() {
       return <div className="h-4 w-10 rounded bg-[#E5E7EB] animate-pulse" />;
     }
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(value)}
       </p>
     );
@@ -593,6 +595,11 @@ export default function ManageProductsContent() {
             autoMap((h) => h.includes("name") || h.includes("product")),
           price:
             prev.price || autoMap((h) => h.includes("price") || h === "amount"),
+          weightKg:
+            prev.weightKg ||
+            autoMap(
+              (h) => h.includes("weight") || h.includes("kg") || h.includes("mass")
+            ),
           description:
             prev.description ||
             autoMap((h) => h.includes("description") || h.includes("details")),
@@ -622,19 +629,6 @@ export default function ManageProductsContent() {
     reader.readAsText(file);
   };
 
-  const handleImagesChange = (event) => {
-    const files = event?.target?.files;
-    const count = files ? files.length : 0;
-    setImageCount(count);
-
-    if (featuredIndex) {
-      const idx = Number(featuredIndex);
-      if (!Number.isInteger(idx) || idx >= count) {
-        setFeaturedIndex("");
-      }
-    }
-  };
-
   return (
     <section
       aria-label="Product management"
@@ -642,10 +636,10 @@ export default function ManageProductsContent() {
     >
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             Manage Products
           </h1>
-          <span className="text-[#717182] text-xs/4 font-poppins">
+          <span className="text-[#717182] text-xs/4 font-brasley-medium">
             Approve, reject, or flag products submitted by vendors.
           </span>
         </div>
@@ -653,42 +647,42 @@ export default function ManageProductsContent() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Total Products
           </h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.total)}
             <PiShoppingBagOpen className="size-4 text-[#427ED3]" />
           </div>
-          <div className="border-t-[2px] border-[#7DADF2]" />
+          <div className="border-t-2 border-[#7DADF2]" />
         </div>
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Pending Approval
           </h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.pending)}
             <PiArticle className="size-4 text-[#DDA938]" />
           </div>
-          <div className="border-t-[2px] border-[#FFCA57]" />
+          <div className="border-t-2 border-[#FFCA57]" />
         </div>
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Approved Products
           </h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.approved)}
             <PiCheckCircle className="size-4 text-[#6EA30B]" />
           </div>
-          <div className="border-t-[2px] border-[#CBED8E]" />
+          <div className="border-t-2 border-[#CBED8E]" />
         </div>
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">Flagged</h2>
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">Flagged</h2>
           <div className="flex justify-between items-center">
             {renderMetricCount(metrics?.flagged)}
             <PiFlag className="size-4 text-[#C52721]" />
           </div>
-          <div className="border-t-[2px] border-[#FF908B]" />
+          <div className="border-t-2 border-[#FF908B]" />
         </div>
       </div>
 
@@ -724,8 +718,6 @@ export default function ManageProductsContent() {
         removeVariationDraft={removeVariationDraft}
         setActiveVariationFieldById={setActiveVariationFieldById}
         updateVariationDraft={updateVariationDraft}
-        handleImagesChange={handleImagesChange}
-        imageCount={imageCount}
         setFeaturedIndex={setFeaturedIndex}
         setBulkCategoryIds={setBulkCategoryIds}
         bulkCategoryIdSet={bulkCategoryIdSet}

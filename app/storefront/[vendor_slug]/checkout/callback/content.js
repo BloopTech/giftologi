@@ -18,7 +18,7 @@ export default function CallbackContent({ order, vendor }) {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-poppins">
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-brasley-medium">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
           <XCircle className="size-16 text-gray-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -40,7 +40,7 @@ export default function CallbackContent({ order, vendor }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-poppins">
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-brasley-medium">
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
         {isSuccess && (
           <>

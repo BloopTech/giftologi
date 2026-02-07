@@ -8,7 +8,7 @@ export default function FormInput(props) {
   const { formAction, state, isPending } = props;
 
   return (
-    <div className="flex flex-col space-y-4 w-full items-center justify-center font-poppins">
+    <div className="flex flex-col space-y-4 w-full items-center justify-center font-brasley-medium">
       <p className="text-primary font-medium text-sm">
         Enter your email address associated with you Giftologi account.
       </p>

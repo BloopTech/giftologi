@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, createClient } from "../../../../utils/supabase/server";
+import { evaluatePromoCode, roundCurrency } from "../../../../utils/promos";
+import { computeShipmentWeight } from "../../../../utils/shipping/weights";
 import { randomBytes } from "crypto";
 
 const EXPRESSPAY_SUBMIT_URL =
@@ -29,6 +31,7 @@ export async function POST(request) {
       message,
       guestBrowserId,
       shippingRegionId,
+      promoCode,
     } = body;
 
     if (!registryId || !registryItemId || !amount) {
@@ -61,7 +64,11 @@ export async function POST(request) {
         product:products(
           id,
           name,
-          price
+          price,
+          weight_kg,
+          service_charge,
+          vendor_id,
+          category_id
         )
       `
       )
@@ -96,17 +103,83 @@ export async function POST(request) {
     }
 
     const shippingFee = Number(shippingRegion?.fee) || 0;
-    const unitPrice = Number(registryItem?.product?.price);
-    const safeUnitPrice = Number.isFinite(unitPrice) ? unitPrice : Number(amount);
-    const subtotal = Number.isFinite(safeUnitPrice)
+    const basePrice = Number(registryItem?.product?.price);
+    const serviceCharge = Number(registryItem?.product?.service_charge || 0);
+    const unitPrice = Number.isFinite(basePrice)
+      ? basePrice + serviceCharge
+      : serviceCharge;
+    const safeUnitPrice = Number.isFinite(unitPrice)
+      ? unitPrice
+      : Number(amount);
+    let computedSubtotal = Number.isFinite(safeUnitPrice)
       ? safeUnitPrice * quantity
       : Number(amount);
-    const computedTotal = subtotal + shippingFee;
+    let giftWrapFee = 0;
+    let promoSummary = null;
+    const totalPieces = Number(quantity || 0);
+    const totalWeight = computeShipmentWeight([
+      {
+        quantity,
+        weight_kg: registryItem?.product?.weight_kg,
+      },
+    ]);
+    const shippingRegionName =
+      shippingRegion?.name || shippingRegionId || null;
+
+    const { data: productCategories } = await supabaseAdmin
+      .from("product_categories")
+      .select("category_id")
+      .eq("product_id", registryItem?.product?.id);
+    const categoryIds = [
+      ...(productCategories || []).map((entry) => entry?.category_id),
+      registryItem?.product?.category_id,
+    ].filter(Boolean);
+
+    if (promoCode) {
+      const promoResult = await evaluatePromoCode({
+        adminClient: supabaseAdmin,
+        code: promoCode,
+        vendorId: registryItem?.product?.vendor_id || null,
+        userId: buyerId,
+        guestBrowserId,
+        items: [
+          {
+            itemId: registryItemId,
+            productId: registryItem?.product?.id,
+            categoryIds,
+            subtotal: computedSubtotal,
+            giftWrapFee,
+            quantity,
+          },
+        ],
+      });
+
+      if (!promoResult.valid) {
+        return NextResponse.json(
+          { error: promoResult.error || "Promo code is invalid." },
+          { status: 400 }
+        );
+      }
+
+      const { promo, discount, discountedSubtotal, discountedGiftWrapFee } =
+        promoResult;
+      promoSummary = {
+        id: promo?.id || null,
+        code: promo?.code || promoCode,
+        scope: promo?.scope || null,
+        percent: promo?.percent_off || 0,
+        discount: discount?.totalDiscount || 0,
+        usageCount: promo?.usage_count || 0,
+      };
+
+      computedSubtotal = roundCurrency(discountedSubtotal);
+      giftWrapFee = roundCurrency(discountedGiftWrapFee);
+    }
+
+    const computedTotal = computedSubtotal + shippingFee + giftWrapFee;
     const totalAmount = Number.isFinite(computedTotal)
       ? computedTotal
       : Number(amount);
-    const shippingRegionName =
-      shippingRegion?.name || shippingRegionId || null;
 
     // Check if item is still available
     const remaining =
@@ -145,6 +218,11 @@ export async function POST(request) {
         gifter_phone: gifterInfo?.phone || null,
         gifter_anonymous: gifterInfo?.stayAnonymous || false,
         gifter_message: message || null,
+        promo_id: promoSummary?.id || null,
+        promo_code: promoSummary?.code || null,
+        promo_scope: promoSummary?.scope || null,
+        promo_percent: promoSummary?.percent || null,
+        promo_discount: promoSummary?.discount || 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -159,14 +237,26 @@ export async function POST(request) {
       );
     }
 
+    await supabaseAdmin.from("checkout_context").insert({
+      order_id: order.id,
+      total_weight_kg: Number.isFinite(totalWeight) ? totalWeight : 0,
+      pieces: Number.isFinite(totalPieces) ? totalPieces : 0,
+      created_at: new Date().toISOString(),
+    });
+
     // Create order item
+    const adjustedUnitPrice = Number(quantity || 1)
+      ? computedSubtotal / Number(quantity || 1)
+      : Number.isFinite(safeUnitPrice)
+      ? safeUnitPrice
+      : 0;
     const { error: orderItemError } = await supabaseAdmin.from("order_items").insert({
       order_id: order.id,
       registry_item_id: registryItemId,
       product_id: productId,
       quantity,
-      price: Number.isFinite(safeUnitPrice) ? safeUnitPrice : 0,
-      total_price: Number.isFinite(subtotal) ? subtotal : 0,
+      price: roundCurrency(adjustedUnitPrice),
+      total_price: roundCurrency(computedSubtotal),
       gift_message: message || null,
       created_at: new Date().toISOString(),
     });
@@ -217,6 +307,29 @@ export async function POST(request) {
         },
         { status: 400 }
       );
+    }
+
+    if (promoSummary?.id) {
+      await supabaseAdmin.from("promo_redemptions").insert({
+        promo_id: promoSummary.id,
+        order_id: order.id,
+        user_id: buyerId,
+        guest_browser_id: buyerId ? null : guestBrowserId || null,
+        amount: promoSummary.discount || 0,
+        meta: {
+          code: promoSummary.code,
+          percent_off: promoSummary.percent,
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      await supabaseAdmin
+        .from("promo_codes")
+        .update({
+          usage_count: (promoSummary.usageCount || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", promoSummary.id);
     }
 
     // Store the token in the order

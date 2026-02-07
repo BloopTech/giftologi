@@ -70,7 +70,7 @@ export default function PayoutsContent() {
 
     if (type === "pendingAmount") {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
           {formatCurrency(metrics?.totalPendingAmount)}
         </p>
       );
@@ -78,7 +78,7 @@ export default function PayoutsContent() {
 
     if (type === "pending") {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
           {formatCount(metrics?.pendingPayouts)}
         </p>
       );
@@ -86,14 +86,14 @@ export default function PayoutsContent() {
 
     if (type === "approved") {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
           {formatCount(metrics?.approvedPayouts)}
         </p>
       );
     }
 
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(metrics?.totalPayouts)}
       </p>
     );
@@ -109,10 +109,10 @@ export default function PayoutsContent() {
     <section aria-label="Vendor payout management" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             Vendor Payout Management
           </h1>
-          <span className="text-[#717182] text-xs/4 font-poppins">
+          <span className="text-[#717182] text-xs/4 font-brasley-medium">
             Review and approve vendor payouts based on completed orders.
           </span>
         </div>
@@ -144,7 +144,7 @@ export default function PayoutsContent() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Pending Payouts
           </h2>
           <div className="flex justify-between items-center">
@@ -155,7 +155,7 @@ export default function PayoutsContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Approved Payouts
           </h2>
           <div className="flex justify-between items-center">
@@ -166,7 +166,7 @@ export default function PayoutsContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Total Pending Amount
           </h2>
           <div className="flex justify-between items-center">
@@ -177,7 +177,7 @@ export default function PayoutsContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Total Payout
           </h2>
           <div className="flex justify-between items-center">

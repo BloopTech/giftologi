@@ -7,6 +7,7 @@ import {
   Settings,
   ShoppingCart,
   Package,
+  Tag,
 } from "lucide-react";
 
 export const useNavigationData = () => {
@@ -52,6 +53,18 @@ export const useNavigationData = () => {
       id: 4,
       items: [
         {
+          name: "Promo Codes",
+          href: "/dashboard/v/promo_codes",
+          icon: Tag,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 5,
+      items: [
+        {
           name: "Payouts",
           href: "/dashboard/v/payouts",
           icon: DollarSign,
@@ -61,7 +74,7 @@ export const useNavigationData = () => {
     },
     {
       label: "",
-      id: 5,
+      id: 6,
       items: [
         {
           name: "Analytics",
@@ -73,7 +86,7 @@ export const useNavigationData = () => {
     },
     {
       label: "",
-      id: 6,
+      id: 7,
       items: [
         {
           name: "Profile",
@@ -129,6 +142,18 @@ export const navigation = [
     id: 4,
     items: [
       {
+        name: "Promo Codes",
+        href: "/dashboard/v/promo_codes",
+        icon: Tag,
+        other_items: [],
+      },
+    ],
+  },
+  {
+    label: "",
+    id: 5,
+    items: [
+      {
         name: "Payouts",
         href: "/dashboard/v/payouts",
         icon: DollarSign,
@@ -138,7 +163,7 @@ export const navigation = [
   },
   {
     label: "",
-    id: 5,
+    id: 6,
     items: [
       {
         name: "Analytics",
@@ -150,7 +175,7 @@ export const navigation = [
   },
   {
     label: "",
-    id: 6,
+    id: 7,
     items: [
       {
         name: "Profile",

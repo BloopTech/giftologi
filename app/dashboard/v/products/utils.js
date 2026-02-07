@@ -62,17 +62,17 @@ export function StatCard({ icon: Icon, iconColor, title, value, description }) {
   return (
     <div className="flex flex-col space-y-2 p-4 bg-white rounded-xl border border-[#E5E7EB]">
       <div className="flex items-center justify-between">
-        <span className="text-[#6B7280] text-sm font-poppins">{title}</span>
+        <span className="text-[#6B7280] text-sm font-brasley-medium">{title}</span>
 
         <Icon className={`w-5 h-5 text-[${iconColor}]`} />
       </div>
       <div className="flex items-center justify-between">
-        <span className="text-[#111827] text-2xl font-semibold font-inter">
+        <span className="text-[#111827] text-2xl font-semibold font-brasley-medium">
           {value}
         </span>
       </div>
       {description ? (
-        <p className="text-[#6B7280] text-xs font-poppins">{description}</p>
+        <p className="text-[#6B7280] text-xs font-brasley-medium">{description}</p>
       ) : null}
     </div>
   );

@@ -84,7 +84,7 @@ export function ProfileHeader({
               )}
             </div>
             <div className="flex flex-col">
-              <h1 className="text-[#111827] text-lg font-semibold font-inter">
+              <h1 className="text-[#111827] text-lg font-semibold font-brasley-medium">
                 {vendorSummary.businessName}
               </h1>
               <p className="text-[#6B7280] text-sm max-w-xl mt-1">

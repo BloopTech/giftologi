@@ -78,6 +78,9 @@ export default function ShopContent() {
   const [viewMode, setViewMode] = React.useState("grid");
   const [showFilters, setShowFilters] = React.useState(false);
   const [localSearch, setLocalSearch] = React.useState(searchQuery);
+  const globalSearchHref = localSearch.trim()
+    ? `/search?q=${encodeURIComponent(localSearch.trim())}`
+    : "/search";
 
   // Debounced search
   useEffect(() => {
@@ -113,7 +116,7 @@ export default function ShopContent() {
   const hasRecentlyViewed = recentlyViewedProducts.length > 0;
 
   return (
-    <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-poppins">
+    <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-brasley-medium">
       <Link
         href="#shop-main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-9999 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
@@ -218,13 +221,13 @@ export default function ShopContent() {
                         )}
                       </div>
                       <div className="p-4">
-                        <Link
+                        {/* <Link
                           href={`/storefront/${p.vendor?.slug}`}
                           className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
                         >
                           <Store className="size-3" />
                           {p.vendor?.name}
-                        </Link>
+                        </Link> */}
                         <p
                           className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
                           onClick={() => openProductDetail(p)}
@@ -462,6 +465,13 @@ export default function ShopContent() {
 
             {/* Filter & Sort Controls */}
             <div className="flex items-center gap-2">
+              <Link
+                href={globalSearchHref}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#A5914B]/30 bg-white dark:bg-gray-800 text-[#8B7A3F] text-sm font-medium hover:bg-[#A5914B] hover:text-white transition-colors"
+              >
+                <Search className="size-4" />
+                Search all
+              </Link>
               {/* Category Dropdown */}
               <div className="relative min-w-[140px]">
                 <select

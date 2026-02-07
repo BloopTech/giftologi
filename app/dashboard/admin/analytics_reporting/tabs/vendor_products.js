@@ -4,11 +4,11 @@ import React from "react";
 function MetricCard({ title, value, description }) {
   return (
     <div className="flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-      <h2 className="text-[#4A5565] text-xs/4 font-inter">{title}</h2>
-      <div className="flex justify-between items-center font-inter text-[#101828]">
+      <h2 className="text-[#4A5565] text-xs/4 font-brasley-medium">{title}</h2>
+      <div className="flex justify-between items-center font-brasley-medium text-[#101828]">
         {value}
       </div>
-      <span className="font-inter text-[#6A7282] text-[10px]">
+      <span className="font-brasley-medium text-[#6A7282] text-[10px]">
         {description}
       </span>
     </div>
@@ -26,11 +26,11 @@ export default function AnalyticsReportVendorProducts(props) {
     if (isLoading) return skeleton;
     if (!metrics) {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">—</p>
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">—</p>
       );
     }
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(metrics[key])}
       </p>
     );
@@ -43,7 +43,7 @@ export default function AnalyticsReportVendorProducts(props) {
     <div className="flex flex-col gap-4 w-full mt-2">
       {/* Top Performing Vendors table */}
       <div className="w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-        <div className="flex flex-col mb-2 font-inter">
+        <div className="flex flex-col mb-2 font-brasley-medium">
           <h2 className="text-[#0A0A0A] text-sm font-medium">
             Top Performing Vendors
           </h2>
@@ -52,7 +52,7 @@ export default function AnalyticsReportVendorProducts(props) {
           </p>
         </div>
         <div className="mt-[1rem] overflow-x-auto">
-          <table className="min-w-full text-[11px] text-left font-inter">
+          <table className="min-w-full text-[11px] text-left font-brasley-medium">
             <thead>
               <tr className="text-[#0A0A0A] font-medium">
                 <th className="pb-1 pr-4 font-medium">Vendor Name</th>
@@ -109,7 +109,7 @@ export default function AnalyticsReportVendorProducts(props) {
       {/* Top Selling Products table */}
       <div className="w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col mb-2">
-          <h2 className="text-[#0A0A0A] text-sm font-medium font-inter">
+          <h2 className="text-[#0A0A0A] text-sm font-medium font-brasley-medium">
             Top Selling Products
           </h2>
           <p className="text-[#717182] text-[11px] mt-1">
@@ -117,7 +117,7 @@ export default function AnalyticsReportVendorProducts(props) {
           </p>
         </div>
         <div className="mt-[1rem] overflow-x-auto">
-          <table className="min-w-full text-[11px] text-left font-inter">
+          <table className="min-w-full text-[11px] text-left font-brasley-medium">
             <thead>
               <tr className="text-[#0A0A0A] font-medium">
                 <th className="pb-1 pr-3 font-medium">Product Name</th>

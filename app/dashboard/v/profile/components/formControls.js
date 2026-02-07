@@ -8,7 +8,7 @@ export function SectionHeader({ icon: Icon, title }) {
   return (
     <div className="flex items-center gap-2 mb-4">
       <Icon className="w-5 h-5 text-[#374151]" />
-      <h2 className="text-[#111827] text-base font-semibold font-inter">{title}</h2>
+      <h2 className="text-[#111827] text-base font-semibold font-brasley-medium">{title}</h2>
     </div>
   );
 }

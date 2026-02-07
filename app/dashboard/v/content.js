@@ -178,10 +178,10 @@ export default function VendorDashboardContent() {
   if (vendorError) {
     return (
       <div className="flex flex-col space-y-2 w-full mb-8">
-        <h1 className="text-[#0A0A0A] font-semibold font-inter">
+        <h1 className="text-[#0A0A0A] font-semibold font-brasley-medium">
           Vendor Dashboard
         </h1>
-        <p className="text-[#717182] text-sm font-poppins">{vendorError}</p>
+        <p className="text-[#717182] text-sm font-brasley-medium">{vendorError}</p>
       </div>
     );
   }
@@ -190,10 +190,10 @@ export default function VendorDashboardContent() {
     return (
       <div className="flex flex-col space-y-4 w-full mb-8">
         <div className="flex flex-col gap-1">
-          <h1 className="text-[#0A0A0A] font-medium text-lg font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-lg font-brasley-medium">
             Vendor Dashboard
           </h1>
-          <p className="text-[#717182] text-sm font-poppins">
+          <p className="text-[#717182] text-sm font-brasley-medium">
             We could not locate an approved vendor profile for your account.
             Please complete your application or contact support if this looks incorrect.
           </p>
@@ -243,10 +243,10 @@ export default function VendorDashboardContent() {
       {/* Header */}
       <section className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex flex-col">
-          <h1 className="text-[#0A0A0A] font-medium font-inter">
+          <h1 className="text-[#0A0A0A] font-medium font-brasley-medium">
             Welcome back, {vendorName}
           </h1>
-          <p className="text-[#717182] text-sm font-poppins">
+          <p className="text-[#717182] text-sm font-brasley-medium">
             Here&apos;s what&apos;s happening with your store today
           </p>
           {storefrontPath ? (
@@ -280,9 +280,9 @@ export default function VendorDashboardContent() {
       {/* KPI Cards */}
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">Total Sales</h2>
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">Total Sales</h2>
           <div className="flex justify-between items-center">
-            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+            <span className="text-[#0A0A0A] text-lg font-semibold font-brasley-medium">
               {formatCurrency(totalRevenue)}
             </span>
             <PiCashRegister className="size-4 text-[#7DADF2]" />
@@ -291,11 +291,11 @@ export default function VendorDashboardContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Total Orders
           </h2>
           <div className="flex justify-between items-center">
-            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+            <span className="text-[#0A0A0A] text-lg font-semibold font-brasley-medium">
               {formatCount(totalOrders)}
             </span>
             <PiShoppingBagOpen className="size-4 text-[#CBED8E]" />
@@ -304,11 +304,11 @@ export default function VendorDashboardContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Active Products
           </h2>
           <div className="flex justify-between items-center">
-            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+            <span className="text-[#0A0A0A] text-lg font-semibold font-brasley-medium">
               {formatCount(activeProducts.length)}
             </span>
             <PiFolderStar className="size-4 text-[#FFCA57]" />
@@ -317,11 +317,11 @@ export default function VendorDashboardContent() {
         </div>
 
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Pending Payouts
           </h2>
           <div className="flex justify-between items-center">
-            <span className="text-[#0A0A0A] text-lg font-semibold font-inter">
+            <span className="text-[#0A0A0A] text-lg font-semibold font-brasley-medium">
               {formatCurrency(pendingPayoutAmount)}
             </span>
             <PiWallet className="size-4 text-[#FF908B]" />
@@ -335,10 +335,10 @@ export default function VendorDashboardContent() {
         <div className="xl:col-span-2 bg-white rounded-2xl border border-[#E5E7EB] p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex flex-col">
-              <h2 className="text-[#111827] text-base font-semibold font-inter">
+              <h2 className="text-[#111827] text-base font-semibold font-brasley-medium">
                 Sales Trend
               </h2>
-              <p className="text-[#6B7280] text-sm font-poppins">
+              <p className="text-[#6B7280] text-sm font-brasley-medium">
                 Daily sales for the last 7 days
               </p>
             </div>
@@ -361,10 +361,10 @@ export default function VendorDashboardContent() {
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex flex-col">
-              <h2 className="text-[#111827] text-base font-semibold font-inter">
+              <h2 className="text-[#111827] text-base font-semibold font-brasley-medium">
                 Low Stock Alert
               </h2>
-              <p className="text-[#6B7280] text-sm font-poppins">
+              <p className="text-[#6B7280] text-sm font-brasley-medium">
                 Products needing restock
               </p>
             </div>
@@ -412,10 +412,10 @@ export default function VendorDashboardContent() {
         <div className="xl:col-span-2 bg-white rounded-2xl border border-[#E5E7EB] p-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex flex-col">
-              <h2 className="text-[#111827] text-base font-semibold font-inter">
+              <h2 className="text-[#111827] text-base font-semibold font-brasley-medium">
                 Recent Orders
               </h2>
-              <p className="text-[#6B7280] text-sm font-poppins">
+              <p className="text-[#6B7280] text-sm font-brasley-medium">
                 Latest orders from your products
               </p>
             </div>
@@ -476,10 +476,10 @@ export default function VendorDashboardContent() {
 
         <div className="bg-white rounded-2xl border border-[#E5E7EB] p-6">
           <div className="flex flex-col mb-4">
-            <h2 className="text-[#111827] text-base font-semibold font-inter">
+            <h2 className="text-[#111827] text-base font-semibold font-brasley-medium">
               Top Categories
             </h2>
-            <p className="text-[#6B7280] text-sm font-poppins">
+            <p className="text-[#6B7280] text-sm font-brasley-medium">
               Sales by category
             </p>
           </div>

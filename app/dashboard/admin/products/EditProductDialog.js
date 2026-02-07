@@ -151,6 +151,40 @@ export default function EditProductDialog({
 
               <div className="space-y-1">
                 <label className="text-xs font-medium text-[#0A0A0A]">
+                  Weight (kg) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  name="weightKg"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  onKeyDown={(event) => {
+                    if (["e", "E", "+", "-"].includes(event.key)) {
+                      event.preventDefault();
+                    }
+                  }}
+                  defaultValue={
+                    product.weightKg == null ? "" : String(product.weightKg)
+                  }
+                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  disabled={editPending}
+                />
+                {hasEditError("weightKg") ? (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {editErrorFor("weightKg").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-[11px] text-[#717182]">
+                    Required for Aramex shipping rates.
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[#0A0A0A]">
                   Price (GHS) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -166,6 +200,38 @@ export default function EditProductDialog({
                 {hasEditError("price") ? (
                   <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
                     {editErrorFor("price").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[#0A0A0A]">
+                  Service Charge (GHS)
+                </label>
+                <input
+                  name="serviceCharge"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  defaultValue={
+                    product.serviceCharge == null
+                      ? ""
+                      : String(product.serviceCharge)
+                  }
+                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  onKeyDown={(event) => {
+                    if (["e", "E", "+", "-"].includes(event.key)) {
+                      event.preventDefault();
+                    }
+                  }}
+                  disabled={editPending}
+                />
+                {hasEditError("serviceCharge") ? (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {editErrorFor("serviceCharge").map((err, index) => (
                       <li key={index}>{err}</li>
                     ))}
                   </ul>
@@ -703,7 +769,7 @@ export default function EditProductDialog({
                   disabled={editPending}
                 >
                   {editImagePreviews.length || editExistingImages.length
-                    ? "Replace"
+                    ? "Add images"
                     : "Upload"}
                 </button>
               </div>
@@ -720,7 +786,7 @@ export default function EditProductDialog({
 
               <div className="space-y-2">
                 <p className="text-[11px] text-[#717182]">
-                  Uploading new images replaces existing ones (max 3).
+                  Add up to 3 images total. New uploads will be appended.
                 </p>
                 {editExistingImages.length ? (
                   <div className="space-y-2">

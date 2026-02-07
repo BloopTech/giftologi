@@ -116,7 +116,7 @@ export default function HostDashboardRegistryListsContent(props) {
   }, [deleteState, refresh]);
 
   return (
-    <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
+    <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-6xl w-full font-brasley-medium min-h-screen">
       <main className="flex flex-col space-y-16 w-full">
         <CarouselHero
           items={carouselItems}

@@ -1,7 +1,7 @@
 "use client";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { LoaderCircle, Search } from "lucide-react";
+import { LoaderCircle, Search, X } from "lucide-react";
 
 const COLOR_OPTIONS = [
   "Black",
@@ -37,6 +37,8 @@ const COLOR_SWATCHES = {
 
 const SIZE_OPTIONS = ["XS", "S", "M", "L", "XL", "XXL", "One Size"];
 
+const MAX_IMAGE_SIZE_BYTES = 1 * 1024 * 1024;
+
 
 export default function CreateAllVendorProducts(props) {
   const {
@@ -71,8 +73,6 @@ export default function CreateAllVendorProducts(props) {
     removeVariationDraft,
     setActiveVariationFieldById,
     updateVariationDraft,
-    handleImagesChange,
-    imageCount,
     setFeaturedIndex,
     setBulkCategoryIds,
     bulkCategoryIdSet,
@@ -87,14 +87,132 @@ export default function CreateAllVendorProducts(props) {
     setVendorResults,
   } = props;
 
+  const [imagePreviews, setImagePreviews] = useState([]);
+  const [imageError, setImageError] = useState("");
+  const fileInputRef = useRef(null);
+
+  const imageCount = imagePreviews.length;
+
+  useEffect(() => {
+    if (!featuredIndex) return;
+    const idx = Number(featuredIndex);
+    if (!Number.isInteger(idx) || idx >= imageCount) {
+      setFeaturedIndex("");
+    }
+  }, [featuredIndex, imageCount, setFeaturedIndex]);
+
+  useEffect(() => {
+    if (createMode === "single") return;
+    setImagePreviews([]);
+    setImageError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [createMode]);
+
+  useEffect(() => {
+    if (!createState?.data || !Object.keys(createState.data || {}).length) {
+      return;
+    }
+    setImagePreviews([]);
+    setImageError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }, [createState?.data]);
+
+  const syncInputFiles = (nextPreviews) => {
+    if (!fileInputRef.current) return;
+    const dt = new DataTransfer();
+    nextPreviews.forEach((item) => {
+      if (item?.file) dt.items.add(item.file);
+    });
+    fileInputRef.current.files = dt.files;
+  };
+
+  const buildPreviews = (files, currentPreviews = []) => {
+    const list = Array.from(files || []).filter((file) =>
+      Boolean(file && file.type && file.type.startsWith("image/")),
+    );
+
+    if (!list.length) return;
+
+    const tooLarge = list.filter(
+      (file) => typeof file.size === "number" && file.size > MAX_IMAGE_SIZE_BYTES,
+    );
+    const filtered = list.filter(
+      (file) =>
+        !(typeof file.size === "number" && file.size > MAX_IMAGE_SIZE_BYTES),
+    );
+
+    const remainingSlots = Math.max(0, 3 - currentPreviews.length);
+    const limited = filtered.slice(0, remainingSlots);
+
+    if (tooLarge.length) {
+      setImageError("Each image must be 1MB or smaller.");
+    } else if (filtered.length > remainingSlots) {
+      setImageError("Upload up to 3 images per product.");
+    } else {
+      setImageError("");
+    }
+
+    if (fileInputRef.current) {
+      const dt = new DataTransfer();
+      currentPreviews.forEach((item) => {
+        if (item?.file) dt.items.add(item.file);
+      });
+      limited.forEach((f) => dt.items.add(f));
+      fileInputRef.current.files = dt.files;
+    }
+
+    if (!limited.length) return;
+
+    Promise.all(
+      limited.map(
+        (file) =>
+          new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve({ file, preview: reader.result });
+            reader.readAsDataURL(file);
+          }),
+      ),
+    ).then((items) => {
+      setImagePreviews((prev) => [...prev, ...items]);
+      setFeaturedIndex("");
+    });
+  };
+
+  const handleImagesChange = (event) => {
+    const files = event?.target?.files;
+    if (!files || files.length === 0) return;
+    buildPreviews(files, imagePreviews);
+  };
+
+  const removeImageAt = (index) => {
+    setImagePreviews((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      syncInputFiles(next);
+      return next;
+    });
+  };
+
+  const removeAllImages = () => {
+    setImagePreviews([]);
+    setImageError("");
+    setFeaturedIndex("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   return (
     <>
       <div className="mt-4 grid grid-cols-1 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col gap-2">
-          <h2 className="text-[#0A0A0A] text-xs font-medium font-inter">
+          <h2 className="text-[#0A0A0A] text-xs font-medium font-brasley-medium">
             Create Products for Vendor
           </h2>
-          <p className="text-[#717182] text-[11px] font-poppins">
+          <p className="text-[#717182] text-[11px] font-brasley-medium">
             Search for a vendor, then create a single product or upload multiple
             products from a CSV file (up to 200 rows per upload).
           </p>
@@ -402,6 +520,76 @@ export default function CreateAllVendorProducts(props) {
                       {(createState?.errors?.price || []).length ? (
                         <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
                           {createState.errors.price.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="product-weight"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Weight (kg) <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        id="product-weight"
+                        name="weightKg"
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        onKeyDown={(event) => {
+                          if (["e", "E", "+", "-"].includes(event.key)) {
+                            event.preventDefault();
+                          }
+                        }}
+                        defaultValue={createState?.values?.weightKg || ""}
+                        placeholder="e.g. 1.2"
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.weightKg || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.weightKg.map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-[#717182]">
+                          Required for Aramex shipping rates.
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="product-service-charge"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Service Charge (GHS)
+                      </label>
+                      <input
+                        id="product-service-charge"
+                        name="serviceCharge"
+                        type="number"
+                        inputMode="decimal"
+                        min="0"
+                        step="0.01"
+                        defaultValue={createState?.values?.serviceCharge || ""}
+                        placeholder="e.g. 10.00"
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                        onKeyDown={(event) => {
+                          if (["e", "E", "+", "-"].includes(event.key)) {
+                            event.preventDefault();
+                          }
+                        }}
+                        disabled={createPending}
+                      />
+                      {(createState?.errors?.serviceCharge || []).length ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {createState.errors.serviceCharge.map((err, index) => (
                             <li key={index}>{err}</li>
                           ))}
                         </ul>
@@ -887,20 +1075,80 @@ export default function CreateAllVendorProducts(props) {
                         Product Images
                       </label>
                       <input
+                        ref={fileInputRef}
                         id="product-images"
                         name="product_images"
                         type="file"
                         accept="image/*"
                         multiple
                         onChange={handleImagesChange}
-                        className="block w-full text-[11px] text-[#4B5563] file:mr-3 file:rounded-full file:border file:border-[#D6D6D6] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-[#0A0A0A] hover:file:bg-[#F3F4F6]"
+                        className="hidden"
                         disabled={createPending}
                       />
-                      {(createState?.errors?.images || []).length ? (
+                      <div className="rounded-lg border border-dashed border-[#D6D6D6] bg-white p-4 text-center">
+                        {imagePreviews.length ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-3 gap-3">
+                              {imagePreviews.map((item, idx) => (
+                                <div key={idx} className="relative">
+                                  <img
+                                    src={item.preview}
+                                    alt={`Preview ${idx + 1}`}
+                                    className="h-20 w-full rounded-lg object-cover"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => removeImageAt(idx)}
+                                    className="cursor-pointer absolute -top-2 -right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex flex-wrap items-center justify-center gap-4 text-[11px]">
+                              <button
+                                type="button"
+                                onClick={removeAllImages}
+                                className="cursor-pointer text-red-600 hover:underline"
+                                disabled={createPending}
+                              >
+                                Remove all images
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="cursor-pointer text-primary hover:underline"
+                                disabled={createPending}
+                              >
+                                Add images
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex flex-col items-center gap-2 text-[#9CA3AF]">
+                              <span className="text-[11px] text-[#6B7280]">
+                                Drag and drop images here, or click to select
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              className="cursor-pointer text-[11px] text-primary hover:underline"
+                              disabled={createPending}
+                            >
+                              Browse files
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {(createState?.errors?.images || []).length || imageError ? (
                         <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.images.map((err, index) => (
+                          {(createState?.errors?.images || []).map((err, index) => (
                             <li key={index}>{err}</li>
                           ))}
+                          {imageError ? <li>{imageError}</li> : null}
                         </ul>
                       ) : (
                         <p className="text-[11px] text-[#717182]">
@@ -999,7 +1247,7 @@ export default function CreateAllVendorProducts(props) {
                             their own.
                           </p>
                         )}
-                        <div className="space-y-3">
+                        <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
                           {parentCategoryOptions.length ? (
                             parentCategoryOptions.map((parent) => {
                               const children =
@@ -1146,6 +1394,31 @@ export default function CreateAllVendorProducts(props) {
                                 setBulkMapping((prev) => ({
                                   ...prev,
                                   name: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Select column</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Weight Column (kg){" "}
+                              <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={bulkMapping.weightKg}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  weightKg: e.target.value,
                                 }))
                               }
                               className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"

@@ -62,7 +62,7 @@ export async function generateMetadata({ params }) {
 
 export default async function CheckoutPage({ params, searchParams }) {
   const { vendor_slug } = await params;
-  const { product: productId, qty, variant, cart } = await searchParams;
+  const { product: productId, qty, variant, cart, registry_id: registryId } = await searchParams;
   const isCartCheckout = cart === "1" || cart === "true";
 
   if (!vendor_slug || (!isCartCheckout && !productId)) {
@@ -78,10 +78,10 @@ export default async function CheckoutPage({ params, searchParams }) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    const next = isCartCheckout
-      ? `/storefront/${vendor_slug}/checkout?cart=1`
-      : `/storefront/${vendor_slug}/checkout?product=${productId}&qty=${quantity}`;
+  // Cart checkout (e.g. registry gift purchases) allows guest access.
+  // Direct product checkout still requires authentication.
+  if (!user && !isCartCheckout) {
+    const next = `/storefront/${vendor_slug}/checkout?product=${productId}&qty=${quantity}`;
     redirect(`/login?next=${encodeURIComponent(next)}`);
   }
 
@@ -119,7 +119,7 @@ export default async function CheckoutPage({ params, searchParams }) {
   }
 
   if (isCartCheckout) {
-    return <CheckoutContent vendor={vendor} cartMode />;
+    return <CheckoutContent vendor={vendor} cartMode registryId={registryId || null} />;
   }
 
   // Fetch product
@@ -129,6 +129,8 @@ export default async function CheckoutPage({ params, searchParams }) {
       id,
       name,
       price,
+      weight_kg,
+      service_charge,
       variations,
       images,
       description,
@@ -163,14 +165,20 @@ export default async function CheckoutPage({ params, searchParams }) {
     redirect(`/storefront/${vendor_slug}/${product.product_code}`);
   }
   const basePrice = Number(product.price);
+  const serviceCharge = Number(product.service_charge || 0);
+  const baseWithCharge = Number.isFinite(basePrice)
+    ? basePrice + serviceCharge
+    : serviceCharge;
 
   const formattedProduct = {
     id: product.id,
     name: product.name || "Product",
     image: images[0] || "/host/toaster.png",
-    price: formatPrice(product.price),
-    rawPrice: Number.isFinite(basePrice) ? basePrice : product.price,
-    basePrice: Number.isFinite(basePrice) ? basePrice : null,
+    price: formatPrice(baseWithCharge),
+    rawPrice: Number.isFinite(baseWithCharge) ? baseWithCharge : product.price,
+    basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
+    serviceCharge,
+    weightKg: product.weight_kg ?? null,
     description: product.description || "",
     stock: product.stock_qty ?? 0,
   };

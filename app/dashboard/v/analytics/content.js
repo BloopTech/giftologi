@@ -314,10 +314,10 @@ export default function VendorAnalyticsContent() {
       {/* Header with Date Filter */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-[#111827] text-xl font-semibold font-inter">
+          <h1 className="text-[#111827] text-xl font-semibold font-brasley-medium">
             Analytics & Insights
           </h1>
-          <p className="text-[#6B7280] text-sm font-poppins">
+          <p className="text-[#6B7280] text-sm font-brasley-medium">
             Track your store performance and sales metrics
           </p>
         </div>
@@ -387,7 +387,7 @@ export default function VendorAnalyticsContent() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Trend Chart */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-          <h2 className="text-[#111827] text-base font-semibold font-inter mb-1">
+          <h2 className="text-[#111827] text-base font-semibold font-brasley-medium mb-1">
             Revenue Trend
           </h2>
           <p className="text-[#6B7280] text-sm mb-4">
@@ -398,7 +398,7 @@ export default function VendorAnalyticsContent() {
 
         {/* Orders & Views Chart */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-          <h2 className="text-[#111827] text-base font-semibold font-inter mb-1">
+          <h2 className="text-[#111827] text-base font-semibold font-brasley-medium mb-1">
             Orders & Views
           </h2>
           <p className="text-[#6B7280] text-sm mb-4">
@@ -412,7 +412,7 @@ export default function VendorAnalyticsContent() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sales by Category */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-          <h2 className="text-[#111827] text-base font-semibold font-inter mb-1">
+          <h2 className="text-[#111827] text-base font-semibold font-brasley-medium mb-1">
             Sales by Category
           </h2>
           <p className="text-[#6B7280] text-sm mb-4">
@@ -423,7 +423,7 @@ export default function VendorAnalyticsContent() {
 
         {/* Customer Insights */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-          <h2 className="text-[#111827] text-base font-semibold font-inter mb-1">
+          <h2 className="text-[#111827] text-base font-semibold font-brasley-medium mb-1">
             Customer Insights
           </h2>
           <p className="text-[#6B7280] text-sm mb-4">
@@ -461,10 +461,10 @@ export default function VendorAnalyticsContent() {
       <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
           <div>
-            <h2 className="text-[#111827] text-lg font-semibold font-inter">
+            <h2 className="text-[#111827] text-lg font-semibold font-brasley-medium">
               Top Performing Products
             </h2>
-            <p className="text-[#6B7280] text-sm font-poppins">
+            <p className="text-[#6B7280] text-sm font-brasley-medium">
               Best sellers by revenue and conversion rate
             </p>
           </div>

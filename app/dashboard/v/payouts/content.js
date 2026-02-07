@@ -269,7 +269,7 @@ export default function VendorPayoutsContent() {
 
       {/* Payment Information Card */}
       <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-        <h2 className="text-[#111827] text-base font-semibold font-inter mb-1">
+        <h2 className="text-[#111827] text-base font-semibold font-brasley-medium mb-1">
           Payment Information
         </h2>
         <p className="text-[#6B7280] text-sm mb-4">
@@ -317,10 +317,10 @@ export default function VendorPayoutsContent() {
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h2 className="text-[#111827] text-lg font-semibold font-inter">
+            <h2 className="text-[#111827] text-lg font-semibold font-brasley-medium">
               Payout History
             </h2>
-            <p className="text-[#6B7280] text-sm font-poppins">
+            <p className="text-[#6B7280] text-sm font-brasley-medium">
               Track your scheduled and completed payouts.
             </p>
           </div>
@@ -449,10 +449,10 @@ export default function VendorPayoutsContent() {
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
           <div>
-            <h2 className="text-[#111827] text-lg font-semibold font-inter">
+            <h2 className="text-[#111827] text-lg font-semibold font-brasley-medium">
               Recent Transactions
             </h2>
-            <p className="text-[#6B7280] text-sm font-poppins">
+            <p className="text-[#6B7280] text-sm font-brasley-medium">
               Detailed breakdown of your sales
             </p>
           </div>

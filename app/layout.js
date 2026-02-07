@@ -7,6 +7,7 @@ import {
   Bodoni_Moda,
   Inter,
 } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
@@ -62,13 +63,34 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const didotBold = localFont({
+  src: "../public/fonts/DidotBold.otf",
+  variable: "--font-didot-bold",
+  weight: "700",
+  display: "swap",
+});
+
+const brasleySemibold = localFont({
+  src: "../public/fonts/BrasleySemibold.otf",
+  variable: "--font-brasley-semibold",
+  weight: "600",
+  display: "swap",
+});
+
+const brasleyMedium = localFont({
+  src: "../public/fonts/BrasleyMedium.otf",
+  variable: "--font-brasley-medium",
+  weight: "500",
+  display: "swap",
+});
+
 export default async function RootLayout({ children }) {
   const h = await headers();
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} ${didotBold.variable} ${brasleySemibold.variable} ${brasleyMedium.variable} antialiased`}
       >
         <ThemeProvider attribute="class">
           {process.env.NEXT_PUBLIC_GA_ID && (
@@ -85,7 +107,7 @@ export default async function RootLayout({ children }) {
             closeButton
             toastOptions={{
               style: {
-                fontFamily: "var(--font-poppins)",
+                fontFamily: "var(--font-brasley-medium)",
               },
             }}
           />
@@ -94,7 +116,7 @@ export default async function RootLayout({ children }) {
             id="main-content"
             role="main"
             tabIndex={-1}
-            className="w-full font-poppins bg-white text-black dark:bg-gray-950 dark:text-white min-h-screen"
+            className="w-full font-brasley-medium bg-white text-black dark:bg-gray-950 dark:text-white min-h-screen"
           >
             {children}
           </main>

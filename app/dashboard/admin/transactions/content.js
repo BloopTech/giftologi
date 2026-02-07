@@ -68,13 +68,13 @@ export default function ViewTransactionsContent() {
     }
     if (label === "revenue") {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
           {formatCurrency(metrics?.totalRevenue)}
         </p>
       );
     }
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(
           label === "paid"
             ? metrics?.paidOrders
@@ -95,17 +95,17 @@ export default function ViewTransactionsContent() {
   return (
     <section aria-label="Transaction and order management" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex flex-col w-full">
-        <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+        <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
           Transaction & Order Management
         </h1>
-        <span className="text-[#717182] text-xs/4 font-poppins">
+        <span className="text-[#717182] text-xs/4 font-brasley-medium">
           End-to-end visibility and control over all orders and payments.
         </span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Total Revenue
           </h2>
           <div className="flex justify-between items-center">
@@ -115,7 +115,7 @@ export default function ViewTransactionsContent() {
           <div className="border-t-[2px] border-[#7DADF2]" />
         </div>
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Paid Orders
           </h2>
           <div className="flex justify-between items-center">
@@ -125,7 +125,7 @@ export default function ViewTransactionsContent() {
           <div className="border-t-[2px] border-[#CBED8E]" />
         </div>
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Disputed Orders
           </h2>
           <div className="flex justify-between items-center">
@@ -135,7 +135,7 @@ export default function ViewTransactionsContent() {
           <div className="border-t-[2px] border-[#FFCA57]" />
         </div>
         <div className="flex flex-col space-y-2 w-full">
-          <h2 className="text-[#717182] text-xs/4 font-poppins">
+          <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
             Total Orders
           </h2>
           <div className="flex justify-between items-center">

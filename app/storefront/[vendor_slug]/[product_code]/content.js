@@ -367,8 +367,11 @@ export default function ProductCodeDetailContent() {
     return <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950" />;
   }
 
+  const serviceCharge = Number(product?.serviceCharge || 0);
   const selectedPrice =
-    selectedVariation?.price != null ? Number(selectedVariation.price) : null;
+    selectedVariation?.price != null
+      ? Number(selectedVariation.price) + serviceCharge
+      : null;
   const basePrice = product?.basePrice ?? product?.rawPrice ?? null;
   const priceLabel = selectedPrice != null
     ? formatPrice(selectedPrice)
@@ -379,7 +382,7 @@ export default function ProductCodeDetailContent() {
     selectedPrice != null && Number.isFinite(basePrice) && basePrice !== selectedPrice;
 
   return (
-    <div className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-poppins">
+    <div className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-brasley-medium">
       {product?.id && <ProductPageViewTracker productId={product.id} />}
       <div className="mx-auto max-w-6xl w-full py-6 px-4">
         {/* Breadcrumb */}
@@ -600,7 +603,9 @@ export default function ProductCodeDetailContent() {
                             }`}
                           >
                             {option.label}
-                            {option.price != null ? ` · ${formatPrice(option.price)}` : ""}
+                            {option.price != null
+                              ? ` · ${formatPrice(Number(option.price) + serviceCharge)}`
+                              : ""}
                           </button>
                         );
                       })}
@@ -687,7 +692,9 @@ export default function ProductCodeDetailContent() {
                       </span>
                       {selectedVariation.price != null && (
                         <span className="font-semibold text-[#A5914B]">
-                          {formatPrice(selectedVariation.price)}
+                          {formatPrice(
+                            Number(selectedVariation.price || 0) + serviceCharge
+                          )}
                         </span>
                       )}
                     </div>

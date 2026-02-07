@@ -25,7 +25,7 @@ function VendorHeader() {
           <div className="flex aspect-square items-center justify-center">
             <Image src={logo} alt="Giftologi logo" width={40} height={40} priority />
           </div>
-          <span className="font-medium text-[#85753C] font-poppins flex items-center">
+          <span className="font-medium text-[#85753C] font-brasley-medium flex items-center">
             Giftologi
           </span>
         </Link>

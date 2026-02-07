@@ -1,7 +1,11 @@
 "use server";
 
 import { createAdminClient, createClient } from "../../../utils/supabase/server";
+import { evaluatePromoCode, roundCurrency } from "../../../utils/promos";
+import { calculateAramexRate } from "../../../utils/shipping/aramex";
+import { computeShipmentWeight } from "../../../utils/shipping/weights";
 import { randomBytes } from "crypto";
+import { unstable_cache } from "next/cache";
 
 const EXPRESSPAY_SUBMIT_URL =
   process.env.EXPRESSPAY_ENV === "live"
@@ -30,6 +34,9 @@ export async function processStorefrontCheckout(prevState, formData) {
     const cartMode = formData.get("cartMode") === "1";
     const guestBrowserId = formData.get("guestBrowserId")?.trim() || null;
     const giftWrapOptionId = formData.get("giftWrapOptionId")?.trim() || null;
+    const promoCode = formData.get("promoCode")?.trim() || "";
+    const registryId = formData.get("registryId")?.trim() || null;
+    const giftMessage = formData.get("giftMessage")?.trim() || null;
 
     const firstName = formData.get("firstName")?.trim();
     const lastName = formData.get("lastName")?.trim();
@@ -68,8 +75,8 @@ export async function processStorefrontCheckout(prevState, formData) {
       }
     };
 
-    if (cartMode && !user?.id) {
-      return { success: false, error: "Please sign in to checkout your cart." };
+    if (cartMode && !user?.id && !guestBrowserId) {
+      return { success: false, error: "Unable to identify your cart. Please try again." };
     }
 
     const mergeGuestCartIntoHost = async (vendorIdValue, hostId, guestId) => {
@@ -177,24 +184,43 @@ export async function processStorefrontCheckout(prevState, formData) {
     let orderItemsPayload = [];
     let computedSubtotal = 0;
     let giftWrapFee = 0;
+    let promoItems = [];
     let orderDescription = "Purchase from Giftologi";
+    let promoSummary = null;
+    let cartIdForCleanup = null;
+    let totalPieces = 0;
+    let totalWeight = 0;
 
     if (cartMode) {
-      if (guestBrowserId && user?.id) {
+      if (!registryId && guestBrowserId && user?.id) {
         await mergeGuestCartIntoHost(vendorId, user.id, guestBrowserId);
       }
 
-      const { data: cart } = await adminClient
+      // Registry carts keyed by registry_id; storefront carts by vendor_id
+      let cartQuery = adminClient
         .from("carts")
         .select("id")
-        .eq("vendor_id", vendorId)
-        .eq("host_id", user?.id)
-        .eq("status", "active")
-        .maybeSingle();
+        .eq("status", "active");
+
+      if (registryId) {
+        cartQuery = cartQuery.eq("registry_id", registryId);
+      } else {
+        cartQuery = cartQuery.eq("vendor_id", vendorId);
+      }
+
+      if (user?.id) {
+        cartQuery = cartQuery.eq("host_id", user.id);
+      } else {
+        cartQuery = cartQuery.eq("guest_browser_id", guestBrowserId);
+      }
+
+      const { data: cart } = await cartQuery.maybeSingle();
 
       if (!cart?.id) {
         return { success: false, error: "Your cart is empty." };
       }
+
+      cartIdForCleanup = cart.id;
 
       const { data: cartItems } = await adminClient
         .from("cart_items")
@@ -210,10 +236,25 @@ export async function processStorefrontCheckout(prevState, formData) {
       const productIds = cartItems.map((item) => item.product_id).filter(Boolean);
       const { data: products } = await adminClient
         .from("products")
-        .select("id, name, stock_qty, vendor_id, status, active")
+        .select(
+          "id, name, stock_qty, vendor_id, status, active, category_id, weight_kg"
+        )
         .in("id", productIds);
 
       const productMap = new Map((products || []).map((item) => [item.id, item]));
+      const weightItems = [];
+
+      const { data: productCategories } = await adminClient
+        .from("product_categories")
+        .select("product_id, category_id")
+        .in("product_id", productIds);
+      const productCategoryMap = new Map();
+      (productCategories || []).forEach((entry) => {
+        if (!entry?.product_id || !entry?.category_id) return;
+        const list = productCategoryMap.get(entry.product_id) || [];
+        list.push(entry.category_id);
+        productCategoryMap.set(entry.product_id, list);
+      });
 
       const giftWrapOptionIds = Array.from(
         new Set(
@@ -234,7 +275,7 @@ export async function processStorefrontCheckout(prevState, formData) {
 
       for (const item of cartItems) {
         const product = productMap.get(item.product_id);
-        if (!product || product.vendor_id !== vendorId || !product.active || product.status !== "approved") {
+        if (!product || (!registryId && product.vendor_id !== vendorId) || !product.active || product.status !== "approved") {
           return { success: false, error: "One or more items are unavailable." };
         }
         if ((product.stock_qty || 0) < (item.quantity || 0)) {
@@ -250,10 +291,27 @@ export async function processStorefrontCheckout(prevState, formData) {
         if (wrapFee) {
           giftWrapFee += wrapFee * (item.quantity || 0);
         }
+        const categoryIds = [
+          ...(productCategoryMap.get(item.product_id) || []),
+          product.category_id,
+        ].filter(Boolean);
+        totalPieces += Number(item.quantity || 0);
+        weightItems.push({
+          quantity: item.quantity || 0,
+          weight_kg: product.weight_kg ?? null,
+        });
+        promoItems.push({
+          itemId: item.id,
+          productId: item.product_id,
+          categoryIds,
+          subtotal: itemTotal,
+          giftWrapFee: wrapFee * (item.quantity || 0),
+          quantity: item.quantity || 1,
+        });
         orderItemsPayload.push({
           order_id: null,
           product_id: item.product_id,
-          vendor_id: vendorId,
+          vendor_id: product.vendor_id || vendorId,
           registry_item_id: item.registry_item_id ?? null,
           quantity: item.quantity,
           price: Number(item.price || 0),
@@ -262,18 +320,19 @@ export async function processStorefrontCheckout(prevState, formData) {
           wrapping: item.wrapping ?? !!item.gift_wrap_option_id,
           gift_wrap_option_id: item.gift_wrap_option_id ?? null,
           created_at: new Date().toISOString(),
+          cart_item_id: item.id,
         });
       }
 
+      totalWeight = computeShipmentWeight(weightItems);
       orderDescription = `Purchase from Giftologi - ${cartItems.length} items`;
-
-      await adminClient.from("cart_items").delete().eq("cart_id", cart.id);
-      await adminClient.from("carts").delete().eq("id", cart.id);
     } else {
       // Verify product exists and has stock
       const { data: product, error: productError } = await adminClient
         .from("products")
-        .select("id, name, price, stock_qty, vendor_id")
+        .select(
+          "id, name, price, service_charge, stock_qty, vendor_id, category_id, weight_kg"
+        )
         .eq("id", productId)
         .eq("vendor_id", vendorId)
         .eq("status", "approved")
@@ -294,10 +353,14 @@ export async function processStorefrontCheckout(prevState, formData) {
       const selectedVariation = parseVariationPayload(variationRaw);
       const variationPrice = Number(selectedVariation?.price);
       const basePrice = Number(product.price);
+      const serviceCharge = Number(product.service_charge || 0);
+      const baseWithCharge = Number.isFinite(basePrice)
+        ? basePrice + serviceCharge
+        : serviceCharge;
       const unitPrice = Number.isFinite(variationPrice)
-        ? variationPrice
-        : Number.isFinite(basePrice)
-        ? basePrice
+        ? variationPrice + serviceCharge
+        : Number.isFinite(baseWithCharge)
+        ? baseWithCharge
         : 0;
       computedSubtotal = unitPrice * quantity;
       if (giftWrapOptionId) {
@@ -318,6 +381,24 @@ export async function processStorefrontCheckout(prevState, formData) {
 
         giftWrapFee = Number(wrapOption.fee || 0) * quantity;
       }
+      const { data: productCategories } = await adminClient
+        .from("product_categories")
+        .select("category_id")
+        .eq("product_id", productId);
+      const categoryIds = [
+        ...(productCategories || []).map((entry) => entry?.category_id),
+        product.category_id,
+      ].filter(Boolean);
+      promoItems = [
+        {
+          itemId: productId,
+          productId,
+          categoryIds,
+          subtotal: computedSubtotal,
+          giftWrapFee,
+          quantity,
+        },
+      ];
       orderItemsPayload = [
         {
           order_id: null,
@@ -330,9 +411,68 @@ export async function processStorefrontCheckout(prevState, formData) {
           wrapping: !!giftWrapOptionId,
           gift_wrap_option_id: giftWrapOptionId || null,
           created_at: new Date().toISOString(),
+          cart_item_id: productId,
         },
       ];
+      totalPieces = Number(quantity || 0);
+      totalWeight = computeShipmentWeight([
+        { quantity, weight_kg: product.weight_kg ?? null },
+      ]);
       orderDescription = `Purchase from Giftologi - ${product.name}`;
+    }
+
+    if (promoCode) {
+      const promoResult = await evaluatePromoCode({
+        adminClient,
+        code: promoCode,
+        vendorId,
+        userId: user?.id || null,
+        guestBrowserId,
+        items: promoItems,
+      });
+
+      if (!promoResult.valid) {
+        return { success: false, error: promoResult.error };
+      }
+
+      const { promo, discount, discountedSubtotal, discountedGiftWrapFee } =
+        promoResult;
+      promoSummary = {
+        id: promo?.id || null,
+        code: promo?.code || promoCode,
+        scope: promo?.scope || null,
+        percent: promo?.percent_off || 0,
+        discount: discount?.totalDiscount || 0,
+        usageCount: promo?.usage_count || 0,
+      };
+
+      const promoItemsById = new Map(
+        (discount?.items || []).map((item) => [item.itemId, item])
+      );
+      orderItemsPayload = orderItemsPayload.map((item) => {
+        const promoItem = promoItemsById.get(item.cart_item_id);
+        if (!promoItem?.eligible) {
+          return item;
+        }
+        const safeQuantity = Number(item.quantity || 1);
+        const discountedLine = Number(promoItem.discountedSubtotal || 0);
+        const nextUnitPrice = safeQuantity
+          ? discountedLine / safeQuantity
+          : Number(item.price || 0);
+        return {
+          ...item,
+          price: roundCurrency(nextUnitPrice),
+          total_price: roundCurrency(discountedLine),
+        };
+      });
+
+      computedSubtotal = roundCurrency(discountedSubtotal);
+      giftWrapFee = roundCurrency(discountedGiftWrapFee);
+    }
+
+    if (cartIdForCleanup) {
+      await adminClient.from("cart_items").delete().eq("cart_id", cartIdForCleanup);
+      await adminClient.from("carts").delete().eq("id", cartIdForCleanup);
     }
 
     const computedTotal =
@@ -366,7 +506,14 @@ export async function processStorefrontCheckout(prevState, formData) {
         shipping_digital_address: digitalAddress,
         shipping_fee: shippingFee,
         delivery_notes: notes,
-        order_type: "storefront",
+        order_type: registryId ? "registry" : "storefront",
+        registry_id: registryId || null,
+        gift_message: giftMessage || null,
+        promo_id: promoSummary?.id || null,
+        promo_code: promoSummary?.code || null,
+        promo_scope: promoSummary?.scope || null,
+        promo_percent: promoSummary?.percent || null,
+        promo_discount: promoSummary?.discount || 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -389,8 +536,15 @@ export async function processStorefrontCheckout(prevState, formData) {
       });
     }
 
+    await adminClient.from("checkout_context").insert({
+      order_id: order.id,
+      total_weight_kg: Number.isFinite(totalWeight) ? totalWeight : 0,
+      pieces: Number.isFinite(totalPieces) ? totalPieces : 0,
+      created_at: new Date().toISOString(),
+    });
+
     // Create order item
-    const itemsToInsert = orderItemsPayload.map((item) => ({
+    const itemsToInsert = orderItemsPayload.map(({ cart_item_id, ...item }) => ({
       ...item,
       order_id: order.id,
     }));
@@ -444,6 +598,29 @@ export async function processStorefrontCheckout(prevState, formData) {
       };
     }
 
+    if (promoSummary?.id) {
+      await adminClient.from("promo_redemptions").insert({
+        promo_id: promoSummary.id,
+        order_id: order.id,
+        user_id: user?.id || null,
+        guest_browser_id: user?.id ? null : guestBrowserId || null,
+        amount: promoSummary.discount || 0,
+        meta: {
+          code: promoSummary.code,
+          percent_off: promoSummary.percent,
+        },
+        created_at: new Date().toISOString(),
+      });
+
+      await adminClient
+        .from("promo_codes")
+        .update({
+          usage_count: (promoSummary.usageCount || 0) + 1,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", promoSummary.id);
+    }
+
     // Store the token in the order
     await supabase
       .from("orders")
@@ -471,6 +648,51 @@ export async function processStorefrontCheckout(prevState, formData) {
     return {
       success: false,
       error: "An unexpected error occurred. Please try again.",
+    };
+  }
+}
+
+const RATE_CACHE_SECONDS = 60;
+
+const getCachedRateQuote = unstable_cache(
+  async ({ origin, destination, shipment, reference }) =>
+    calculateAramexRate({ origin, destination, shipment, reference }),
+  ["aramex-rate-quote"],
+  { revalidate: RATE_CACHE_SECONDS }
+);
+
+export async function getAramexRateQuote({ origin, destination, shipment, reference } = {}) {
+  try {
+    if (!origin || !destination) {
+      return { success: false, error: "origin and destination are required" };
+    }
+
+    const result = await getCachedRateQuote({
+      origin,
+      destination,
+      shipment,
+      reference,
+    });
+
+    if (result.hasErrors || !Number.isFinite(result.totalAmount || 0)) {
+      return {
+        success: false,
+        error: "Aramex rate lookup failed",
+        details: result.message || "No rate returned",
+      };
+    }
+
+    return {
+      success: true,
+      amount: result.totalAmount,
+      currency: result.currency || "GHS",
+      message: result.message || null,
+    };
+  } catch (error) {
+    console.error("Aramex rate lookup error:", error);
+    return {
+      success: false,
+      error: error?.message || "Internal server error",
     };
   }
 }

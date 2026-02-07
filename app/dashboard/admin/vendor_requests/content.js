@@ -11,10 +11,10 @@ export default function VendorRequestsContent() {
     <section aria-label="Vendor requests management" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex items-center justify-between">
         <div className="flex flex-col">
-          <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             Vendor Requests
           </h1>
-          <span className="text-[#717182] text-xs/4 font-poppins">
+          <span className="text-[#717182] text-xs/4 font-brasley-medium">
             Monitor, audit, and manage all vendor requests.
           </span>
         </div>

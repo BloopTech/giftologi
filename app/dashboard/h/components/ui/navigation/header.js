@@ -99,7 +99,7 @@ export default function Header() {
         scrolled ? "bg-white shadow-sm" : "bg-transparent",
       )}
     >
-      <div className="flex justify-between w-full items-center max-w-5xl mx-auto">
+      <div className="flex justify-between w-full items-center max-w-6xl mx-auto">
         <div>
           <Link href="/dashboard/h" className="cursor-pointer">
             <div className="flex items-center space-x-2">

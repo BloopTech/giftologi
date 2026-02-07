@@ -142,10 +142,10 @@ export default function GenerateReportsContent() {
   return (
     <section aria-label="Report generation" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex flex-col w-full">
-        <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+        <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
           Generate Reports
         </h1>
-        <span className="text-[#717182] text-xs/4 font-poppins">
+        <span className="text-[#717182] text-xs/4 font-brasley-medium">
           Export summary reports (PDF/CSV).
         </span>
       </div>

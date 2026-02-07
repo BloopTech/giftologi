@@ -23,15 +23,15 @@ export default function CloseRequestsContent() {
     >
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col">
-          <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             Close Shop Requests
           </h1>
-          <span className="text-[#717182] text-xs/4 font-poppins">
+          <span className="text-[#717182] text-xs/4 font-brasley-medium">
             Review vendor close requests and finalize shop closures.
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <label className="text-xs text-[#717182] font-poppins">
+          <label className="text-xs text-[#717182] font-brasley-medium">
             Status filter
           </label>
           <select

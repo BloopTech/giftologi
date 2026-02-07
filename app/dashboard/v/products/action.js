@@ -103,8 +103,11 @@ const productSchema = z.object({
   categoryIds: z
     .array(z.string().uuid("Please select a category"))
     .min(1, "Please select a category"),
-  status: z.enum(["pending", "approved", "rejected", "inactive"]),
+  status: z.enum(["pending", "inactive"]),
   price: z.coerce.number().min(0.01, "Price must be greater than 0"),
+  weight_kg: z.coerce
+    .number()
+    .positive("Weight must be greater than 0"),
   cost_price: z.coerce.number().min(0).optional(),
   stock_qty: z.coerce.number().int().min(0, "Stock must be 0 or greater"),
   description: z.string().max(2000).optional(),
@@ -201,8 +204,9 @@ export async function manageProducts(prevState, formData) {
     const rawData = {
       name: formData.get("name"),
       categoryIds: parseCategoryIds(formData.get("categoryIds")),
-      status: formData.get("status") || "pending",
+      status: "pending",
       price: formData.get("price"),
+      weight_kg: formData.get("weight_kg"),
       cost_price: formData.get("cost_price") || undefined,
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
@@ -256,8 +260,9 @@ export async function manageProducts(prevState, formData) {
         name: validation.data.name,
         product_code: productCode,
         category_id: validation.data.categoryIds[0] || null,
-        status: validation.data.status,
+        status: "pending",
         price: validation.data.price,
+        weight_kg: validation.data.weight_kg,
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
         variations: variations.length ? variations : null,
@@ -306,7 +311,20 @@ export async function manageProducts(prevState, formData) {
       ? rawImages.filter((file) => isValidSelectedFile(file))
       : [];
 
+    const remainingImageSlots = Math.max(0, 3 - existingImages.length);
+
     if (validImageFiles.length > 3) {
+      return {
+        success: false,
+        message: "Please fix the errors below.",
+        errors: {
+          images: "Upload up to 3 images per product.",
+        },
+        values: rawData,
+      };
+    }
+
+    if (validImageFiles.length > remainingImageSlots) {
       return {
         success: false,
         message: "Please fix the errors below.",
@@ -434,6 +452,7 @@ export async function manageProducts(prevState, formData) {
       categoryIds: parseCategoryIds(formData.get("categoryIds")),
       status: formData.get("status") || "pending",
       price: formData.get("price"),
+      weight_kg: formData.get("weight_kg"),
       cost_price: formData.get("cost_price") || undefined,
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
@@ -459,6 +478,26 @@ export async function manageProducts(prevState, formData) {
 
     const variations = parseVariationsPayload(rawData.variations);
 
+    const { data: existingProduct, error: existingProductError } = await supabase
+      .from("products")
+      .select("id, status")
+      .eq("id", productId)
+      .eq("vendor_id", vendor.id)
+      .maybeSingle();
+
+    if (existingProductError || !existingProduct) {
+      return {
+        success: false,
+        message: existingProductError?.message || "Product not found.",
+        errors: {},
+        values: rawData,
+      };
+    }
+
+    const existingStatus = String(existingProduct.status || "pending").toLowerCase();
+    const shouldReapprove = existingStatus === "approved";
+    const nextStatus = shouldReapprove ? "pending" : validation.data.status;
+
     const { data: categoryRows, error: categoryError } = await supabase
       .from("categories")
       .select("id")
@@ -483,8 +522,9 @@ export async function manageProducts(prevState, formData) {
       .update({
         name: validation.data.name,
         category_id: validation.data.categoryIds[0] || null,
-        status: validation.data.status,
+        status: nextStatus,
         price: validation.data.price,
+        weight_kg: validation.data.weight_kg,
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
         variations: variations.length ? variations : null,
@@ -616,20 +656,22 @@ export async function manageProducts(prevState, formData) {
           if (imageUrl) uploadedUrls.push(imageUrl);
         }
 
-        if (
-          uploadedUrls.length &&
-          Number.isInteger(featuredIndex) &&
-          featuredIndex >= 0 &&
-          featuredIndex < uploadedUrls.length
-        ) {
-          const [picked] = uploadedUrls.splice(featuredIndex, 1);
-          if (picked) uploadedUrls.unshift(picked);
-        }
-
         if (uploadedUrls.length) {
+          let combined = [...existingImages, ...uploadedUrls].slice(0, 3);
+          if (
+            combined.length &&
+            Number.isInteger(featuredIndex) &&
+            featuredIndex >= 0 &&
+            featuredIndex < combined.length
+          ) {
+            const clone = [...combined];
+            const [picked] = clone.splice(featuredIndex, 1);
+            if (picked) combined = [picked, ...clone];
+          }
+
           await supabase
             .from("products")
-            .update({ images: uploadedUrls })
+            .update({ images: combined })
             .eq("id", productId)
             .eq("vendor_id", vendor.id);
         }

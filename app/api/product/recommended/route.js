@@ -11,6 +11,7 @@ const PRODUCT_SELECT = `
   product_code,
   name,
   price,
+  service_charge,
   images,
   variations,
   description,

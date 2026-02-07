@@ -6,6 +6,7 @@ export const DOCUMENT_UPLOAD_OPTIONS = [
   {
     value: "tax_clearance_certificate",
     label: "Tax Clearance Certificate",
+    optional: true,
   },
   {
     value: "owner_id_document",
@@ -14,6 +15,7 @@ export const DOCUMENT_UPLOAD_OPTIONS = [
   {
     value: "bank_statement",
     label: "Bank Statement (Last 3 Months)",
+    optional: true,
   },
   {
     value: "proof_of_business_address",

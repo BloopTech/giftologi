@@ -50,7 +50,7 @@ export default function AnalyticsReportingContent() {
     }
     if (!metrics) {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
           —
         </p>
       );
@@ -59,37 +59,37 @@ export default function AnalyticsReportingContent() {
     switch (type) {
       case "revenue":
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {formatCurrency(metrics.revenueGenerated)}
           </p>
         );
       case "serviceCharges":
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {formatCurrency(metrics.serviceCharges)}
           </p>
         );
       case "totalSales":
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {formatCurrency(metrics.totalSales)}
           </p>
         );
       case "pendingPayouts":
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {formatCurrency(metrics.pendingPayouts)}
           </p>
         );
       case "completedPayouts":
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {formatCurrency(metrics.completedPayouts)}
           </p>
         );
       case "refunds":
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {formatCurrency(metrics.refundsAdjustments)}
           </p>
         );
@@ -103,14 +103,14 @@ export default function AnalyticsReportingContent() {
             })
           : "—";
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {label}
           </p>
         );
       }
       default:
         return (
-          <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+          <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
             {formatCount(metrics[type])}
           </p>
         );
@@ -228,10 +228,10 @@ export default function AnalyticsReportingContent() {
     <section aria-label="Analytics and reporting" className="flex flex-col space-y-4 w-full mb-8">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex flex-col">
-          <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             Analytics & Reporting
           </h1>
-          <span className="text-[#717182] text-xs/4 font-poppins">
+          <span className="text-[#717182] text-xs/4 font-brasley-medium">
             Track platform performance and download high-level summaries.
           </span>
         </div>

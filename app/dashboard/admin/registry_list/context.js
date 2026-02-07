@@ -34,6 +34,7 @@ function useRegistryListProviderValue() {
     activeRegistries: null,
     expiredRegistries: null,
     flaggedRegistries: null,
+    featuredRegistries: null,
     totalRegistries: null,
   });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
@@ -139,6 +140,7 @@ function useRegistryListProviderValue() {
           { count: activeCount, error: activeError },
           { count: expiredCount, error: expiredError },
           { data: flaggedTickets, error: flaggedError },
+          { count: featuredCount, error: featuredError },
         ] = await Promise.all([
           supabase.from("registries").select("id", { count: "exact" }),
           supabase
@@ -153,16 +155,27 @@ function useRegistryListProviderValue() {
             .from("support_tickets")
             .select("registry_id, status")
             .eq("status", "escalated"),
+          supabase
+            .from("featured_registries")
+            .select("registry_id", { count: "exact" })
+            .eq("active", true),
         ]);
 
         if (ignore) return;
 
-        if (totalError || activeError || expiredError || flaggedError) {
+        if (
+          totalError ||
+          activeError ||
+          expiredError ||
+          flaggedError ||
+          featuredError
+        ) {
           const message =
             totalError?.message ||
             activeError?.message ||
             expiredError?.message ||
             flaggedError?.message ||
+            featuredError?.message ||
             "Failed to load registry metrics";
           setMetricsError(message);
         }
@@ -182,6 +195,8 @@ function useRegistryListProviderValue() {
           expiredRegistries:
             typeof expiredCount === "number" ? expiredCount : null,
           flaggedRegistries: flaggedCount,
+          featuredRegistries:
+            typeof featuredCount === "number" ? featuredCount : null,
           totalRegistries: typeof totalCount === "number" ? totalCount : null,
         });
       } catch (error) {
@@ -216,7 +231,16 @@ function useRegistryListProviderValue() {
         let query = supabase
           .from("registries")
           .select(
-            "id, title, deadline, event_id, registry_code, created_at, updated_at",
+            `
+            id,
+            title,
+            deadline,
+            event_id,
+            registry_code,
+            created_at,
+            updated_at,
+            featured_registries (id, active, sort_order)
+          `,
             { count: "exact" }
           );
 
@@ -237,6 +261,10 @@ function useRegistryListProviderValue() {
             type: "websearch",
             config: "simple",
           });
+        }
+
+        if (statusFilter === "featured") {
+          query = query.eq("featured_registries.active", true);
         }
 
         const hasSearch = !!trimmedSearch;
@@ -275,7 +303,7 @@ function useRegistryListProviderValue() {
         const eventsPromise = eventIds.length
           ? supabase
               .from("events")
-              .select("id, host_id, type, date")
+              .select("id, host_id, type, date, privacy")
               .in("id", eventIds)
           : Promise.resolve({ data: [], error: null });
 
@@ -480,6 +508,16 @@ function useRegistryListProviderValue() {
 
           const eventDate = event?.date || reg.deadline || null;
 
+          const privacy = event?.privacy || null;
+
+          const featuredRows = Array.isArray(reg.featured_registries)
+            ? reg.featured_registries
+            : [];
+          const isFeatured = featuredRows.some((entry) => entry?.active);
+          const featuredRow = featuredRows.find((entry) => entry?.active) || null;
+          const featuredSortOrder =
+            typeof featuredRow?.sort_order === "number" ? featuredRow.sort_order : null;
+
           return {
             id: reg.id,
             registryName: reg.title || "",
@@ -488,9 +526,12 @@ function useRegistryListProviderValue() {
             eventType: event?.type || "",
             status,
             eventDate,
+            privacy,
             totalItems,
             purchasedItems,
             totalValue: valueByRegistryId[reg.id] || 0,
+            isFeatured,
+            featuredSortOrder,
             __raw: {
               registry: reg,
               event,
@@ -547,6 +588,9 @@ function useRegistryListProviderValue() {
         if (statusFilter && statusFilter !== "all") {
           const desired = statusFilter.toLowerCase();
           enriched = enriched.filter((row) => {
+            if (desired === "featured") {
+              return row.isFeatured;
+            }
             const rowStatus = (row.status || "").toLowerCase();
             return rowStatus === desired;
           });

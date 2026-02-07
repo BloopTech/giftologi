@@ -70,6 +70,7 @@ export default function TransactionDetailsContent({ transaction }) {
     payment: null,
     allPayments: [],
     delivery: null,
+    checkoutContext: null,
     items: [],
     productsById: {},
     auditEvents: [],
@@ -122,6 +123,12 @@ export default function TransactionDetailsContent({ transaction }) {
           .eq("order_id", orderId)
           .maybeSingle();
 
+        const checkoutContextQuery = supabase
+          .from("checkout_context")
+          .select("order_id, total_weight_kg, pieces, created_at")
+          .eq("order_id", orderId)
+          .maybeSingle();
+
         const productsQuery = productIds.length
           ? supabase
               .from("products")
@@ -147,12 +154,14 @@ export default function TransactionDetailsContent({ transaction }) {
         const [
           { data: paymentRows, error: paymentError },
           { data: deliveryRow, error: deliveryError },
+          { data: checkoutContextRow, error: checkoutContextError },
           { data: productRows, error: productsError },
           { data: auditRows, error: auditError },
           { data: refundRows, error: refundsError },
         ] = await Promise.all([
           paymentsQuery,
           deliveryQuery,
+          checkoutContextQuery,
           productsQuery,
           auditQuery,
           refundsQuery,
@@ -163,6 +172,7 @@ export default function TransactionDetailsContent({ transaction }) {
         if (
           paymentError ||
           deliveryError ||
+          checkoutContextError ||
           productsError ||
           auditError ||
           refundsError
@@ -170,6 +180,7 @@ export default function TransactionDetailsContent({ transaction }) {
           const message =
             paymentError?.message ||
             deliveryError?.message ||
+            checkoutContextError?.message ||
             productsError?.message ||
             auditError?.message ||
             refundsError?.message ||
@@ -192,6 +203,7 @@ export default function TransactionDetailsContent({ transaction }) {
           payment: primaryPayment,
           allPayments,
           delivery: deliveryRow || null,
+          checkoutContext: checkoutContextRow || null,
           items: baseItems,
           productsById,
           auditEvents: Array.isArray(auditRows) ? auditRows : [],
@@ -399,6 +411,7 @@ export default function TransactionDetailsContent({ transaction }) {
 
   const deliverySummary = useMemo(() => {
     const delivery = details.delivery || {};
+    const checkoutContext = details.checkoutContext || {};
     const deliveryStatusSource =
       delivery.delivery_status || transaction?.deliveryStatus || order?.status;
     const normalized = normalizeStatus(deliveryStatusSource);
@@ -415,6 +428,13 @@ export default function TransactionDetailsContent({ transaction }) {
       variant = "error";
     }
 
+    const totalWeightKg = Number.isFinite(Number(checkoutContext.total_weight_kg))
+      ? Number(checkoutContext.total_weight_kg)
+      : null;
+    const pieces = Number.isFinite(Number(checkoutContext.pieces))
+      ? Number(checkoutContext.pieces)
+      : null;
+
     return {
       courierPartner: delivery.courier_partner || "—",
       trackingId: delivery.tracking_id || "—",
@@ -424,8 +444,12 @@ export default function TransactionDetailsContent({ transaction }) {
       deliveryStatusLabel: label,
       deliveryStatusVariant: variant,
       proofUrl: delivery.proof_of_delivery_url || null,
+      totalWeightKg,
+      totalWeightKgLabel: totalWeightKg !== null ? `${totalWeightKg.toFixed(2)} kg` : "—",
+      pieces,
+      piecesLabel: pieces !== null ? `${pieces} piece${pieces === 1 ? "" : "s"}` : "—",
     };
-  }, [details.delivery, transaction, order]);
+  }, [details.delivery, details.checkoutContext, transaction, order]);
 
   const auditEntries = useMemo(() => {
     const entries = [];
@@ -860,6 +884,18 @@ function DeliverySection({ loading, summary }) {
                 {summary.deliveryStatusLabel}
               </Badge>
             </div>
+          </div>
+          <div>
+            <p className="text-[11px] text-[#717182]">Total Weight</p>
+            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+              {summary.totalWeightKgLabel}
+            </p>
+          </div>
+          <div>
+            <p className="text-[11px] text-[#717182]">Pieces</p>
+            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+              {summary.piecesLabel}
+            </p>
           </div>
         </div>
       </div>

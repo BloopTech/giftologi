@@ -61,7 +61,7 @@ export const VendorProductsProvider = ({ children }) => {
           supabase
             .from("products")
             .select(`
-              id, name, description, price, stock_qty, images, variations, status, product_code, created_at,
+              id, name, description, price, weight_kg, service_charge, stock_qty, images, variations, status, product_code, created_at,
               category_id,
               product_categories (category_id),
               categories:category_id (id, name, slug)
@@ -88,9 +88,13 @@ export const VendorProductsProvider = ({ children }) => {
               [...relatedCategoryIds, row.category_id].filter(Boolean),
             ),
           ];
+          const rawServiceCharge = Number(row.service_charge || 0);
+          const serviceCharge = Number.isFinite(rawServiceCharge) ? rawServiceCharge : 0;
           return {
             ...row,
             categoryIds: mergedCategoryIds,
+            serviceCharge,
+            weightKg: row.weight_kg,
           };
         });
 
@@ -148,9 +152,17 @@ export const VendorProductsProvider = ({ children }) => {
     products.forEach((p) => {
       const stock = Number(p.stock_qty || 0);
       const price = Number(p.price || 0);
-      if (Number.isFinite(stock) && Number.isFinite(price)) {
-        inventoryValue += stock * price;
+      const serviceCharge = Number(p.serviceCharge || p.service_charge || 0);
+      const totalPrice =
+        Number.isFinite(price) && Number.isFinite(serviceCharge)
+          ? price + serviceCharge
+          : Number.isFinite(price)
+            ? price
+            : 0;
+      if (Number.isFinite(stock) && Number.isFinite(totalPrice)) {
+        inventoryValue += stock * totalPrice;
       }
+
       if (stock === 0) {
         outOfStockCount++;
       } else if (stock > 0 && stock <= 5) {

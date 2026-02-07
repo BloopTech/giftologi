@@ -34,10 +34,11 @@ const normalizeVariations = (raw) => {
   return [];
 };
 
-const getVariationPriceStats = (variations) => {
+const getVariationPriceStats = (variations, serviceCharge = 0) => {
   const prices = (variations || [])
     .map((variation) => Number(variation?.price))
-    .filter((value) => Number.isFinite(value));
+    .filter((value) => Number.isFinite(value))
+    .map((value) => value + serviceCharge);
   if (!prices.length) {
     return { min: null, max: null };
   }
@@ -49,14 +50,18 @@ const getVariationPriceStats = (variations) => {
 
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
+  const serviceCharge = Number(product?.service_charge || 0);
   const variations = normalizeVariations(product?.variations);
-  const variationStats = getVariationPriceStats(variations);
+  const variationStats = getVariationPriceStats(variations, serviceCharge);
   const basePrice = Number(product?.price);
+  const baseWithCharge = Number.isFinite(basePrice)
+    ? basePrice + serviceCharge
+    : serviceCharge;
   const displayPrice =
     variationStats.min != null && Number.isFinite(variationStats.min)
       ? variationStats.min
-      : Number.isFinite(basePrice)
-      ? basePrice
+      : Number.isFinite(baseWithCharge)
+      ? baseWithCharge
       : null;
   return {
     id: product?.id,
@@ -64,13 +69,15 @@ const mapProduct = (product) => {
     name: product?.name || "Product",
     images: images.length > 0 ? images : ["/host/toaster.png"],
     image: images[0] || "/host/toaster.png",
+    weightKg: product?.weight_kg ?? null,
     price: formatPrice(displayPrice),
     rawPrice: displayPrice,
-    basePrice: Number.isFinite(basePrice) ? basePrice : null,
+    basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
     variationPriceRange:
       variationStats.min != null && variationStats.max != null
         ? variationStats
         : null,
+    serviceCharge,
     variations,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
@@ -263,13 +270,19 @@ export function ProductDetailProvider({ vendorSlug, productCode, children }) {
         setRelatedProducts(
           next.map((p) => {
             const images = Array.isArray(p.images) ? p.images : [];
+            const serviceCharge = Number(p.service_charge || 0);
+            const basePrice = Number(p.price);
+            const totalPrice = Number.isFinite(basePrice)
+              ? basePrice + serviceCharge
+              : serviceCharge;
             return {
               id: p.id,
               product_code: p.product_code || null,
               name: p.name || "Product",
               image: images[0] || "/host/toaster.png",
-              price: formatPrice(p.price),
-              rawPrice: p.price,
+              price: formatPrice(totalPrice),
+              rawPrice: totalPrice,
+              serviceCharge,
               stock: p.stock_qty ?? 0,
             };
           })

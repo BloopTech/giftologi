@@ -104,13 +104,19 @@ export const VendorOrdersProvider = ({ children }) => {
             name,
             product_code,
             price,
-            images
+            images,
+            weight_kg
           ),
           gift_wrap_options (
             id,
             name,
             fee,
             description
+          ),
+          checkout_context!inner (
+            order_id,
+            total_weight_kg,
+            pieces
           )
         `)
         .eq("vendor_id", vendorRecord.id)
@@ -135,6 +141,7 @@ export const VendorOrdersProvider = ({ children }) => {
         wrapping: item.wrapping ?? false,
         giftWrapOptionId: item.gift_wrap_option_id || null,
         giftWrapOption: item.gift_wrap_options || null,
+        checkoutContext: item.checkout_context,
       }));
 
       const stats = {

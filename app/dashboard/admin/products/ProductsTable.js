@@ -39,13 +39,13 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/app/components/Toolti
 import { useManageProductsContext } from "./context";
 import { useDashboardContext } from "../context";
 import {
-  approveProduct,
   flagProduct,
   unflagProduct,
   updateProduct,
   setFeaturedProduct,
 } from "./action";
 import RejectProductDialog from "./RejectProductDialog";
+import ApproveProductDialog from "./ApproveProductDialog";
 
 const tableStyles = tv({
   slots: {
@@ -176,15 +176,6 @@ const buildVariationPayload = (drafts) => {
   return JSON.stringify(normalized);
 };
 
-const initialApproveState = {
-  message: "",
-  errors: {
-    productId: [],
-  },
-  values: {},
-  data: {},
-};
-
 const initialFlagState = {
   message: "",
   errors: {
@@ -211,6 +202,8 @@ const initialUpdateState = {
     name: [],
     description: [],
     price: [],
+    weightKg: [],
+    serviceCharge: [],
     stockQty: [],
     categoryIds: [],
     variations: [],
@@ -281,10 +274,6 @@ export default function ProductsTable({
   const canModerate =
     !!currentAdmin && allowedActionRoles.includes(currentAdmin.role);
 
-  const [approveState, approveAction, approvePending] = useActionState(
-    approveProduct,
-    initialApproveState
-  );
   const [flagState, flagAction, flagPending] = useActionState(
     flagProduct,
     initialFlagState
@@ -341,24 +330,6 @@ export default function ProductsTable({
 
   const editErrorFor = (key) => editState?.errors?.[key] ?? [];
   const hasEditError = (key) => (editErrorFor(key)?.length ?? 0) > 0;
-
-  useEffect(() => {
-    if (!approveState) return;
-    if (
-      approveState.message &&
-      approveState.data &&
-      Object.keys(approveState.data).length
-    ) {
-      toast.success(approveState.message);
-      refreshProducts?.();
-    } else if (
-      approveState.message &&
-      approveState.errors &&
-      Object.keys(approveState.errors).length
-    ) {
-      toast.error(approveState.message);
-    }
-  }, [approveState, refreshProducts]);
 
   useEffect(() => {
     if (!flagState) return;
@@ -596,17 +567,24 @@ export default function ProductsTable({
     setEditActiveVariationFieldById({});
   }, [editOpen, selectedProduct?.id, selectedProduct?.categoryIds, selectedProduct?.variations]);
 
-  const buildEditPreviews = (files) => {
+  const buildEditPreviews = (files, currentPreviews = []) => {
     const list = Array.from(files || []).filter((file) =>
       Boolean(file && file.type && file.type.startsWith("image/"))
     );
-    const limited = list.slice(0, 3);
+    const existingCount = editExistingImages.length;
+    const remainingSlots = Math.max(0, 3 - existingCount - currentPreviews.length);
+    const limited = list.slice(0, remainingSlots);
 
-    if (list.length !== limited.length && editFileInputRef.current) {
+    if (editFileInputRef.current) {
       const dt = new DataTransfer();
+      currentPreviews.forEach((item) => {
+        if (item?.file) dt.items.add(item.file);
+      });
       limited.forEach((f) => dt.items.add(f));
       editFileInputRef.current.files = dt.files;
     }
+
+    if (!limited.length) return;
 
     Promise.all(
       limited.map(
@@ -618,18 +596,15 @@ export default function ProductsTable({
           })
       )
     ).then((items) => {
-      setEditImagePreviews(items);
+      setEditImagePreviews((prev) => [...prev, ...items]);
       setEditFeaturedIndex("");
     });
   };
 
   const handleEditImagesChange = (e) => {
     const files = e.target.files;
-    if (!files || files.length === 0) {
-      setEditImagePreviews([]);
-      return;
-    }
-    buildEditPreviews(files);
+    if (!files || files.length === 0) return;
+    buildEditPreviews(files, editImagePreviews);
   };
 
   const syncEditInputFiles = (nextPreviews) => {
@@ -668,9 +643,7 @@ export default function ProductsTable({
     setEditFeaturedIndex("");
   };
 
-  const editFeaturedCount = editImagePreviews.length
-    ? editImagePreviews.length
-    : editExistingImages.length;
+  const editFeaturedCount = editImagePreviews.length + editExistingImages.length;
 
   const columns = useMemo(
     () => [
@@ -756,6 +729,57 @@ export default function ProductsTable({
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               });
+          return <span className="text-xs text-[#0A0A0A]">{label}</span>;
+        },
+      }),
+      columnHelper.accessor("weightKg", {
+        header: ({ column }) => (
+          <SortableHeader column={column} title="Weight (kg)" />
+        ),
+        cell: (info) => {
+          const value = Number(info.getValue());
+          if (!Number.isFinite(value)) {
+            return <span className="text-xs text-[#6A7282]">—</span>;
+          }
+          const label = value.toLocaleString("en-GH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+          return <span className="text-xs text-[#0A0A0A]">{label}</span>;
+        },
+      }),
+      columnHelper.accessor("serviceCharge", {
+        header: ({ column }) => (
+          <SortableHeader column={column} title="Service Charge (GHS)" />
+        ),
+        cell: (info) => {
+          const value = Number(info.getValue() || 0);
+          const label = Number.isNaN(value)
+            ? "—"
+            : value.toLocaleString("en-GH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+          return <span className="text-xs text-[#0A0A0A]">{label}</span>;
+        },
+      }),
+      columnHelper.display({
+        id: "totalPrice",
+        header: ({ column }) => (
+          <SortableHeader column={column} title="Total (GHS)" />
+        ),
+        cell: ({ row }) => {
+          const base = Number(row.original?.price || 0);
+          const charge = Number(row.original?.serviceCharge || 0);
+          const total =
+            (Number.isFinite(base) ? base : 0) +
+            (Number.isFinite(charge) ? charge : 0);
+          const label = Number.isFinite(total)
+            ? total.toLocaleString("en-GH", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })
+            : "—";
           return <span className="text-xs text-[#0A0A0A]">{label}</span>;
         },
       }),
@@ -916,30 +940,28 @@ export default function ProductsTable({
                   <TooltipContent>Flag product</TooltipContent>
                 </Tooltip>
               )}
-              <form action={approveAction}>
-                <input type="hidden" name="productId" value={original.id} />
-                <Tooltip>
+              <Tooltip>
+                <ApproveProductDialog
+                  product={original}
+                  onSuccess={() => refreshProducts?.()}
+                >
                   <TooltipTrigger asChild>
                     <button
-                      type="submit"
-                      disabled={!isPending || approvePending}
+                      type="button"
+                      disabled={!isPending}
                       className={cx(
                         "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
                         "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
-                        (!isPending || approvePending) &&
+                        !isPending &&
                           "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white"
                       )}
                     >
-                      {approvePending ? (
-                        <LoaderIcon className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Approve"
-                      )}
+                      Approve
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent>Approve product</TooltipContent>
-                </Tooltip>
-              </form>
+                </ApproveProductDialog>
+                <TooltipContent>Approve product</TooltipContent>
+              </Tooltip>
               <RejectProductDialog
                 product={original}
                 onSuccess={() => refreshProducts?.()}
@@ -948,11 +970,11 @@ export default function ProductsTable({
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      disabled={!isPending || approvePending}
+                      disabled={!isPending}
                       className={cx(
                         "rounded-full px-3 py-1 text-[11px] font-medium cursor-pointer border",
                         "border-[#DF0404] text-[#DF0404] bg-white hover:bg-[#DF0404] hover:text-white",
-                        (!isPending || approvePending) &&
+                        !isPending &&
                           "opacity-60 cursor-not-allowed hover:bg-white hover:text-[#DF0404]"
                       )}
                     >
@@ -969,13 +991,13 @@ export default function ProductsTable({
     ],
     [
       canModerate,
-      approveAction,
       unflagAction,
       unflagPending,
-      approvePending,
       featuredAction,
       featuredPending,
       refreshProducts,
+      categoriesById,
+      getCategoryDisplayName,
     ]
   );
 

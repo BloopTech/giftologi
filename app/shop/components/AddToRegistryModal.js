@@ -226,9 +226,16 @@ export default function AddToRegistryModal({
 
   if (!product) return null;
 
+  const serviceCharge = Number(product?.serviceCharge || 0);
   const basePrice = Number(product?.rawPrice);
+  const variationPrice =
+    selectedVariation?.price != null
+      ? Number(selectedVariation.price) + serviceCharge
+      : null;
   const displayPrice =
-    selectedVariation?.price != null ? Number(selectedVariation.price) : basePrice;
+    variationPrice != null && Number.isFinite(variationPrice)
+      ? variationPrice
+      : basePrice;
   const formattedPrice = formatPrice(displayPrice) || product.price;
 
   return (

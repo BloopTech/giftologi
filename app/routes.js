@@ -1,6 +1,15 @@
 export const publicRoutes = [`/`, `/vendor`];
 
-export const eventPublicRoutes = [`/shop`, `/event/:event_code`, `/registry`, `/registry/:registry_code`, `/storefront/:vendor_slug`, `/storefront/:vendor_slug/:product_code`];
+export const eventPublicRoutes = [
+  `/shop`,
+  `/event/:event_code`,
+  `/registry`,
+  `/registry/:registry_code`,
+  `/storefront/:vendor_slug`,
+  `/storefront/:vendor_slug/:product_code`,
+  `/storefront/:vendor_slug/checkout`,
+  `/search`,
+];
 
 export const authRoutes = [
   `/login`,

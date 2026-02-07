@@ -84,7 +84,7 @@ export default function FormInput(props) {
   const canShowResend = Boolean(state?.data?.email);
 
   return (
-    <div className="flex flex-col space-y-4 w-full items-center justify-center font-poppins">
+    <div className="flex flex-col space-y-4 w-full items-center justify-center font-brasley-medium">
       <form
         action={formAction}
         className="flex flex-col w-full space-y-8 items-center justify-center"

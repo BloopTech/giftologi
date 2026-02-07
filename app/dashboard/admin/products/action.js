@@ -167,12 +167,27 @@ const slugifyCategory = (value) => {
   return base || "category";
 };
 
+const isValidDecimalInput = (value) => {
+  const normalized = String(value || "").replace(/,/g, "").trim();
+  return /^\d+(\.\d+)?$/.test(normalized);
+};
+
 const defaultApproveProductValues = {
   productId: [],
+  serviceCharge: [],
 };
 
 const approveProductSchema = z.object({
   productId: z.string().uuid({ message: "Invalid product" }),
+  serviceCharge: z
+    .string()
+    .trim()
+    .min(1, { message: "Service charge is required" })
+    .refine((value) => {
+      if (!isValidDecimalInput(value)) return false;
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num >= 0;
+    }, "Enter a valid service charge"),
 });
 
 const defaultFeaturedStateValues = {
@@ -203,6 +218,7 @@ export async function approveProduct(prevState, formData) {
       data: {},
     };
   }
+
   const { data: currentProfile } = await supabase
     .from("profiles")
     .select("id, role")
@@ -226,6 +242,7 @@ export async function approveProduct(prevState, formData) {
 
   const raw = {
     productId: formData.get("productId"),
+    serviceCharge: formData.get("serviceCharge") || "",
   };
 
   const parsed = approveProductSchema.safeParse(raw);
@@ -239,7 +256,7 @@ export async function approveProduct(prevState, formData) {
     };
   }
 
-  const { productId, reason } = parsed.data;
+  const { productId, serviceCharge } = parsed.data;
 
   const { data: product, error: productError } = await supabase
     .from("products")
@@ -265,11 +282,16 @@ export async function approveProduct(prevState, formData) {
     };
   }
 
+  const serviceChargeNumber = Number(serviceCharge.replace(/,/g, ""));
+
   const { error: updateError } = await supabase
     .from("products")
     .update({
       status: "approved",
       active: true,
+      service_charge: Number.isFinite(serviceChargeNumber)
+        ? serviceChargeNumber
+        : null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
@@ -920,6 +942,8 @@ const defaultCreateProductValues = {
   name: [],
   description: [],
   price: [],
+  weightKg: [],
+  serviceCharge: [],
   stockQty: [],
   productCode: [],
   categoryIds: [],
@@ -936,6 +960,8 @@ const defaultUpdateProductValues = {
   name: [],
   description: [],
   price: [],
+  weightKg: [],
+  serviceCharge: [],
   stockQty: [],
   categoryIds: [],
   variations: [],
@@ -967,6 +993,15 @@ const updateProductSchema = z.object({
       const num = Number(value.replace(/,/g, ""));
       return Number.isFinite(num) && num >= 0;
     }, "Enter a valid price"),
+  weightKg: z
+    .string()
+    .trim()
+    .min(1, { message: "Weight is required" })
+    .refine((value) => {
+      if (!isValidDecimalInput(value)) return false;
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num > 0;
+    }, "Enter a valid weight"),
   stockQty: z
     .string()
     .trim()
@@ -980,6 +1015,15 @@ const updateProductSchema = z.object({
   categoryIds: z
     .array(z.string().trim().uuid({ message: "Select a valid category" }))
     .min(1, { message: "Select at least one category" }),
+  serviceCharge: z
+    .string()
+    .trim()
+    .min(1, { message: "Service charge is required" })
+    .refine((value) => {
+      if (!isValidDecimalInput(value)) return false;
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num >= 0;
+    }, "Enter a valid service charge"),
   variations: z.string().trim().optional().or(z.literal("")),
   featuredImageIndex: z
     .string()
@@ -1620,8 +1664,10 @@ export async function updateProduct(prevState, formData) {
     name: formData.get("name") || "",
     description: formData.get("description") || "",
     price: formData.get("price") || "",
+    weightKg: formData.get("weightKg") || "",
     stockQty: formData.get("stockQty") || "",
     categoryIds: parseCategoryIds(formData.get("categoryIds")),
+    serviceCharge: formData.get("serviceCharge") || "",
     variations: formData.get("variations") || "",
     featuredImageIndex: formData.get("featuredImageIndex") || "",
     existingImages: formData.get("existing_images") || "",
@@ -1646,8 +1692,10 @@ export async function updateProduct(prevState, formData) {
     name,
     description,
     price,
+    weightKg,
     stockQty,
     categoryIds,
+    serviceCharge,
     variations: variationsRaw,
     featuredImageIndex,
     existingImages: existingImagesRaw,
@@ -1690,6 +1738,10 @@ export async function updateProduct(prevState, formData) {
   }
 
   const priceNumber = Number(price.replace(/,/g, ""));
+  const weightNumber = Number(weightKg.replace(/,/g, ""));
+  const serviceChargeNumber = serviceCharge
+    ? Number(serviceCharge.replace(/,/g, ""))
+    : null;
   const stockNumber = stockQty ? Number(stockQty.replace(/,/g, "")) : null;
   const variations = parseVariationsPayload(variationsRaw);
 
@@ -1711,6 +1763,8 @@ export async function updateProduct(prevState, formData) {
   const validImageFiles = Array.isArray(rawImages)
     ? rawImages.filter((file) => isValidSelectedFile(file))
     : [];
+
+  const remainingImageSlots = Math.max(0, 3 - existingImages.length);
 
   if (validImageFiles.length > 3) {
     const message = "You can upload a maximum of 3 images per product.";
@@ -1736,7 +1790,7 @@ export async function updateProduct(prevState, formData) {
     if (uploads.length) {
       try {
         const results = await Promise.all(uploads);
-        nextImages = results.filter(Boolean);
+        nextImages = [...existingImages, ...results.filter(Boolean)].slice(0, 3);
       } catch (error) {
         return {
           message:
@@ -1766,6 +1820,11 @@ export async function updateProduct(prevState, formData) {
       name,
       description: description || null,
       price: Number.isFinite(priceNumber) ? priceNumber : null,
+      weight_kg: Number.isFinite(weightNumber) ? weightNumber : null,
+      service_charge:
+        serviceChargeNumber != null && Number.isFinite(serviceChargeNumber)
+          ? serviceChargeNumber
+          : null,
       stock_qty:
         stockNumber != null && Number.isFinite(stockNumber)
           ? stockNumber
@@ -1866,6 +1925,24 @@ const createSingleProductSchema = z.object({
       const num = Number(value.replace(/,/g, ""));
       return Number.isFinite(num) && num >= 0;
     }, "Enter a valid price"),
+  weightKg: z
+    .string()
+    .trim()
+    .min(1, { message: "Weight is required" })
+    .refine((value) => {
+      if (!isValidDecimalInput(value)) return false;
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num > 0;
+    }, "Enter a valid weight"),
+  serviceCharge: z
+    .string()
+    .trim()
+    .min(1, { message: "Service charge is required" })
+    .refine((value) => {
+      if (!isValidDecimalInput(value)) return false;
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num >= 0;
+    }, "Enter a valid service charge"),
   stockQty: z
     .string()
     .trim()
@@ -1898,6 +1975,7 @@ const MAX_BULK_PRODUCTS = 200;
 const createBulkMappingSchema = z.object({
   name: z.string().trim().min(1, { message: "Map a column to product name" }),
   price: z.string().trim().min(1, { message: "Map a column to price" }),
+  weightKg: z.string().trim().min(1, { message: "Map a column to weight" }),
   description: z.string().trim().optional().or(z.literal("")),
   stockQty: z.string().trim().optional().or(z.literal("")),
   imageUrl: z.string().trim().optional().or(z.literal("")),
@@ -1907,6 +1985,7 @@ const bulkRowSchema = z.object({
   name: z.string().trim().min(1, { message: "Row is missing a product name" }),
   description: z.string().trim().optional().or(z.literal("")),
   price: z.number().nonnegative({ message: "Price must be zero or greater" }),
+  weightKg: z.number().positive({ message: "Weight must be greater than zero" }),
   stockQty: z.number().int().nonnegative().optional(),
   imageUrl: z
     .string()
@@ -2026,6 +2105,8 @@ export async function createVendorProducts(prevState, formData) {
       name: formData.get("name") || "",
       description: formData.get("description") || "",
       price: formData.get("price") || "",
+      weightKg: formData.get("weightKg") || "",
+      serviceCharge: formData.get("serviceCharge") || "",
       stockQty: formData.get("stockQty") || "",
       productCode: formData.get("productCode") || "",
       categoryIds: parseCategoryIds(formData.get("categoryIds")),
@@ -2127,6 +2208,10 @@ export async function createVendorProducts(prevState, formData) {
     }
 
     const priceNumber = Number(single.price.replace(/,/g, ""));
+    const weightNumber = Number(single.weightKg.replace(/,/g, ""));
+    const serviceChargeNumber = single.serviceCharge
+      ? Number(single.serviceCharge.replace(/,/g, ""))
+      : null;
     const stockNumber = single.stockQty
       ? Number(single.stockQty.replace(/,/g, ""))
       : null;
@@ -2139,6 +2224,11 @@ export async function createVendorProducts(prevState, formData) {
       name: single.name,
       description: single.description || null,
       price: Number.isFinite(priceNumber) ? priceNumber : null,
+      weight_kg: Number.isFinite(weightNumber) ? weightNumber : null,
+      service_charge:
+        serviceChargeNumber != null && Number.isFinite(serviceChargeNumber)
+          ? serviceChargeNumber
+          : null,
       stock_qty:
         stockNumber != null && Number.isFinite(stockNumber)
           ? stockNumber
@@ -2339,10 +2429,12 @@ export async function createVendorProducts(prevState, formData) {
 
   const nameIndex = getIndex(mapping.name);
   const priceIndex = getIndex(mapping.price);
+  const weightIndex = getIndex(mapping.weightKg);
 
-  if (nameIndex === -1 || priceIndex === -1) {
+  if (nameIndex === -1 || priceIndex === -1 || weightIndex === -1) {
     return {
-      message: "Mapped name or price column was not found in the CSV header.",
+      message:
+        "Mapped name, price, or weight column was not found in the CSV header.",
       errors: {
         ...defaultCreateProductValues,
         bulkMapping: ["Mapped columns must exist in the CSV header."],
@@ -2368,10 +2460,15 @@ export async function createVendorProducts(prevState, formData) {
 
     const nameValue = (values[nameIndex] || "").trim();
     const priceRaw = (values[priceIndex] || "").trim();
+    const weightRaw = (values[weightIndex] || "").trim();
 
     if (!nameValue) continue;
     const priceNumber = Number(priceRaw.replace(/,/g, ""));
     if (!Number.isFinite(priceNumber) || priceNumber < 0) {
+      continue;
+    }
+    const weightNumber = Number(weightRaw.replace(/,/g, ""));
+    if (!Number.isFinite(weightNumber) || weightNumber <= 0) {
       continue;
     }
 
@@ -2403,6 +2500,7 @@ export async function createVendorProducts(prevState, formData) {
       name: nameValue,
       description: descriptionValue,
       price: priceNumber,
+      weightKg: weightNumber,
       stockQty: stockQtyNumber == null ? undefined : stockQtyNumber,
       imageUrl: imageUrlValue || undefined,
     };
@@ -2434,6 +2532,7 @@ export async function createVendorProducts(prevState, formData) {
     name: row.name,
     description: row.description || null,
     price: row.price,
+    weight_kg: row.weightKg,
     stock_qty:
       typeof row.stockQty === "number" && Number.isFinite(row.stockQty)
         ? row.stockQty

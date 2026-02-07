@@ -65,7 +65,7 @@ export default function SuperAdminDashboardContent() {
       return <div className="h-4 w-10 rounded bg-[#E5E7EB] animate-pulse" />;
     }
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(value)}
       </p>
     );
@@ -76,7 +76,7 @@ export default function SuperAdminDashboardContent() {
       return <div className="h-4 w-20 rounded bg-[#E5E7EB] animate-pulse" />;
     }
     return (
-      <p className="text-sm font-medium text-[#0A0A0A] font-inter">
+      <p className="text-sm font-medium text-[#0A0A0A] font-brasley-medium">
         {formatCurrency(value)}
       </p>
     );
@@ -84,13 +84,13 @@ export default function SuperAdminDashboardContent() {
 
   return (
     <section aria-label="Admin dashboard overview" className="flex flex-col space-y-4 w-full mb-8">
-      <h1 className="text-[#0A0A0A] font-medium font-inter">Overview</h1>
+      <h1 className="text-[#0A0A0A] font-medium font-brasley-medium">Overview</h1>
       {/* Card Overview */}
       {role === "super_admin" || role === "operations_manager_admin" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
           {/* Active Registries */}
           <div className="flex flex-col space-y-2 w-full">
-            <h2 className="text-[#717182] text-xs/4 font-poppins">
+            <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
               Active Registries
             </h2>
             <div className="flex justify-between items-center">
@@ -98,13 +98,13 @@ export default function SuperAdminDashboardContent() {
               <PiShoppingBagOpen className="size-4 text-[#6EA30B]" />
             </div>
             <div className="border-t-[2px] border-[#6EA30B]" />
-            <p className="text-[#6A7282] text-[10px] font-poppins">
+            <p className="text-[#6A7282] text-[10px] font-brasley-medium">
               Total number of active registries
             </p>
           </div>
           {/* Pending Vendor Requests */}
           <div className="flex flex-col space-y-2 w-full">
-            <h2 className="text-[#717182] text-xs/4 font-poppins">
+            <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
               Pending Vendor Requests
             </h2>
             <div className="flex justify-between items-center">
@@ -112,13 +112,13 @@ export default function SuperAdminDashboardContent() {
               <PiStorefront className="size-4 text-[#CB7428]" />
             </div>
             <div className="border-t-[2px] border-[#FFCA57]" />
-            <p className="text-[#6A7282] text-[10px] font-poppins">
+            <p className="text-[#6A7282] text-[10px] font-brasley-medium">
               Vendor applications awaiting approval
             </p>
           </div>
           {/* Pending Close Shop Requests */}
           <div className="flex flex-col space-y-2 w-full">
-            <h2 className="text-[#717182] text-xs/4 font-poppins">
+            <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
               Pending Close Requests
             </h2>
             <div className="flex justify-between items-center">
@@ -126,13 +126,13 @@ export default function SuperAdminDashboardContent() {
               <PiStorefront className="size-4 text-[#C52721]" />
             </div>
             <div className="border-t-[2px] border-[#FF5C57]" />
-            <p className="text-[#6A7282] text-[10px] font-poppins">
+            <p className="text-[#6A7282] text-[10px] font-brasley-medium">
               Vendor shops awaiting closure approval
             </p>
           </div>
           {/* Total Orders */}
           <div className="flex flex-col space-y-2 w-full">
-            <h2 className="text-[#717182] text-xs/4 font-poppins">
+            <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
               Total Orders
             </h2>
             <div className="flex justify-between items-center">
@@ -140,13 +140,13 @@ export default function SuperAdminDashboardContent() {
               <PiShoppingCart className="size-4 text-[#286AD4]" />
             </div>
             <div className="border-t-[2px] border-[#5797FF]" />
-            <p className="text-[#6A7282] text-[10px] font-poppins">
+            <p className="text-[#6A7282] text-[10px] font-brasley-medium">
               All orders processed on the platform
             </p>
           </div>
           {/* Open Tickets */}
           <div className="flex flex-col space-y-2 w-full">
-            <h2 className="text-[#717182] text-xs/4 font-poppins">
+            <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
               Open Tickets
             </h2>
             <div className="flex justify-between items-center">
@@ -154,13 +154,13 @@ export default function SuperAdminDashboardContent() {
               <PiTicket className="size-4 text-[#AA1BC6]" />
             </div>
             <div className="border-t-[2px] border-[#E357FF]" />
-            <p className="text-[#6A7282] text-[10px] font-poppins">
+            <p className="text-[#6A7282] text-[10px] font-brasley-medium">
               Active customer support tickets
             </p>
           </div>
           {/* Pending Escalations */}
           <div className="flex flex-col space-y-2 w-full">
-            <h2 className="text-[#717182] text-xs/4 font-poppins">
+            <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
               Pending Escalations
             </h2>
             <div className="flex justify-between items-center">
@@ -168,7 +168,7 @@ export default function SuperAdminDashboardContent() {
               <PiWarning className="size-4 text-[#C52721]" />
             </div>
             <div className="border-t-[2px] border-[#FF5C57]" />
-            <p className="text-[#6A7282] text-[10px] font-poppins">
+            <p className="text-[#6A7282] text-[10px] font-brasley-medium">
               Support tickets awaiting higher-level review
             </p>
           </div>
@@ -179,10 +179,10 @@ export default function SuperAdminDashboardContent() {
       {role === "operations_manager_admin" ? null : (
         <div className="flex flex-col gap-4 w-full rounded-xl border border-[#AAE43E] p-4 bg-[#EAF9D4]">
           <div className="flex flex-col">
-            <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+            <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
               Quick Access
             </h1>
-            <span className="text-[#717182] text-xs/4 font-poppins">
+            <span className="text-[#717182] text-xs/4 font-brasley-medium">
               Jump straight to your most frequently managed sections.
             </span>
           </div>
@@ -197,7 +197,7 @@ export default function SuperAdminDashboardContent() {
                       <span>{renderMetricCount(metrics?.openTickets)}</span>
                       <PiTicket className="size-4 text-[#AA1BC6]" />
                     </div>
-                    <span className="text-xs font-poppins">Open Tickets</span>
+                    <span className="text-xs font-brasley-medium">Open Tickets</span>
                     <div className="border-t-[2px] border-[#AA1BC6]" />
                   </div>
                   <div className="flex flex-col">
@@ -207,12 +207,12 @@ export default function SuperAdminDashboardContent() {
                       </span>
                       <PiWarning className="size-4 text-[#C52721]" />
                     </div>
-                    <span className="text-xs font-poppins">Escalations</span>
+                    <span className="text-xs font-brasley-medium">Escalations</span>
                     <div className="border-t-[2px] border-[#FF5C57]" />
                   </div>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <span className="text-[#717182] text-xs/4 font-poppins">
+                  <span className="text-[#717182] text-xs/4 font-brasley-medium">
                     Review and manage tickets and escalations
                   </span>
                   <PiArrowRight className="size-4 text-[#3979D2]" />
@@ -220,7 +220,7 @@ export default function SuperAdminDashboardContent() {
               </div>
             ) : (
               <div className="border border-[#AAE43E] flex flex-col space-y-4 rounded-md bg-white p-4">
-                <p className="font-inter text-xs text-[#0A0A0A] font-medium">
+                <p className="font-brasley-medium text-xs text-[#0A0A0A] font-medium">
                   {role === "finance_admin"
                     ? "Recent Transactions"
                     : role === "store_manager_admin"
@@ -229,7 +229,7 @@ export default function SuperAdminDashboardContent() {
                     ? "Analytics Overview"
                     : "Access to all cards and KPIs"}
                 </p>
-                <span className="text-[#717182] text-xs/4 font-poppins">
+                <span className="text-[#717182] text-xs/4 font-brasley-medium">
                   {role === "finance_admin"
                     ? "Displays recent transactions, pending payouts, and refund requests"
                     : role === "store_manager_admin"
@@ -239,7 +239,7 @@ export default function SuperAdminDashboardContent() {
                     : "Monitor real-time platform metrics and performance insights."}
                 </span>
                 <div>
-                  <button className="text-[10px] bg-[#6EA30B] text-white border border-[#6EA30B] hover:bg-white hover:text-[#6EA30B] rounded-full cursor-pointer px-4 py-1 flex items-center justify-center font-poppins font-medium">
+                  <button className="text-[10px] bg-[#6EA30B] text-white border border-[#6EA30B] hover:bg-white hover:text-[#6EA30B] rounded-full cursor-pointer px-4 py-1 flex items-center justify-center font-brasley-medium font-medium">
                     {role === "finance_admin"
                       ? "View Transactions"
                       : role === "store_manager_admin"
@@ -253,7 +253,7 @@ export default function SuperAdminDashboardContent() {
             )}
             {/* Add Staff */}
             <div className="border border-[#AAE43E] flex flex-col space-y-4 rounded-md bg-white p-4">
-              <p className="font-inter text-xs text-[#0A0A0A] font-medium">
+              <p className="font-brasley-medium text-xs text-[#0A0A0A] font-medium">
                 {role === "finance_admin"
                   ? "Approve Payouts"
                   : role === "operations_manager_admin"
@@ -266,7 +266,7 @@ export default function SuperAdminDashboardContent() {
                   ? "Content & Policy"
                   : "Create new staff accounts"}
               </p>
-              <span className="text-[#717182] text-xs/4 font-poppins">
+              <span className="text-[#717182] text-xs/4 font-brasley-medium">
                 {role === "finance_admin"
                   ? "Manage payout requests awaiting approval."
                   : role === "operations_manager_admin"
@@ -291,7 +291,7 @@ export default function SuperAdminDashboardContent() {
                       router.push("/dashboard/admin/content_policy_pages");
                     }
                   }}
-                  className="text-[10px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
+                  className="text-[10px] cursor-pointer bg-primary text-white border border-primary hover:bg-white hover:text-primary rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium"
                 >
                   {role === "finance_admin"
                     ? "Manage Payouts"
@@ -319,7 +319,7 @@ export default function SuperAdminDashboardContent() {
             </div>
             {/* Manage Roles */}
             <div className="border border-[#AAE43E] flex flex-col space-y-4 rounded-md bg-white p-4">
-              <p className="font-inter text-xs text-[#0A0A0A] font-medium">
+              <p className="font-brasley-medium text-xs text-[#0A0A0A] font-medium">
                 {role === "finance_admin"
                   ? "Download Reports"
                   : role === "operations_manager_admin"
@@ -332,7 +332,7 @@ export default function SuperAdminDashboardContent() {
                   ? "Analytics & Reporting"
                   : "Assign or revoke permissions"}
               </p>
-              <span className="text-[#717182] text-xs/4 font-poppins">
+              <span className="text-[#717182] text-xs/4 font-brasley-medium">
                 {role === "finance_admin"
                   ? "Manage payout requests awaiting approval."
                   : role === "operations_manager_admin"
@@ -347,7 +347,7 @@ export default function SuperAdminDashboardContent() {
               </span>
               <div>
                 <button
-                  className="text-[10px] cursor-pointer bg-white text-primary border border-primary hover:bg-primary hover:text-white rounded-full px-4 py-1 flex items-center justify-center font-poppins font-medium"
+                  className="text-[10px] cursor-pointer bg-white text-primary border border-primary hover:bg-primary hover:text-white rounded-full px-4 py-1 flex items-center justify-center font-brasley-medium font-medium"
                   onClick={() => {
                     if (role === "super_admin") {
                       router.push("/dashboard/admin/roles");
@@ -385,10 +385,10 @@ export default function SuperAdminDashboardContent() {
       <div className="flex flex-col rounded-xl w-full space-y-4">
         <div className="flex flex-col gap-3 w-full md:flex-row md:items-center md:justify-between">
           <div className="flex flex-col">
-            <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+            <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
               Performance Snapshot
             </h1>
-            <span className="text-[#717182] text-xs/4 font-poppins">
+            <span className="text-[#717182] text-xs/4 font-brasley-medium">
               Quickly locate registries, users, vendors, or orders
             </span>
           </div>
@@ -415,7 +415,7 @@ export default function SuperAdminDashboardContent() {
           {/* Total Purchases */}
           <div className="border border-[#8BB9FB] rounded-xl bg-[#EDF4FF] py-4 px-2 flex flex-col space-y-2">
             <div className="flex justify-between items-center px-2">
-              <p className="text-xs font-medium text-[#1D5EB9] font-inter">
+              <p className="text-xs font-medium text-[#1D5EB9] font-brasley-medium">
                 Total Purchases
               </p>
               <PiTrendUp className="size-6 text-[#1D5EB9]" />
@@ -423,7 +423,7 @@ export default function SuperAdminDashboardContent() {
             <div className="border border-[#8BB9FB] rounded-md bg-white p-2 flex flex-col space-y-2">
               {renderMetricCurrency(metrics?.totalPurchases)}
               <div className="border-t border-[#717182]" />
-              <span className="text-[#717182] text-[10px] font-poppins">
+              <span className="text-[#717182] text-[10px] font-brasley-medium">
                 Aggregate order amount (GHS)
               </span>
             </div>
@@ -431,7 +431,7 @@ export default function SuperAdminDashboardContent() {
           {/* Vendor Payouts */}
           <div className="border border-[#8BB9FB] rounded-xl bg-[#EDF4FF] py-4 px-2 flex flex-col space-y-2">
             <div className="flex justify-between items-center px-2">
-              <p className="text-xs font-medium text-[#1D5EB9] font-inter">
+              <p className="text-xs font-medium text-[#1D5EB9] font-brasley-medium">
                 Vendor Payouts
               </p>
               <PiCardholder className="size-6 text-[#1D5EB9]" />
@@ -439,7 +439,7 @@ export default function SuperAdminDashboardContent() {
             <div className="border border-[#8BB9FB] rounded-md bg-white p-2 flex flex-col space-y-2">
               {renderMetricCurrency(metrics?.vendorPayouts)}
               <div className="border-t border-[#717182]" />
-              <span className="text-[#717182] text-[10px] font-poppins">
+              <span className="text-[#717182] text-[10px] font-brasley-medium">
                 Amount disbursed to vendors
               </span>
             </div>
@@ -447,7 +447,7 @@ export default function SuperAdminDashboardContent() {
           {/* Top Performing Vendor */}
           <div className="border border-[#8BB9FB] rounded-xl bg-[#EDF4FF] py-4 px-2 flex flex-col space-y-2">
             <div className="flex justify-between items-center px-2">
-              <p className="text-xs font-medium text-[#1D5EB9] font-inter">
+              <p className="text-xs font-medium text-[#1D5EB9] font-brasley-medium">
                 Top Performing Vendor
               </p>
               <PiStorefront className="size-6 text-[#1D5EB9]" />
@@ -456,12 +456,12 @@ export default function SuperAdminDashboardContent() {
               {isLoadingMetrics ? (
                 <div className="h-4 w-24 rounded bg-[#E5E7EB] animate-pulse" />
               ) : (
-                <p className="text-sm font-medium text-[#0A0A0A] font-inter">
+                <p className="text-sm font-medium text-[#0A0A0A] font-brasley-medium">
                   {metrics?.topVendorName ? `"${metrics.topVendorName}"` : "—"}
                 </p>
               )}
               <div className="border-t border-[#717182]" />
-              <span className="text-[#717182] text-[10px] font-poppins">
+              <span className="text-[#717182] text-[10px] font-brasley-medium">
                 Vendor with highest sales volume
               </span>
             </div>
@@ -469,7 +469,7 @@ export default function SuperAdminDashboardContent() {
           {/* Popular Registry */}
           <div className="border border-[#8BB9FB] rounded-xl bg-[#EDF4FF] py-4 px-2 flex flex-col space-y-2">
             <div className="flex justify-between items-center px-2">
-              <p className="text-xs font-medium text-[#1D5EB9] font-inter">
+              <p className="text-xs font-medium text-[#1D5EB9] font-brasley-medium">
                 Popular Registry
               </p>
               <PiShoppingBagOpen className="size-6 text-[#1D5EB9]" />
@@ -478,14 +478,14 @@ export default function SuperAdminDashboardContent() {
               {isLoadingMetrics ? (
                 <div className="h-4 w-24 rounded bg-[#E5E7EB] animate-pulse" />
               ) : (
-                <p className="text-sm font-medium text-[#0A0A0A] font-inter">
+                <p className="text-sm font-medium text-[#0A0A0A] font-brasley-medium">
                   {metrics?.popularRegistryType
                     ? `"${metrics.popularRegistryType}"`
                     : "—"}
                 </p>
               )}
               <div className="border-t border-[#717182]" />
-              <span className="text-[#717182] text-[10px] font-poppins">
+              <span className="text-[#717182] text-[10px] font-brasley-medium">
                 Registry type with highest activity
               </span>
             </div>
@@ -495,10 +495,10 @@ export default function SuperAdminDashboardContent() {
       {/* All Available Modules */}
       <div className="flex flex-col rounded-xl w-full space-y-4">
         <div className="flex flex-col w-full">
-          <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+          <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             All Available Modules
           </h1>
-          <span className="text-[#717182] text-xs/4 font-poppins">
+          <span className="text-[#717182] text-xs/4 font-brasley-medium">
             Access and manage all key modules available to you and your role.
           </span>
         </div>
@@ -538,10 +538,10 @@ export default function SuperAdminDashboardContent() {
                     className="flex flex-col sm:flex-row border bg-[#FCF2CB] border-[#F1C29A] rounded-xl overflow-hidden"
                   >
                     <div className="flex flex-col space-y-2 border-b sm:border-b-0 sm:border-r w-full sm:w-[90%] border-[#F1C29A] px-2 py-4 rounded-r-md bg-white">
-                      <h1 className="font-inter text-[#0A0A0A] text-sm font-medium">
+                      <h1 className="font-brasley-medium text-[#0A0A0A] text-sm font-medium">
                         {name}
                       </h1>
-                      <span className="text-[#717182] text-xs/4 font-poppins h-[2rem]">
+                      <span className="text-[#717182] text-xs/4 font-brasley-medium h-[2rem]">
                         {description}
                       </span>
 

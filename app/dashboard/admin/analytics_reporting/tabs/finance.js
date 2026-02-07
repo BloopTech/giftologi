@@ -4,11 +4,11 @@ import React from "react";
 function MetricCard({ title, value, description }) {
   return (
     <div className="flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-      <h2 className="text-[#4A5565] text-xs/4 font-inter">{title}</h2>
-      <div className="flex justify-between items-center font-inter text-[#101828]">
+      <h2 className="text-[#4A5565] text-xs/4 font-brasley-medium">{title}</h2>
+      <div className="flex justify-between items-center font-brasley-medium text-[#101828]">
         {value}
       </div>
-      <span className="font-inter text-[#6A7282] text-[10px]">
+      <span className="font-brasley-medium text-[#6A7282] text-[10px]">
         {description}
       </span>
     </div>
@@ -27,7 +27,7 @@ export default function AnalyticsReportFinancial(props) {
     if (isLoading) return skeleton;
     if (!metrics) {
       return (
-        <p className="text-[#0A0A0A] font-medium font-poppins text-sm">—</p>
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">—</p>
       );
     }
     if (
@@ -40,7 +40,7 @@ export default function AnalyticsReportFinancial(props) {
       return renderMetricValue(type, metrics);
     }
     return (
-      <p className="text-[#0A0A0A] font-medium font-poppins text-sm">
+      <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
         {formatCount(metrics[type])}
       </p>
     );
@@ -49,7 +49,7 @@ export default function AnalyticsReportFinancial(props) {
   return (
     <div className="w-full mt-2 bg-white rounded-xl p-4 border border-[#D6D6D6] flex flex-col space-y-4">
       <div className="flex flex-col">
-        <h2 className="text-[#0A0A0A] text-xs font-medium font-poppins">
+        <h2 className="text-[#0A0A0A] text-xs font-medium font-brasley-medium">
           Financial Overview
         </h2>
         <p className="text-[#717182] text-[11px] mt-1">
@@ -80,10 +80,10 @@ export default function AnalyticsReportFinancial(props) {
         />
         <div className="col-span-2">
           <div className="flex flex-col space-y-2 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
-            <h2 className="text-[#4A5565] text-xs/4 font-inter">
+            <h2 className="text-[#4A5565] text-xs/4 font-brasley-medium">
               Refunds / Adjustments
             </h2>
-            <div className="flex justify-between items-center font-inter text-[#101828]">
+            <div className="flex justify-between items-center font-brasley-medium text-[#101828]">
               {isLoading
                 ? skeleton
                 : renderMetricValue("refunds", metrics || {})}
@@ -104,7 +104,7 @@ export default function AnalyticsReportFinancial(props) {
                 ))}
               </div>
             </div>
-            <span className="text-[#6A7282] text-[10px] font-inter">
+            <span className="text-[#6A7282] text-[10px] font-brasley-medium">
               Manual and automatic refunds
             </span>
           </div>

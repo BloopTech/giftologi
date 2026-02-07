@@ -426,17 +426,27 @@ export default function VendorProductsContent() {
     }
   }, [editDialogOpen, editState]);
 
-  const buildEditPreviews = (files) => {
+  const buildEditPreviews = (files, currentPreviews = []) => {
     const list = Array.from(files || []).filter((file) =>
       Boolean(file && file.type && file.type.startsWith("image/")),
     );
-    const limited = list.slice(0, 3);
+    const existingCount = editExistingImages.length;
+    const remainingSlots = Math.max(
+      0,
+      3 - existingCount - currentPreviews.length,
+    );
+    const limited = list.slice(0, remainingSlots);
 
-    if (list.length !== limited.length && editFileInputRef.current) {
+    if (editFileInputRef.current) {
       const dt = new DataTransfer();
+      currentPreviews.forEach((item) => {
+        if (item?.file) dt.items.add(item.file);
+      });
       limited.forEach((f) => dt.items.add(f));
       editFileInputRef.current.files = dt.files;
     }
+
+    if (!limited.length) return;
 
     Promise.all(
       limited.map(
@@ -448,19 +458,15 @@ export default function VendorProductsContent() {
           }),
       ),
     ).then((items) => {
-      setEditImagePreviews(items);
+      setEditImagePreviews((prev) => [...prev, ...items]);
       setEditFeaturedIndex("");
     });
   };
 
   const handleEditImagesChange = (e) => {
     const files = e.target.files;
-    if (!files || files.length === 0) {
-      setEditImagePreviews([]);
-      setEditFeaturedIndex("");
-      return;
-    }
-    buildEditPreviews(files);
+    if (!files || files.length === 0) return;
+    buildEditPreviews(files, editImagePreviews);
   };
 
   const syncEditInputFiles = (nextPreviews) => {
@@ -495,9 +501,8 @@ export default function VendorProductsContent() {
     setEditFeaturedIndex("");
   };
 
-  const editFeaturedCount = editImagePreviews.length
-    ? editImagePreviews.length
-    : editExistingImages.length;
+  const editFeaturedCount =
+    editImagePreviews.length + editExistingImages.length;
 
   const filteredProducts = productsWithSales.filter((product) => {
     const matchesSearch =
@@ -540,8 +545,8 @@ export default function VendorProductsContent() {
   if (error) {
     return (
       <div className="flex flex-col space-y-2 w-full mb-8">
-        <h1 className="text-[#111827] font-semibold font-inter">Products</h1>
-        <p className="text-[#6B7280] text-sm font-poppins">{error}</p>
+        <h1 className="text-[#111827] font-semibold font-brasley-medium">Products</h1>
+        <p className="text-[#6B7280] text-sm font-brasley-medium">{error}</p>
       </div>
     );
   }
@@ -597,10 +602,10 @@ export default function VendorProductsContent() {
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h2 className="text-[#111827] text-lg font-semibold font-inter">
+            <h2 className="text-[#111827] text-lg font-semibold font-brasley-medium">
               Product Catalog
             </h2>
-            <p className="text-[#6B7280] text-sm font-poppins">
+            <p className="text-[#6B7280] text-sm font-brasley-medium">
               Manage your product listings and inventory
             </p>
           </div>
@@ -727,7 +732,15 @@ export default function VendorProductsContent() {
                   const statusBadge = getStatusBadge(
                     product.stock_qty === 0 ? "out_of_stock" : product.status,
                   );
-                  const margin = calculateMargin(product.price, null);
+                  const basePrice = Number(product.price || 0);
+                  const serviceCharge = Number(
+                    product.serviceCharge || product.service_charge || 0,
+                  );
+                  const totalPrice = Number.isFinite(basePrice)
+                    ? basePrice +
+                      (Number.isFinite(serviceCharge) ? serviceCharge : 0)
+                    : 0;
+                  const margin = calculateMargin(totalPrice, null);
 
                   return (
                     <tr key={product.id} className="hover:bg-[#F9FAFB]">
@@ -792,7 +805,7 @@ export default function VendorProductsContent() {
                         })()}
                       </td>
                       <td className="px-4 py-3 text-[#111827] text-sm font-medium">
-                        {formatCurrency(product.price)}
+                        {formatCurrency(totalPrice)}
                       </td>
                       <td
                         className={`px-4 py-3 text-center text-sm font-medium ${stockStatus.color}`}
@@ -890,11 +903,7 @@ export default function VendorProductsContent() {
             <input
               type="hidden"
               name="existing_images"
-              value={
-                editImagePreviews.length
-                  ? ""
-                  : JSON.stringify(editExistingImages)
-              }
+              value={JSON.stringify(editExistingImages)}
             />
 
             {editSubmitAttempted &&
@@ -998,6 +1007,41 @@ export default function VendorProductsContent() {
                       {toErrorList(editErrorFor("price"))[0]}
                     </span>
                   ) : null}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[#374151] text-sm font-medium">
+                    Weight (kg) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="weight_kg"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.01"
+                    onKeyDown={(event) => {
+                      if (["e", "E", "+", "-"].includes(event.key)) {
+                        event.preventDefault();
+                      }
+                    }}
+                    defaultValue={
+                      selectedProduct?.weightKg ??
+                      selectedProduct?.weight_kg ??
+                      ""
+                    }
+                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  {hasEditError("weight_kg") ? (
+                    <span className="text-red-500 text-xs">
+                      {toErrorList(editErrorFor("weight_kg"))[0]}
+                    </span>
+                  ) : (
+                    <span className="text-[11px] text-[#6B7280]">
+                      Required for Aramex shipping rates.
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1545,7 +1589,7 @@ export default function VendorProductsContent() {
                           className="cursor-pointer text-xs text-primary hover:underline"
                           disabled={editPending}
                         >
-                          Replace images
+                          Add images
                         </button>
                       </div>
                     </div>
@@ -1583,7 +1627,7 @@ export default function VendorProductsContent() {
                           className="cursor-pointer text-xs text-primary hover:underline"
                           disabled={editPending}
                         >
-                          Replace images
+                          Add images
                         </button>
                       </div>
                     </div>

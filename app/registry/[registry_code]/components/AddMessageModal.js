@@ -15,6 +15,7 @@ export default function AddMessageModal({
   onSkip,
 }) {
   const [message, setMessage] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const fallbackRegionId =
     defaultShippingRegionId || shippingRegions[0]?.id || "";
   const [selectedRegionId, setSelectedRegionId] = useState(fallbackRegionId);
@@ -22,6 +23,7 @@ export default function AddMessageModal({
   useEffect(() => {
     if (open) {
       setSelectedRegionId(fallbackRegionId);
+      setPromoCode("");
     }
   }, [fallbackRegionId, open]);
 
@@ -41,6 +43,7 @@ export default function AddMessageModal({
     onSubmit?.({
       message,
       shippingRegionId: selectedRegionId,
+      promoCode,
     });
   };
 
@@ -48,6 +51,7 @@ export default function AddMessageModal({
     onSkip?.({
       message: "",
       shippingRegionId: selectedRegionId,
+      promoCode,
     });
   };
 
@@ -99,8 +103,8 @@ export default function AddMessageModal({
                     </label>
                     <select
                       value={selectedRegionId}
-                      onChange={(e) => setSelectedRegionId(e.target.value)}
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"
+                      disabled
+                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-600 cursor-not-allowed"
                     >
                       {shippingRegions.map((region) => (
                         <option key={region.id} value={region.id}>
@@ -113,6 +117,19 @@ export default function AddMessageModal({
                     </p>
                   </div>
                 )}
+
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Promo code (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={(e) => setPromoCode(e.target.value)}
+                    placeholder="Enter promo code"
+                    className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"
+                  />
+                </div>
 
                 {/* Buttons */}
                 <div className="flex gap-3 pt-2">

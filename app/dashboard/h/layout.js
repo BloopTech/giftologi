@@ -16,7 +16,7 @@ export default function RootLayout({ children }) {
   return (
     <>
       <div
-        className={`font-poppins bg-[#FAFAFA] scroll-auto antialiased selection:bg-primary selection:text-primary dark:bg-gray-950`}
+        className={`font-brasley-medium bg-[#FAFAFA] scroll-auto antialiased selection:bg-primary selection:text-primary dark:bg-gray-950`}
       >
         <SkipLink href="#host-main-content" />
         <div className="w-full flex flex-col bg-[#FAFAFA] dark:bg-gray-950">

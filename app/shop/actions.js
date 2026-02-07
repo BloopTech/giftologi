@@ -186,6 +186,11 @@ export async function addProductToRegistry(prevState, formData) {
     };
   }
 
+  // Recompute denormalized category_ids on the registry
+  await supabase.rpc("recompute_registry_category_ids", {
+    p_registry_id: registryId,
+  });
+
   revalidatePath("/dashboard/h");
   revalidatePath(`/dashboard/h/registry/${registry.registry_code}`);
   revalidatePath("/shop");
@@ -285,6 +290,8 @@ export async function removeProductFromRegistry(prevState, formData) {
     };
   }
 
+  const registryId = item.registry_id;
+
   // Remove item
   const { error: deleteError } = await supabase
     .from("registry_items")
@@ -299,6 +306,11 @@ export async function removeProductFromRegistry(prevState, formData) {
       data: {},
     };
   }
+
+  // Recompute denormalized category_ids on the registry
+  await supabase.rpc("recompute_registry_category_ids", {
+    p_registry_id: registryId,
+  });
 
   revalidatePath("/dashboard/h");
   revalidatePath(`/dashboard/h/registry/${item.registry.registry_code}`);

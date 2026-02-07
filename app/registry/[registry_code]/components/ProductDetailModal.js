@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../../components/Dialog";
-import { X, ChevronDown, ChevronUp } from "lucide-react";
+import { X, ChevronDown, ChevronUp, ShoppingCart, Check } from "lucide-react";
 
 export default function ProductDetailModal({
   open,
@@ -12,6 +12,8 @@ export default function ProductDetailModal({
   shippingInstructions,
   onBuyThis,
   onBuyMultiple,
+  onRemoveFromCart,
+  isInCart = false,
 }) {
   const [showAddress, setShowAddress] = useState(false);
 
@@ -142,22 +144,34 @@ export default function ProductDetailModal({
                 >
                   Purchased
                 </button>
+              ) : isInCart ? (
+                <button
+                  type="button"
+                  onClick={() => onRemoveFromCart?.(product?.productId || product?.id)}
+                  className="flex-1 py-3 bg-[#6B7280] text-white font-medium rounded-full hover:bg-[#DC2626] transition-colors cursor-pointer flex items-center justify-center gap-2"
+                >
+                  <X className="size-4" />
+                  Remove from Cart
+                </button>
               ) : (
                 <>
                   <button
                     type="button"
                     onClick={() => onBuyThis?.(product)}
-                    className="flex-1 py-3 bg-[#A5914B] text-white font-medium rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
+                    className="flex-1 py-3 bg-[#A5914B] text-white font-medium rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer flex items-center justify-center gap-2"
                   >
-                    Buy This Gift
+                    <ShoppingCart className="size-4" />
+                    Add to Cart
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => onBuyMultiple?.(product)}
-                    className="flex-1 py-3 border border-[#A5914B] text-[#A5914B] font-medium rounded-full hover:bg-[#A5914B]/5 transition-colors cursor-pointer"
-                  >
-                    Buy Multiple Gifts
-                  </button>
+                  {desired - purchased > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => onBuyMultiple?.(product)}
+                      className="flex-1 py-3 border border-[#A5914B] text-[#A5914B] font-medium rounded-full hover:bg-[#A5914B]/5 transition-colors cursor-pointer"
+                    >
+                      Add All ({desired - purchased})
+                    </button>
+                  )}
                 </>
               )}
             </div>

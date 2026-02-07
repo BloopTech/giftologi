@@ -43,10 +43,11 @@ const normalizeVariations = (raw) => {
   return [];
 };
 
-const getVariationPriceStats = (variations) => {
+const getVariationPriceStats = (variations, serviceCharge = 0) => {
   const prices = (variations || [])
     .map((variation) => Number(variation?.price))
-    .filter((value) => Number.isFinite(value));
+    .filter((value) => Number.isFinite(value))
+    .map((value) => value + serviceCharge);
   if (!prices.length) {
     return { min: null, max: null };
   }
@@ -59,6 +60,7 @@ const getVariationPriceStats = (variations) => {
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const vendor = product?.vendor || {};
+  const serviceCharge = Number(product?.service_charge || 0);
   const relatedCategoryIds = Array.isArray(product?.product_categories)
     ? product.product_categories
         .map((entry) => entry?.category_id)
@@ -70,13 +72,16 @@ const mapProduct = (product) => {
     ),
   ];
   const variations = normalizeVariations(product?.variations);
-  const variationStats = getVariationPriceStats(variations);
+  const variationStats = getVariationPriceStats(variations, serviceCharge);
   const basePrice = Number(product?.price);
+  const baseWithCharge = Number.isFinite(basePrice)
+    ? basePrice + serviceCharge
+    : serviceCharge;
   const displayPrice =
     variationStats.min != null && Number.isFinite(variationStats.min)
       ? variationStats.min
-      : Number.isFinite(basePrice)
-      ? basePrice
+      : Number.isFinite(baseWithCharge)
+      ? baseWithCharge
       : null;
   return {
     id: product?.id,
@@ -86,7 +91,8 @@ const mapProduct = (product) => {
     images,
     price: formatPrice(displayPrice),
     rawPrice: displayPrice,
-    basePrice: Number.isFinite(basePrice) ? basePrice : null,
+    basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
+    serviceCharge,
     variationPriceRange:
       variationStats.min != null && variationStats.max != null
         ? variationStats
@@ -429,6 +435,7 @@ export function ShopProvider({
             product_code,
             name,
             price,
+            service_charge,
             images,
             variations,
             description,

@@ -10,6 +10,7 @@ import {
   PiReceipt,
   PiShoppingBagOpen,
   PiStorefront,
+  PiTag,
   PiUsers,
 } from "react-icons/pi";
 
@@ -22,6 +23,7 @@ const filterNavigationByRole = (navigation, role) => {
     marketing_admin: new Set([
       "/dashboard/admin/analytics_reporting",
       "/dashboard/admin/content_policy_pages",
+      "/dashboard/admin/promo_codes",
     ]),
   };
 
@@ -117,6 +119,18 @@ export const useNavigationData = (role) => {
       id: 7,
       items: [
         {
+          name: "Promo Codes",
+          href: "/dashboard/admin/promo_codes",
+          icon: PiTag,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 8,
+      items: [
+        {
           name: "View Transactions",
           href: "/dashboard/admin/transactions",
           icon: PiShoppingBagOpen,
@@ -126,7 +140,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 8,
+      id: 9,
       items: [
         {
           name: "Payouts",
@@ -138,7 +152,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 9,
+      id: 10,
       items: [
         {
           name: "Generate Reports",
@@ -150,7 +164,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 10,
+      id: 11,
       items: [
         {
           name: "View Activity Log",
@@ -162,7 +176,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 11,
+      id: 12,
       items: [
         {
           name: "API Documentation",
@@ -174,7 +188,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 12,
+      id: 13,
       items: [
         {
           name: "Analytics & Reporting",
@@ -186,7 +200,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 13,
+      id: 14,
       items: [
         {
           name: "Content & Policy Pages",
@@ -198,7 +212,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 14,
+      id: 15,
       items: [
         {
           name: "All Users",

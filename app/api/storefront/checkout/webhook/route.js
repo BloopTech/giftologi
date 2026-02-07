@@ -3,10 +3,8 @@ import {
   createAdminClient,
   createClient,
 } from "../../../../utils/supabase/server";
-import {
-  buildAramexTrackingUrl,
-  createAramexShipment,
-} from "../../../../utils/shipping/aramex";
+import { buildAramexTrackingUrl, createAramexShipment } from "../../../../utils/shipping/aramex";
+import { computeShipmentWeight } from "../../../../utils/shipping/weights";
 import {
   createNotification,
   fetchVendorNotificationPreferences,
@@ -207,10 +205,40 @@ export async function POST(request) {
 
       try {
         const vendorId = orderItems?.find((item) => item?.vendor_id)?.vendor_id;
-        const totalPieces = orderItems?.reduce(
+        const { data: checkoutContext } = await admin
+          .from("checkout_context")
+          .select("total_weight_kg, pieces")
+          .eq("order_id", order.id)
+          .maybeSingle();
+        const fallbackPieces = orderItems?.reduce(
           (sum, item) => sum + (Number(item?.quantity) || 0),
           0
         );
+        const totalPieces = Number.isFinite(Number(checkoutContext?.pieces))
+          ? Number(checkoutContext.pieces)
+          : fallbackPieces;
+        let totalWeight = Number(checkoutContext?.total_weight_kg);
+
+        if (!Number.isFinite(totalWeight)) {
+          const productIds = Array.from(
+            new Set(orderItems?.map((item) => item?.product_id).filter(Boolean))
+          );
+          const { data: productRows } = productIds.length
+            ? await admin
+                .from("products")
+                .select("id, weight_kg")
+                .in("id", productIds)
+            : { data: [] };
+          const productWeightMap = new Map(
+            (productRows || []).map((row) => [row.id, row.weight_kg])
+          );
+          totalWeight = computeShipmentWeight(
+            (orderItems || []).map((item) => ({
+              quantity: item?.quantity,
+              weight_kg: productWeightMap.get(item?.product_id),
+            }))
+          );
+        }
 
         if (vendorId) {
           const { data: existingShipment } = await admin
@@ -270,7 +298,7 @@ export async function POST(request) {
                   countryCode: vendor.address_country || "GH",
                 },
                 shipment: {
-                  weight: Math.max(1, totalPieces || 1),
+                  weight: Math.max(1, totalWeight || totalPieces || 1),
                   numberOfPieces: Math.max(1, totalPieces || 1),
                   goodsValue: Number(orderDetails.total_amount || 0),
                   currency: "GHS",

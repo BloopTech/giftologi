@@ -60,6 +60,9 @@ export default function StorefrontContent() {
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [priceRange, setPriceRange] = useState({ min: "", max: "" });
+  const globalSearchHref = searchQuery.trim()
+    ? `/search?q=${encodeURIComponent(searchQuery.trim())}`
+    : "/search";
 
   const isClosed = (vendor?.shop_status || "").toLowerCase() === "closed";
   const logoSrc = vendor?.logo_url || vendor?.logo || "/host/toaster.png";
@@ -143,18 +146,18 @@ export default function StorefrontContent() {
 
   if (vendorLoading) {
     return (
-      <div className="min-h-screen font-poppins bg-[#FAFAFA] dark:bg-gray-950" />
+      <div className="min-h-screen font-brasley-medium bg-[#FAFAFA] dark:bg-gray-950" />
     );
   }
 
   if (!vendor) {
     return (
-      <div className="min-h-screen font-poppins bg-[#FAFAFA] dark:bg-gray-950" />
+      <div className="min-h-screen font-brasley-medium bg-[#FAFAFA] dark:bg-gray-950" />
     );
   }
 
   return (
-    <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-poppins">
+    <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-brasley-medium">
       <Link
         href="#storefront-main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-9999 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
@@ -566,6 +569,13 @@ export default function StorefrontContent() {
 
             {/* Filter & Sort Controls */}
             <div className="flex items-center gap-2">
+              <Link
+                href={globalSearchHref}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#A5914B]/30 bg-white dark:bg-gray-800 text-[#8B7A3F] text-sm font-medium hover:bg-[#A5914B] hover:text-white transition-colors"
+              >
+                <Search className="size-4" />
+                Search all
+              </Link>
               {/* Filter Toggle */}
               <button
                 onClick={() => setShowFilters(!showFilters)}

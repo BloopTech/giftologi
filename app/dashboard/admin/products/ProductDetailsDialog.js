@@ -86,8 +86,50 @@ export default function ProductDetailsDialog({ open, onOpenChange, product }) {
                 </p>
               </div>
               <div>
+                <p className="font-medium">Service Charge (GHS)</p>
+                <p className="text-[#6A7282]">
+                  {product.serviceCharge != null
+                    ? Number(product.serviceCharge).toLocaleString("en-GH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "—"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <p className="font-medium">Weight (kg)</p>
+                <p className="text-[#6A7282]">
+                  {product.weightKg != null
+                    ? Number(product.weightKg).toLocaleString("en-GH", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    : "—"}
+                </p>
+              </div>
+              <div>
                 <p className="font-medium">Stock</p>
                 <p className="text-[#6A7282]">{product.stockQty ?? "—"}</p>
+              </div>
+              <div>
+                <p className="font-medium">Total Price (GHS)</p>
+                <p className="text-[#6A7282]">
+                  {(() => {
+                    const price = Number(product.price);
+                    const charge = Number(product.serviceCharge);
+                    const total =
+                      (Number.isFinite(price) ? price : 0) +
+                      (Number.isFinite(charge) ? charge : 0);
+                    if (!Number.isFinite(total) || total <= 0) return "—";
+                    return total.toLocaleString("en-GH", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+                  })()}
+                </p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

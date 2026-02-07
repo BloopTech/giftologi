@@ -192,10 +192,10 @@ export default function SearchEngine() {
   return (
     <div className="flex flex-col p-4 border border-[#D6D6D6] rounded-xl bg-white w-full space-y-4">
       <div className="flex flex-col">
-        <h1 className="text-[#0A0A0A] font-medium text-sm font-inter">
+        <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
           Universal Search
         </h1>
-        <span className="text-[#717182] text-xs/4 font-poppins">
+        <span className="text-[#717182] text-xs/4 font-brasley-medium">
           Get a quick overview of registry and vendor performance at a glance.
         </span>
       </div>

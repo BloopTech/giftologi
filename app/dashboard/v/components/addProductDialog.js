@@ -346,18 +346,24 @@ export function AddProductDialog({
     }
   }, [state.success, onSuccess, onOpenChange]);
 
-  const buildPreviews = (files) => {
+  const buildPreviews = (files, currentPreviews = []) => {
     const list = Array.from(files || []).filter((file) =>
       Boolean(file && file.type && file.type.startsWith("image/")),
     );
 
-    const limited = list.slice(0, 3);
+    const remainingSlots = Math.max(0, 3 - currentPreviews.length);
+    const limited = list.slice(0, remainingSlots);
 
-    if (list.length !== limited.length && fileInputRef.current) {
+    if (fileInputRef.current) {
       const dt = new DataTransfer();
+      currentPreviews.forEach((item) => {
+        if (item?.file) dt.items.add(item.file);
+      });
       limited.forEach((f) => dt.items.add(f));
       fileInputRef.current.files = dt.files;
     }
+
+    if (!limited.length) return;
 
     Promise.all(
       limited.map(
@@ -369,18 +375,15 @@ export function AddProductDialog({
           }),
       ),
     ).then((items) => {
-      setImagePreviews(items);
+      setImagePreviews((prev) => [...prev, ...items]);
       setFeaturedIndex("");
     });
   };
 
   const handleImagesChange = (e) => {
     const files = e.target.files;
-    if (!files || files.length === 0) {
-      setImagePreviews([]);
-      return;
-    }
-    buildPreviews(files);
+    if (!files || files.length === 0) return;
+    buildPreviews(files, imagePreviews);
   };
 
   const handleDrop = (e) => {
@@ -391,16 +394,7 @@ export function AddProductDialog({
       files.length &&
       Array.from(files).some((f) => f?.type?.startsWith("image/"))
     ) {
-      if (fileInputRef.current) {
-        const dt = new DataTransfer();
-        Array.from(files).forEach((f) => {
-          if (f && f.type && f.type.startsWith("image/")) {
-            dt.items.add(f);
-          }
-        });
-        fileInputRef.current.files = dt.files;
-      }
-      buildPreviews(files);
+      buildPreviews(files, imagePreviews);
     }
   };
 
@@ -561,6 +555,38 @@ export function AddProductDialog({
                 {state.errors?.price && (
                   <span className="text-red-500 text-xs">
                     {state.errors.price}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
+                  Weight (kg) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  name="weight_kg"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  onKeyDown={(event) => {
+                    if (["e", "E", "+", "-"].includes(event.key)) {
+                      event.preventDefault();
+                    }
+                  }}
+                  placeholder="e.g. 1.2"
+                  defaultValue={state.values?.weight_kg || ""}
+                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+                {state.errors?.weight_kg ? (
+                  <span className="text-red-500 text-xs">
+                    {state.errors.weight_kg}
+                  </span>
+                ) : (
+                  <span className="text-[11px] text-[#6B7280]">
+                    Required for Aramex shipping rates.
                   </span>
                 )}
               </div>
@@ -1122,7 +1148,7 @@ export function AddProductDialog({
                       className="cursor-pointer text-xs text-primary hover:underline"
                       disabled={isPending}
                     >
-                      Replace images
+                      Add images
                     </button>
                   </div>
                 ) : (

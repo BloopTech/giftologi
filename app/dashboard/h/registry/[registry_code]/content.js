@@ -397,7 +397,7 @@ export default function HostDashboardRegistryContent(props) {
   const hasSelectedPurchase = Boolean(selectedOrderId);
 
   return (
-    <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen">
+    <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-6xl w-full font-brasley-medium min-h-screen">
       {/* <p className="capitalize">
         {profile?.role} Dashboard {profile?.firstname}
       </p> */}

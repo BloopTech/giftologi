@@ -21,7 +21,7 @@ import {
   AddMessageModal,
   PurchaseCompleteModal,
 } from "./components";
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, ShoppingCart } from "lucide-react";
 
 function RegistryContentInner() {
   const {
@@ -63,11 +63,17 @@ function RegistryContentInner() {
     handleMessageSkip,
     handleTrackOrder,
     handleContinueShopping,
+    cartCount,
+    addToCart,
+    addingProductId,
+    cartProductIds,
+    removeFromCart,
+    goToCheckout,
   } = useGuestRegistryCodeContext();
 
   const hasProducts = Array.isArray(products) && products.length > 0;
 
-  // Category options for filter
+  // Category options — already filtered to this registry via denormalized category_ids
   const categoryOptions = categories.map((cat) => ({
     value: cat.id,
     label: cat.name,
@@ -83,7 +89,7 @@ function RegistryContentInner() {
   ];
 
   return (
-    <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-poppins min-h-screen px-4">
+    <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-5xl w-full font-brasley-medium min-h-screen px-4">
       <Link
         href="#registry-main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-9999 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
@@ -215,6 +221,10 @@ function RegistryContentInner() {
                   key={product.id}
                   product={product}
                   onClick={openProductDetail}
+                  onAddToCart={(p) => addToCart(p, 1)}
+                  onRemoveFromCart={removeFromCart}
+                  cartLoading={addingProductId === (product.productId || product.id)}
+                  isInCart={cartProductIds.has(product.productId || product.id)}
                 />
               ))}
             </div>
@@ -229,6 +239,23 @@ function RegistryContentInner() {
             </div>
           )}
         </div>
+
+        {/* Floating Cart Badge */}
+        {cartCount > 0 && (
+          <div className="fixed bottom-6 right-6 z-50">
+            <button
+              type="button"
+              onClick={goToCheckout}
+              className="flex items-center gap-2 bg-[#A5914B] text-white px-5 py-3 rounded-full shadow-lg hover:bg-[#8B7A3F] transition-all hover:scale-105 cursor-pointer"
+            >
+              <ShoppingCart className="size-5" />
+              <span className="font-semibold">Checkout</span>
+              <span className="bg-white text-[#A5914B] text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center">
+                {cartCount}
+              </span>
+            </button>
+          </div>
+        )}
 
         <Advertisement />
 
@@ -256,6 +283,8 @@ function RegistryContentInner() {
         shippingInstructions={registry?.shipping_instructions}
         onBuyThis={startBuyThis}
         onBuyMultiple={startBuyMultiple}
+        onRemoveFromCart={removeFromCart}
+        isInCart={cartProductIds.has(selectedProduct?.productId || selectedProduct?.id)}
       />
 
       <GifterInfoModal

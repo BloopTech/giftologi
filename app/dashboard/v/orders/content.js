@@ -146,6 +146,26 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
                 <span className="text-[#6B7280] text-sm">Gift wrap:</span>
                 <span className="text-[#111827] text-sm">{giftWrapLabel}</span>
               </div>
+              {order.checkoutContext && (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280] text-sm">Total Weight:</span>
+                    <span className="text-[#111827] text-sm">
+                      {Number.isFinite(Number(order.checkoutContext.total_weight_kg))
+                        ? `${Number(order.checkoutContext.total_weight_kg).toFixed(2)} kg`
+                        : "—"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-[#6B7280] text-sm">Pieces:</span>
+                    <span className="text-[#111827] text-sm">
+                      {Number.isFinite(Number(order.checkoutContext.pieces))
+                        ? `${order.checkoutContext.pieces} piece${order.checkoutContext.pieces === 1 ? "" : "s"}`
+                        : "—"}
+                    </span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between pt-2 border-t border-[#E5E7EB]">
                 <span className="text-[#6B7280] text-sm font-medium">
                   Total Amount:
@@ -385,8 +405,8 @@ export default function VendorOrdersContent() {
   if (error) {
     return (
       <div className="flex flex-col space-y-2 w-full mb-8">
-        <h1 className="text-[#111827] font-semibold font-inter">Orders</h1>
-        <p className="text-[#6B7280] text-sm font-poppins">{error}</p>
+        <h1 className="text-[#111827] font-semibold font-brasley-medium">Orders</h1>
+        <p className="text-[#6B7280] text-sm font-brasley-medium">{error}</p>
       </div>
     );
   }
@@ -439,10 +459,10 @@ export default function VendorOrdersContent() {
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
-            <h2 className="text-[#111827] text-lg font-semibold font-inter">
+            <h2 className="text-[#111827] text-lg font-semibold font-brasley-medium">
               Order Management
             </h2>
-            <p className="text-[#6B7280] text-sm font-poppins">
+            <p className="text-[#6B7280] text-sm font-brasley-medium">
               Track and manage all your product orders.
             </p>
           </div>

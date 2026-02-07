@@ -28,7 +28,7 @@ export async function generateMetadata({ params }) {
 
   const { data: product } = await supabase
     .from("products")
-    .select("id, name, description, price, images, product_code")
+    .select("id, name, description, price, service_charge, images, product_code")
     .eq("vendor_id", vendor.id)
     .eq("product_code", product_code)
     .maybeSingle();
@@ -43,6 +43,11 @@ export async function generateMetadata({ params }) {
 
   const images = Array.isArray(product.images) ? product.images : [];
   const ogImage = images[0] || defaults.ogImage;
+  const basePrice = Number(product.price);
+  const serviceCharge = Number(product.service_charge || 0);
+  const totalPrice = Number.isFinite(basePrice)
+    ? basePrice + serviceCharge
+    : serviceCharge;
 
   return createMetadata({
     title: `${product.name} - ${vendor.business_name || "Shop"}`,
@@ -61,7 +66,7 @@ export async function generateMetadata({ params }) {
       image: images,
       offers: {
         "@type": "Offer",
-        price: product.price,
+        price: Number.isFinite(totalPrice) ? totalPrice : product.price,
         priceCurrency: "GHS",
         availability: "https://schema.org/InStock",
         url: `${defaults.siteUrl}/storefront/${vendor_slug}/${product_code}`,

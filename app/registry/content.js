@@ -120,6 +120,10 @@ export default function RegistryDiscoverContent() {
     setPage,
   } = useRegistryDiscover();
 
+  const [featuredRegistries, setFeaturedRegistries] = useState([]);
+  const [loadingFeatured, setLoadingFeatured] = useState(false);
+  const [featuredError, setFeaturedError] = useState(null);
+
   const [localSearch, setLocalSearch] = useState(searchQuery || "");
 
   useEffect(() => {
@@ -136,6 +140,50 @@ export default function RegistryDiscoverContent() {
     return () => clearTimeout(timer);
   }, [localSearch, searchQuery, setPage, setSearchQuery]);
 
+  useEffect(() => {
+    let ignore = false;
+
+    const fetchFeatured = async () => {
+      setLoadingFeatured(true);
+      setFeaturedError(null);
+
+      try {
+        const response = await fetch("/api/registry/featured?limit=6", {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          if (!ignore) {
+            setFeaturedRegistries([]);
+            setFeaturedError(body?.message || "Unable to load featured registries.");
+          }
+          return;
+        }
+
+        const body = await response.json().catch(() => ({}));
+        if (!ignore) {
+          setFeaturedRegistries(
+            Array.isArray(body?.registries) ? body.registries : []
+          );
+        }
+      } catch (err) {
+        if (!ignore) {
+          setFeaturedRegistries([]);
+          setFeaturedError(err?.message || "Unable to load featured registries.");
+        }
+      } finally {
+        if (!ignore) setLoadingFeatured(false);
+      }
+    };
+
+    fetchFeatured();
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
   const resultLabel = useMemo(() => {
     if (loading) return "";
     if (!total) return "No registries found";
@@ -145,8 +193,15 @@ export default function RegistryDiscoverContent() {
   const canPrevious = page > 1;
   const canNext = page < totalPages;
 
+  const showFeaturedSection =
+    !loadingFeatured &&
+    featuredRegistries.length > 0 &&
+    page === 1 &&
+    !(searchQuery || "").trim() &&
+    (eventType || "all") === "all";
+
   return (
-    <div className="bg-gradient-to-b from-[#FAFAFA] via-white to-[#FAF5EC] min-h-screen font-poppins">
+    <div className="bg-gradient-to-b from-[#FAFAFA] via-white to-[#FAF5EC] min-h-screen font-brasley-medium">
       <Link
         href="#registry-discover-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
@@ -218,6 +273,34 @@ export default function RegistryDiscoverContent() {
             </div>
           )}
         </section>
+
+        {showFeaturedSection && (
+          <section className="rounded-3xl border border-[#EEE4D1] bg-white p-6 shadow-sm">
+            <div className="flex flex-col gap-2">
+              <p className="text-xs uppercase tracking-[0.35em] text-[#A5914B]">
+                Featured
+              </p>
+              <h2 className="text-xl font-semibold text-[#2C2A24]">
+                Spotlight registries
+              </h2>
+              <p className="text-sm text-[#6A6456]">
+                Explore a curated set of public registries.
+              </p>
+            </div>
+
+            <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+              {featuredRegistries.map((registry) => (
+                <RegistryCard key={`featured-${registry.id}`} registry={registry} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {!showFeaturedSection && featuredError && (
+          <div className="rounded-3xl border border-[#E0D7C5] bg-white px-5 py-4 text-sm text-[#6A6456]">
+            {featuredError}
+          </div>
+        )}
 
         {loading && registries.length === 0 ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

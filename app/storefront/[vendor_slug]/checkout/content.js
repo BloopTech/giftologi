@@ -2,7 +2,7 @@
 import React, { useState, useCallback, useActionState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronLeft,
   Minus,
@@ -17,9 +17,11 @@ import {
   CheckCircle,
   AlertCircle,
   Loader2,
+  Gift,
 } from "lucide-react";
-import { processStorefrontCheckout } from "./actions";
+import { getAramexRateQuote, processStorefrontCheckout } from "./actions";
 import { getGuestIdentifier } from "../../../utils/guest";
+import { computeShipmentWeight } from "../../../utils/shipping/weights";
 
 const DEFAULT_SHIPPING_REGIONS = [
   { id: "accra", name: "Greater Accra", fee: 25 },
@@ -44,8 +46,10 @@ export default function CheckoutContent({
   initialQuantity,
   selectedVariation,
   cartMode = false,
+  registryId = null,
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [quantity, setQuantity] = useState(initialQuantity);
   const [shippingRegions, setShippingRegions] = useState(
     DEFAULT_SHIPPING_REGIONS
@@ -63,9 +67,20 @@ export default function CheckoutContent({
     error: null,
   });
   const [guestBrowserId, setGuestBrowserId] = useState("");
+  const [promoCode, setPromoCode] = useState("");
+  const [promoState, setPromoState] = useState({
+    applied: false,
+    loading: false,
+    error: null,
+    promo: null,
+    discount: null,
+    discountedSubtotal: null,
+    discountedGiftWrapFee: null,
+  });
   const [cartState, setCartState] = useState({
     items: [],
     subtotal: 0,
+    registryId: null,
     loading: false,
     error: null,
   });
@@ -90,15 +105,43 @@ export default function CheckoutContent({
     digitalAddress: "",
     notes: "",
   });
+  const [registryShipping, setRegistryShipping] = useState(null);
+  const [registryLoading, setRegistryLoading] = useState(false);
+  const [giftMessage, setGiftMessage] = useState("");
 
   const logoSrc = vendor?.logo_url || vendor?.logo || "/host/toaster.png";
   const basePrice = Number(product?.rawPrice ?? product?.basePrice);
+  const serviceCharge = Number(product?.serviceCharge || 0);
   const variationPrice = Number(selectedVariation?.price);
   const unitPrice = Number.isFinite(variationPrice)
-    ? variationPrice
+    ? variationPrice + serviceCharge
     : Number.isFinite(basePrice)
     ? basePrice
     : 0;
+  const cartItems = useMemo(
+    () => (cartMode ? cartState.items : []),
+    [cartMode, cartState.items]
+  );
+  const giftWrapOptionMap = useMemo(() => {
+    const map = new Map();
+    (giftWrapOptions || []).forEach((option) => {
+      if (option?.id) map.set(option.id, option);
+    });
+    return map;
+  }, [giftWrapOptions]);
+  const giftWrapFee = useMemo(() => {
+    if (cartMode) {
+      return cartItems.reduce((sum, item) => {
+        const option = giftWrapOptionMap.get(item?.gift_wrap_option_id);
+        const fee = Number(option?.fee || 0);
+        return sum + fee * (item?.quantity || 0);
+      }, 0);
+    }
+    if (!selectedGiftWrapOptionId) return 0;
+    const option = giftWrapOptionMap.get(selectedGiftWrapOptionId);
+    const fee = Number(option?.fee || 0);
+    return fee * quantity;
+  }, [cartMode, cartItems, giftWrapOptionMap, selectedGiftWrapOptionId, quantity]);
   const cartSubtotal = Number(cartState.subtotal) || 0;
   const subtotal = cartMode ? cartSubtotal : unitPrice * quantity;
   const fallbackShippingFee = Number(selectedRegion?.fee) || 0;
@@ -106,6 +149,17 @@ export default function CheckoutContent({
     ? shippingQuote.amount
     : fallbackShippingFee;
   const selectedRegionName = selectedRegion?.name || "";
+  const promoDiscount = promoState.applied
+    ? Number(promoState.discount?.totalDiscount || 0)
+    : 0;
+  const discountedSubtotal = promoState.applied &&
+    Number.isFinite(promoState.discountedSubtotal)
+      ? Number(promoState.discountedSubtotal)
+      : subtotal;
+  const discountedGiftWrapFee = promoState.applied &&
+    Number.isFinite(promoState.discountedGiftWrapFee)
+      ? Number(promoState.discountedGiftWrapFee)
+      : giftWrapFee;
 
   const [state, formAction, isPending] = useActionState(
     processStorefrontCheckout,
@@ -204,6 +258,29 @@ export default function CheckoutContent({
   }, [cartMode]);
 
   useEffect(() => {
+    const codeParam = searchParams.get("promo") || "";
+    if (!codeParam) return;
+    setPromoCode(codeParam);
+  }, [searchParams]);
+
+  const resetPromoState = useCallback(() => {
+    setPromoState({
+      applied: false,
+      loading: false,
+      error: null,
+      promo: null,
+      discount: null,
+      discountedSubtotal: null,
+      discountedGiftWrapFee: null,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!promoState.applied) return;
+    resetPromoState();
+  }, [cartMode, cartState.subtotal, giftWrapFee, quantity, selectedGiftWrapOptionId, resetPromoState, promoState.applied]);
+
+  useEffect(() => {
     let active = true;
     const loadGiftWrapOptions = async () => {
       setGiftWrapState({ loading: true, error: null });
@@ -233,11 +310,17 @@ export default function CheckoutContent({
 
   const fetchCart = useCallback(
     async (shouldAbort) => {
-      if (!cartMode || !vendor?.slug) return;
+      if (!cartMode) return;
+      // Registry carts are fetched by registry_id; storefront carts by vendor_slug
+      if (!registryId && !vendor?.slug) return;
       setCartState((prev) => ({ ...prev, loading: true, error: null }));
       try {
         const url = new URL("/api/storefront/cart", window.location.origin);
-        url.searchParams.set("vendor_slug", vendor.slug);
+        if (registryId) {
+          url.searchParams.set("registry_id", registryId);
+        } else {
+          url.searchParams.set("vendor_slug", vendor.slug);
+        }
         if (guestBrowserId) {
           url.searchParams.set("guest_browser_id", guestBrowserId);
         }
@@ -250,6 +333,7 @@ export default function CheckoutContent({
         setCartState({
           items: Array.isArray(payload?.items) ? payload.items : [],
           subtotal: Number(payload?.subtotal) || 0,
+          registryId: payload?.cart?.registry_id || registryId || null,
           loading: false,
           error: null,
         });
@@ -262,17 +346,68 @@ export default function CheckoutContent({
         }));
       }
     },
-    [cartMode, vendor?.slug, guestBrowserId]
+    [cartMode, vendor?.slug, registryId, guestBrowserId]
   );
 
   useEffect(() => {
-    if (!cartMode || !vendor?.slug) return;
+    if (!cartMode) return;
+    if (!registryId && !vendor?.slug) return;
     let cancelled = false;
     fetchCart(() => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [cartMode, vendor?.slug, guestBrowserId, fetchCart]);
+  }, [cartMode, vendor?.slug, registryId, guestBrowserId, fetchCart]);
+
+  // Fetch registry shipping data when a registry cart is detected
+  const isRegistryCart = Boolean(cartState.registryId);
+  useEffect(() => {
+    if (!isRegistryCart || registryShipping) return;
+    let cancelled = false;
+    const loadRegistryShipping = async () => {
+      setRegistryLoading(true);
+      try {
+        const response = await fetch(
+          `/api/registry/shipping?registry_id=${encodeURIComponent(cartState.registryId)}`
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.message || "Failed to load registry shipping.");
+        }
+        if (cancelled) return;
+        setRegistryShipping(payload);
+        // Pre-fill shipping form with host's delivery address
+        const addr = payload?.shippingAddress;
+        if (addr) {
+          setFormData((prev) => ({
+            ...prev,
+            address: addr.streetAddress || prev.address,
+            city: addr.city || prev.city,
+            digitalAddress: addr.digitalAddress || prev.digitalAddress,
+          }));
+          // Match the region from the host's address
+          const state = (addr.stateProvince || "").toLowerCase();
+          const city = (addr.city || "").toLowerCase();
+          const combined = `${city} ${state}`.trim();
+          if (combined) {
+            setSelectedRegion((prev) => {
+              const match = shippingRegions.find((r) => {
+                const name = (r.name || "").toLowerCase();
+                return combined.includes(name) || name.includes(combined);
+              });
+              return match || prev;
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Registry shipping error:", error);
+      } finally {
+        if (!cancelled) setRegistryLoading(false);
+      }
+    };
+    loadRegistryShipping();
+    return () => { cancelled = true; };
+  }, [isRegistryCart, cartState.registryId, registryShipping, shippingRegions]);
 
   const updateCartItemQuantity = useCallback(
     async (itemId, nextQuantity) => {
@@ -345,10 +480,6 @@ export default function CheckoutContent({
     [updateCartItemQuantity]
   );
 
-  const cartItems = useMemo(
-    () => (cartMode ? cartState.items : []),
-    [cartMode, cartState.items]
-  );
   const totalPieces = useMemo(() => {
     if (cartMode) {
       return cartItems.reduce(
@@ -358,29 +489,103 @@ export default function CheckoutContent({
     }
     return quantity;
   }, [cartMode, cartItems, quantity]);
-  const giftWrapOptionMap = useMemo(() => {
-    const map = new Map();
-    (giftWrapOptions || []).forEach((option) => {
-      if (option?.id) map.set(option.id, option);
-    });
-    return map;
-  }, [giftWrapOptions]);
-  const giftWrapFee = useMemo(() => {
+  const totalWeight = useMemo(() => {
     if (cartMode) {
-      return cartItems.reduce((sum, item) => {
-        const option = giftWrapOptionMap.get(item?.gift_wrap_option_id);
-        const fee = Number(option?.fee || 0);
-        return sum + fee * (item?.quantity || 0);
-      }, 0);
+      return computeShipmentWeight(cartItems);
     }
-    if (!selectedGiftWrapOptionId) return 0;
-    const option = giftWrapOptionMap.get(selectedGiftWrapOptionId);
-    const fee = Number(option?.fee || 0);
-    return fee * quantity;
-  }, [cartMode, cartItems, giftWrapOptionMap, selectedGiftWrapOptionId, quantity]);
+    return computeShipmentWeight([
+      {
+        quantity,
+        weight_kg: product?.weightKg ?? product?.weight_kg,
+      },
+    ]);
+  }, [cartMode, cartItems, product?.weightKg, product?.weight_kg, quantity]);
+  const handlePromoInputChange = useCallback(
+    (event) => {
+      const value = event.target.value;
+      setPromoCode(value);
+      if (promoState.applied) {
+        resetPromoState();
+      }
+    },
+    [promoState.applied, resetPromoState]
+  );
   const cartHasItems = cartItems.length > 0;
   const cartLoading = cartMode && cartState.loading;
   const cartUpdating = cartMode && cartActionState.loading;
+  const applyPromoCode = useCallback(
+    async (overrideCode) => {
+      const code = (overrideCode ?? promoCode).trim();
+      if (!code) {
+        setPromoState((prev) => ({
+          ...prev,
+          applied: false,
+          loading: false,
+          error: "Enter a promo code.",
+        }));
+        return;
+      }
+
+      setPromoState((prev) => ({ ...prev, loading: true, error: null }));
+      try {
+        const payload = {
+          code,
+          vendorId: vendor?.id,
+          cartMode,
+          guestBrowserId: guestBrowserId || null,
+        };
+
+        if (!cartMode) {
+          payload.productId = product?.id;
+          payload.quantity = quantity;
+          payload.unitPrice = unitPrice;
+          payload.giftWrapOptionId = selectedGiftWrapOptionId || null;
+        }
+
+        const response = await fetch("/api/promos/validate", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data?.valid) {
+          throw new Error(data?.error || "Promo code is invalid.");
+        }
+
+        setPromoState({
+          applied: true,
+          loading: false,
+          error: null,
+          promo: data.promo || null,
+          discount: data.discount || null,
+          discountedSubtotal: Number(data.discountedSubtotal) || 0,
+          discountedGiftWrapFee: Number(data.discountedGiftWrapFee) || 0,
+        });
+      } catch (error) {
+        setPromoState({
+          applied: false,
+          loading: false,
+          error: error?.message || "Promo code is invalid.",
+          promo: null,
+          discount: null,
+          discountedSubtotal: null,
+          discountedGiftWrapFee: null,
+        });
+      }
+    },
+    [promoCode, vendor?.id, cartMode, guestBrowserId, product?.id, quantity, unitPrice, selectedGiftWrapOptionId]
+  );
+
+  useEffect(() => {
+    const codeParam = searchParams.get("promo") || "";
+    if (!codeParam || promoState.applied || promoState.loading) return;
+    if (cartMode && (cartLoading || cartUpdating)) return;
+    if (!cartMode && !product?.id) return;
+    applyPromoCode(codeParam);
+  }, [searchParams, promoState.applied, promoState.loading, cartMode, cartLoading, cartUpdating, product?.id, applyPromoCode]);
   const originAddress = useMemo(
     () => ({
       line1: vendor?.address_street || "",
@@ -415,26 +620,19 @@ export default function CheckoutContent({
     const timeoutId = setTimeout(async () => {
       setShippingQuote({ amount: null, loading: true, error: null });
       try {
-        const response = await fetch("/api/shipping/aramex/rate", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
+        const payload = await getAramexRateQuote({
+          origin: originAddress,
+          destination: destinationAddress,
+          shipment: {
+            weight: Math.max(1, totalWeight || totalPieces || 1),
+            numberOfPieces: Math.max(1, totalPieces || 1),
+            goodsValue: subtotal,
+            currency: "GHS",
           },
-          body: JSON.stringify({
-            origin: originAddress,
-            destination: destinationAddress,
-            shipment: {
-              weight: Math.max(1, totalPieces || 1),
-              numberOfPieces: Math.max(1, totalPieces || 1),
-              goodsValue: subtotal,
-              currency: "GHS",
-            },
-          }),
         });
-        const payload = await response.json().catch(() => ({}));
-        if (!response.ok) {
+        if (!payload?.success) {
           throw new Error(
-            payload?.details || payload?.error || "Failed to fetch shipping rate."
+            payload?.error || payload?.details || "Failed to fetch shipping rate."
           );
         }
         if (!cancelled) {
@@ -466,9 +664,10 @@ export default function CheckoutContent({
     originAddress,
     destinationAddress,
     subtotal,
+    totalWeight,
     totalPieces,
   ]);
-  const total = subtotal + shippingFee + giftWrapFee;
+  const total = discountedSubtotal + shippingFee + discountedGiftWrapFee;
 
   if (state.success && state.checkoutUrl) {
     return (
@@ -497,7 +696,7 @@ export default function CheckoutContent({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950 font-poppins">
+    <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950 font-brasley-medium">
       <div className="mx-auto max-w-6xl w-full py-6 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -618,6 +817,39 @@ export default function CheckoutContent({
               </div>
             </div>
 
+            {/* Registry info banner */}
+            {isRegistryCart && registryShipping && (
+              <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex items-start gap-3">
+                <MapPin className="size-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-900">
+                    Registry Gift for {registryShipping.hostName || "the host"}
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Shipping to the host&apos;s delivery address. These fields cannot be changed.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Gift Message (registry carts only) */}
+            {isRegistryCart && (
+              <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <Mail className="size-5 text-[#A5914B]" />
+                  Gift Message (Optional)
+                </h2>
+                <textarea
+                  name="giftMessage"
+                  rows={3}
+                  value={giftMessage}
+                  onChange={(e) => setGiftMessage(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors resize-none"
+                  placeholder="Add a personal message for the host..."
+                />
+              </div>
+            )}
+
             {/* Shipping Address */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
@@ -638,7 +870,8 @@ export default function CheckoutContent({
                     required
                     value={selectedRegion?.id || ""}
                     onChange={handleRegionChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors bg-white"
+                    disabled={isRegistryCart}
+                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"}`}
                   >
                     {shippingRegions.map((region) => (
                       <option key={region.id} value={region.id}>
@@ -672,9 +905,10 @@ export default function CheckoutContent({
                     id="city"
                     name="city"
                     required
+                    readOnly={isRegistryCart}
                     value={formData.city}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors"
+                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
                     placeholder="Accra"
                   />
                 </div>
@@ -690,9 +924,10 @@ export default function CheckoutContent({
                     id="address"
                     name="address"
                     required
+                    readOnly={isRegistryCart}
                     value={formData.address}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors"
+                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
                     placeholder="123 Main Street, East Legon"
                   />
                 </div>
@@ -707,9 +942,10 @@ export default function CheckoutContent({
                     type="text"
                     id="digitalAddress"
                     name="digitalAddress"
+                    readOnly={isRegistryCart}
                     value={formData.digitalAddress}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors"
+                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
                     placeholder="GA-123-4567"
                   />
                 </div>
@@ -724,9 +960,10 @@ export default function CheckoutContent({
                     id="notes"
                     name="notes"
                     rows={3}
+                    readOnly={isRegistryCart}
                     value={formData.notes}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors resize-none"
+                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors resize-none ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
                     placeholder="Any special delivery instructions..."
                   />
                 </div>
@@ -757,18 +994,31 @@ export default function CheckoutContent({
 
               {/* Vendor */}
               <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
-                <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200">
-                  <Image
-                    src={logoSrc}
-                    alt={vendor.business_name}
-                    width={40}
-                    height={40}
-                    className="object-cover w-full h-full"
-                  />
-                </div>
-                <span className="text-sm font-medium text-gray-700">
-                  {vendor.business_name}
-                </span>
+                {isRegistryCart ? (
+                  <>
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200 flex items-center justify-center bg-amber-50">
+                      <Gift className="size-5 text-[#A5914B]" />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">
+                      Registry Gift Purchase
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200">
+                      <Image
+                        src={logoSrc}
+                        alt={vendor.business_name}
+                        width={40}
+                        height={40}
+                        className="object-cover w-full h-full"
+                      />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">
+                      {vendor.business_name}
+                    </span>
+                  </>
+                )}
               </div>
 
               {/* Product / Cart Items */}
@@ -985,6 +1235,14 @@ export default function CheckoutContent({
                   <span className="font-medium">{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Total Weight</span>
+                  <span className="font-medium">
+                    {totalWeight > 0
+                      ? `${totalWeight.toFixed(2)} kg`
+                      : "Not set"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Shipping</span>
                   <span className="font-medium">{formatPrice(shippingFee)}</span>
                 </div>
@@ -994,10 +1252,60 @@ export default function CheckoutContent({
                     <span className="font-medium">{formatPrice(giftWrapFee)}</span>
                   </div>
                 ) : null}
+                {promoState.applied && promoDiscount > 0 ? (
+                  <div className="flex justify-between text-sm text-green-700">
+                    <span>
+                      Promo ({promoState.promo?.code || promoCode})
+                    </span>
+                    <span className="font-semibold">
+                      -{formatPrice(promoDiscount)}
+                    </span>
+                  </div>
+                ) : null}
                 <div className="flex justify-between text-base font-bold pt-2 border-t border-gray-100">
                   <span>Total</span>
                   <span className="text-[#A5914B]">{formatPrice(total)}</span>
                 </div>
+              </div>
+
+              <div className="pb-4 border-b border-gray-100 space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Promo code
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={promoCode}
+                    onChange={handlePromoInputChange}
+                    placeholder="Enter promo code"
+                    className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm outline-none transition focus:border-[#A5914B] focus:ring-2 focus:ring-[#A5914B]/20"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => applyPromoCode()}
+                    disabled={promoState.loading || (cartMode && (cartLoading || cartUpdating))}
+                    className="rounded-xl border border-[#A5914B] px-4 text-sm font-semibold text-[#A5914B] transition hover:bg-[#A5914B]/10 disabled:opacity-50"
+                  >
+                    {promoState.loading ? "Applying" : "Apply"}
+                  </button>
+                </div>
+                {promoState.applied ? (
+                  <div className="flex items-center justify-between text-xs text-green-700">
+                    <span>
+                      {promoState.promo?.percent_off || promoState.discount?.percentOff}% off
+                      applied to eligible items
+                    </span>
+                    <button
+                      type="button"
+                      onClick={resetPromoState}
+                      className="text-[#A5914B] hover:underline"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ) : promoState.error ? (
+                  <p className="text-xs text-red-600">{promoState.error}</p>
+                ) : null}
               </div>
 
               {/* Hidden fields */}
@@ -1040,6 +1348,17 @@ export default function CheckoutContent({
               <input type="hidden" name="shippingFee" value={shippingFee} />
               <input type="hidden" name="shippingRegion" value={selectedRegionName} />
               <input type="hidden" name="total" value={total} />
+              <input
+                type="hidden"
+                name="promoCode"
+                value={promoState.applied ? promoCode : ""}
+              />
+              {isRegistryCart && (
+                <>
+                  <input type="hidden" name="registryId" value={cartState.registryId} />
+                  <input type="hidden" name="giftMessage" value={giftMessage} />
+                </>
+              )}
 
               {/* Submit Button */}
               <button
@@ -1048,7 +1367,7 @@ export default function CheckoutContent({
                   isPending ||
                   (cartMode && (!cartHasItems || cartLoading || cartUpdating))
                 }
-                className="w-full mt-4 bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                className="cursor-pointer w-full mt-4 bg-primary border border-primary text-white font-semibold py-3 px-6 rounded-xl hover:bg-white hover:text-primary transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isPending ? (
                   <>

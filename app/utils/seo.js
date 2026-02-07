@@ -8,7 +8,7 @@ export async function getSeoDefaults() {
     keywords: ["gift registry", "wedding gifts", "baby shower", "birthday gifts", "vendor marketplace", "celebrations"],
     author: "Giftologi Team",
     twitterHandle: "@giftologi",
-    ogImage: "/og-image.png",
+    ogImage: "https://mygiftologi.store/giftologi-logo.png",
   };
 }
 
