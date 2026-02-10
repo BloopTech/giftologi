@@ -2,9 +2,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Search, CalendarDays, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { Search, CalendarDays, Users } from "lucide-react";
 import { useRegistryDiscover } from "./context";
 import Footer from "../components/footer";
+import Pagination from "../components/Pagination";
 import {
   Select,
   SelectTrigger,
@@ -190,9 +191,6 @@ export default function RegistryDiscoverContent() {
     return `${total.toLocaleString()} registr${total === 1 ? "y" : "ies"} found`;
   }, [loading, total]);
 
-  const canPrevious = page > 1;
-  const canNext = page < totalPages;
-
   const showFeaturedSection =
     !loadingFeatured &&
     featuredRegistries.length > 0 &&
@@ -333,37 +331,13 @@ export default function RegistryDiscoverContent() {
           </div>
         )}
 
-        <div className="flex flex-col items-center justify-between gap-4 rounded-3xl border border-[#EFE3CC] bg-white px-5 py-4 text-xs text-[#6A6456] shadow-sm sm:flex-row">
-          <span>
-            Page {page} of {totalPages}
-          </span>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPage(page - 1)}
-              disabled={!canPrevious}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                canPrevious
-                  ? "border-[#A5914B] text-[#A5914B] hover:bg-[#A5914B] hover:text-white"
-                  : "border-gray-200 text-gray-300 cursor-not-allowed"
-              }`}
-            >
-              <ChevronLeft className="size-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPage(page + 1)}
-              disabled={!canNext}
-              className={`flex h-9 w-9 items-center justify-center rounded-full border transition ${
-                canNext
-                  ? "border-[#A5914B] text-[#A5914B] hover:bg-[#A5914B] hover:text-white"
-                  : "border-gray-200 text-gray-300 cursor-not-allowed"
-              }`}
-            >
-              <ChevronRight className="size-4" />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          loading={loading}
+          className="mt-2"
+        />
       </main>
 
       <Footer />

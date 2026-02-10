@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useCallback, useActionState, useEffect, useMemo } from "react";
+import React, { useState, useCallback, useActionState, useEffect, useMemo, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -47,6 +47,7 @@ export default function CheckoutContent({
   selectedVariation,
   cartMode = false,
   registryId = null,
+  userProfile = null,
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -54,9 +55,15 @@ export default function CheckoutContent({
   const [shippingRegions, setShippingRegions] = useState(
     DEFAULT_SHIPPING_REGIONS
   );
-  const [selectedRegion, setSelectedRegion] = useState(
-    DEFAULT_SHIPPING_REGIONS[0] || null
-  );
+  const [selectedRegion, setSelectedRegion] = useState(() => {
+    if (userProfile?.address_state) {
+      const match = DEFAULT_SHIPPING_REGIONS.find(
+        (r) => r.name.toLowerCase() === userProfile.address_state.toLowerCase()
+      );
+      if (match) return match;
+    }
+    return DEFAULT_SHIPPING_REGIONS[0] || null;
+  });
   const [zonesState, setZonesState] = useState({
     loading: false,
     error: null,
@@ -96,13 +103,13 @@ export default function CheckoutContent({
   });
   const [selectedGiftWrapOptionId, setSelectedGiftWrapOptionId] = useState("");
   const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    address: "",
-    city: "",
-    digitalAddress: "",
+    firstName: userProfile?.firstname || "",
+    lastName: userProfile?.lastname || "",
+    email: userProfile?.email || "",
+    phone: userProfile?.phone || "",
+    address: userProfile?.address_street || "",
+    city: userProfile?.address_city || "",
+    digitalAddress: userProfile?.digital_address || "",
     notes: "",
   });
   const [registryShipping, setRegistryShipping] = useState(null);
@@ -275,9 +282,18 @@ export default function CheckoutContent({
     });
   }, []);
 
+  const lastCartDepsRef = useRef({ subtotal: cartState.subtotal, giftWrapFee, quantity, selectedGiftWrapOptionId });
   useEffect(() => {
-    if (!promoState.applied) return;
-    resetPromoState();
+    const prev = lastCartDepsRef.current;
+    const changed =
+      prev.subtotal !== cartState.subtotal ||
+      prev.giftWrapFee !== giftWrapFee ||
+      prev.quantity !== quantity ||
+      prev.selectedGiftWrapOptionId !== selectedGiftWrapOptionId;
+    lastCartDepsRef.current = { subtotal: cartState.subtotal, giftWrapFee, quantity, selectedGiftWrapOptionId };
+    if (changed && promoState.applied) {
+      resetPromoState();
+    }
   }, [cartMode, cartState.subtotal, giftWrapFee, quantity, selectedGiftWrapOptionId, resetPromoState, promoState.applied]);
 
   useEffect(() => {

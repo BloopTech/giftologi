@@ -37,6 +37,30 @@ const initialState = {
 const errorFor = (state, key) => state?.errors?.[key] ?? [];
 const hasError = (state, key) => (errorFor(state, key)?.length ?? 0) > 0;
 
+const VARIABLE_MAP = {
+  host: "{{host_name}} {{registry_title}} {{dashboard_url}} {{amount}} {{order_reference}} {{status}} {{event_title}} {{days_until}} {{pending_count}} {{gifts_count}} {{views_count}} {{total_value}} {{buyer_name}}",
+  vendor: "{{vendor_name}} {{dashboard_url}} {{order_reference}} {{amount}} {{status}} {{payout_status}} {{product_name}} {{reviewer_name}} {{rating}} {{reason}}",
+  admin: "{{vendor_name}} {{application_id}} {{dashboard_url}} {{order_reference}} {{amount}} {{reason}}",
+  guest: "{{guest_name}} {{order_reference}} {{amount}} {{registry_title}} {{tracking_url}} {{status}}",
+};
+
+function VariableHints({ category, recipientType }) {
+  const key = String(recipientType || category || "").toLowerCase();
+  let vars = VARIABLE_MAP[key];
+  if (!vars) {
+    if (key.includes("host")) vars = VARIABLE_MAP.host;
+    else if (key.includes("vendor")) vars = VARIABLE_MAP.vendor;
+    else if (key.includes("admin")) vars = VARIABLE_MAP.admin;
+    else if (key.includes("guest")) vars = VARIABLE_MAP.guest;
+    else vars = "{{site_url}} — Set a category or recipient type to see role-specific variables.";
+  }
+  return (
+    <p className="text-[11px] text-[#717182] font-mono bg-[#F9FAFB] rounded-xl px-3 py-2 break-all leading-relaxed">
+      {vars}
+    </p>
+  );
+}
+
 const initialSendTestState = {
   message: "",
   errors: {
@@ -308,10 +332,23 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
             <p className="text-[11px] font-medium text-[#0A0A0A]">
               Available Variables
             </p>
-            <p className="text-[11px] text-[#717182] font-mono bg-[#F9FAFB] rounded-xl px-3 py-2">
-              {"{vendor_name} {store_url} {approval_status}"}
-            </p>
+            <VariableHints category={category} recipientType={recipientType} />
           </div>
+
+          {body ? (
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-[#0A0A0A]">
+                Live Preview
+              </p>
+              <iframe
+                title="Email body preview"
+                srcDoc={body}
+                sandbox=""
+                className="w-full rounded-xl border border-[#E5E7EB] bg-white"
+                style={{ height: "280px", border: "1px solid #E5E7EB" }}
+              />
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between pt-2">
             <div className="inline-flex items-center gap-2">

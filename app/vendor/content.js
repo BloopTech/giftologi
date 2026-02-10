@@ -20,10 +20,23 @@ import ApplicationModal from "./components/ApplicationModal";
 function VendorHeader() {
   return (
     <header className="w-full bg-white border-b border-gray-100" role="banner">
-      <nav className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between" aria-label="Vendor page navigation">
-        <Link href="/" className="flex items-center gap-2" aria-label="Giftologi homepage">
+      <nav
+        className="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between"
+        aria-label="Vendor page navigation"
+      >
+        <Link
+          href="/"
+          className="flex items-center gap-2"
+          aria-label="Giftologi homepage"
+        >
           <div className="flex aspect-square items-center justify-center">
-            <Image src={logo} alt="Giftologi logo" width={40} height={40} priority />
+            <Image
+              src={logo}
+              alt="Giftologi logo"
+              width={40}
+              height={40}
+              priority
+            />
           </div>
           <span className="font-medium text-[#85753C] font-brasley-medium flex items-center">
             Giftologi
@@ -50,8 +63,23 @@ function VendorHeader() {
 
 // Hero Section
 function HeroSection({ onOpenModal }) {
+  const stats = [
+    { value: "10K+", label: "Active Registries" },
+    { value: "$2M+", label: "Monthly Sales" },
+    { value: "500+", label: "Trusted Vendors" },
+    { value: "98%", label: "Satisfaction Rate" },
+  ];
+
   return (
-    <section className="bg-white py-16">
+    <section
+      className="bg-white py-16"
+      style={{
+        backgroundImage: "url('/coming_soon_layer.png')",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
       <div className="max-w-4xl mx-auto px-4 text-center">
         <div className="inline-block px-4 py-2 bg-[#F5F0E1] rounded-full text-sm text-[#85753C] font-medium mb-6">
           Join Our Vendor Network
@@ -81,21 +109,6 @@ function HeroSection({ onOpenModal }) {
           </Link>
         </div>
       </div>
-    </section>
-  );
-}
-
-// Stats Section
-function StatsSection() {
-  const stats = [
-    { value: "10K+", label: "Active Registries" },
-    { value: "$2M+", label: "Monthly Sales" },
-    { value: "500+", label: "Trusted Vendors" },
-    { value: "98%", label: "Satisfaction Rate" },
-  ];
-
-  return (
-    <section className="bg-white pb-16">
       <div className="max-w-5xl mx-auto px-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
@@ -300,6 +313,22 @@ function VendorFooter() {
     { title: "Terms and Conditions", href: "/terms-and-conditions" },
     { title: "Privacy Statement", href: "/privacy-statement" },
     { title: "Careers", href: "/careers" },
+    {
+      title: "Search Engine",
+      href: "/search",
+    },
+    {
+      title: "Registries",
+      href: "/registry",
+    },
+    {
+      title: "Shop",
+      href: "/shop",
+    },
+    {
+      title: "Vendors' Storefront",
+      href: "/storefront",
+    },
   ];
 
   const members = [
@@ -414,7 +443,6 @@ export default function VendorLandingPageContent() {
       <VendorHeader />
       <main id="vendor-main-content" role="main" tabIndex={-1}>
         <HeroSection onOpenModal={openModal} />
-        <StatsSection />
         <WhySellSection />
         <HowItWorksSection />
         <CTASection onOpenModal={openModal} />

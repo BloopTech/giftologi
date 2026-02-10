@@ -8,7 +8,7 @@ import { render, pretty } from "@react-email/render";
 import VendorApplicationSubmittedEmail from "./emails/VendorApplicationSubmittedEmail";
 import { createAdminClient, createClient } from "../utils/supabase/server";
 import { generateUniqueVendorSlug } from "../utils/vendorSlug";
-import { createNotifications, fetchUserIdsByRole } from "../utils/notifications";
+import { dispatchToAdmins } from "../utils/notificationService";
 
 import {
   DOCUMENT_TITLE_LOOKUP,
@@ -1642,16 +1642,10 @@ export async function submitVendorApplication(payload) {
 
   const notifyAdmins = async (applicationId, vendorName) => {
     if (!adminClient || !applicationId) return;
-    const { data: adminIds } = await fetchUserIdsByRole({
-      client: adminClient,
-      roles: ["super_admin", "operations_manager_admin"],
-    });
-    if (!adminIds.length) return;
 
-    await createNotifications({
+    await dispatchToAdmins({
       client: adminClient,
-      userIds: adminIds,
-      type: "vendor_application",
+      eventType: "vendor_application",
       message: `New vendor application submitted${
         vendorName ? `: ${vendorName}` : "."
       }`,

@@ -1,19 +1,14 @@
 "use server";
 import React from "react";
-import { createClient } from "../../../utils/supabase/server";
+import HostProfileContent from "./content";
+import { HostProfileContentProvider } from "./context";
 
 export default async function HostProfile() {
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .single();
-
   return (
-    <section aria-label="Host profile" className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 lg:pl-10 pl-5 pr-5 lg:pr-0">
-      <h1 className="capitalize">
-        {profile?.role} Dashboard {profile?.firstname}
-      </h1>
-    </section>
+    <>
+      <HostProfileContentProvider>
+        <HostProfileContent />
+      </HostProfileContentProvider>
+    </>
   );
 }

@@ -48,7 +48,7 @@ const initialData = [
   },
   {
     id: 2,
-    roleName: "Operations Manager",
+    roleName: "Operations",
     description: "Manages vendors, products, and registries.",
     accessScope: "/admin/vendors, /admin/registries, /admin/products",
   },

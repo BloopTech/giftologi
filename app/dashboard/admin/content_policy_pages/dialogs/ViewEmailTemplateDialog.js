@@ -139,10 +139,31 @@ export default function ViewEmailTemplateDialog({ open, onOpenChange, template }
           </div>
 
           <div className="space-y-1">
-            <p className="font-medium">Email Body (HTML)</p>
-            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[11px] text-[#374151] whitespace-pre-wrap max-h-80 overflow-auto">
-              {template.body || "No email body available."}
-            </div>
+            <p className="font-medium">Email Body Preview</p>
+            {template.body ? (
+              <iframe
+                title="Email template preview"
+                srcDoc={template.body}
+                sandbox=""
+                className="w-full rounded-xl border border-[#E5E7EB] bg-white"
+                style={{ height: "400px", border: "1px solid #E5E7EB" }}
+              />
+            ) : (
+              <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[11px] text-[#374151]">
+                No email body available.
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-1">
+            <details className="text-[11px]">
+              <summary className="font-medium text-xs text-[#0A0A0A] cursor-pointer">
+                View Raw HTML
+              </summary>
+              <div className="mt-2 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[11px] text-[#374151] whitespace-pre-wrap max-h-60 overflow-auto font-mono">
+                {template.body || "—"}
+              </div>
+            </details>
           </div>
 
           <form

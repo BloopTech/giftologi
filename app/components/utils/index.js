@@ -5,6 +5,8 @@ export function cx(...args) {
   return twMerge(clsx(...args));
 }
 
+export const cn = cx;
+
 // Tremor Raw focusInput [v0.0.1]
 
 export const focusInput = [

@@ -11,6 +11,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "sonner";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { createMetadata, getPageSeo } from "./utils/seo";
 import { SkipLink } from "./components/accessibility";
 import { headers } from "next/headers";
@@ -118,7 +119,7 @@ export default async function RootLayout({ children }) {
             tabIndex={-1}
             className="w-full font-brasley-medium bg-white text-black dark:bg-gray-950 dark:text-white min-h-screen"
           >
-            {children}
+            <NuqsAdapter>{children}</NuqsAdapter>
           </main>
         </ThemeProvider>
       </body>

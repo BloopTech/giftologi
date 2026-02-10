@@ -10,6 +10,7 @@ import {
 import { X, Gift, Minus, Plus, Loader2 } from "lucide-react";
 import { addProductToRegistry } from "../actions";
 import { toast } from "sonner";
+import RegistrySelector from "./RegistrySelector";
 
 const PRIORITY_OPTIONS = [
   { value: "must-have", label: "Must Have", color: "bg-red-100 text-red-700" },
@@ -75,6 +76,8 @@ export default function AddToRegistryModal({
   const [selectedColor, setSelectedColor] = useState("");
   const [selectedSize, setSelectedSize] = useState("");
   const [selectedVariantKey, setSelectedVariantKey] = useState("");
+  const [selectedRegistry, setSelectedRegistry] = useState(registry);
+  const selectedRegistryId = selectedRegistry?.id || registry?.id || "";
 
   const [state, formAction, isPending] = useActionState(
     addProductToRegistry,
@@ -240,24 +243,27 @@ export default function AddToRegistryModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-lg rounded-2xl shadow-xl p-0 overflow-hidden">
+      <DialogContent className="w-full max-w-lg max-h-[85vh] rounded-2xl shadow-xl p-0 flex flex-col">
         <DialogClose className="absolute right-4 top-4 rounded-full p-1 hover:bg-gray-100 transition-colors cursor-pointer z-10">
           <X className="h-5 w-5 text-gray-500" />
           <span className="sr-only">Close</span>
         </DialogClose>
 
-        <div className="p-6">
+        <div className="p-6 overflow-y-auto">
           {/* Header */}
-          <div className="flex items-center gap-3 mb-6">
-            <div className="p-2 bg-[#A5914B]/10 rounded-full">
-              <Gift className="size-5 text-[#A5914B]" />
-            </div>
-            <div>
+          <div className="mb-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 bg-[#A5914B]/10 rounded-full">
+                <Gift className="size-5 text-[#A5914B]" />
+              </div>
               <DialogTitle className="text-lg font-semibold text-gray-900">
                 Add to Registry
               </DialogTitle>
-              <p className="text-sm text-gray-500">{registry?.title}</p>
             </div>
+            <RegistrySelector
+              selectedId={selectedRegistryId}
+              onSelect={(r) => setSelectedRegistry(r)}
+            />
           </div>
 
           {/* Product Preview */}
@@ -283,7 +289,7 @@ export default function AddToRegistryModal({
           {/* Form */}
           <form action={formAction} className="space-y-5">
             {/* Hidden fields */}
-            <input type="hidden" name="registryId" value={registry?.id || ""} readOnly />
+            <input type="hidden" name="registryId" value={selectedRegistryId || ""} readOnly />
             <input type="hidden" name="productId" value={product.id || ""} readOnly />
 
             {/* Quantity */}
@@ -344,150 +350,158 @@ export default function AddToRegistryModal({
             </div>
 
             {variationOptions.length > 0 ? (
-              <div className="space-y-4">
-                <div className="space-y-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Choose a variation
-                  </label>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Variation
+                </label>
 
-                  {!hasColor && !hasSize ? (
-                    <div className="flex flex-wrap gap-2">
-                      {variationOptions.map((option) => {
-                        const isSelected = selectedVariantKey === option.key;
-                        return (
-                          <button
-                            key={option.key}
-                            type="button"
-                            onClick={() =>
-                              setSelectedVariantKey(isSelected ? "" : option.key)
-                            }
-                            className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                              isSelected
-                                ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
-                                : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
-                            }`}
-                          >
+                {!hasColor && !hasSize ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {variationOptions.map((option) => {
+                      const isSelected = selectedVariantKey === option.key;
+                      return (
+                        <button
+                          key={option.key}
+                          type="button"
+                          onClick={() =>
+                            setSelectedVariantKey(isSelected ? "" : option.key)
+                          }
+                          className={`cursor-pointer rounded-xl border-2 px-4 py-3 text-left transition-all ${
+                            isSelected
+                              ? "border-[#A5914B] bg-[#A5914B]/5 ring-1 ring-[#A5914B]/20"
+                              : "border-gray-200 hover:border-[#A5914B]/40 hover:bg-gray-50"
+                          }`}
+                        >
+                          <span className={`block text-sm font-medium ${isSelected ? "text-[#8B7A3F]" : "text-gray-800"}`}>
                             {option.label}
-                            {option.price != null ? ` · ${formatPrice(option.price)}` : ""}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {hasColor && (
-                        <div className="space-y-2">
-                          <span className="text-xs font-medium text-gray-600">Color</span>
-                          <div className="flex flex-wrap gap-2">
-                            {(colorOptions.length ? colorOptions : COLOR_OPTIONS).map(
-                              (color) => {
-                                const isSelected = selectedColor === color;
-                                return (
-                                  <button
-                                    key={color}
-                                    type="button"
-                                    onClick={() => {
-                                      const next = isSelected ? "" : color;
-                                      setSelectedColor(next);
-                                      setSelectedVariantKey("");
-                                      if (next && selectedSize && !sizeOptions.includes(selectedSize)) {
-                                        setSelectedSize("");
-                                      }
-                                    }}
-                                    className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                                      isSelected
-                                        ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
-                                        : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
-                                    }`}
-                                  >
-                                    <span
-                                      className="h-3 w-3 rounded-full border"
-                                      style={{
-                                        background:
-                                          COLOR_SWATCHES[color] || "#E5E7EB",
-                                        borderColor:
-                                          color === "White" ? "#E5E7EB" : "transparent",
-                                      }}
-                                    />
-                                    {color}
-                                  </button>
-                                );
-                              }
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {hasSize && (
-                        <div className="space-y-2">
-                          <span className="text-xs font-medium text-gray-600">Size</span>
-                          <div className="flex flex-wrap gap-2">
-                            {(sizeOptions.length ? sizeOptions : [])
-                              .map((size) => {
-                                const isSelected = selectedSize === size;
-                                return (
-                                  <button
-                                    key={size}
-                                    type="button"
-                                    onClick={() => {
-                                      const next = isSelected ? "" : size;
-                                      setSelectedSize(next);
-                                      setSelectedVariantKey("");
-                                    }}
-                                    className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                                      isSelected
-                                        ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
-                                        : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
-                                    }`}
-                                  >
-                                    {size}
-                                  </button>
-                                );
-                              })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {selectionComplete && selectedVariation ? (
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-[#A5914B]/30 bg-[#A5914B]/10 px-2 py-1 text-[#8B7A3F]">
-                        Selected: {selectedVariation.label}
-                      </span>
-                      {selectedVariation.price != null && (
-                        <span className="font-semibold text-[#A5914B]">
-                          {formatPrice(selectedVariation.price)}
+                          </span>
+                          {option.price != null && (
+                            <span className={`block text-xs mt-0.5 ${isSelected ? "text-[#A5914B]" : "text-gray-500"}`}>
+                              {formatPrice(option.price)}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {hasColor && (
+                      <div>
+                        <span className="block text-xs font-medium text-gray-500 mb-2">
+                          Color {selectedColor && <span className="text-[#A5914B]">— {selectedColor}</span>}
                         </span>
-                      )}
-                    </div>
-                  ) : (
-                    <p className="text-xs text-red-500">
-                      Select a variation to continue.
-                    </p>
-                  )}
+                        <div className="flex flex-wrap gap-2">
+                          {(colorOptions.length ? colorOptions : COLOR_OPTIONS).map(
+                            (color) => {
+                              const isSelected = selectedColor === color;
+                              return (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  onClick={() => {
+                                    const next = isSelected ? "" : color;
+                                    setSelectedColor(next);
+                                    setSelectedVariantKey("");
+                                    if (next && selectedSize && !sizeOptions.includes(selectedSize)) {
+                                      setSelectedSize("");
+                                    }
+                                  }}
+                                  className={`cursor-pointer inline-flex items-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-medium transition-all ${
+                                    isSelected
+                                      ? "border-[#A5914B] bg-[#A5914B]/5 text-[#8B7A3F] ring-1 ring-[#A5914B]/20"
+                                      : "border-gray-200 text-gray-700 hover:border-[#A5914B]/40 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  <span
+                                    className="h-4 w-4 rounded-full border shrink-0"
+                                    style={{
+                                      background:
+                                        COLOR_SWATCHES[color] || "#E5E7EB",
+                                      borderColor:
+                                        color === "White" ? "#E5E7EB" : "transparent",
+                                    }}
+                                  />
+                                  {color}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+                    )}
 
-                  <input
-                    type="hidden"
-                    name="variation"
-                    value={
-                      selectedVariation ? JSON.stringify(selectedVariation.raw || {}) : ""
-                    }
-                    readOnly
-                  />
-                  <input
-                    type="hidden"
-                    name="color"
-                    value={selectedVariation?.color || selectedColor || ""}
-                    readOnly
-                  />
-                  <input
-                    type="hidden"
-                    name="size"
-                    value={selectedVariation?.size || selectedSize || ""}
-                    readOnly
-                  />
-                </div>
+                    {hasSize && (
+                      <div>
+                        <span className="block text-xs font-medium text-gray-500 mb-2">
+                          Size {selectedSize && <span className="text-[#A5914B]">— {selectedSize}</span>}
+                        </span>
+                        <div className="flex flex-wrap gap-2">
+                          {(sizeOptions.length ? sizeOptions : [])
+                            .map((size) => {
+                              const isSelected = selectedSize === size;
+                              return (
+                                <button
+                                  key={size}
+                                  type="button"
+                                  onClick={() => {
+                                    const next = isSelected ? "" : size;
+                                    setSelectedSize(next);
+                                    setSelectedVariantKey("");
+                                  }}
+                                  className={`cursor-pointer rounded-xl border-2 px-4 py-2 text-sm font-medium transition-all ${
+                                    isSelected
+                                      ? "border-[#A5914B] bg-[#A5914B]/5 text-[#8B7A3F] ring-1 ring-[#A5914B]/20"
+                                      : "border-gray-200 text-gray-700 hover:border-[#A5914B]/40 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {size}
+                                </button>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {selectionComplete && selectedVariation ? (
+                  <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
+                    <span className="text-sm text-green-700 font-medium">
+                      ✓ {selectedVariation.label}
+                    </span>
+                    {selectedVariation.price != null && (
+                      <span className="text-sm font-semibold text-[#A5914B] ml-auto">
+                        {formatPrice(selectedVariation.price)}
+                      </span>
+                    )}
+                  </div>
+                ) : variationOptions.length > 1 ? (
+                  <p className="text-xs text-amber-600 mt-2">
+                    Please select a variation to continue.
+                  </p>
+                ) : null}
+
+                <input
+                  type="hidden"
+                  name="variation"
+                  value={
+                    selectedVariation ? JSON.stringify(selectedVariation.raw || {}) : ""
+                  }
+                  readOnly
+                />
+                <input
+                  type="hidden"
+                  name="color"
+                  value={selectedVariation?.color || selectedColor || ""}
+                  readOnly
+                />
+                <input
+                  type="hidden"
+                  name="size"
+                  value={selectedVariation?.size || selectedSize || ""}
+                  readOnly
+                />
               </div>
             ) : null}
 

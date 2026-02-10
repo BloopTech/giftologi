@@ -77,7 +77,7 @@ const statusVariantMap = {
 
 const ROLE_OPTIONS = [
   { label: "Super Admin", value: "super_admin" },
-  { label: "Operations Manager", value: "operations_manager_admin" },
+  { label: "Operations", value: "operations_manager_admin" },
   { label: "Store Manager", value: "store_manager_admin" },
   { label: "Marketing", value: "marketing_admin" },
   { label: "Finance", value: "finance_admin" },
@@ -249,7 +249,7 @@ export default function StaffMembersTable({ searchQuery: _searchQuery }) {
       const roleLabelMap = {
         super_admin: "Super Admin",
         finance_admin: "Finance",
-        operations_manager_admin: "Operations Manager",
+        operations_manager_admin: "Operations",
         customer_support_admin: "Customer Support",
         store_manager_admin: "Store Manager",
         marketing_admin: "Marketing",

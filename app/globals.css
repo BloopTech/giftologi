@@ -20,6 +20,8 @@
   --font-brasley-medium: var(--font-brasley-medium), "Brasley", serif;
   --color-primary: #BBA96C;
   --color-secondary: #FFFCEF;
+  --color-muted: #f1f5f9;
+  --color-border: #e2e8f0;
 }
 
 @media (prefers-color-scheme: dark) {

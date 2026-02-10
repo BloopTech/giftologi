@@ -65,7 +65,7 @@ export async function GET(req) {
         stock_qty,
         status,
         category_id,
-        category:categories(id, name, slug)
+        category:categories!Products_category_id_fkey(id, name, slug)
       `
       )
       .eq("vendor_id", vendor.id)

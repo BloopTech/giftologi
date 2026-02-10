@@ -742,6 +742,7 @@ const notificationSchema = z.object({
   weekly_reports: z.boolean(),
   monthly_reports: z.boolean(),
   marketing_emails: z.boolean(),
+  push_notifications: z.boolean(),
 });
 
 const toBoolean = (value) => {
@@ -860,6 +861,7 @@ export async function manageProfile(prevState, queryData) {
     weekly_reports: toBoolean(queryData.get("weekly_reports")),
     monthly_reports: toBoolean(queryData.get("monthly_reports")),
     marketing_emails: toBoolean(queryData.get("marketing_emails")),
+    push_notifications: toBoolean(queryData.get("push_notifications")),
   };
 
   const vendorValidation = vendorSchema.safeParse(rawVendor);

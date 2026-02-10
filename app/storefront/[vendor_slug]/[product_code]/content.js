@@ -231,7 +231,7 @@ export default function ProductCodeDetailContent() {
   }, [selectedVariantKey, selectedColor, selectedSize, variationOptions]);
 
   const handleBuyNow = useCallback(() => {
-    if (!canPurchase || !isAuthed || !selectionComplete) return;
+    if (!canPurchase || !selectionComplete) return;
     const params = new URLSearchParams({
       product: product?.id || "",
       qty: String(quantity),
@@ -240,7 +240,7 @@ export default function ProductCodeDetailContent() {
       params.set("variant", selectedVariation.key);
     }
     router.push(`/storefront/${vendor?.slug}/checkout?${params.toString()}`);
-  }, [canPurchase, isAuthed, router, vendor?.slug, product?.id, quantity, selectedVariation?.key, selectionComplete]);
+  }, [canPurchase, router, vendor?.slug, product?.id, quantity, selectedVariation?.key, selectionComplete]);
 
   const handleAddToCart = useCallback(async () => {
     if (!canPurchase || !selectionComplete) return;
@@ -298,7 +298,15 @@ export default function ProductCodeDetailContent() {
   const handleSubmitReview = useCallback(
     async (event) => {
       event.preventDefault();
-      if (!submitReview || !isAuthed) return;
+
+      // Redirect guests to login, then back to this product page
+      if (!isAuthed) {
+        const currentPath = `/storefront/${vendor?.slug}/${product?.product_code || product?.id}`;
+        router.push(`/login?next=${encodeURIComponent(currentPath)}`);
+        return;
+      }
+
+      if (!submitReview) return;
       setReviewError(null);
       setReviewSuccess(null);
       setReviewSubmitting(true);
@@ -317,7 +325,7 @@ export default function ProductCodeDetailContent() {
 
       setReviewSubmitting(false);
     },
-    [isAuthed, reviewComment, reviewRating, submitReview]
+    [isAuthed, reviewComment, reviewRating, submitReview, router, vendor?.slug, product?.product_code, product?.id]
   );
 
   const openGallery = useCallback((index) => {
@@ -749,7 +757,7 @@ export default function ProductCodeDetailContent() {
                   </button>
                   <button
                     onClick={handleBuyNow}
-                    disabled={!isAuthed || !selectionComplete}
+                    disabled={!selectionComplete}
                     className="flex-1 bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CreditCard className="size-5" />
@@ -841,7 +849,7 @@ export default function ProductCodeDetailContent() {
                 </p>
                 {!isAuthed && (
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                    Sign in to submit a review.
+                    You&apos;ll be redirected to sign in when you submit.
                   </div>
                 )}
                 <form onSubmit={handleSubmitReview} className="mt-4 space-y-4">
@@ -856,7 +864,7 @@ export default function ProductCodeDetailContent() {
                           type="button"
                           onClick={() => setReviewRating(star)}
                           className="p-1"
-                          disabled={!isAuthed || reviewSubmitting}
+                          disabled={reviewSubmitting}
                         >
                           <Star
                             className={`size-5 ${
@@ -879,7 +887,7 @@ export default function ProductCodeDetailContent() {
                       rows={4}
                       className="mt-2 w-full rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#A5914B]"
                       placeholder="Tell us what you loved about this product."
-                      disabled={!isAuthed || reviewSubmitting}
+                      disabled={reviewSubmitting}
                     />
                   </div>
                   {reviewError && (
@@ -894,8 +902,8 @@ export default function ProductCodeDetailContent() {
                   )}
                   <button
                     type="submit"
-                    disabled={!isAuthed || reviewSubmitting}
-                    className="w-full rounded-full bg-[#A5914B] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-[#8B7A3F] disabled:cursor-not-allowed disabled:opacity-60"
+                    disabled={reviewSubmitting}
+                    className="w-full rounded-full bg-primary border border-primary px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {reviewSubmitting ? "Submitting..." : "Submit review"}
                   </button>

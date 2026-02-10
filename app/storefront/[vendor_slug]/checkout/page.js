@@ -78,11 +78,17 @@ export default async function CheckoutPage({ params, searchParams }) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Cart checkout (e.g. registry gift purchases) allows guest access.
-  // Direct product checkout still requires authentication.
-  if (!user && !isCartCheckout) {
-    const next = `/storefront/${vendor_slug}/checkout?product=${productId}&qty=${quantity}`;
-    redirect(`/login?next=${encodeURIComponent(next)}`);
+  // Both cart and direct product checkout allow guest access.
+
+  // Fetch user profile for prefilling contact & shipping
+  let userProfile = null;
+  if (user?.id) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("firstname, lastname, email, phone, address_street, address_city, address_state, digital_address")
+      .eq("id", user.id)
+      .single();
+    userProfile = profile;
   }
 
   // Fetch vendor
@@ -119,7 +125,7 @@ export default async function CheckoutPage({ params, searchParams }) {
   }
 
   if (isCartCheckout) {
-    return <CheckoutContent vendor={vendor} cartMode registryId={registryId || null} />;
+    return <CheckoutContent vendor={vendor} cartMode registryId={registryId || null} userProfile={userProfile} />;
   }
 
   // Fetch product
@@ -189,6 +195,7 @@ export default async function CheckoutPage({ params, searchParams }) {
       product={formattedProduct}
       initialQuantity={actualQuantity}
       selectedVariation={selectedVariation}
+      userProfile={userProfile}
     />
   );
 }

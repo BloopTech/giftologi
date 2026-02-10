@@ -8,7 +8,18 @@ import {
   DialogContent,
   DialogTitle,
 } from "../../components/Dialog";
-import { X, Store, BadgeCheck, Plus, ExternalLink, Trash2, Loader2 } from "lucide-react";
+import {
+  X,
+  Store,
+  BadgeCheck,
+  ExternalLink,
+  Trash2,
+  Loader2,
+  ShoppingCart,
+  Zap,
+  Gift,
+  Check,
+} from "lucide-react";
 import { removeProductFromRegistry } from "../actions";
 import { toast } from "sonner";
 import { useShop } from "../context";
@@ -28,7 +39,18 @@ export default function ProductDetailModal({
   registry,
 }) {
   const removeToastKeyRef = useRef(0);
-  const { getRegistryItem, openAddToRegistry } = useShop();
+  const {
+    getRegistryItem,
+    openAddToRegistry,
+    addToCart,
+    buyNow,
+    removeFromCart,
+    addingToCartId,
+    buyingProductId,
+    removingFromCartId,
+    isProductInRegistry,
+    isInCart,
+  } = useShop();
   const [removeState, removeAction, isRemovePending] = useActionState(
     removeProductFromRegistry,
     initialState
@@ -67,6 +89,10 @@ export default function ProductDetailModal({
   const isOutOfStock = stock <= 0;
   const registryItem = getRegistryItem?.(product?.id);
   const isInRegistry = !!registryItem;
+  const isAddingToCart = addingToCartId === product?.id;
+  const isBuying = buyingProductId === product?.id;
+  const isRemoving = removingFromCartId === product?.id;
+  const inCart = isInCart(product?.id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -148,71 +174,127 @@ export default function ProductDetailModal({
 
             {/* Action Buttons */}
             <div className="flex flex-col gap-3 mt-auto">
-              <Link
-                href={`/storefront/${vendor?.slug}/${product.productCode}`}
-                className="w-full flex items-center justify-center px-4 text-sm py-3 border border-[#A5914B] text-[#A5914B] font-medium rounded-full hover:bg-[#A5914B]/5 transition-colors"
-              >
-                View in Store
-              </Link>
-              
-              {isHost && !isInRegistry && !isOutOfStock && (
-                <form action={addAction}>
-                  <input type="hidden" name="registryId" value={registry?.id || ""} readOnly />
-                  <input type="hidden" name="productId" value={product.id || ""} readOnly />
-                  <input type="hidden" name="quantity" value="1" readOnly />
-                  <input type="hidden" name="priority" value="nice-to-have" readOnly />
+              {/* Buy & Add to Cart row */}
+              {!isOutOfStock && (
+                <div className="flex gap-2">
                   <button
-                    type="submit"
-                    disabled={isAddPending}
-                    className="w-full text-sm px-4 py-3 bg-[#A5914B] text-white font-medium rounded-full hover:bg-[#8B7A3F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                    type="button"
+                    onClick={() => buyNow(product)}
+                    disabled={isBuying || isAddingToCart}
+                    className="flex-1 text-sm px-4 py-3 bg-[#A5914B] text-white font-medium rounded-full hover:bg-[#8B7A3F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    {isAddPending ? (
+                    {isBuying ? (
                       <>
                         <Loader2 className="size-4 animate-spin" />
-                        Adding...
+                        Processing...
                       </>
                     ) : (
                       <>
-                        <Plus className="size-4" />
-                        Add to Registry
+                        <Zap className="size-4" />
+                        Buy Now
                       </>
                     )}
                   </button>
-                </form>
+                  {inCart ? (
+                    <button
+                      type="button"
+                      onClick={() => removeFromCart(product.id)}
+                      disabled={isRemoving}
+                      className="flex-1 text-sm px-4 py-3 border border-green-300 bg-green-50 text-green-700 font-medium rounded-full hover:bg-red-50 hover:text-red-600 hover:border-red-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isRemoving ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Check className="size-4" />
+                          In Cart
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => addToCart(product)}
+                      disabled={isAddingToCart || isBuying}
+                      className="flex-1 text-sm px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-full hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isAddingToCart ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Adding...
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="size-4" />
+                          Add to Cart
+                        </>
+                      )}
+                    </button>
+                  )}
+                </div>
               )}
-              
+
+              {/* Add to Registry (hosts only) */}
+              {isHost && !isOutOfStock && !isInRegistry && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onOpenChange(false);
+                    openAddToRegistry(product);
+                  }}
+                  className="w-full text-sm px-4 py-3 bg-[#A5914B]/10 text-[#8B7A3F] font-medium rounded-full hover:bg-[#A5914B]/20 transition-colors flex items-center justify-center gap-2 cursor-pointer border border-[#A5914B]/30"
+                >
+                  <Gift className="size-4" />
+                  Add to Registry
+                </button>
+              )}
+
+              {/* Already in registry */}
               {isHost && isInRegistry && (
-                <form action={removeAction}>
-                  <input type="hidden" name="registryItemId" value={registryItem?.id || ""} readOnly />
-                  <button
-                    type="submit"
-                    disabled={isRemovePending}
-                    className="w-full text-sm px-4 py-3 bg-red-600 text-white font-medium rounded-full hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    {isRemovePending ? (
-                      <>
+                <div className="flex gap-2">
+                  <div className="flex-1 text-sm px-4 py-3 bg-green-50 text-green-700 font-medium rounded-full flex items-center justify-center gap-2 border border-green-200">
+                    <Check className="size-4" />
+                    In Registry
+                  </div>
+                  <form action={removeAction} className="flex-1">
+                    <input type="hidden" name="registryItemId" value={registryItem?.id || ""} readOnly />
+                    <button
+                      type="submit"
+                      disabled={isRemovePending}
+                      className="w-full text-sm px-4 py-3 bg-red-600 text-white font-medium rounded-full hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      {isRemovePending ? (
                         <Loader2 className="size-4 animate-spin" />
-                        Removing...
-                      </>
-                    ) : (
-                      <>
-                        <Trash2 className="size-4" />
-                        Remove from Registry
-                      </>
-                    )}
-                  </button>
-                </form>
+                      ) : (
+                        <>
+                          <Trash2 className="size-4" />
+                          Remove
+                        </>
+                      )}
+                    </button>
+                  </form>
+                </div>
               )}
-              
-              {isHost && isOutOfStock && (
+
+              {/* Out of stock */}
+              {isOutOfStock && (
                 <button
                   type="button"
                   disabled
-                  className="flex-1 py-3 bg-gray-200 text-gray-500 font-medium rounded-full cursor-not-allowed"
+                  className="w-full py-3 bg-gray-200 text-gray-500 font-medium rounded-full cursor-not-allowed"
                 >
                   Out of Stock
                 </button>
               )}
+
+              {/* View in store link */}
+              <Link
+                href={`/storefront/${vendor?.slug}/${product.productCode}`}
+                className="w-full flex items-center justify-center px-4 text-sm py-2.5 text-gray-500 hover:text-[#A5914B] font-medium transition-colors"
+              >
+                <ExternalLink className="size-3.5 mr-1.5" />
+                View in Store
+              </Link>
             </div>
           </div>
         </div>

@@ -658,6 +658,12 @@ export function NotificationPreferencesSection({ notifications, onChange }) {
           enabled={notifications.marketingEmails}
           onChange={(v) => onChange("marketingEmails", v)}
         />
+        <NotificationRow
+          title="Push Notifications"
+          description="Receive browser push notifications for important updates"
+          enabled={notifications.pushNotifications}
+          onChange={(v) => onChange("pushNotifications", v)}
+        />
       </div>
     </div>
   );

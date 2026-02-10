@@ -14,8 +14,7 @@ import { useQueryState, parseAsString } from "nuqs";
 
 import { createClient as createSupabaseClient } from "../utils/supabase/client";
 import {
-  getProductSessionId,
-  getOrCreateProductSessionId,
+  getOrCreateGuestBrowserId,
 } from "../utils/guest";
 
 const ShopContext = createContext(null);
@@ -100,6 +99,8 @@ const mapProduct = (product) => {
     variations,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
+    avgRating: Number(product?.avg_rating) || 0,
+    reviewCount: Number(product?.review_count) || 0,
     categoryId: product?.category_id || null,
     categoryIds: mergedCategoryIds,
     vendor: {
@@ -129,25 +130,10 @@ export function ShopProvider({
     Array.isArray(initialProducts) ? initialProducts.map(mapProduct) : []
   );
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(
-    Array.isArray(initialProducts) ? initialProducts.length >= pageSize : false
-  );
+  const [totalCount, setTotalCount] = useState(0);
   const [categories, setCategories] = useState(
     Array.isArray(initialCategories) ? initialCategories : []
   );
-
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
-  const [featuredPage, setFeaturedPage] = useState(1);
-  const [featuredHasMore, setFeaturedHasMore] = useState(false);
-  const [recommendedProducts, setRecommendedProducts] = useState([]);
-  const [recommendedLoading, setRecommendedLoading] = useState(false);
-  const [recommendedPage, setRecommendedPage] = useState(1);
-  const [recommendedHasMore, setRecommendedHasMore] = useState(false);
-  const [recentlyViewedProducts, setRecentlyViewedProducts] = useState([]);
-  const [recentlyViewedLoading, setRecentlyViewedLoading] = useState(false);
-  const [recentlyViewedPage, setRecentlyViewedPage] = useState(1);
-  const [recentlyViewedHasMore, setRecentlyViewedHasMore] = useState(false);
 
   // Registry items state
   const [registryItems, setRegistryItems] = useState([]);
@@ -159,7 +145,7 @@ export function ShopProvider({
   );
   const [categoryParam, setCategoryParam] = useQueryState(
     "category",
-    parseAsString.withDefault(initialSearchParams?.category || "all")
+    parseAsString.withDefault(initialSearchParams?.category || "")
   );
   const [sortParam, setSortParam] = useQueryState(
     "sort",
@@ -173,13 +159,21 @@ export function ShopProvider({
     "maxPrice",
     parseAsString.withDefault(initialSearchParams?.maxPrice || "")
   );
+  const [ratingParam, setRatingParam] = useQueryState(
+    "rating",
+    parseAsString.withDefault(initialSearchParams?.rating || "")
+  );
   const [pageParam, setPageParam] = useQueryState(
     "page",
     parseAsString.withDefault(initialSearchParams?.page || "1")
   );
   const searchQuery = searchParam || "";
-  const categoryFilter = categoryParam || "all";
+  const categoryFilter = categoryParam || "";
   const sortBy = sortParam || "newest";
+  const selectedCategories = useMemo(
+    () => (categoryFilter ? categoryFilter.split(",").filter(Boolean) : []),
+    [categoryFilter]
+  );
   const page = useMemo(() => {
     const num = Number.parseInt(pageParam || "1", 10);
     if (Number.isNaN(num) || num < 1) return 1;
@@ -192,6 +186,12 @@ export function ShopProvider({
 
   // Registry state
   const [registry, setRegistry] = useState(activeRegistry);
+
+  // Cart action states
+  const [addingToCartId, setAddingToCartId] = useState(null);
+  const [buyingProductId, setBuyingProductId] = useState(null);
+  const [removingFromCartId, setRemovingFromCartId] = useState(null);
+  const [cartItemMap, setCartItemMap] = useState(new Map());
 
   // Product detail modal
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -214,7 +214,7 @@ export function ShopProvider({
     const fetchCategories = async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("id, name, slug")
+        .select("id, name, slug, parent_category_id")
         .order("name");
 
       if (ignore || error) return;
@@ -223,188 +223,41 @@ export function ShopProvider({
 
     fetchCategories();
 
+    // Fetch cart product IDs
+    const fetchCartItems = async () => {
+      try {
+        const guestBrowserId = getOrCreateGuestBrowserId();
+        const url = new URL("/api/shop/cart-product-ids", window.location.origin);
+        if (guestBrowserId) url.searchParams.set("guestBrowserId", guestBrowserId);
+        const res = await fetch(url.toString());
+        if (!res.ok) return;
+        const body = await res.json();
+        const map = new Map();
+        (body.items || []).forEach((item) => {
+          map.set(item.productId, {
+            cartItemId: item.cartItemId,
+            cartId: item.cartId,
+            vendorSlug: item.vendorSlug,
+          });
+        });
+        if (!ignore) setCartItemMap(map);
+      } catch {
+        // ignore
+      }
+    };
+    fetchCartItems();
+
     return () => {
       ignore = true;
     };
   }, [supabase]);
 
-  const fetchFeaturedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
-    setFeaturedLoading(true);
-    try {
-      const url = new URL("/api/product/featured", window.location.origin);
-      url.searchParams.set("limit", "8");
-      url.searchParams.set("page", String(page));
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        if (!append) setFeaturedProducts([]);
-        setFeaturedHasMore(false);
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-      const next = Array.isArray(body?.products) ? body.products : [];
-      const mapped = next.map(mapProduct).filter((p) => p?.id);
-      setFeaturedHasMore(!!body?.has_more);
-      setFeaturedPage(page);
-      setFeaturedProducts((prev) => {
-        if (!append) return mapped;
-        const existing = new Set(prev.map((p) => p.id));
-        const merged = [...prev];
-        mapped.forEach((p) => {
-          if (!existing.has(p.id)) merged.push(p);
-        });
-        return merged;
-      });
-    } finally {
-      setFeaturedLoading(false);
-    }
-  }, []);
-
-  const loadMoreFeaturedProducts = useCallback(async () => {
-    if (featuredLoading || !featuredHasMore) return;
-    const nextPage = featuredPage + 1;
-    await fetchFeaturedProducts({ page: nextPage, append: true });
-  }, [fetchFeaturedProducts, featuredHasMore, featuredLoading, featuredPage]);
-
-  const fetchRecommendedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
-    setRecommendedLoading(true);
-    try {
-      const url = new URL("/api/product/recommended", window.location.origin);
-      url.searchParams.set("limit", "8");
-      url.searchParams.set("page", String(page));
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        if (!append) setRecommendedProducts([]);
-        setRecommendedHasMore(false);
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-      const next = Array.isArray(body?.products) ? body.products : [];
-      const mapped = next.map(mapProduct).filter((p) => p?.id);
-      setRecommendedHasMore(!!body?.has_more);
-      setRecommendedPage(page);
-      setRecommendedProducts((prev) => {
-        if (!append) return mapped;
-        const existing = new Set(prev.map((p) => p.id));
-        const merged = [...prev];
-        mapped.forEach((p) => {
-          if (!existing.has(p.id)) merged.push(p);
-        });
-        return merged;
-      });
-    } finally {
-      setRecommendedLoading(false);
-    }
-  }, []);
-
-  const loadMoreRecommendedProducts = useCallback(async () => {
-    if (recommendedLoading || !recommendedHasMore) return;
-    const nextPage = recommendedPage + 1;
-    await fetchRecommendedProducts({ page: nextPage, append: true });
-  }, [
-    fetchRecommendedProducts,
-    recommendedHasMore,
-    recommendedLoading,
-    recommendedPage,
-  ]);
-
-  const fetchRecentlyViewedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
-    setRecentlyViewedLoading(true);
-    try {
-      const sessionId = getProductSessionId() || getOrCreateProductSessionId();
-      if (!sessionId) {
-        if (!append) setRecentlyViewedProducts([]);
-        setRecentlyViewedHasMore(false);
-        return;
-      }
-
-      const url = new URL(
-        "/api/product/recently-viewed",
-        window.location.origin
-      );
-      url.searchParams.set("limit", "8");
-      url.searchParams.set("page", String(page));
-      url.searchParams.set("session_id", sessionId);
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        if (!append) setRecentlyViewedProducts([]);
-        setRecentlyViewedHasMore(false);
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-      const next = Array.isArray(body?.products) ? body.products : [];
-      const mapped = next.map(mapProduct).filter((p) => p?.id);
-      setRecentlyViewedHasMore(!!body?.has_more);
-      setRecentlyViewedPage(page);
-      setRecentlyViewedProducts((prev) => {
-        if (!append) return mapped;
-        const existing = new Set(prev.map((p) => p.id));
-        const merged = [...prev];
-        mapped.forEach((p) => {
-          if (!existing.has(p.id)) merged.push(p);
-        });
-        return merged;
-      });
-    } finally {
-      setRecentlyViewedLoading(false);
-    }
-  }, []);
-
-  const loadMoreRecentlyViewedProducts = useCallback(async () => {
-    if (recentlyViewedLoading || !recentlyViewedHasMore) return;
-    const nextPage = recentlyViewedPage + 1;
-    await fetchRecentlyViewedProducts({ page: nextPage, append: true });
-  }, [
-    fetchRecentlyViewedProducts,
-    recentlyViewedHasMore,
-    recentlyViewedLoading,
-    recentlyViewedPage,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    fetchFeaturedProducts({ page: 1, append: false });
-    fetchRecommendedProducts({ page: 1, append: false });
-    fetchRecentlyViewedProducts({ page: 1, append: false });
-
-    const handleProductViewed = () => {
-      fetchRecentlyViewedProducts({ page: 1, append: false });
-    };
-
-    window.addEventListener("product-viewed", handleProductViewed);
-    return () => {
-      window.removeEventListener("product-viewed", handleProductViewed);
-    };
-  }, [
-    fetchFeaturedProducts,
-    fetchRecommendedProducts,
-    fetchRecentlyViewedProducts,
-  ]);
-
   const filterKey = useMemo(
     () =>
-      [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam].join(
+      [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam, ratingParam].join(
         "|"
       ),
-    [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam]
+    [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam, ratingParam]
   );
   const lastFilterRef = useRef(filterKey);
   const lastPageRef = useRef(page);
@@ -427,6 +280,18 @@ export function ShopProvider({
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
+        // Pre-fetch product IDs from product_categories if category filter is active
+        let categoryProductIds = null;
+        if (selectedCategories.length > 0) {
+          const { data: catRows } = await supabase
+            .from("product_categories")
+            .select("product_id")
+            .in("category_id", selectedCategories);
+          categoryProductIds = new Set(
+            (catRows || []).map((r) => r.product_id).filter(Boolean)
+          );
+        }
+
         let query = supabase
           .from("products")
           .select(
@@ -441,6 +306,10 @@ export function ShopProvider({
             description,
             stock_qty,
             category_id,
+            avg_rating,
+            review_count,
+            is_featured,
+            purchase_count,
             product_categories (category_id),
             vendor:vendors!inner(
               id,
@@ -449,7 +318,8 @@ export function ShopProvider({
               verified,
               shop_status
             )
-          `
+          `,
+            { count: "exact" }
           )
           .eq("status", "approved")
           .eq("active", true)
@@ -460,10 +330,23 @@ export function ShopProvider({
           query = query.ilike("name", `%${searchQuery.trim()}%`);
         }
 
-        if (categoryFilter && categoryFilter !== "all") {
-          query = query.or(
-            `category_id.eq.${categoryFilter},product_categories.category_id.eq.${categoryFilter}`,
-          );
+        if (selectedCategories.length > 0) {
+          const catIds = selectedCategories.join(",");
+          if (categoryProductIds && categoryProductIds.size > 0) {
+            const allIds = [...categoryProductIds].join(",");
+            query = query.or(
+              `category_id.in.(${catIds}),id.in.(${allIds})`
+            );
+          } else {
+            query = query.in("category_id", selectedCategories);
+          }
+        }
+
+        if (ratingParam) {
+          const minRating = parseFloat(ratingParam);
+          if (!Number.isNaN(minRating) && minRating > 0) {
+            query = query.gte("avg_rating", minRating);
+          }
         }
 
         if (minPriceParam) {
@@ -477,6 +360,19 @@ export function ShopProvider({
         }
 
         switch (sortBy) {
+          case "popular":
+            query = query
+              .order("purchase_count", { ascending: false })
+              .order("review_count", { ascending: false });
+            break;
+          case "best_rated":
+            query = query
+              .order("avg_rating", { ascending: false })
+              .order("review_count", { ascending: false });
+            break;
+          case "newest":
+            query = query.order("created_at", { ascending: false });
+            break;
           case "price_low":
             query = query.order("price", { ascending: true });
             break;
@@ -489,34 +385,22 @@ export function ShopProvider({
           case "name_desc":
             query = query.order("name", { ascending: false });
             break;
-          case "newest":
+          case "featured":
           default:
-            query = query.order("created_at", { ascending: false });
+            query = query
+              .order("is_featured", { ascending: false })
+              .order("purchase_count", { ascending: false })
+              .order("avg_rating", { ascending: false });
             break;
         }
 
-        const { data, error } = await query.range(from, to);
+        const { data, error, count } = await query.range(from, to);
         if (ignore || error) return;
 
         const nextRaw = Array.isArray(data) ? data : [];
         const nextMapped = nextRaw.map(mapProduct).filter((p) => p?.id);
-        const shouldReplace =
-          filterKey !== lastFilterRef.current || page <= 1 || page <= lastPageRef.current;
-
-        if (shouldReplace) {
-          setProducts(nextMapped);
-        } else {
-          setProducts((prev) => {
-            const existing = new Set(prev.map((p) => p.id));
-            const merged = [...prev];
-            nextMapped.forEach((p) => {
-              if (!existing.has(p.id)) merged.push(p);
-            });
-            return merged;
-          });
-        }
-
-        setHasMore(nextRaw.length >= pageSize);
+        setProducts(nextMapped);
+        setTotalCount(count || 0);
         lastFilterRef.current = filterKey;
         lastPageRef.current = page;
       } finally {
@@ -539,6 +423,8 @@ export function ShopProvider({
     sortBy,
     minPriceParam,
     maxPriceParam,
+    ratingParam,
+    selectedCategories,
     setPageParam,
   ]);
 
@@ -575,11 +461,19 @@ export function ShopProvider({
     return () => window.removeEventListener('registry-item-updated', handleStorageChange);
   }, [fetchRegistryItems]);
 
-  // Load more products
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
-    setPageParam(String(page + 1));
-  }, [loading, hasMore, page, setPageParam]);
+  const totalPages = useMemo(() => {
+    const calc = Math.ceil(totalCount / pageSize);
+    return calc > 0 ? calc : 1;
+  }, [totalCount, pageSize]);
+
+  const setPage = useCallback(
+    (value) => {
+      const next = Number(value);
+      const normalized = Number.isFinite(next) && next > 0 ? next : 1;
+      setPageParam(String(normalized));
+    },
+    [setPageParam]
+  );
 
   // Search/filter products
   const applyFilters = useCallback(async () => {
@@ -620,6 +514,189 @@ export function ShopProvider({
     setAddToRegistryProduct(null);
   }, []);
 
+  // Add to cart
+  const addToCart = useCallback(
+    async (product) => {
+      if (!product?.id || !product?.vendor?.slug) {
+        toast.error("Product information is incomplete");
+        return;
+      }
+      if (cartItemMap.has(product.id)) {
+        toast("Already in cart", { icon: "🛒" });
+        return;
+      }
+      setAddingToCartId(product.id);
+      try {
+        const guestBrowserId = getOrCreateGuestBrowserId();
+        const res = await fetch("/api/storefront/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            vendorSlug: product.vendor.slug,
+            productId: product.id,
+            quantity: 1,
+            guestBrowserId,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          toast.error(body?.message || "Failed to add to cart");
+          return;
+        }
+        const body = await res.json().catch(() => ({}));
+        // Update local cart state
+        setCartItemMap((prev) => {
+          const next = new Map(prev);
+          const cartItemId =
+            body?.items?.[body.items.length - 1]?.id || `temp-${product.id}`;
+          next.set(product.id, { cartItemId, cartId: body?.cart?.id, vendorSlug: product.vendor.slug });
+          return next;
+        });
+        toast.success(`${product.name} added to cart`);
+      } catch {
+        toast.error("Failed to add to cart");
+      } finally {
+        setAddingToCartId(null);
+      }
+    },
+    [cartItemMap]
+  );
+
+  // Remove from cart
+  const removeFromCart = useCallback(
+    async (productId) => {
+      const entry = cartItemMap.get(productId);
+      if (!entry?.cartItemId) {
+        toast.error("Item not found in cart");
+        return;
+      }
+      setRemovingFromCartId(productId);
+      try {
+        const res = await fetch("/api/storefront/cart", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cartItemId: entry.cartItemId }),
+        });
+        if (!res.ok) {
+          toast.error("Failed to remove from cart");
+          return;
+        }
+        setCartItemMap((prev) => {
+          const next = new Map(prev);
+          next.delete(productId);
+          return next;
+        });
+        toast.success("Removed from cart");
+      } catch {
+        toast.error("Failed to remove from cart");
+      } finally {
+        setRemovingFromCartId(null);
+      }
+    },
+    [cartItemMap]
+  );
+
+  // Check if product is in cart
+  const isInCart = useCallback(
+    (productId) => cartItemMap.has(productId),
+    [cartItemMap]
+  );
+
+  // Buy now - add to cart then navigate to checkout
+  const buyNow = useCallback(
+    async (product) => {
+      if (!product?.id || !product?.vendor?.slug) {
+        toast.error("Product information is incomplete");
+        return;
+      }
+      setBuyingProductId(product.id);
+      try {
+        const guestBrowserId = getOrCreateGuestBrowserId();
+        const res = await fetch("/api/storefront/cart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            vendorSlug: product.vendor.slug,
+            productId: product.id,
+            quantity: 1,
+            guestBrowserId,
+          }),
+        });
+        if (!res.ok) {
+          const body = await res.json().catch(() => ({}));
+          toast.error(body?.message || "Failed to process purchase");
+          return;
+        }
+        router.push(
+          `/storefront/${product.vendor.slug}/checkout?cart=1`
+        );
+      } catch {
+        toast.error("Failed to process purchase");
+      } finally {
+        setBuyingProductId(null);
+      }
+    },
+    [router]
+  );
+
+  // Toggle single category in filter
+  const toggleCategory = useCallback(
+    (catId) => {
+      const current = categoryFilter ? categoryFilter.split(",").filter(Boolean) : [];
+      const next = current.includes(catId)
+        ? current.filter((id) => id !== catId)
+        : [...current, catId];
+      setCategoryParam(next.length > 0 ? next.join(",") : "");
+      setPageParam("1");
+    },
+    [categoryFilter, setCategoryParam, setPageParam]
+  );
+
+  // Toggle parent category (and all its children)
+  const toggleParentCategory = useCallback(
+    (parentId, childIds = []) => {
+      const current = categoryFilter ? categoryFilter.split(",").filter(Boolean) : [];
+      const allIds = [parentId, ...childIds];
+      const allSelected = allIds.every((id) => current.includes(id));
+      let next;
+      if (allSelected) {
+        next = current.filter((id) => !allIds.includes(id));
+      } else {
+        const set = new Set([...current, ...allIds]);
+        next = [...set];
+      }
+      setCategoryParam(next.length > 0 ? next.join(",") : "");
+      setPageParam("1");
+    },
+    [categoryFilter, setCategoryParam, setPageParam]
+  );
+
+  // Set and apply price range (for slider onValueCommit)
+  const setAndApplyPriceRange = useCallback(
+    ({ min, max }) => {
+      const minStr = min > 0 ? String(min) : "";
+      const maxStr = max < 10000 ? String(max) : "";
+      setPriceRange({ min: minStr, max: maxStr });
+      setMinPriceParam(minStr);
+      setMaxPriceParam(maxStr);
+      setPageParam("1");
+    },
+    [setMinPriceParam, setMaxPriceParam, setPageParam]
+  );
+
+  // Cart derived values
+  const cartCount = cartItemMap.size;
+  const cartCheckoutUrl = useMemo(() => {
+    if (cartItemMap.size === 0) return null;
+    // Find the first vendor slug from cart items
+    for (const entry of cartItemMap.values()) {
+      if (entry.vendorSlug) {
+        return `/storefront/${entry.vendorSlug}/checkout?cart=1`;
+      }
+    }
+    return null;
+  }, [cartItemMap]);
+
   // Check if product is in registry
   const isProductInRegistry = useCallback(
     (productId) => {
@@ -639,10 +716,11 @@ export function ShopProvider({
   // Clear filters
   const clearFilters = useCallback(() => {
     setSearchParam("");
-    setCategoryParam("all");
+    setCategoryParam("");
     setSortParam("newest");
     setMinPriceParam("");
     setMaxPriceParam("");
+    setRatingParam("");
     setPageParam("1");
     setPriceRange({ min: "", max: "" });
   }, [
@@ -651,6 +729,7 @@ export function ShopProvider({
     setSortParam,
     setMinPriceParam,
     setMaxPriceParam,
+    setRatingParam,
     setPageParam,
   ]);
 
@@ -664,7 +743,11 @@ export function ShopProvider({
 
   const setCategoryFilter = useCallback(
     (value) => {
-      setCategoryParam(value || "all");
+      if (Array.isArray(value)) {
+        setCategoryParam(value.length > 0 ? value.join(",") : "");
+      } else {
+        setCategoryParam(value === "all" ? "" : value || "");
+      }
       setPageParam("1");
     },
     [setCategoryParam, setPageParam]
@@ -678,33 +761,29 @@ export function ShopProvider({
     [setSortParam, setPageParam]
   );
 
+  const setRatingFilter = useCallback(
+    (value) => {
+      setRatingParam(value || "");
+      setPageParam("1");
+    },
+    [setRatingParam, setPageParam]
+  );
+
   const hasActiveFilters =
     searchQuery ||
-    (categoryFilter && categoryFilter !== "all") ||
+    selectedCategories.length > 0 ||
     priceRange.min ||
-    priceRange.max;
+    priceRange.max ||
+    ratingParam;
 
   const value = useMemo(
     () => ({
       // Products
       products,
       loading,
-      hasMore,
-      loadMore,
-
-      // Surfaces
-      featuredProducts,
-      featuredLoading,
-      featuredHasMore,
-      loadMoreFeaturedProducts,
-      recommendedProducts,
-      recommendedLoading,
-      recommendedHasMore,
-      loadMoreRecommendedProducts,
-      recentlyViewedProducts,
-      recentlyViewedLoading,
-      recentlyViewedHasMore,
-      loadMoreRecentlyViewedProducts,
+      totalPages,
+      page,
+      setPage,
 
       // Filters
       searchQuery,
@@ -719,6 +798,8 @@ export function ShopProvider({
       applyFilters,
       clearFilters,
       hasActiveFilters,
+      ratingFilter: ratingParam,
+      setRatingFilter,
 
       // Registry
       registry,
@@ -738,25 +819,34 @@ export function ShopProvider({
       addToRegistryOpen,
       addToRegistryProduct,
       openAddToRegistry,
-      closeAddToRegistry
+      closeAddToRegistry,
+
+      // Cart actions
+      addToCart,
+      buyNow,
+      removeFromCart,
+      isInCart,
+      addingToCartId,
+      buyingProductId,
+      removingFromCartId,
+      cartCount,
+      cartCheckoutUrl,
+
+      // Multi-category filter
+      selectedCategories,
+      toggleCategory,
+      toggleParentCategory,
+
+      // Price slider
+      setAndApplyPriceRange,
     }),
+
     [
       products,
       loading,
-      hasMore,
-      loadMore,
-      featuredProducts,
-      featuredLoading,
-      featuredHasMore,
-      loadMoreFeaturedProducts,
-      recommendedProducts,
-      recommendedLoading,
-      recommendedHasMore,
-      loadMoreRecommendedProducts,
-      recentlyViewedProducts,
-      recentlyViewedLoading,
-      recentlyViewedHasMore,
-      loadMoreRecentlyViewedProducts,
+      totalPages,
+      page,
+      setPage,
       searchQuery,
       categoryFilter,
       sortBy,
@@ -765,6 +855,8 @@ export function ShopProvider({
       applyFilters,
       clearFilters,
       hasActiveFilters,
+      ratingParam,
+      setRatingFilter,
       registry,
       hostProfile,
       registryItems,
@@ -777,7 +869,21 @@ export function ShopProvider({
       addToRegistryOpen,
       addToRegistryProduct,
       openAddToRegistry,
-      closeAddToRegistry
+      closeAddToRegistry,
+      addToCart,
+      buyNow,
+      removeFromCart,
+      isInCart,
+      addingToCartId,
+      buyingProductId,
+      removingFromCartId,
+      cartCount,
+      cartCheckoutUrl,
+      selectedCategories,
+      toggleCategory,
+      toggleParentCategory,
+      setAndApplyPriceRange,
+      cartItemMap,
     ]
   );
 

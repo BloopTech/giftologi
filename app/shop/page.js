@@ -48,7 +48,7 @@ export default async function ShopPage({ searchParams }) {
 
     // If user is a host, get their most recent active registry
     if (profile?.role === "host") {
-      let registryQuery = supabase
+      const { data: registries } = await supabase
         .from("registries")
         .select(
           `
@@ -64,24 +64,24 @@ export default async function ShopPage({ searchParams }) {
         `
         )
         .eq("registry_owner_id", profile.id)
-        .order("created_at", { ascending: false })
-        .limit(1);
+        .order("created_at", { ascending: false });
+
+      const allRegs = (registries || []).map((r) => ({
+        id: r.id,
+        title: r.title,
+        registry_code: r.registry_code,
+        event: Array.isArray(r.event) ? r.event[0] : r.event,
+      }));
 
       if (registryCodeParam) {
-        registryQuery = registryQuery.eq("registry_code", registryCodeParam);
-      }
-
-      const { data: registry } = await registryQuery.maybeSingle();
-
-      if (registry) {
-        activeRegistry = {
-          id: registry.id,
-          title: registry.title,
-          registry_code: registry.registry_code,
-          event: Array.isArray(registry.event)
-            ? registry.event[0]
-            : registry.event,
-        };
+        activeRegistry =
+          allRegs.find(
+            (r) => r.registry_code === registryCodeParam
+          ) ||
+          allRegs[0] ||
+          null;
+      } else {
+        activeRegistry = allRegs[0] || null;
       }
     }
   }

@@ -5,11 +5,10 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient, createClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
 import {
-  createNotification,
-  createNotifications,
-  fetchUserIdsByRole,
-  fetchVendorNotificationPreferences,
-} from "../../../utils/notifications";
+  dispatchNotification,
+  dispatchNotificationBulk,
+  dispatchToAdmins,
+} from "../../../utils/notificationService";
 
 const defaultUpdateOrderStatusValues = {
   orderId: [],
@@ -156,17 +155,12 @@ export async function updateOrderStatus(prevState, formData) {
 
       for (const vendor of vendorRows || []) {
         if (!vendor?.profiles_id) continue;
-        const { data: preferences } =
-          await fetchVendorNotificationPreferences({
-            client: adminClient,
-            vendorId: vendor.id,
-          });
-        if (!preferences?.order_updates) continue;
 
-        await createNotification({
+        await dispatchNotification({
           client: adminClient,
-          userId: vendor.profiles_id,
-          type: "order_status",
+          recipientId: vendor.profiles_id,
+          recipientRole: "vendor",
+          eventType: "order_status",
           message: `Order ${orderCodeLabel} was cancelled.`,
           link: "/dashboard/v/orders",
           data: {
@@ -175,6 +169,7 @@ export async function updateOrderStatus(prevState, formData) {
             status: newStatus,
             vendor_id: vendor.id,
           },
+          vendorId: vendor.id,
         });
       }
     }
@@ -197,14 +192,17 @@ export async function updateOrderStatus(prevState, formData) {
             ? "delivered"
             : "cancelled";
 
-        await createNotification({
+        const dashboardLink = registry.registry_code
+          ? `/dashboard/h/registry/${registry.registry_code}`
+          : "/dashboard/h/registry";
+
+        await dispatchNotification({
           client: adminClient,
-          userId: registry.registry_owner_id,
-          type: "order_status",
+          recipientId: registry.registry_owner_id,
+          recipientRole: "host",
+          eventType: "order_status",
           message: `Your registry order ${orderCodeLabel} was ${statusLabel}.`,
-          link: registry.registry_code
-            ? `/dashboard/h/registry/${registry.registry_code}`
-            : "/dashboard/h/registry",
+          link: dashboardLink,
           data: {
             order_id: orderId,
             order_code: order?.order_code || null,
@@ -399,17 +397,12 @@ export async function initiateOrderRefund(prevState, formData) {
 
       for (const vendor of vendorRows || []) {
         if (!vendor?.profiles_id) continue;
-        const { data: preferences } =
-          await fetchVendorNotificationPreferences({
-            client: adminClient,
-            vendorId: vendor.id,
-          });
-        if (!preferences?.order_updates) continue;
 
-        await createNotification({
+        await dispatchNotification({
           client: adminClient,
-          userId: vendor.profiles_id,
-          type: "order_status",
+          recipientId: vendor.profiles_id,
+          recipientRole: "vendor",
+          eventType: "order_status",
           message: `Refund initiated for order ${orderCodeLabel}.`,
           link: "/dashboard/v/orders",
           data: {
@@ -418,28 +411,21 @@ export async function initiateOrderRefund(prevState, formData) {
             status: "refunded",
             vendor_id: vendor.id,
           },
+          vendorId: vendor.id,
         });
       }
     }
 
-    const { data: adminIds } = await fetchUserIdsByRole({
+    await dispatchToAdmins({
       client: adminClient,
-      roles: ["super_admin", "finance_admin", "customer_support_admin"],
+      eventType: "dispute_or_refund",
+      message: `Refund initiated for order ${orderCodeLabel}.`,
+      link: "/dashboard/admin/transactions",
+      data: {
+        order_id: orderId,
+        refund_id: refund.id,
+      },
     });
-
-    if (adminIds.length) {
-      await createNotifications({
-        client: adminClient,
-        userIds: adminIds,
-        type: "dispute_or_refund",
-        message: `Refund initiated for order ${orderCodeLabel}.`,
-        link: "/dashboard/admin/transactions",
-        data: {
-          order_id: orderId,
-          refund_id: refund.id,
-        },
-      });
-    }
   } catch (error) {
     console.error("Failed to send refund notifications:", error);
   }

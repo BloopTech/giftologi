@@ -31,7 +31,7 @@ const initialState = {
 
 const ROLE_OPTIONS = [
   { label: "Super Admin", value: "super_admin" },
-  { label: "Operations Manager", value: "operations_manager_admin" },
+  { label: "Operations", value: "operations_manager_admin" },
   { label: "Store Manager", value: "store_manager_admin" },
   { label: "Marketing", value: "marketing_admin" },
   { label: "Finance", value: "finance_admin" },

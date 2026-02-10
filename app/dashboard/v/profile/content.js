@@ -32,6 +32,7 @@ const defaultNotificationSettings = {
   weeklyReports: false,
   monthlyReports: false,
   marketingEmails: false,
+  pushNotifications: false,
 };
 
 const mapNotificationSettings = (preferences) => ({
@@ -51,6 +52,9 @@ const mapNotificationSettings = (preferences) => ({
   marketingEmails:
     preferences?.marketing_emails ??
     defaultNotificationSettings.marketingEmails,
+  pushNotifications:
+    preferences?.push_notifications ??
+    defaultNotificationSettings.pushNotifications,
 });
 
 const formatMemberSince = (value) => {
@@ -618,6 +622,7 @@ export default function VendorProfileContent() {
       weekly_reports: notifications.weeklyReports,
       monthly_reports: notifications.monthlyReports,
       marketing_emails: notifications.marketingEmails,
+      push_notifications: notifications.pushNotifications,
     }),
     [notifications],
   );

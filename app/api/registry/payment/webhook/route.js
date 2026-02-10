@@ -3,7 +3,7 @@ import {
   createAdminClient,
   createClient,
 } from "../../../../utils/supabase/server";
-import { createNotification } from "../../../../utils/notifications";
+import { dispatchNotification } from "../../../../utils/notificationService";
 
 const EXPRESSPAY_QUERY_URL =
   process.env.EXPRESSPAY_ENV === "live"
@@ -127,22 +127,44 @@ export async function POST(request) {
             .maybeSingle();
 
           if (registry?.registry_owner_id) {
-            await createNotification({
+            const { data: hostProfile } = await adminClient
+              .from("profiles")
+              .select("email, firstname")
+              .eq("id", registry.registry_owner_id)
+              .maybeSingle();
+
+            const dashboardLink = registry.registry_code
+              ? `/dashboard/h/registry/${registry.registry_code}`
+              : "/dashboard/h/registry";
+
+            await dispatchNotification({
               client: adminClient,
-              userId: registry.registry_owner_id,
-              type: "registry_purchase",
+              recipientId: registry.registry_owner_id,
+              recipientRole: "host",
+              eventType: "registry_purchase",
               message: registry.title
                 ? `New gift purchase for ${registry.title}.`
                 : "You received a new registry purchase.",
-              link: registry.registry_code
-                ? `/dashboard/h/registry/${registry.registry_code}`
-                : "/dashboard/h/registry",
+              link: dashboardLink,
               data: {
                 order_id: order.id,
                 order_code: order.order_code || null,
                 registry_id: registry.id,
                 status: newStatus,
               },
+              emailPayload: hostProfile?.email
+                ? {
+                    templateSlug: "host_purchase_alert",
+                    to: hostProfile.email,
+                    variables: {
+                      host_name: hostProfile.firstname || "there",
+                      buyer_name: "A gifter",
+                      registry_title: registry.title || "your registry",
+                      amount: "",
+                      dashboard_url: `${process.env.NEXT_PUBLIC_SITE_URL || ""}${dashboardLink}`,
+                    },
+                  }
+                : undefined,
             });
           }
         }

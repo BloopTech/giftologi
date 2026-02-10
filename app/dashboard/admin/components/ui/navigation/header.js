@@ -88,7 +88,7 @@ export default function Header() {
     const roleMap = {
       super_admin: "Super Admin",
       finance_admin: "Finance",
-      operations_manager_admin: "Operations Manager",
+      operations_manager_admin: "Operations",
       customer_support_admin: "Customer Support Admin",
       store_manager_admin: "Store Manager",
       marketing_admin: "Marketing",

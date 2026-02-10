@@ -26,7 +26,7 @@
     id: "vendor_performance",
     title: "Vendor Performance Report",
     description: "Sales and fulfillment metrics per vendor",
-    accessLevel: "Operations Manager, Super Admin",
+    accessLevel: "Operations, Super Admin",
   },
   {
     id: "financial_transactions",

@@ -6,12 +6,11 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import {
-  getProductSessionId,
-  getOrCreateProductSessionId,
-} from "../../utils/guest";
+import { useQueryState, parseAsString } from "nuqs";
+import { createClient as createSupabaseClient } from "../../utils/supabase/client";
 
 const StorefrontContext = createContext(null);
 
@@ -22,9 +21,36 @@ const formatPrice = (value) => {
   return `GHS ${num.toFixed(2)}`;
 };
 
+const normalizeVariations = (raw) => {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw.filter((v) => v && typeof v === "object");
+  if (typeof raw === "string") {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed)
+        ? parsed.filter((v) => v && typeof v === "object")
+        : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const getVariationPriceStats = (variations, serviceCharge = 0) => {
+  const prices = (variations || [])
+    .map((variation) => Number(variation?.price))
+    .filter((value) => Number.isFinite(value))
+    .map((value) => value + serviceCharge);
+  if (!prices.length) return { min: null, max: null };
+  return { min: Math.min(...prices), max: Math.max(...prices) };
+};
+
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const serviceCharge = Number(product?.service_charge || 0);
+  const variations = normalizeVariations(product?.variations);
+  const variationStats = getVariationPriceStats(variations, serviceCharge);
   const relatedCategoryIds = Array.isArray(product?.product_categories)
     ? product.product_categories
         .map((entry) => entry?.category_id)
@@ -39,18 +65,26 @@ const mapProduct = (product) => {
   const baseWithCharge = Number.isFinite(basePrice)
     ? basePrice + serviceCharge
     : serviceCharge;
+  const displayPrice =
+    variationStats.min != null && Number.isFinite(variationStats.min)
+      ? variationStats.min
+      : Number.isFinite(baseWithCharge)
+      ? baseWithCharge
+      : null;
   return {
     id: product?.id,
     product_code: product?.product_code || null,
     name: product?.name || "Product",
     image: images[0] || "/host/toaster.png",
-    price: formatPrice(baseWithCharge),
-    rawPrice: baseWithCharge,
+    price: formatPrice(displayPrice),
+    rawPrice: displayPrice,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
     categoryId: product?.category_id || null,
     categoryIds: mergedCategoryIds,
     serviceCharge,
+    avg_rating: product?.avg_rating ?? 0,
+    review_count: product?.review_count ?? 0,
   };
 };
 
@@ -82,286 +116,82 @@ const parseCategoryChips = (raw) => {
 
 export function StorefrontProvider({
   vendorSlug,
-  initialProducts,
-  initialPage = 1,
-  pageSize = 12,
+  initialSearchParams,
   children,
 }) {
+  const supabase = useMemo(() => createSupabaseClient(), []);
+  const pageSize = 24;
+
   const [vendor, setVendor] = useState(null);
   const [vendorLoading, setVendorLoading] = useState(true);
+  const [vendorId, setVendorId] = useState(null);
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
 
-  const [products, setProducts] = useState(() =>
-    Array.isArray(initialProducts) ? initialProducts : []
-  );
-  const [page, setPage] = useState(initialPage);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [hasMore, setHasMore] = useState(
-    Array.isArray(initialProducts) ? initialProducts.length >= pageSize : false
+  const [totalCount, setTotalCount] = useState(0);
+
+  // Filter states via URL query params
+  const [searchParam, setSearchParam] = useQueryState(
+    "q",
+    parseAsString.withDefault(initialSearchParams?.q || "")
+  );
+  const [categoryParam, setCategoryParam] = useQueryState(
+    "category",
+    parseAsString.withDefault(initialSearchParams?.category || "")
+  );
+  const [sortParam, setSortParam] = useQueryState(
+    "sort",
+    parseAsString.withDefault(initialSearchParams?.sort || "newest")
+  );
+  const [minPriceParam, setMinPriceParam] = useQueryState(
+    "minPrice",
+    parseAsString.withDefault(initialSearchParams?.minPrice || "")
+  );
+  const [maxPriceParam, setMaxPriceParam] = useQueryState(
+    "maxPrice",
+    parseAsString.withDefault(initialSearchParams?.maxPrice || "")
+  );
+  const [ratingParam, setRatingParam] = useQueryState(
+    "rating",
+    parseAsString.withDefault(initialSearchParams?.rating || "")
+  );
+  const [pageParam, setPageParam] = useQueryState(
+    "page",
+    parseAsString.withDefault(initialSearchParams?.page || "1")
   );
 
-  const [featuredProducts, setFeaturedProducts] = useState([]);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
-  const [featuredPage, setFeaturedPage] = useState(1);
-  const [featuredHasMore, setFeaturedHasMore] = useState(false);
-  const [recommendedProducts, setRecommendedProducts] = useState([]);
-  const [recommendedLoading, setRecommendedLoading] = useState(false);
-  const [recommendedPage, setRecommendedPage] = useState(1);
-  const [recommendedHasMore, setRecommendedHasMore] = useState(false);
-  const [recentlyViewedProducts, setRecentlyViewedProducts] = useState([]);
-  const [recentlyViewedLoading, setRecentlyViewedLoading] = useState(false);
-  const [recentlyViewedPage, setRecentlyViewedPage] = useState(1);
-  const [recentlyViewedHasMore, setRecentlyViewedHasMore] = useState(false);
-
-  const loadMore = useCallback(async () => {
-    if (loading || !hasMore) return;
-    if (!vendorSlug) return;
-
-    const nextPage = page + 1;
-    setLoading(true);
-
-    try {
-      const url = new URL(
-        "/api/storefront/vendor-products",
-        window.location.origin
-      );
-      url.searchParams.set("vendor_slug", vendorSlug);
-      url.searchParams.set("page", String(nextPage));
-      url.searchParams.set("limit", String(pageSize));
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        setHasMore(false);
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-      const nextRaw = Array.isArray(body?.products) ? body.products : [];
-      const nextMapped = nextRaw.map(mapProduct).filter((p) => p?.id);
-
-      setProducts((prev) => {
-        const existing = new Set(prev.map((p) => p.id));
-        const merged = [...prev];
-        nextMapped.forEach((p) => {
-          if (!existing.has(p.id)) merged.push(p);
-        });
-        return merged;
-      });
-
-      setPage(nextPage);
-      setHasMore(nextRaw.length >= pageSize);
-    } finally {
-      setLoading(false);
-    }
-  }, [hasMore, loading, page, pageSize, vendorSlug]);
+  const searchQuery = searchParam || "";
+  const categoryFilter = categoryParam || "";
+  const sortBy = sortParam || "newest";
+  const selectedCategories = useMemo(
+    () => (categoryFilter ? categoryFilter.split(",").filter(Boolean) : []),
+    [categoryFilter]
+  );
+  const page = useMemo(() => {
+    const num = Number.parseInt(pageParam || "1", 10);
+    if (Number.isNaN(num) || num < 1) return 1;
+    return num;
+  }, [pageParam]);
+  const [priceRange, setPriceRange] = useState({
+    min: minPriceParam || "",
+    max: maxPriceParam || "",
+  });
 
   useEffect(() => {
-    if (!vendorSlug) return;
+    setPriceRange({
+      min: minPriceParam || "",
+      max: maxPriceParam || "",
+    });
+  }, [minPriceParam, maxPriceParam]);
 
-    setProducts([]);
-    setPage(0);
-    setHasMore(true);
-  }, [vendorSlug]);
-
-  const fetchFeaturedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
-    if (!vendorSlug) return;
-    setFeaturedLoading(true);
-    try {
-      const url = new URL("/api/product/featured", window.location.origin);
-      url.searchParams.set("vendor_slug", vendorSlug);
-      url.searchParams.set("limit", "6");
-      url.searchParams.set("page", String(page));
-      url.searchParams.set("include_closed", "true");
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        if (!append) setFeaturedProducts([]);
-        setFeaturedHasMore(false);
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-      const next = Array.isArray(body?.products) ? body.products : [];
-      const mapped = next.map(mapProduct).filter((p) => p?.id);
-      setFeaturedHasMore(!!body?.has_more);
-      setFeaturedPage(page);
-      setFeaturedProducts((prev) => {
-        if (!append) return mapped;
-        const existing = new Set(prev.map((p) => p.id));
-        const merged = [...prev];
-        mapped.forEach((p) => {
-          if (!existing.has(p.id)) merged.push(p);
-        });
-        return merged;
-      });
-    } finally {
-      setFeaturedLoading(false);
-    }
-  }, [vendorSlug]);
-
-  const loadMoreFeaturedProducts = useCallback(async () => {
-    if (featuredLoading || !featuredHasMore) return;
-    const nextPage = featuredPage + 1;
-    await fetchFeaturedProducts({ page: nextPage, append: true });
-  }, [fetchFeaturedProducts, featuredHasMore, featuredLoading, featuredPage]);
-
-  const fetchRecommendedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
-    if (!vendorSlug) return;
-    setRecommendedLoading(true);
-    try {
-      const url = new URL("/api/product/recommended", window.location.origin);
-      url.searchParams.set("vendor_slug", vendorSlug);
-      url.searchParams.set("limit", "6");
-      url.searchParams.set("page", String(page));
-      url.searchParams.set("include_closed", "true");
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        if (!append) setRecommendedProducts([]);
-        setRecommendedHasMore(false);
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-      const next = Array.isArray(body?.products) ? body.products : [];
-      const mapped = next.map(mapProduct).filter((p) => p?.id);
-      setRecommendedHasMore(!!body?.has_more);
-      setRecommendedPage(page);
-      setRecommendedProducts((prev) => {
-        if (!append) return mapped;
-        const existing = new Set(prev.map((p) => p.id));
-        const merged = [...prev];
-        mapped.forEach((p) => {
-          if (!existing.has(p.id)) merged.push(p);
-        });
-        return merged;
-      });
-    } finally {
-      setRecommendedLoading(false);
-    }
-  }, [vendorSlug]);
-
-  const loadMoreRecommendedProducts = useCallback(async () => {
-    if (recommendedLoading || !recommendedHasMore) return;
-    const nextPage = recommendedPage + 1;
-    await fetchRecommendedProducts({ page: nextPage, append: true });
-  }, [
-    fetchRecommendedProducts,
-    recommendedHasMore,
-    recommendedLoading,
-    recommendedPage,
-  ]);
-
-  const fetchRecentlyViewedProducts = useCallback(async ({ page = 1, append = false } = {}) => {
-    if (!vendorSlug) return;
-    setRecentlyViewedLoading(true);
-    try {
-      const sessionId = getProductSessionId() || getOrCreateProductSessionId();
-      if (!sessionId) {
-        if (!append) setRecentlyViewedProducts([]);
-        setRecentlyViewedHasMore(false);
-        return;
-      }
-
-      const url = new URL(
-        "/api/product/recently-viewed",
-        window.location.origin
-      );
-      url.searchParams.set("vendor_slug", vendorSlug);
-      url.searchParams.set("limit", "6");
-      url.searchParams.set("page", String(page));
-      url.searchParams.set("session_id", sessionId);
-      url.searchParams.set("include_closed", "true");
-
-      const res = await fetch(url.toString(), {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (!res.ok) {
-        if (!append) setRecentlyViewedProducts([]);
-        setRecentlyViewedHasMore(false);
-        return;
-      }
-
-      const body = await res.json().catch(() => ({}));
-      const next = Array.isArray(body?.products) ? body.products : [];
-      const mapped = next.map(mapProduct).filter((p) => p?.id);
-      setRecentlyViewedHasMore(!!body?.has_more);
-      setRecentlyViewedPage(page);
-      setRecentlyViewedProducts((prev) => {
-        if (!append) return mapped;
-        const existing = new Set(prev.map((p) => p.id));
-        const merged = [...prev];
-        mapped.forEach((p) => {
-          if (!existing.has(p.id)) merged.push(p);
-        });
-        return merged;
-      });
-    } finally {
-      setRecentlyViewedLoading(false);
-    }
-  }, [vendorSlug]);
-
-  const loadMoreRecentlyViewedProducts = useCallback(async () => {
-    if (recentlyViewedLoading || !recentlyViewedHasMore) return;
-    const nextPage = recentlyViewedPage + 1;
-    await fetchRecentlyViewedProducts({ page: nextPage, append: true });
-  }, [
-    fetchRecentlyViewedProducts,
-    recentlyViewedHasMore,
-    recentlyViewedLoading,
-    recentlyViewedPage,
-  ]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    fetchFeaturedProducts({ page: 1, append: false });
-    fetchRecommendedProducts({ page: 1, append: false });
-    fetchRecentlyViewedProducts({ page: 1, append: false });
-
-    const handleProductViewed = () => {
-      fetchRecentlyViewedProducts({ page: 1, append: false });
-    };
-
-    window.addEventListener("product-viewed", handleProductViewed);
-    return () => {
-      window.removeEventListener("product-viewed", handleProductViewed);
-    };
-  }, [
-    fetchFeaturedProducts,
-    fetchRecommendedProducts,
-    fetchRecentlyViewedProducts,
-  ]);
-
-  useEffect(() => {
-    if (!vendorSlug) return;
-    if (loading) return;
-    if (products.length > 0) return;
-    if (!hasMore) return;
-    if (page !== 0) return;
-
-    loadMore();
-  }, [vendorSlug, hasMore, loadMore, loading, page, products.length]);
-
+  // Fetch vendor
   useEffect(() => {
     let cancelled = false;
     if (!vendorSlug) {
       setVendor(null);
+      setVendorId(null);
       setVendorLoading(false);
       return;
     }
@@ -369,16 +199,20 @@ export function StorefrontProvider({
     setVendorLoading(true);
     (async () => {
       try {
-        const url = new URL("/api/storefront/vendor", window.location.origin);
-        url.searchParams.set("vendor_slug", vendorSlug);
-        const res = await fetch(url.toString(), { method: "GET" });
-        const body = await res.json().catch(() => ({}));
+        const { data, error } = await supabase
+          .from("vendors")
+          .select(
+            "id, business_name, description, logo, logo_url, slug, shop_status, category, verified, address_city, address_country, website, phone, email"
+          )
+          .eq("slug", vendorSlug)
+          .maybeSingle();
         if (cancelled) return;
-        const nextVendor = body?.vendor || null;
-        if (nextVendor) {
-          nextVendor.category_chips = parseCategoryChips(nextVendor.category);
+        const v = data || null;
+        if (v) {
+          v.category_chips = parseCategoryChips(v.category);
         }
-        setVendor(nextVendor);
+        setVendor(v);
+        setVendorId(v?.id || null);
       } finally {
         if (!cancelled) setVendorLoading(false);
       }
@@ -387,11 +221,12 @@ export function StorefrontProvider({
     return () => {
       cancelled = true;
     };
-  }, [vendorSlug]);
+  }, [vendorSlug, supabase]);
 
+  // Fetch vendor-specific categories
   useEffect(() => {
     let cancelled = false;
-    if (!vendorSlug) {
+    if (!vendorId) {
       setCategories([]);
       setCategoriesLoading(false);
       return;
@@ -400,15 +235,42 @@ export function StorefrontProvider({
     setCategoriesLoading(true);
     (async () => {
       try {
-        const url = new URL(
-          "/api/storefront/vendor-categories",
-          window.location.origin
-        );
-        url.searchParams.set("vendor_slug", vendorSlug);
-        const res = await fetch(url.toString(), { method: "GET" });
-        const body = await res.json().catch(() => ({}));
+        // Get category IDs from vendor's products
+        const { data: prods } = await supabase
+          .from("products")
+          .select("category_id, product_categories (category_id)")
+          .eq("vendor_id", vendorId)
+          .eq("status", "approved")
+          .eq("active", true);
+
         if (cancelled) return;
-        setCategories(Array.isArray(body?.categories) ? body.categories : []);
+
+        const catIds = [
+          ...new Set(
+            (prods || [])
+              .flatMap((p) => {
+                const related = Array.isArray(p.product_categories)
+                  ? p.product_categories.map((e) => e?.category_id).filter(Boolean)
+                  : [];
+                return [p.category_id, ...related].filter(Boolean);
+              })
+          ),
+        ];
+
+        if (catIds.length === 0) {
+          setCategories([]);
+          if (!cancelled) setCategoriesLoading(false);
+          return;
+        }
+
+        const { data: cats } = await supabase
+          .from("categories")
+          .select("id, name, slug, parent_category_id")
+          .in("id", catIds)
+          .order("name");
+
+        if (cancelled) return;
+        setCategories(Array.isArray(cats) ? cats : []);
       } finally {
         if (!cancelled) setCategoriesLoading(false);
       }
@@ -417,7 +279,294 @@ export function StorefrontProvider({
     return () => {
       cancelled = true;
     };
-  }, [vendorSlug]);
+  }, [vendorId, supabase]);
+
+  // Filter key for detecting changes
+  const filterKey = useMemo(
+    () =>
+      [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam, ratingParam].join("|"),
+    [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam, ratingParam]
+  );
+  const lastFilterRef = useRef(filterKey);
+  const lastPageRef = useRef(page);
+
+  // Fetch products with server-side filtering
+  useEffect(() => {
+    let ignore = false;
+
+    if (!vendorId) return;
+
+    const fetchProducts = async () => {
+      setLoading(true);
+
+      try {
+        if (filterKey !== lastFilterRef.current && page !== 1) {
+          setProducts([]);
+          setPageParam("1");
+          lastFilterRef.current = filterKey;
+          lastPageRef.current = 1;
+          return;
+        }
+
+        const from = (page - 1) * pageSize;
+        const to = from + pageSize - 1;
+
+        // Pre-fetch product IDs from product_categories if category filter is active
+        let categoryProductIds = null;
+        if (selectedCategories.length > 0) {
+          const { data: catRows } = await supabase
+            .from("product_categories")
+            .select("product_id")
+            .in("category_id", selectedCategories);
+          categoryProductIds = new Set(
+            (catRows || []).map((r) => r.product_id).filter(Boolean)
+          );
+        }
+
+        let query = supabase
+          .from("products")
+          .select(
+            `
+            id,
+            product_code,
+            name,
+            price,
+            service_charge,
+            images,
+            variations,
+            description,
+            stock_qty,
+            category_id,
+            avg_rating,
+            review_count,
+            is_featured,
+            purchase_count,
+            product_categories (category_id)
+          `,
+            { count: "exact" }
+          )
+          .eq("vendor_id", vendorId)
+          .eq("status", "approved")
+          .eq("active", true);
+
+        if (searchQuery && searchQuery.trim()) {
+          query = query.ilike("name", `%${searchQuery.trim()}%`);
+        }
+
+        if (selectedCategories.length > 0) {
+          const catIds = selectedCategories.join(",");
+          if (categoryProductIds && categoryProductIds.size > 0) {
+            const allIds = [...categoryProductIds].join(",");
+            query = query.or(
+              `category_id.in.(${catIds}),id.in.(${allIds})`
+            );
+          } else {
+            query = query.in("category_id", selectedCategories);
+          }
+        }
+
+        if (ratingParam) {
+          const minRating = parseFloat(ratingParam);
+          if (!Number.isNaN(minRating) && minRating > 0) {
+            query = query.gte("avg_rating", minRating);
+          }
+        }
+
+        if (minPriceParam) {
+          const min = parseFloat(minPriceParam);
+          if (!Number.isNaN(min)) query = query.gte("price", min);
+        }
+
+        if (maxPriceParam) {
+          const max = parseFloat(maxPriceParam);
+          if (!Number.isNaN(max)) query = query.lte("price", max);
+        }
+
+        switch (sortBy) {
+          case "popular":
+            query = query
+              .order("purchase_count", { ascending: false })
+              .order("review_count", { ascending: false });
+            break;
+          case "best_rated":
+            query = query
+              .order("avg_rating", { ascending: false })
+              .order("review_count", { ascending: false });
+            break;
+          case "newest":
+            query = query.order("created_at", { ascending: false });
+            break;
+          case "price_low":
+            query = query.order("price", { ascending: true });
+            break;
+          case "price_high":
+            query = query.order("price", { ascending: false });
+            break;
+          case "name_asc":
+            query = query.order("name", { ascending: true });
+            break;
+          case "name_desc":
+            query = query.order("name", { ascending: false });
+            break;
+          case "featured":
+          default:
+            query = query
+              .order("is_featured", { ascending: false })
+              .order("purchase_count", { ascending: false })
+              .order("avg_rating", { ascending: false });
+            break;
+        }
+
+        const { data, error, count } = await query.range(from, to);
+        if (ignore || error) return;
+
+        const nextRaw = Array.isArray(data) ? data : [];
+        const nextMapped = nextRaw.map(mapProduct).filter((p) => p?.id);
+        setProducts(nextMapped);
+        setTotalCount(count || 0);
+        lastFilterRef.current = filterKey;
+        lastPageRef.current = page;
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+
+    fetchProducts();
+
+    return () => {
+      ignore = true;
+    };
+  }, [
+    supabase,
+    vendorId,
+    page,
+    pageSize,
+    filterKey,
+    searchQuery,
+    categoryFilter,
+    sortBy,
+    minPriceParam,
+    maxPriceParam,
+    ratingParam,
+    selectedCategories,
+    setPageParam,
+  ]);
+
+  const totalPages = useMemo(() => {
+    const calc = Math.ceil(totalCount / pageSize);
+    return calc > 0 ? calc : 1;
+  }, [totalCount, pageSize]);
+
+  const setPage = useCallback(
+    (value) => {
+      const next = Number(value);
+      const normalized = Number.isFinite(next) && next > 0 ? next : 1;
+      setPageParam(String(normalized));
+    },
+    [setPageParam]
+  );
+
+  // Filter action helpers
+  const setSearchQuery = useCallback(
+    (val) => {
+      setSearchParam(val || "");
+      setPageParam("1");
+    },
+    [setSearchParam, setPageParam]
+  );
+
+  const setCategoryFilter = useCallback(
+    (val) => {
+      setCategoryParam(val || "");
+      setPageParam("1");
+    },
+    [setCategoryParam, setPageParam]
+  );
+
+  const setSortBy = useCallback(
+    (val) => {
+      setSortParam(val || "newest");
+      setPageParam("1");
+    },
+    [setSortParam, setPageParam]
+  );
+
+  const toggleCategory = useCallback(
+    (catId) => {
+      const current = categoryFilter ? categoryFilter.split(",").filter(Boolean) : [];
+      const next = current.includes(catId)
+        ? current.filter((id) => id !== catId)
+        : [...current, catId];
+      setCategoryParam(next.join(",") || "");
+      setPageParam("1");
+    },
+    [categoryFilter, setCategoryParam, setPageParam]
+  );
+
+  const toggleParentCategory = useCallback(
+    (parentId) => {
+      const childIds = categories
+        .filter((c) => c.parent_category_id === parentId)
+        .map((c) => c.id);
+      const allIds = [parentId, ...childIds];
+      const current = categoryFilter ? categoryFilter.split(",").filter(Boolean) : [];
+      const allSelected = allIds.every((id) => current.includes(id));
+      const next = allSelected
+        ? current.filter((id) => !allIds.includes(id))
+        : [...new Set([...current, ...allIds])];
+      setCategoryParam(next.join(",") || "");
+      setPageParam("1");
+    },
+    [categories, categoryFilter, setCategoryParam, setPageParam]
+  );
+
+  const setAndApplyPriceRange = useCallback(
+    ({ min, max }) => {
+      setPriceRange({ min, max });
+      setMinPriceParam(min ? String(min) : "");
+      setMaxPriceParam(max ? String(max) : "");
+      setPageParam("1");
+    },
+    [setMinPriceParam, setMaxPriceParam, setPageParam]
+  );
+
+  const setRatingFilter = useCallback(
+    (val) => {
+      setRatingParam(val || "");
+      setPageParam("1");
+    },
+    [setRatingParam, setPageParam]
+  );
+
+  const clearFilters = useCallback(() => {
+    setSearchParam("");
+    setCategoryParam("");
+    setSortParam("newest");
+    setMinPriceParam("");
+    setMaxPriceParam("");
+    setRatingParam("");
+    setPageParam("1");
+    setPriceRange({ min: "", max: "" });
+  }, [
+    setSearchParam,
+    setCategoryParam,
+    setSortParam,
+    setMinPriceParam,
+    setMaxPriceParam,
+    setRatingParam,
+    setPageParam,
+  ]);
+
+  const applyFilters = useCallback(() => {
+    setPageParam("1");
+  }, [setPageParam]);
+
+  const hasActiveFilters =
+    searchQuery ||
+    selectedCategories.length > 0 ||
+    priceRange.min ||
+    priceRange.max ||
+    ratingParam;
 
   const value = useMemo(
     () => ({
@@ -427,20 +576,27 @@ export function StorefrontProvider({
       categoriesLoading,
       products,
       productsLoading: loading,
-      hasMore,
-      loadMore,
-      featuredProducts,
-      featuredLoading,
-      featuredHasMore,
-      loadMoreFeaturedProducts,
-      recommendedProducts,
-      recommendedLoading,
-      recommendedHasMore,
-      loadMoreRecommendedProducts,
-      recentlyViewedProducts,
-      recentlyViewedLoading,
-      recentlyViewedHasMore,
-      loadMoreRecentlyViewedProducts,
+      totalPages,
+      page,
+      setPage,
+      // Filters
+      searchQuery,
+      setSearchQuery,
+      categoryFilter,
+      setCategoryFilter,
+      sortBy,
+      setSortBy,
+      priceRange,
+      setPriceRange,
+      applyFilters,
+      clearFilters,
+      hasActiveFilters,
+      ratingFilter: ratingParam,
+      setRatingFilter,
+      selectedCategories,
+      toggleCategory,
+      toggleParentCategory,
+      setAndApplyPriceRange,
     }),
     [
       vendor,
@@ -449,20 +605,22 @@ export function StorefrontProvider({
       categoriesLoading,
       products,
       loading,
-      hasMore,
-      loadMore,
-      featuredProducts,
-      featuredLoading,
-      featuredHasMore,
-      loadMoreFeaturedProducts,
-      recommendedProducts,
-      recommendedLoading,
-      recommendedHasMore,
-      loadMoreRecommendedProducts,
-      recentlyViewedProducts,
-      recentlyViewedLoading,
-      recentlyViewedHasMore,
-      loadMoreRecentlyViewedProducts,
+      totalPages,
+      page,
+      setPage,
+      searchQuery,
+      categoryFilter,
+      sortBy,
+      priceRange,
+      applyFilters,
+      clearFilters,
+      hasActiveFilters,
+      ratingParam,
+      setRatingFilter,
+      selectedCategories,
+      toggleCategory,
+      toggleParentCategory,
+      setAndApplyPriceRange,
     ]
   );
 

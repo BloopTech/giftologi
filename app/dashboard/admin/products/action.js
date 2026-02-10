@@ -3,10 +3,7 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "../../../utils/supabase/server";
-import {
-  createNotification,
-  fetchVendorNotificationPreferences,
-} from "../../../utils/notifications";
+import { dispatchNotification } from "../../../utils/notificationService";
 import { logAdminActivityWithClient } from "../activity_log/logger";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
@@ -329,28 +326,22 @@ export async function approveProduct(prevState, formData) {
       }
 
       if (vendor?.profiles_id) {
-        const { data: preferences } =
-          await fetchVendorNotificationPreferences({
-            client: supabase,
-            vendorId: vendor.id,
-          });
-
-        if (preferences?.product_reviews) {
-          await createNotification({
-            client: supabase,
-            userId: vendor.profiles_id,
-            type: "product_review",
-            message: product?.name
-              ? `Your product "${product.name}" has been approved.`
-              : "Your product has been approved.",
-            link: "/dashboard/v/products",
-            data: {
-              product_id: productId,
-              vendor_id: vendor.id,
-              status: "approved",
-            },
-          });
-        }
+        await dispatchNotification({
+          client: supabase,
+          recipientId: vendor.profiles_id,
+          recipientRole: "vendor",
+          eventType: "product_review",
+          message: product?.name
+            ? `Your product "${product.name}" has been approved.`
+            : "Your product has been approved.",
+          link: "/dashboard/v/products",
+          data: {
+            product_id: productId,
+            vendor_id: vendor.id,
+            status: "approved",
+          },
+          vendorId: vendor.id,
+        });
       }
     } catch (error) {
       console.error("Failed to notify vendor product approval", error);
@@ -622,29 +613,23 @@ export async function rejectProduct(prevState, formData) {
       }
 
       if (vendor?.profiles_id) {
-        const { data: preferences } =
-          await fetchVendorNotificationPreferences({
-            client: supabase,
-            vendorId: vendor.id,
-          });
-
-        if (preferences?.product_reviews) {
-          await createNotification({
-            client: supabase,
-            userId: vendor.profiles_id,
-            type: "product_review",
-            message: product?.name
-              ? `Your product "${product.name}" was rejected.`
-              : "Your product was rejected.",
-            link: "/dashboard/v/products",
-            data: {
-              product_id: productId,
-              vendor_id: vendor.id,
-              status: "rejected",
-              reason,
-            },
-          });
-        }
+        await dispatchNotification({
+          client: supabase,
+          recipientId: vendor.profiles_id,
+          recipientRole: "vendor",
+          eventType: "product_review",
+          message: product?.name
+            ? `Your product "${product.name}" was rejected.`
+            : "Your product was rejected.",
+          link: "/dashboard/v/products",
+          data: {
+            product_id: productId,
+            vendor_id: vendor.id,
+            status: "rejected",
+            reason,
+          },
+          vendorId: vendor.id,
+        });
       }
     } catch (error) {
       console.error("Failed to notify vendor product rejection", error);

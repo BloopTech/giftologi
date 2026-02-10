@@ -5,10 +5,7 @@ import {
 } from "../../../../utils/supabase/server";
 import { buildAramexTrackingUrl, createAramexShipment } from "../../../../utils/shipping/aramex";
 import { computeShipmentWeight } from "../../../../utils/shipping/weights";
-import {
-  createNotification,
-  fetchVendorNotificationPreferences,
-} from "../../../../utils/notifications";
+import { dispatchNotification } from "../../../../utils/notificationService";
 
 const EXPRESSPAY_QUERY_URL =
   process.env.EXPRESSPAY_ENV === "live"
@@ -160,22 +157,17 @@ export async function POST(request) {
         if (vendorIds.length) {
           const { data: vendorRows } = await admin
             .from("vendors")
-            .select("id, profiles_id, business_name")
+            .select("id, profiles_id, business_name, email")
             .in("id", vendorIds);
 
           for (const vendor of vendorRows || []) {
             if (!vendor?.profiles_id) continue;
-            const { data: preferences } =
-              await fetchVendorNotificationPreferences({
-                client: admin,
-                vendorId: vendor.id,
-              });
-            if (!preferences?.new_orders) continue;
 
-            await createNotification({
+            await dispatchNotification({
               client: admin,
-              userId: vendor.profiles_id,
-              type: "new_order",
+              recipientId: vendor.profiles_id,
+              recipientRole: "vendor",
+              eventType: "new_order",
               message: `New order received${
                 vendor.business_name ? ` for ${vendor.business_name}` : ""
               }.`,
@@ -185,6 +177,19 @@ export async function POST(request) {
                 order_code: order.order_code || null,
                 vendor_id: vendor.id,
               },
+              vendorId: vendor.id,
+              emailPayload: vendor.email
+                ? {
+                    templateSlug: "vendor_new_order",
+                    to: vendor.email,
+                    variables: {
+                      vendor_name: vendor.business_name || "Vendor",
+                      amount: String(queryData.amount || ""),
+                      order_reference: order.order_code || "",
+                      dashboard_url: `${process.env.NEXT_PUBLIC_SITE_URL || ""}/dashboard/v/orders`,
+                    },
+                  }
+                : undefined,
             });
           }
         }

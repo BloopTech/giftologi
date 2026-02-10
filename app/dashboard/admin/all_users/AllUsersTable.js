@@ -250,7 +250,7 @@ export default function AllUsersTable() {
         guest: "Guest",
         super_admin: "Super Admin",
         finance_admin: "Finance Admin",
-        operations_manager_admin: "Operations Manager",
+        operations_manager_admin: "Operations",
         customer_support_admin: "Customer Support",
         store_manager_admin: "Store Manager",
         marketing_admin: "Marketing",

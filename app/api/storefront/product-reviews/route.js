@@ -1,9 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/app/utils/supabase/server";
-import {
-  createNotification,
-  fetchVendorNotificationPreferences,
-} from "@/app/utils/notifications";
+import { dispatchNotification } from "@/app/utils/notificationService";
 
 export async function GET(req) {
   try {
@@ -180,29 +177,23 @@ export async function POST(req) {
 
     try {
       if (vendor?.profiles_id) {
-        const { data: preferences } =
-          await fetchVendorNotificationPreferences({
-            client: supabase,
-            vendorId: vendor.id,
-          });
-
-        if (preferences?.product_reviews) {
-          await createNotification({
-            client: supabase,
-            userId: vendor.profiles_id,
-            type: "product_review",
-            message: product?.name
-              ? `New review for ${product.name}.`
-              : "You received a new product review.",
-            link: "/dashboard/v/products",
-            data: {
-              review_id: review?.id,
-              product_id: product.id,
-              vendor_id: vendor.id,
-              rating: ratingValue,
-            },
-          });
-        }
+        await dispatchNotification({
+          client: supabase,
+          recipientId: vendor.profiles_id,
+          recipientRole: "vendor",
+          eventType: "product_review",
+          message: product?.name
+            ? `New review for ${product.name}.`
+            : "You received a new product review.",
+          link: "/dashboard/v/products",
+          data: {
+            review_id: review?.id,
+            product_id: product.id,
+            vendor_id: vendor.id,
+            rating: ratingValue,
+          },
+          vendorId: vendor.id,
+        });
       }
     } catch (error) {
       console.error("Failed to notify vendor about review", error);

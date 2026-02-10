@@ -39,6 +39,22 @@ const companyInfo = [
     title: "Careers",
     href: "/careers",
   },
+  {
+    title: "Search Engine",
+    href: "/search",
+  },
+  {
+    title: "Registries",
+    href: "/registry",
+  },
+  {
+    title: "Shop",
+    href: "/shop",
+  },
+  {
+    title: "Vendors' Storefront",
+    href: "/storefront",
+  },
 ];
 
 const members = [
@@ -105,10 +121,17 @@ const partners = [
 
 export default function Footer() {
   return (
-    <footer role="contentinfo" aria-label="Site footer" className="flex flex-col space-y-4 w-full">
+    <footer
+      role="contentinfo"
+      aria-label="Site footer"
+      className="flex flex-col space-y-4 w-full"
+    >
       <div className="bg-[#E8E8E8] w-full border border-[#DCDCDE] rounded-md p-8">
         <div className="grid grid-cols-5 gap-8">
-          <nav aria-label="Company information" className="flex flex-col space-y-4">
+          <nav
+            aria-label="Company information"
+            className="flex flex-col space-y-4"
+          >
             <h2 className="font-semibold">Company Info</h2>
             <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {companyInfo.map((item) => (
@@ -123,7 +146,10 @@ export default function Footer() {
               ))}
             </ul>
           </nav>
-          <nav aria-label="Member resources" className="flex flex-col space-y-4">
+          <nav
+            aria-label="Member resources"
+            className="flex flex-col space-y-4"
+          >
             <h2 className="font-semibold">For Members</h2>
             <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {members.map((item) => (
@@ -138,7 +164,10 @@ export default function Footer() {
               ))}
             </ul>
           </nav>
-          <nav aria-label="Partner resources" className="flex flex-col space-y-4">
+          <nav
+            aria-label="Partner resources"
+            className="flex flex-col space-y-4"
+          >
             <h2 className="font-semibold">For Partners</h2>
             <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {partners.map((item) => (
@@ -154,8 +183,13 @@ export default function Footer() {
             </ul>
           </nav>
           <div className="col-span-2 flex flex-col space-y-2">
-            <h2 className="font-semibold" id="connect-heading">Connect with Us</h2>
-            <form className="flex flex-col space-y-2" aria-labelledby="connect-heading">
+            <h2 className="font-semibold" id="connect-heading">
+              Connect with Us
+            </h2>
+            <form
+              className="flex flex-col space-y-2"
+              aria-labelledby="connect-heading"
+            >
               <label htmlFor="contact" className="sr-only">
                 Your email address
               </label>
@@ -182,7 +216,10 @@ export default function Footer() {
       </div>
       <p className="text-xs text-[#909090]">
         © 2025 All rights reserved - Giftologi LLC —{" "}
-        <Link href="/sitemap" className="text-[#85753C] hover:underline focus:underline">
+        <Link
+          href="/sitemap"
+          className="text-[#85753C] hover:underline focus:underline"
+        >
           Site Map
         </Link>
       </p>

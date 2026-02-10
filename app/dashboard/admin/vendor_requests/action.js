@@ -4,7 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createAdminClient, createClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
-import { createNotification } from "../../../utils/notifications";
+import { dispatchNotification } from "../../../utils/notificationService";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import crypto from "crypto";
 import { generateUniqueVendorSlug } from "../../../utils/vendorSlug";
@@ -339,10 +339,11 @@ export async function approveVendorRequest(prevState, formData) {
   }
 
   try {
-    await createNotification({
+    await dispatchNotification({
       client: adminSupabase,
-      userId: application.user_id,
-      type: "vendor_request",
+      recipientId: application.user_id,
+      recipientRole: "vendor",
+      eventType: "vendor_application_status",
       message: "Your vendor application has been approved.",
       link: "/dashboard/v/profile",
       data: {
@@ -484,10 +485,11 @@ export async function rejectVendorRequest(prevState, formData) {
   }
 
   try {
-    await createNotification({
+    await dispatchNotification({
       client: adminSupabase,
-      userId: application.user_id,
-      type: "vendor_request",
+      recipientId: application.user_id,
+      recipientRole: "vendor",
+      eventType: "vendor_application_status",
       message: "Your vendor application has been rejected.",
       link: "/dashboard/v/profile",
       data: {

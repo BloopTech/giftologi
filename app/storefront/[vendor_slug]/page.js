@@ -57,15 +57,16 @@ export async function generateMetadata({ params }) {
   });
 }
 
- export default async function VendorStorefront({ params }) {
+ export default async function VendorStorefront({ params, searchParams }) {
   const { vendor_slug } = await params;
+  const resolvedSearchParams = await searchParams;
 
   if (!vendor_slug) {
     return notFound();
   }
 
   return (
-    <StorefrontProvider vendorSlug={vendor_slug}>
+    <StorefrontProvider vendorSlug={vendor_slug} initialSearchParams={resolvedSearchParams}>
       <StorefrontContent />
     </StorefrontProvider>
   );

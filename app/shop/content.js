@@ -5,24 +5,31 @@ import Link from "next/link";
 import Footer from "../components/footer";
 import {
   Search,
-  SlidersHorizontal,
   Grid3X3,
   LayoutList,
   ChevronDown,
   X,
   ShoppingBag,
+  ShoppingCart,
   Plus,
   BadgeCheck,
   Gift,
   Store,
-  Check,
-  Minus,
+  Filter,
 } from "lucide-react";
 import { useShop } from "./context";
 import ProductDetailModal from "./components/ProductDetailModal";
 import AddToRegistryModal from "./components/AddToRegistryModal";
+import FilterSidebar from "./components/FilterSidebar";
+import ProductCard from "./components/ProductCard";
+import ProductListItem from "./components/ProductListItem";
+import CartDrawer from "./components/CartDrawer";
+import Pagination from "../components/Pagination";
 
 const SORT_OPTIONS = [
+  { id: "featured", label: "Featured" },
+  { id: "popular", label: "Most Popular" },
+  { id: "best_rated", label: "Best Rated" },
   { id: "newest", label: "Newest First" },
   { id: "price_low", label: "Price: Low to High" },
   { id: "price_high", label: "Price: High to Low" },
@@ -34,46 +41,33 @@ export default function ShopContent() {
   const {
     products,
     loading,
-    hasMore,
-    loadMore,
-    featuredProducts,
-    featuredLoading,
-    featuredHasMore,
-    loadMoreFeaturedProducts,
-    recommendedProducts,
-    recommendedLoading,
-    recommendedHasMore,
-    loadMoreRecommendedProducts,
-    recentlyViewedProducts,
-    recentlyViewedLoading,
-    recentlyViewedHasMore,
-    loadMoreRecentlyViewedProducts,
+    totalPages,
+    page,
+    setPage,
     searchQuery,
     setSearchQuery,
-    categoryFilter,
-    setCategoryFilter,
+    selectedCategories,
     sortBy,
     setSortBy,
-    priceRange,
-    setPriceRange,
-    categories,
     applyFilters,
     clearFilters,
     hasActiveFilters,
     registry,
     isHost,
-    registryItems,
     isProductInRegistry,
-    getRegistryItem,
+    openProductDetail,
+    openAddToRegistry,
     selectedProduct,
     productDetailOpen,
-    openProductDetail,
     closeProductDetail,
     addToRegistryOpen,
     addToRegistryProduct,
-    openAddToRegistry,
     closeAddToRegistry,
+    cartCount,
+    cartCheckoutUrl,
   } = useShop();
+
+  const [cartDrawerOpen, setCartDrawerOpen] = React.useState(false);
 
   const [viewMode, setViewMode] = React.useState("grid");
   const [showFilters, setShowFilters] = React.useState(false);
@@ -95,7 +89,7 @@ export default function ShopContent() {
   // Apply filters when they change
   useEffect(() => {
     applyFilters();
-  }, [searchQuery, categoryFilter, sortBy]);
+  }, [searchQuery, selectedCategories, sortBy]);
 
   const handleSearchSubmit = useCallback(
     (e) => {
@@ -106,14 +100,8 @@ export default function ShopContent() {
     [localSearch, setSearchQuery, applyFilters]
   );
 
-  const handlePriceFilter = useCallback(() => {
-    applyFilters();
-  }, [applyFilters]);
 
   const hasProducts = products.length > 0;
-  const hasFeatured = featuredProducts.length > 0;
-  const hasRecommended = recommendedProducts.length > 0;
-  const hasRecentlyViewed = recentlyViewedProducts.length > 0;
 
   return (
     <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-brasley-medium">
@@ -158,11 +146,11 @@ export default function ShopContent() {
 
             {!isHost && (
               <Link
-                href="/login?next=/shop"
+                href="/storefront"
                 className="inline-flex items-center gap-2 bg-[#A5914B] text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-[#8B7A3F] transition-colors"
               >
                 <Gift className="size-4" />
-                Sign in to add gifts
+                Browse Stores
               </Link>
             )}
           </div>
@@ -176,270 +164,9 @@ export default function ShopContent() {
         aria-label="Gift shop"
         className="mx-auto max-w-6xl w-full px-4 py-6"
       >
-        {/* Featured & Personalized Surfaces */}
-        {(featuredLoading || hasFeatured) && (
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Featured gifts
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Handpicked highlights from our vendors.
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {featuredLoading
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <div
-                      key={`featured-skeleton-${index}`}
-                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
-                    />
-                  ))
-                : featuredProducts.map((p) => (
-                    <div
-                      key={p.id}
-                      className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
-                    >
-                      <div
-                        className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
-                        onClick={() => openProductDetail(p)}
-                      >
-                        <Image
-                          src={p.image}
-                          alt={p.name}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                        {p.vendor?.verified && (
-                          <div className="absolute top-2 right-2">
-                            <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full">
-                              <BadgeCheck className="size-3" />
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-4">
-                        {/* <Link
-                          href={`/storefront/${p.vendor?.slug}`}
-                          className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
-                        >
-                          <Store className="size-3" />
-                          {p.vendor?.name}
-                        </Link> */}
-                        <p
-                          className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
-                          onClick={() => openProductDetail(p)}
-                        >
-                          {p.name}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-lg font-bold text-[#A5914B]">
-                            {p.price}
-                          </p>
-                          {isHost && p.stock > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => openAddToRegistry(p)}
-                              className="p-2 bg-[#A5914B] text-white rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
-                              aria-label="Add to registry"
-                            >
-                              <Plus className="size-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-            </div>
-            {featuredHasMore && (
-              <div className="mt-6 flex justify-center">
-                <button
-                  type="button"
-                  disabled={featuredLoading}
-                  onClick={loadMoreFeaturedProducts}
-                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {featuredLoading ? "Loading..." : "Load more"}
-                </button>
-              </div>
-            )}
-          </section>
-        )}
-
-        {(recommendedLoading || hasRecommended) && (
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Recommended for you
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Popular picks based on recent interest.
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {recommendedLoading
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <div
-                      key={`recommended-skeleton-${index}`}
-                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
-                    />
-                  ))
-                : recommendedProducts.map((p) => (
-                    <div
-                      key={p.id}
-                      className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
-                    >
-                      <div
-                        className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
-                        onClick={() => openProductDetail(p)}
-                      >
-                        <Image
-                          src={p.image}
-                          alt={p.name}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                      <div className="p-4">
-                        <Link
-                          href={`/storefront/${p.vendor?.slug}`}
-                          className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
-                        >
-                          <Store className="size-3" />
-                          {p.vendor?.name}
-                        </Link>
-                        <p
-                          className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
-                          onClick={() => openProductDetail(p)}
-                        >
-                          {p.name}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-lg font-bold text-[#A5914B]">
-                            {p.price}
-                          </p>
-                          {isHost && p.stock > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => openAddToRegistry(p)}
-                              className="p-2 bg-[#A5914B] text-white rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
-                              aria-label="Add to registry"
-                            >
-                              <Plus className="size-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-            </div>
-            {recommendedHasMore && (
-              <div className="mt-6 flex justify-center">
-                <button
-                  type="button"
-                  disabled={recommendedLoading}
-                  onClick={loadMoreRecommendedProducts}
-                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {recommendedLoading ? "Loading..." : "Load more"}
-                </button>
-              </div>
-            )}
-          </section>
-        )}
-
-        {(recentlyViewedLoading || hasRecentlyViewed) && (
-          <section className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                  Recently viewed
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Continue where you left off.
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-              {recentlyViewedLoading
-                ? Array.from({ length: 4 }).map((_, index) => (
-                    <div
-                      key={`recent-skeleton-${index}`}
-                      className="h-72 rounded-2xl border border-gray-200 bg-white animate-pulse"
-                    />
-                  ))
-                : recentlyViewedProducts.map((p) => (
-                    <div
-                      key={p.id}
-                      className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
-                    >
-                      <div
-                        className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
-                        onClick={() => openProductDetail(p)}
-                      >
-                        <Image
-                          src={p.image}
-                          alt={p.name}
-                          fill
-                          className="object-cover group-hover:scale-105 transition-transform duration-300"
-                        />
-                      </div>
-                      <div className="p-4">
-                        <Link
-                          href={`/storefront/${p.vendor?.slug}`}
-                          className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
-                        >
-                          <Store className="size-3" />
-                          {p.vendor?.name}
-                        </Link>
-                        <p
-                          className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
-                          onClick={() => openProductDetail(p)}
-                        >
-                          {p.name}
-                        </p>
-                        <div className="flex items-center justify-between">
-                          <p className="text-lg font-bold text-[#A5914B]">
-                            {p.price}
-                          </p>
-                          {isHost && p.stock > 0 && (
-                            <button
-                              type="button"
-                              onClick={() => openAddToRegistry(p)}
-                              className="p-2 bg-[#A5914B] text-white rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
-                              aria-label="Add to registry"
-                            >
-                              <Plus className="size-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-            </div>
-            {recentlyViewedHasMore && (
-              <div className="mt-6 flex justify-center">
-                <button
-                  type="button"
-                  disabled={recentlyViewedLoading}
-                  onClick={loadMoreRecentlyViewedProducts}
-                  className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-sm font-medium text-gray-700 dark:text-gray-200 hover:border-[#A5914B]/40 hover:text-[#A5914B] transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {recentlyViewedLoading ? "Loading..." : "Load more"}
-                </button>
-              </div>
-            )}
-          </section>
-        )}
-
-        {/* Search & Filter Bar */}
+        {/* Search Bar */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 mb-6 shadow-sm">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search Input */}
+          <div className="flex gap-3 items-center">
             <form onSubmit={handleSearchSubmit} className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-gray-400" />
               <input
@@ -462,51 +189,28 @@ export default function ShopContent() {
                 </button>
               )}
             </form>
-
-            {/* Filter & Sort Controls */}
-            <div className="flex items-center gap-2">
-              <Link
-                href={globalSearchHref}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#A5914B]/30 bg-white dark:bg-gray-800 text-[#8B7A3F] text-sm font-medium hover:bg-[#A5914B] hover:text-white transition-colors"
-              >
-                <Search className="size-4" />
-                Search all
-              </Link>
-              {/* Category Dropdown */}
-              <div className="relative min-w-[140px]">
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="appearance-none w-full pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium cursor-pointer focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                >
-                  <option value="all">All Categories</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.id}>
-                      {cat.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-              </div>
-
-              {/* Filter Toggle */}
-              <button
-                type="button"
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${
-                  showFilters || hasActiveFilters
-                    ? "bg-[#A5914B] text-white border-[#A5914B]"
-                    : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300"
-                }`}
-              >
-                <SlidersHorizontal className="size-4" />
-                Filters
-                {hasActiveFilters && (
-                  <span className="w-2 h-2 bg-white rounded-full" />
-                )}
-              </button>
-
-              {/* Sort Dropdown */}
+            <Link
+              href={globalSearchHref}
+              className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl border border-[#A5914B]/30 bg-white dark:bg-gray-800 text-[#8B7A3F] text-sm font-medium hover:bg-[#A5914B] hover:text-white transition-colors"
+            >
+              <Search className="size-4" />
+              Search all
+            </Link>
+            {/* Mobile filter toggle */}
+            <button
+              type="button"
+              onClick={() => setShowFilters(!showFilters)}
+              className={`lg:hidden flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors text-sm font-medium cursor-pointer ${
+                showFilters || hasActiveFilters
+                  ? "bg-[#A5914B] text-white border-[#A5914B]"
+                  : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+              }`}
+            >
+              <Filter className="size-4" />
+              Filters
+            </button>
+            {/* Sort & View (desktop) */}
+            <div className="hidden lg:flex items-center gap-2">
               <div className="relative">
                 <select
                   value={sortBy}
@@ -521,9 +225,7 @@ export default function ShopContent() {
                 </select>
                 <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
               </div>
-
-              {/* View Mode Toggle */}
-              <div className="hidden sm:flex items-center border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
+              <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                 <button
                   type="button"
                   onClick={() => setViewMode("grid")}
@@ -551,290 +253,105 @@ export default function ShopContent() {
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Expanded Filters */}
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
-              <div className="flex flex-wrap gap-4 items-end">
-                {/* Price Range */}
-                <div className="min-w-[200px]">
-                  <label className="block text-xs font-medium text-gray-500 mb-2">
-                    Price Range (GHS)
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      placeholder="Min"
-                      value={priceRange.min}
-                      onChange={(e) =>
-                        setPriceRange((p) => ({ ...p, min: e.target.value }))
-                      }
-                      className="w-24 px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                    />
-                    <span className="text-gray-400">-</span>
-                    <input
-                      type="number"
-                      placeholder="Max"
-                      value={priceRange.max}
-                      onChange={(e) =>
-                        setPriceRange((p) => ({ ...p, max: e.target.value }))
-                      }
-                      className="w-24 px-3 py-1.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handlePriceFilter}
-                      className="px-3 py-1.5 bg-[#A5914B] text-white text-sm rounded-lg hover:bg-[#8B7A3F] transition-colors cursor-pointer"
-                    >
-                      Apply
-                    </button>
+        {/* Sidebar + Products Layout */}
+        <div className="flex gap-6">
+          {/* Left Sidebar Filters — desktop always visible, mobile toggleable */}
+          <aside
+            className={`${
+              showFilters ? "block" : "hidden"
+            } lg:block w-full lg:w-60 shrink-0`}
+          >
+            <FilterSidebar />
+          </aside>
+
+          {/* Products Content */}
+          <div className="flex-1 min-w-0">
+            {hasActiveFilters && (
+              <p className="text-sm text-gray-500 mb-4">
+                Showing {products.length} products
+              </p>
+            )}
+
+            {loading && products.length === 0 ? (
+              <div className="py-16 text-center">
+                <div className="w-8 h-8 border-2 border-[#A5914B]/30 border-t-[#A5914B] rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-gray-500">Loading products...</p>
+              </div>
+            ) : hasProducts ? (
+              <>
+                {viewMode === "grid" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+                    {products.map((p) => (
+                      <ProductCard key={p.id} product={p} />
+                    ))}
                   </div>
-                </div>
+                ) : (
+                  <div className="flex flex-col gap-4">
+                    {products.map((p) => (
+                      <ProductListItem key={p.id} product={p} />
+                    ))}
+                  </div>
+                )}
 
-                {/* Clear Filters */}
+                <Pagination
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                  loading={loading}
+                  className="mt-8"
+                />
+              </>
+            ) : (
+              <div className="py-16 text-center">
+                <ShoppingBag className="size-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                  {hasActiveFilters ? "No products found" : "No products available"}
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {hasActiveFilters
+                    ? "Try adjusting your filters or search terms."
+                    : "Check back later for new products."}
+                </p>
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="px-4 py-1.5 text-sm text-red-600 hover:text-red-700 font-medium cursor-pointer"
+                    className="px-6 py-2 bg-[#A5914B] text-white font-medium rounded-xl hover:bg-[#8B7A3F] transition-colors cursor-pointer"
                   >
-                    Clear All
+                    Clear Filters
                   </button>
                 )}
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-
-        {/* Results Count */}
-        {hasActiveFilters && (
-          <p className="text-sm text-gray-500 mb-4">
-            Showing {products.length} products
-          </p>
-        )}
-
-        {/* Products Grid/List */}
-        {loading && products.length === 0 ? (
-          <div className="py-16 text-center">
-            <div className="w-8 h-8 border-2 border-[#A5914B]/30 border-t-[#A5914B] rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-gray-500">Loading products...</p>
-          </div>
-        ) : hasProducts ? (
-          <>
-            {viewMode === "grid" ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                {products.map((p) => (
-                  <div
-                    key={p.id}
-                    className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
-                  >
-                    <div
-                      className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
-                      onClick={() => openProductDetail(p)}
-                    >
-                      <Image
-                        src={p.image}
-                        alt={p.name}
-                        fill
-                        priority
-                        className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
-                      {p.stock <= 0 && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <span className="bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full">
-                            Out of Stock
-                          </span>
-                        </div>
-                      )}
-                      {p.vendor?.verified && (
-                        <div className="absolute top-2 right-2">
-                          <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-700 text-xs font-medium px-2 py-1 rounded-full">
-                            <BadgeCheck className="size-3" />
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="p-4">
-                      <Link
-                        href={`/storefront/${p.vendor?.slug}`}
-                        className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
-                      >
-                        <Store className="size-3" />
-                        {p.vendor?.name}
-                      </Link>
-                      <p
-                        className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
-                        onClick={() => openProductDetail(p)}
-                      >
-                        {p.name}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <p className="text-lg font-bold text-[#A5914B]">
-                          {p.price}
-                        </p>
-                        {isHost && p.stock > 0 && (
-                          <div className="flex items-center gap-1">
-                            {isProductInRegistry(p.id) ? (
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => openProductDetail(p)}
-                                  className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-colors cursor-pointer"
-                                  aria-label="View in registry"
-                                >
-                                  <Check className="size-4" />
-                                </button>
-                                <span className="text-xs text-green-600 font-medium">
-                                  In Registry
-                                </span>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => openAddToRegistry(p)}
-                                className="p-2 bg-[#A5914B] text-white rounded-full hover:bg-[#8B7A3F] transition-colors cursor-pointer"
-                                aria-label="Add to registry"
-                              >
-                                <Plus className="size-4" />
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                {products.map((p) => (
-                  <div
-                    key={p.id}
-                    className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300 flex"
-                  >
-                    <div
-                      className="relative w-32 md:w-48 shrink-0 bg-gray-50 dark:bg-gray-800 cursor-pointer"
-                      onClick={() => openProductDetail(p)}
-                    >
-                      <Image
-                        src={p.image}
-                        alt={p.name}
-                        fill
-                        priority
-                        className="object-cover"
-                      />
-                      {p.stock <= 0 && (
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                          <span className="bg-red-600 text-white text-xs font-medium px-2 py-1 rounded-full">
-                            Out of Stock
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 p-4 flex flex-col justify-center">
-                      <Link
-                        href={`/storefront/${p.vendor?.slug}`}
-                        className="text-xs text-gray-500 hover:text-[#A5914B] flex items-center gap-1 mb-1"
-                      >
-                        <Store className="size-3" />
-                        {p.vendor?.name}
-                        {p.vendor?.verified && (
-                          <BadgeCheck className="size-3 text-blue-500" />
-                        )}
-                      </Link>
-                      <p
-                        className="text-base font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors cursor-pointer"
-                        onClick={() => openProductDetail(p)}
-                      >
-                        {p.name}
-                      </p>
-                      {p.description && (
-                        <p className="text-sm text-gray-500 line-clamp-2 mb-3">
-                          {p.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between">
-                        <p className="text-xl font-bold text-[#A5914B]">
-                          {p.price}
-                        </p>
-                        {isHost && p.stock > 0 && (
-                          <div className="flex items-center gap-2">
-                            {isProductInRegistry(p.id) ? (
-                              <button
-                                type="button"
-                                onClick={() => openProductDetail(p)}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 text-white text-sm font-medium rounded-xl hover:bg-green-600 transition-colors cursor-pointer"
-                              >
-                                <Check className="size-4" />
-                                In Registry
-                              </button>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => openAddToRegistry(p)}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-[#A5914B] text-white text-sm font-medium rounded-xl hover:bg-[#8B7A3F] transition-colors cursor-pointer"
-                              >
-                                <Plus className="size-4" />
-                                Add to Registry
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Load More */}
-            {hasMore && (
-              <div className="flex justify-center mt-8">
-                <button
-                  type="button"
-                  onClick={loadMore}
-                  disabled={loading}
-                  className="px-8 py-3 bg-[#A5914B] text-white font-semibold rounded-xl hover:bg-[#8B7A3F] transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2 cursor-pointer"
-                >
-                  {loading ? (
-                    <>
-                      <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    "Load More Products"
-                  )}
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="py-16 text-center">
-            <ShoppingBag className="size-16 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              {hasActiveFilters ? "No products found" : "No products available"}
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {hasActiveFilters
-                ? "Try adjusting your filters or search terms."
-                : "Check back later for new products."}
-            </p>
-            {hasActiveFilters && (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="px-6 py-2 bg-[#A5914B] text-white font-medium rounded-xl hover:bg-[#8B7A3F] transition-colors cursor-pointer"
-              >
-                Clear Filters
-              </button>
-            )}
-          </div>
-        )}
 
         <div className="mt-12">
           <Footer />
         </div>
       </main>
+
+      {/* Floating Cart Widget */}
+      {cartCount > 0 && (
+        <button
+          onClick={() => setCartDrawerOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-[#A5914B] text-white pl-4 pr-5 py-3 rounded-full shadow-lg hover:bg-[#8B7A3F] hover:shadow-xl transition-all cursor-pointer"
+          aria-label={`View cart with ${cartCount} items`}
+        >
+          <span className="relative">
+            <ShoppingCart className="size-5" />
+            <span className="absolute -top-2 -right-2.5 bg-white text-[#A5914B] text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
+              {cartCount}
+            </span>
+          </span>
+          <span className="text-sm font-semibold ml-1">View Cart</span>
+        </button>
+      )}
+
+      {/* Cart Drawer */}
+      <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
 
       {/* Product Detail Modal */}
       <ProductDetailModal

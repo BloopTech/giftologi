@@ -21,6 +21,7 @@ const defaultNotificationPreferences = {
   weekly_reports: true,
   monthly_reports: true,
   marketing_emails: false,
+  push_notifications: false,
 };
 
 const createInitialState = () => ({
@@ -105,7 +106,7 @@ export const VendorProfileProvider = ({ children }) => {
           ? supabase
               .from("vendor_notification_preferences")
               .select(
-                "id, vendor_id, new_orders, order_updates, payout_alerts, low_stock_alerts, product_reviews, weekly_reports, monthly_reports, marketing_emails",
+                "id, vendor_id, new_orders, order_updates, payout_alerts, low_stock_alerts, product_reviews, weekly_reports, monthly_reports, marketing_emails, push_notifications",
               )
               .eq("vendor_id", vendorRecord.id)
               .order("created_at", { ascending: false })
