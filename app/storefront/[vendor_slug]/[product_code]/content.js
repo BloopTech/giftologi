@@ -121,18 +121,6 @@ export default function ProductCodeDetailContent() {
     };
   }, []);
 
-  const handleQuantityChange = useCallback(
-    (delta) => {
-      setQuantity((prev) => {
-        const next = prev + delta;
-        if (next < 1) return 1;
-        if (next > effectiveStock) return effectiveStock;
-        return next;
-      });
-    },
-    [effectiveStock],
-  );
-
   const variations = useMemo(
     () => (Array.isArray(product?.variations) ? product.variations : []),
     [product?.variations],
@@ -212,6 +200,18 @@ export default function ProductCodeDetailContent() {
 
   const isOutOfStock = product && effectiveStock <= 0;
   const canPurchase = !isClosed && !isOutOfStock;
+
+  const handleQuantityChange = useCallback(
+    (delta) => {
+      setQuantity((prev) => {
+        const next = prev + delta;
+        if (next < 1) return 1;
+        if (next > effectiveStock) return effectiveStock;
+        return next;
+      });
+    },
+    [effectiveStock],
+  );
 
   useEffect(() => {
     setSelectedColor("");

@@ -12,12 +12,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { useQueryState, parseAsString } from "nuqs";
 
-import { createClient as createSupabaseClient } from "../utils/supabase/client";
-import {
-  getOrCreateGuestBrowserId,
-} from "../utils/guest";
+import { createClient as createSupabaseClient } from "../../utils/supabase/client";
+import { getOrCreateGuestBrowserId } from "../../utils/guest";
+import { ShopContext } from "../../shop/context";
 
-export const ShopContext = createContext(null);
+const CategoryShopContext = createContext(null);
 
 const formatPrice = (value) => {
   if (value === null || value === undefined) return "";
@@ -47,13 +46,8 @@ const getVariationPriceStats = (variations, serviceCharge = 0) => {
     .map((variation) => Number(variation?.price))
     .filter((value) => Number.isFinite(value))
     .map((value) => value + serviceCharge);
-  if (!prices.length) {
-    return { min: null, max: null };
-  }
-  return {
-    min: Math.min(...prices),
-    max: Math.max(...prices),
-  };
+  if (!prices.length) return { min: null, max: null };
+  return { min: Math.min(...prices), max: Math.max(...prices) };
 };
 
 const isSaleActive = (product) => {
@@ -72,21 +66,15 @@ const mapProduct = (product) => {
   const vendor = product?.vendor || {};
   const serviceCharge = Number(product?.service_charge || 0);
   const relatedCategoryIds = Array.isArray(product?.product_categories)
-    ? product.product_categories
-        .map((entry) => entry?.category_id)
-        .filter(Boolean)
+    ? product.product_categories.map((entry) => entry?.category_id).filter(Boolean)
     : [];
   const mergedCategoryIds = [
-    ...new Set(
-      [...relatedCategoryIds, product?.category_id].filter(Boolean),
-    ),
+    ...new Set([...relatedCategoryIds, product?.category_id].filter(Boolean)),
   ];
   const variations = normalizeVariations(product?.variations);
   const variationStats = getVariationPriceStats(variations, serviceCharge);
   const basePrice = Number(product?.price);
-  const baseWithCharge = Number.isFinite(basePrice)
-    ? basePrice + serviceCharge
-    : serviceCharge;
+  const baseWithCharge = Number.isFinite(basePrice) ? basePrice + serviceCharge : serviceCharge;
   const displayPrice =
     variationStats.min != null && Number.isFinite(variationStats.min)
       ? variationStats.min
@@ -116,9 +104,7 @@ const mapProduct = (product) => {
     basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
     serviceCharge,
     variationPriceRange:
-      variationStats.min != null && variationStats.max != null
-        ? variationStats
-        : null,
+      variationStats.min != null && variationStats.max != null ? variationStats : null,
     variations,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
@@ -136,10 +122,10 @@ const mapProduct = (product) => {
   };
 };
 
-export function ShopProvider({
+export function CategoryShopProvider({
   children,
-  initialProducts,
-  initialCategories,
+  category,
+  subcategories,
   activeRegistry,
   hostProfile,
   initialSearchParams,
@@ -148,27 +134,28 @@ export function ShopProvider({
   const supabase = useMemo(() => createSupabaseClient(), []);
   const pageSize = 24;
 
+  // The parent category + its subcategory IDs for querying
+  const allCategoryIds = useMemo(() => {
+    const ids = [category?.id, ...(subcategories || []).map((s) => s.id)].filter(Boolean);
+    return [...new Set(ids)];
+  }, [category, subcategories]);
+
   // Products state
-  const [products, setProducts] = useState(() =>
-    Array.isArray(initialProducts) ? initialProducts.map(mapProduct) : []
-  );
-  const [loading, setLoading] = useState(false);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
-  const [categories, setCategories] = useState(
-    Array.isArray(initialCategories) ? initialCategories : []
-  );
 
   // Registry items state
   const [registryItems, setRegistryItems] = useState([]);
 
-  // Filter states
+  // Filter states — subcategory filter within this category
   const [searchParam, setSearchParam] = useQueryState(
     "q",
     parseAsString.withDefault(initialSearchParams?.q || "")
   );
-  const [categoryParam, setCategoryParam] = useQueryState(
-    "category",
-    parseAsString.withDefault(initialSearchParams?.category || "")
+  const [subcategoryParam, setSubcategoryParam] = useQueryState(
+    "sub",
+    parseAsString.withDefault(initialSearchParams?.sub || "")
   );
   const [sortParam, setSortParam] = useQueryState(
     "sort",
@@ -194,12 +181,12 @@ export function ShopProvider({
     "page",
     parseAsString.withDefault(initialSearchParams?.page || "1")
   );
+
   const searchQuery = searchParam || "";
-  const categoryFilter = categoryParam || "";
   const sortBy = sortParam || "newest";
-  const selectedCategories = useMemo(
-    () => (categoryFilter ? categoryFilter.split(",").filter(Boolean) : []),
-    [categoryFilter]
+  const selectedSubcategories = useMemo(
+    () => (subcategoryParam ? subcategoryParam.split(",").filter(Boolean) : []),
+    [subcategoryParam]
   );
   const page = useMemo(() => {
     const num = Number.parseInt(pageParam || "1", 10);
@@ -229,28 +216,12 @@ export function ShopProvider({
   const [addToRegistryProduct, setAddToRegistryProduct] = useState(null);
 
   useEffect(() => {
-    setPriceRange({
-      min: minPriceParam || "",
-      max: maxPriceParam || "",
-    });
+    setPriceRange({ min: minPriceParam || "", max: maxPriceParam || "" });
   }, [minPriceParam, maxPriceParam]);
 
+  // Fetch cart items
   useEffect(() => {
     let ignore = false;
-
-    const fetchCategories = async () => {
-      const { data, error } = await supabase
-        .from("categories")
-        .select("id, name, slug, parent_category_id")
-        .order("name");
-
-      if (ignore || error) return;
-      setCategories(Array.isArray(data) ? data : []);
-    };
-
-    fetchCategories();
-
-    // Fetch cart product IDs
     const fetchCartItems = async () => {
       try {
         const guestBrowserId = getOrCreateGuestBrowserId();
@@ -273,28 +244,30 @@ export function ShopProvider({
       }
     };
     fetchCartItems();
-
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [supabase]);
 
+  // Build filter key
   const filterKey = useMemo(
     () =>
-      [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam, ratingParam, onSaleParam].join(
-        "|"
-      ),
-    [searchQuery, categoryFilter, sortBy, minPriceParam, maxPriceParam, ratingParam, onSaleParam]
+      [searchQuery, subcategoryParam, sortBy, minPriceParam, maxPriceParam, ratingParam, onSaleParam].join("|"),
+    [searchQuery, subcategoryParam, sortBy, minPriceParam, maxPriceParam, ratingParam, onSaleParam]
   );
   const lastFilterRef = useRef(filterKey);
   const lastPageRef = useRef(page);
 
+  // Fetch products scoped to this category + subcategories
   useEffect(() => {
     let ignore = false;
 
     const fetchProducts = async () => {
-      setLoading(true);
+      if (!allCategoryIds.length) {
+        setProducts([]);
+        setLoading(false);
+        return;
+      }
 
+      setLoading(true);
       try {
         if (filterKey !== lastFilterRef.current && page !== 1) {
           setProducts([]);
@@ -307,17 +280,20 @@ export function ShopProvider({
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
 
-        // Pre-fetch product IDs from product_categories if category filter is active
-        let categoryProductIds = null;
-        if (selectedCategories.length > 0) {
-          const { data: catRows } = await supabase
-            .from("product_categories")
-            .select("product_id")
-            .in("category_id", selectedCategories);
-          categoryProductIds = new Set(
-            (catRows || []).map((r) => r.product_id).filter(Boolean)
-          );
+        // Determine which category IDs to query
+        let queryCategoryIds = allCategoryIds;
+        if (selectedSubcategories.length > 0) {
+          queryCategoryIds = selectedSubcategories;
         }
+
+        // Pre-fetch product IDs from product_categories
+        const { data: catRows } = await supabase
+          .from("product_categories")
+          .select("product_id")
+          .in("category_id", queryCategoryIds);
+        const categoryProductIds = new Set(
+          (catRows || []).map((r) => r.product_id).filter(Boolean)
+        );
 
         let query = supabase
           .from("products")
@@ -357,6 +333,15 @@ export function ShopProvider({
           .eq("vendor.shop_status", "active")
           .gt("stock_qty", 0);
 
+        // Category scope: products whose category_id matches OR that appear in product_categories
+        const catIds = queryCategoryIds.join(",");
+        if (categoryProductIds.size > 0) {
+          const pcIds = [...categoryProductIds].join(",");
+          query = query.or(`category_id.in.(${catIds}),id.in.(${pcIds})`);
+        } else {
+          query = query.in("category_id", queryCategoryIds);
+        }
+
         if (onSaleParam === "true") {
           query = query
             .not("sale_price", "is", null)
@@ -367,18 +352,6 @@ export function ShopProvider({
 
         if (searchQuery && searchQuery.trim()) {
           query = query.ilike("name", `%${searchQuery.trim()}%`);
-        }
-
-        if (selectedCategories.length > 0) {
-          const catIds = selectedCategories.join(",");
-          if (categoryProductIds && categoryProductIds.size > 0) {
-            const allIds = [...categoryProductIds].join(",");
-            query = query.or(
-              `category_id.in.(${catIds}),id.in.(${allIds})`
-            );
-          } else {
-            query = query.in("category_id", selectedCategories);
-          }
         }
 
         if (ratingParam) {
@@ -448,35 +421,32 @@ export function ShopProvider({
     };
 
     fetchProducts();
-
-    return () => {
-      ignore = true;
-    };
+    return () => { ignore = true; };
   }, [
     supabase,
     page,
     pageSize,
     filterKey,
     searchQuery,
-    categoryFilter,
+    subcategoryParam,
     sortBy,
     minPriceParam,
     maxPriceParam,
     ratingParam,
-    selectedCategories,
+    onSaleParam,
+    allCategoryIds,
+    selectedSubcategories,
     setPageParam,
   ]);
 
-  // Fetch registry items if user has a registry
+  // Fetch registry items
   const fetchRegistryItems = useCallback(async () => {
     if (!registry?.id) return;
-
     try {
       const { data: items, error } = await supabase
         .from("registry_items")
         .select("product_id, id, quantity_needed, purchased_qty")
         .eq("registry_id", registry.id);
-
       if (error) throw error;
       setRegistryItems(items || []);
     } catch (err) {
@@ -484,20 +454,12 @@ export function ShopProvider({
     }
   }, [registry?.id, supabase]);
 
-  // Fetch registry items when registry changes or after actions
-  useEffect(() => {
-    fetchRegistryItems();
-  }, [fetchRegistryItems]);
+  useEffect(() => { fetchRegistryItems(); }, [fetchRegistryItems]);
 
-  // Refresh registry items after add/remove operations
   useEffect(() => {
-    // This will be triggered when registryItems change from server actions
-    const handleStorageChange = () => {
-      fetchRegistryItems();
-    };
-
-    window.addEventListener('registry-item-updated', handleStorageChange);
-    return () => window.removeEventListener('registry-item-updated', handleStorageChange);
+    const handler = () => fetchRegistryItems();
+    window.addEventListener("registry-item-updated", handler);
+    return () => window.removeEventListener("registry-item-updated", handler);
   }, [fetchRegistryItems]);
 
   const totalPages = useMemo(() => {
@@ -514,26 +476,23 @@ export function ShopProvider({
     [setPageParam]
   );
 
-  // Search/filter products
   const applyFilters = useCallback(async () => {
     setMinPriceParam(priceRange.min || "");
     setMaxPriceParam(priceRange.max || "");
     setPageParam("1");
   }, [priceRange, setMinPriceParam, setMaxPriceParam, setPageParam]);
 
-  // Open product detail
+  // Product detail
   const openProductDetail = useCallback((product) => {
     setSelectedProduct(product);
     setProductDetailOpen(true);
   }, []);
-
-  // Close product detail
   const closeProductDetail = useCallback(() => {
     setProductDetailOpen(false);
     setSelectedProduct(null);
   }, []);
 
-  // Open add to registry modal
+  // Add to registry
   const openAddToRegistry = useCallback(
     (product) => {
       if (!registry) {
@@ -546,8 +505,6 @@ export function ShopProvider({
     },
     [registry, router]
   );
-
-  // Close add to registry modal
   const closeAddToRegistry = useCallback(() => {
     setAddToRegistryOpen(false);
     setAddToRegistryProduct(null);
@@ -583,11 +540,9 @@ export function ShopProvider({
           return;
         }
         const body = await res.json().catch(() => ({}));
-        // Update local cart state
         setCartItemMap((prev) => {
           const next = new Map(prev);
-          const cartItemId =
-            body?.items?.[body.items.length - 1]?.id || `temp-${product.id}`;
+          const cartItemId = body?.items?.[body.items.length - 1]?.id || `temp-${product.id}`;
           next.set(product.id, { cartItemId, cartId: body?.cart?.id, vendorSlug: product.vendor.slug });
           return next;
         });
@@ -635,13 +590,9 @@ export function ShopProvider({
     [cartItemMap]
   );
 
-  // Check if product is in cart
-  const isInCart = useCallback(
-    (productId) => cartItemMap.has(productId),
-    [cartItemMap]
-  );
+  const isInCart = useCallback((productId) => cartItemMap.has(productId), [cartItemMap]);
 
-  // Buy now - add to cart then navigate to checkout
+  // Buy now
   const buyNow = useCallback(
     async (product) => {
       if (!product?.id || !product?.vendor?.slug) {
@@ -666,9 +617,7 @@ export function ShopProvider({
           toast.error(body?.message || "Failed to process purchase");
           return;
         }
-        router.push(
-          `/storefront/${product.vendor.slug}/checkout?cart=1`
-        );
+        router.push(`/storefront/${product.vendor.slug}/checkout?cart=1`);
       } catch {
         toast.error("Failed to process purchase");
       } finally {
@@ -678,23 +627,22 @@ export function ShopProvider({
     [router]
   );
 
-  // Toggle single category in filter
+  // Subcategory toggles (used as category filter within this page)
   const toggleCategory = useCallback(
     (catId) => {
-      const current = categoryFilter ? categoryFilter.split(",").filter(Boolean) : [];
+      const current = subcategoryParam ? subcategoryParam.split(",").filter(Boolean) : [];
       const next = current.includes(catId)
         ? current.filter((id) => id !== catId)
         : [...current, catId];
-      setCategoryParam(next.length > 0 ? next.join(",") : "");
+      setSubcategoryParam(next.length > 0 ? next.join(",") : "");
       setPageParam("1");
     },
-    [categoryFilter, setCategoryParam, setPageParam]
+    [subcategoryParam, setSubcategoryParam, setPageParam]
   );
 
-  // Toggle parent category (and all its children)
   const toggleParentCategory = useCallback(
     (parentId, childIds = []) => {
-      const current = categoryFilter ? categoryFilter.split(",").filter(Boolean) : [];
+      const current = subcategoryParam ? subcategoryParam.split(",").filter(Boolean) : [];
       const allIds = [parentId, ...childIds];
       const allSelected = allIds.every((id) => current.includes(id));
       let next;
@@ -704,13 +652,12 @@ export function ShopProvider({
         const set = new Set([...current, ...allIds]);
         next = [...set];
       }
-      setCategoryParam(next.length > 0 ? next.join(",") : "");
+      setSubcategoryParam(next.length > 0 ? next.join(",") : "");
       setPageParam("1");
     },
-    [categoryFilter, setCategoryParam, setPageParam]
+    [subcategoryParam, setSubcategoryParam, setPageParam]
   );
 
-  // Set and apply price range (for slider onValueCommit)
   const setAndApplyPriceRange = useCallback(
     ({ min, max }) => {
       const minStr = min > 0 ? String(min) : "";
@@ -723,39 +670,29 @@ export function ShopProvider({
     [setMinPriceParam, setMaxPriceParam, setPageParam]
   );
 
-  // Cart derived values
   const cartCount = cartItemMap.size;
   const cartCheckoutUrl = useMemo(() => {
     if (cartItemMap.size === 0) return null;
-    // Find the first vendor slug from cart items
     for (const entry of cartItemMap.values()) {
-      if (entry.vendorSlug) {
-        return `/storefront/${entry.vendorSlug}/checkout?cart=1`;
-      }
+      if (entry.vendorSlug) return `/storefront/${entry.vendorSlug}/checkout?cart=1`;
     }
     return null;
   }, [cartItemMap]);
 
-  // Check if product is in registry
   const isProductInRegistry = useCallback(
-    (productId) => {
-      return registryItems.some((item) => item.product_id === productId);
-    },
+    (productId) => registryItems.some((item) => item.product_id === productId),
     [registryItems]
   );
 
-  // Get registry item for product
   const getRegistryItem = useCallback(
-    (productId) => {
-      return registryItems.find((item) => item.product_id === productId);
-    },
+    (productId) => registryItems.find((item) => item.product_id === productId),
     [registryItems]
   );
 
   // Clear filters
   const clearFilters = useCallback(() => {
     setSearchParam("");
-    setCategoryParam("");
+    setSubcategoryParam("");
     setSortParam("newest");
     setMinPriceParam("");
     setMaxPriceParam("");
@@ -764,69 +701,44 @@ export function ShopProvider({
     setPageParam("1");
     setPriceRange({ min: "", max: "" });
   }, [
-    setSearchParam,
-    setCategoryParam,
-    setSortParam,
-    setMinPriceParam,
-    setMaxPriceParam,
-    setRatingParam,
-    setOnSaleParam,
-    setPageParam,
+    setSearchParam, setSubcategoryParam, setSortParam,
+    setMinPriceParam, setMaxPriceParam, setRatingParam, setOnSaleParam, setPageParam,
   ]);
 
   const setSearchQuery = useCallback(
-    (value) => {
-      setSearchParam(value || "");
-      setPageParam("1");
-    },
+    (value) => { setSearchParam(value || ""); setPageParam("1"); },
     [setSearchParam, setPageParam]
   );
 
-  const setCategoryFilter = useCallback(
-    (value) => {
-      if (Array.isArray(value)) {
-        setCategoryParam(value.length > 0 ? value.join(",") : "");
-      } else {
-        setCategoryParam(value === "all" ? "" : value || "");
-      }
-      setPageParam("1");
-    },
-    [setCategoryParam, setPageParam]
-  );
-
   const setSortBy = useCallback(
-    (value) => {
-      setSortParam(value || "newest");
-      setPageParam("1");
-    },
+    (value) => { setSortParam(value || "newest"); setPageParam("1"); },
     [setSortParam, setPageParam]
   );
 
   const setRatingFilter = useCallback(
-    (value) => {
-      setRatingParam(value || "");
-      setPageParam("1");
-    },
+    (value) => { setRatingParam(value || ""); setPageParam("1"); },
     [setRatingParam, setPageParam]
   );
 
   const setOnSaleFilter = useCallback(
-    (value) => {
-      setOnSaleParam(value ? "true" : "");
-      setPageParam("1");
-    },
+    (value) => { setOnSaleParam(value ? "true" : ""); setPageParam("1"); },
     [setOnSaleParam, setPageParam]
   );
 
   const hasActiveFilters =
     searchQuery ||
-    selectedCategories.length > 0 ||
+    selectedSubcategories.length > 0 ||
     priceRange.min ||
     priceRange.max ||
-    ratingParam;
+    ratingParam ||
+    onSaleParam === "true";
 
   const value = useMemo(
     () => ({
+      // Category info
+      category,
+      subcategories: subcategories || [],
+
       // Products
       products,
       loading,
@@ -837,13 +749,10 @@ export function ShopProvider({
       // Filters
       searchQuery,
       setSearchQuery,
-      categoryFilter,
-      setCategoryFilter,
       sortBy,
       setSortBy,
       priceRange,
       setPriceRange,
-      categories,
       applyFilters,
       clearFilters,
       hasActiveFilters,
@@ -883,70 +792,45 @@ export function ShopProvider({
       cartCount,
       cartCheckoutUrl,
 
-      // Multi-category filter
-      selectedCategories,
+      // Subcategory multi-select (uses same interface as shop's category filter)
+      selectedCategories: selectedSubcategories,
       toggleCategory,
       toggleParentCategory,
+      categories: subcategories || [],
 
       // Price slider
       setAndApplyPriceRange,
     }),
-
     [
-      products,
-      loading,
-      totalPages,
-      page,
-      setPage,
-      searchQuery,
-      categoryFilter,
-      sortBy,
-      priceRange,
-      categories,
-      applyFilters,
-      clearFilters,
-      hasActiveFilters,
-      ratingParam,
-      setRatingFilter,
-      onSaleParam,
-      setOnSaleFilter,
-      registry,
-      hostProfile,
-      registryItems,
-      isProductInRegistry,
-      getRegistryItem,
-      selectedProduct,
-      productDetailOpen,
-      openProductDetail,
-      closeProductDetail,
-      addToRegistryOpen,
-      addToRegistryProduct,
-      openAddToRegistry,
-      closeAddToRegistry,
-      addToCart,
-      buyNow,
-      removeFromCart,
-      isInCart,
-      addingToCartId,
-      buyingProductId,
-      removingFromCartId,
-      cartCount,
-      cartCheckoutUrl,
-      selectedCategories,
-      toggleCategory,
-      toggleParentCategory,
-      setAndApplyPriceRange,
-      cartItemMap,
+      category, subcategories,
+      products, loading, totalPages, page, setPage,
+      searchQuery, sortBy, priceRange,
+      applyFilters, clearFilters, hasActiveFilters,
+      ratingParam, setRatingFilter, onSaleParam, setOnSaleFilter,
+      registry, hostProfile, registryItems, isProductInRegistry, getRegistryItem,
+      selectedProduct, productDetailOpen, openProductDetail, closeProductDetail,
+      addToRegistryOpen, addToRegistryProduct, openAddToRegistry, closeAddToRegistry,
+      addToCart, buyNow, removeFromCart, isInCart,
+      addingToCartId, buyingProductId, removingFromCartId,
+      cartCount, cartCheckoutUrl,
+      selectedSubcategories, toggleCategory, toggleParentCategory,
+      setAndApplyPriceRange, cartItemMap,
     ]
   );
 
-  return <ShopContext.Provider value={value}>{children}</ShopContext.Provider>;
+  return (
+    <CategoryShopContext.Provider value={value}>
+      <ShopContext.Provider value={value}>
+        {children}
+      </ShopContext.Provider>
+    </CategoryShopContext.Provider>
+  );
 }
 
-export function useShop() {
-  const ctx = useContext(ShopContext);
+export function useCategoryShop() {
+  const ctx = useContext(CategoryShopContext);
   if (!ctx) {
-    throw new Error("useShop must be used within ShopProvider");
+    throw new Error("useCategoryShop must be used within CategoryShopProvider");
   }
   return ctx;
 }

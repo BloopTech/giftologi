@@ -13,6 +13,7 @@ import {
 
 const NAV_LINKS = [
   { href: "/shop", label: "Shop" },
+  { href: "/categories", label: "Categories" },
   { href: "/registry", label: "Registry" },
   { href: "/storefront", label: "Stores" },
 ];

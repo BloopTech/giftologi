@@ -118,7 +118,7 @@ export default function TransactionDetailsContent({ transaction }) {
         const deliveryQuery = supabase
           .from("order_delivery_details")
           .select(
-            "id, order_id, courier_partner, tracking_id, inbound_shipping_fee, outbound_shipping_fee, gift_wrapping_fee, delivery_status, proof_of_delivery_url, created_at, updated_at"
+            "id, order_id, courier_partner, tracking_id, inbound_shipping_fee, outbound_shipping_fee, gift_wrapping_fee, delivery_status, proof_of_delivery_url, delivery_confirmed_at, delivery_confirmed_by, delivery_attempts, failed_delivery_reason, failed_delivery_at, created_at, updated_at"
           )
           .eq("order_id", orderId)
           .maybeSingle();
@@ -448,6 +448,12 @@ export default function TransactionDetailsContent({ transaction }) {
       totalWeightKgLabel: totalWeightKg !== null ? `${totalWeightKg.toFixed(2)} kg` : "—",
       pieces,
       piecesLabel: pieces !== null ? `${pieces} piece${pieces === 1 ? "" : "s"}` : "—",
+      confirmedAt: delivery.delivery_confirmed_at || null,
+      confirmedBy: delivery.delivery_confirmed_by || null,
+      attempts: delivery.delivery_attempts || 1,
+      failedReason: delivery.failed_delivery_reason || null,
+      failedAt: delivery.failed_delivery_at || null,
+      rawStatus: normalized,
     };
   }, [details.delivery, details.checkoutContext, transaction, order]);
 
@@ -571,7 +577,7 @@ export default function TransactionDetailsContent({ transaction }) {
       )}
 
       {activeTab === "delivery" && (
-        <DeliverySection loading={loading} summary={deliverySummary} />
+        <DeliverySection loading={loading} summary={deliverySummary} orderId={orderId} />
       )}
 
       {activeTab === "audit" && (
@@ -836,7 +842,39 @@ function OrderItemsSection({ loading, items }) {
   );
 }
 
-function DeliverySection({ loading, summary }) {
+function DeliverySection({ loading, summary, orderId }) {
+  const [failReason, setFailReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(null);
+  const [actionMsg, setActionMsg] = useState(null);
+
+  const handleAction = async (actionName, extraData = {}) => {
+    setActionLoading(actionName);
+    setActionMsg(null);
+    try {
+      const { markDeliveryFailed, reattemptDelivery } = await import(
+        "./action"
+      );
+      const fd = new FormData();
+      fd.set("orderId", orderId);
+      Object.entries(extraData).forEach(([k, v]) => fd.set(k, v));
+
+      let result;
+      if (actionName === "markFailed") {
+        result = await markDeliveryFailed(null, fd);
+      } else if (actionName === "reattempt") {
+        result = await reattemptDelivery(null, fd);
+      }
+      setActionMsg({
+        type: result?.data?.orderId ? "success" : "error",
+        text: result?.message || "Done",
+      });
+    } catch (err) {
+      setActionMsg({ type: "error", text: err.message || "Action failed" });
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <div className="space-y-4 text-xs text-[#0A0A0A]">
       <div className="space-y-1">
@@ -897,9 +935,59 @@ function DeliverySection({ loading, summary }) {
               {summary.piecesLabel}
             </p>
           </div>
+          {summary.attempts > 1 && (
+            <div>
+              <p className="text-[11px] text-[#717182]">Delivery Attempts</p>
+              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                {summary.attempts}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
+      {/* Delivery Confirmation */}
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium text-[#717182]">
+          Delivery Confirmation
+        </p>
+        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+          {summary.confirmedAt ? (
+            <div className="flex items-center gap-2">
+              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+              <p className="text-[11px] text-[#0A0A0A]">
+                Confirmed by <span className="font-medium">{summary.confirmedBy || "—"}</span> on{" "}
+                {formatDateTime(summary.confirmedAt)}
+              </p>
+            </div>
+          ) : (
+            <p className="text-[11px] text-[#717182]">
+              Delivery has not been confirmed by the recipient yet.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Failed Delivery Info */}
+      {summary.failedAt && (
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium text-red-600">
+            Failed Delivery
+          </p>
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-1">
+            <p className="text-[11px] text-red-700">
+              Failed at: {formatDateTime(summary.failedAt)}
+            </p>
+            {summary.failedReason && (
+              <p className="text-[11px] text-red-700">
+                Reason: {summary.failedReason}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Proof of Delivery */}
       <div className="space-y-1">
         <p className="text-[11px] font-medium text-[#717182]">
           Proof of Delivery
@@ -922,6 +1010,67 @@ function DeliverySection({ loading, summary }) {
           )}
         </div>
       </div>
+
+      {/* Admin Actions */}
+      {orderId && (
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium text-[#717182]">
+            Delivery Actions
+          </p>
+          <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 space-y-3">
+            {actionMsg && (
+              <div
+                className={cx(
+                  "rounded-md px-3 py-2 text-[11px]",
+                  actionMsg.type === "success"
+                    ? "bg-green-50 border border-green-200 text-green-700"
+                    : "bg-red-50 border border-red-200 text-red-700"
+                )}
+              >
+                {actionMsg.text}
+              </div>
+            )}
+
+            <div className="flex flex-wrap gap-2">
+              {/* Mark Failed */}
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Failure reason (optional)"
+                  value={failReason}
+                  onChange={(e) => setFailReason(e.target.value)}
+                  disabled={!!actionLoading}
+                  className="rounded-full border border-[#D6D6D6] px-3 py-1.5 text-[11px] outline-none w-48"
+                />
+                <button
+                  type="button"
+                  disabled={!!actionLoading}
+                  onClick={() =>
+                    handleAction("markFailed", { reason: failReason })
+                  }
+                  className="inline-flex items-center justify-center rounded-full border border-red-400 px-4 py-1.5 text-[11px] text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-50 cursor-pointer"
+                >
+                  {actionLoading === "markFailed"
+                    ? "Marking…"
+                    : "Mark Failed"}
+                </button>
+              </div>
+
+              {/* Re-attempt */}
+              <button
+                type="button"
+                disabled={!!actionLoading}
+                onClick={() => handleAction("reattempt")}
+                className="inline-flex items-center justify-center rounded-full border border-[#3979D2] px-4 py-1.5 text-[11px] text-[#3979D2] hover:bg-[#3979D2] hover:text-white disabled:opacity-50 cursor-pointer"
+              >
+                {actionLoading === "reattempt"
+                  ? "Creating shipment…"
+                  : "Re-attempt Delivery"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

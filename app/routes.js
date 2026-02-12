@@ -3,6 +3,8 @@ export const publicRoutes = [`/`, `/vendor`];
 export const eventPublicRoutes = [
   `/shop`,
   `/shop/checkout`,
+  `/categories`,
+  `/categories/:category_slug`,
   `/event/:event_code`,
   `/registry`,
   `/registry/:registry_code`,

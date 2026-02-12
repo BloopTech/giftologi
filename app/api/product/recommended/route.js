@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from "@/app/utils/supabase/server";
+import { createAdminClient, createClient } from "@/app/utils/supabase/server";
 
 const DEFAULT_LIMIT = 8;
 const MAX_LIMIT = 24;
-const VIEW_BUFFER = 200;
 const LOOKBACK_DAYS = 45;
 
 const PRODUCT_SELECT = `
@@ -17,6 +16,11 @@ const PRODUCT_SELECT = `
   description,
   stock_qty,
   category_id,
+  avg_rating,
+  review_count,
+  sale_price,
+  sale_starts_at,
+  sale_ends_at,
   product_categories (category_id),
   vendor:vendors!inner(
     id,
@@ -41,9 +45,11 @@ export async function GET(req) {
     );
 
     const page = Math.max(1, Number.parseInt(pageRaw || "1", 10) || 1);
+    const offset = (page - 1) * limit;
 
     const admin = createAdminClient();
 
+    // Resolve vendor slug to ID if provided
     let vendorId = null;
     if (vendorSlug) {
       const { data: vendor, error: vendorError } = await admin
@@ -66,46 +72,51 @@ export async function GET(req) {
       vendorId = vendor.id;
     }
 
-    const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    // Get authenticated user ID (optional — anonymous gets global recommendations)
+    let userId = null;
+    try {
+      const supabase = await createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      userId = user?.id || null;
+    } catch {
+      // Anonymous — userId stays null
+    }
 
-    const { data: views, error: viewsError } = await admin
-      .from("product_page_views")
-      .select("product_id, created_at")
-      .gte("created_at", since)
-      .order("created_at", { ascending: false })
-      .limit(VIEW_BUFFER);
+    // Single DB function call — replaces multiple queries
+    const { data: scored, error: scoreError } = await admin.rpc(
+      "get_personalized_recommendations",
+      {
+        p_user_id: userId,
+        p_vendor_id: vendorId,
+        p_limit: limit + 1, // fetch one extra to check has_more
+        p_offset: offset,
+        p_lookback_days: LOOKBACK_DAYS,
+      }
+    );
 
-    if (viewsError) {
+    if (scoreError) {
+      console.error("Recommendation scoring error:", scoreError);
       return NextResponse.json(
         { message: "Failed to load recommended products" },
         { status: 500 }
       );
     }
 
-    const counts = new Map();
-    (Array.isArray(views) ? views : []).forEach((view) => {
-      if (!view?.product_id) return;
-      counts.set(view.product_id, (counts.get(view.product_id) || 0) + 1);
-    });
-
-    const orderedIds = [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .map(([id]) => id);
-
+    const scoredIds = (Array.isArray(scored) ? scored : []).map((r) => r.product_id);
     let products = [];
     let has_more = false;
-    if (orderedIds.length) {
+
+    if (scoredIds.length) {
+      has_more = scoredIds.length > limit;
+      const idsToFetch = scoredIds.slice(0, limit);
+
       let productQuery = admin
         .from("products")
         .select(PRODUCT_SELECT)
-        .in("id", orderedIds)
+        .in("id", idsToFetch)
         .eq("status", "approved")
         .eq("active", true)
         .gt("stock_qty", 0);
-
-      if (vendorId) {
-        productQuery = productQuery.eq("vendor_id", vendorId);
-      }
 
       if (!includeClosed) {
         productQuery = productQuery.eq("vendor.shop_status", "active");
@@ -120,21 +131,14 @@ export async function GET(req) {
         );
       }
 
+      // Maintain score-based ordering
       const productMap = new Map(
-        (Array.isArray(productRows) ? productRows : []).map((product) => [product.id, product])
+        (Array.isArray(productRows) ? productRows : []).map((p) => [p.id, p])
       );
-
-      const orderedProducts = orderedIds
-        .map((id) => productMap.get(id))
-        .filter(Boolean);
-
-      const start = (page - 1) * limit;
-      const end = start + limit;
-
-      has_more = orderedProducts.length > end;
-      products = orderedProducts.slice(start, end);
+      products = idsToFetch.map((id) => productMap.get(id)).filter(Boolean);
     }
 
+    // Fallback: newest products if no recommendations available
     if (!products.length) {
       let fallbackQuery = admin
         .from("products")
@@ -143,7 +147,7 @@ export async function GET(req) {
         .eq("active", true)
         .gt("stock_qty", 0)
         .order("created_at", { ascending: false })
-        .range((page - 1) * limit, (page - 1) * limit + limit);
+        .range(offset, offset + limit);
 
       if (vendorId) {
         fallbackQuery = fallbackQuery.eq("vendor_id", vendorId);

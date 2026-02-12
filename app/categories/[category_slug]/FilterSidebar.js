@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
-import { useShop } from "../context";
 import SharedFilterSidebar from "../../components/FilterSidebar";
+import { useCategoryShop } from "./context";
 
 export default function FilterSidebar() {
   const {
@@ -19,7 +19,7 @@ export default function FilterSidebar() {
     setRatingFilter,
     onSaleFilter,
     setOnSaleFilter,
-  } = useShop();
+  } = useCategoryShop();
 
   return (
     <SharedFilterSidebar

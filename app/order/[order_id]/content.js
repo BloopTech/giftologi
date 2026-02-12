@@ -51,6 +51,12 @@ export default function OrderTrackingContent({ orderCode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Delivery confirmation state
+  const [confirmEmail, setConfirmEmail] = useState("");
+  const [confirmLoading, setConfirmLoading] = useState(false);
+  const [confirmError, setConfirmError] = useState(null);
+  const [confirmSuccess, setConfirmSuccess] = useState(false);
+
   useEffect(() => {
     let active = true;
 
@@ -109,6 +115,39 @@ export default function OrderTrackingContent({ orderCode }) {
   }, [latestShipment?.status]);
 
   const StatusIcon = statusConfig.icon || PiPackage;
+
+  const canConfirm = useMemo(() => {
+    if (confirmSuccess) return false;
+    if (!latestShipment) return false;
+    const key = (latestShipment.status || "").toLowerCase();
+    return key === "shipped" || key === "delivered" || key === "in transit";
+  }, [latestShipment, confirmSuccess]);
+
+  const handleConfirmDelivery = async () => {
+    const trimmed = confirmEmail.trim();
+    if (!trimmed) {
+      setConfirmError("Please enter your email address.");
+      return;
+    }
+    setConfirmLoading(true);
+    setConfirmError(null);
+    try {
+      const res = await fetch("/api/order/confirm-delivery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderCode, email: trimmed }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to confirm delivery");
+      }
+      setConfirmSuccess(true);
+    } catch (err) {
+      setConfirmError(err.message || "Something went wrong");
+    } finally {
+      setConfirmLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#F7F5F0]">
@@ -246,6 +285,59 @@ export default function OrderTrackingContent({ orderCode }) {
             </div>
           )}
         </div>
+
+        {/* Delivery Confirmation Section */}
+        {!loading && !error && shipments.length > 0 && canConfirm && (
+          <div className="mt-6 bg-white rounded-2xl border border-[#E5E7EB] shadow-sm p-6">
+            <div className="flex items-start gap-3">
+              <PiCheckCircle className="w-5 h-5 text-[#15803D] mt-0.5 shrink-0" />
+              <div className="flex-1">
+                <h3 className="text-sm font-semibold text-[#111827]">
+                  Received your order?
+                </h3>
+                <p className="text-xs text-[#6B7280] mt-1">
+                  Confirm delivery by entering the email you used when placing
+                  the order.
+                </p>
+                <div className="mt-3 flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="email"
+                    placeholder="Your email address"
+                    value={confirmEmail}
+                    onChange={(e) => setConfirmEmail(e.target.value)}
+                    disabled={confirmLoading}
+                    className="flex-1 rounded-full border border-[#D1D5DB] px-4 py-2 text-sm outline-none focus:border-[#A5914B] disabled:opacity-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleConfirmDelivery}
+                    disabled={confirmLoading}
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full bg-[#15803D] text-white text-sm font-medium hover:bg-[#166534] disabled:opacity-50"
+                  >
+                    {confirmLoading ? "Confirming…" : "Confirm Delivery"}
+                  </button>
+                </div>
+                {confirmError && (
+                  <p className="mt-2 text-xs text-[#B91C1C]">{confirmError}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmSuccess && (
+          <div className="mt-6 bg-[#DCFCE7] rounded-2xl border border-[#BBF7D0] p-6 flex items-start gap-3">
+            <PiCheckCircle className="w-5 h-5 text-[#15803D] mt-0.5 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-[#15803D]">
+                Delivery confirmed!
+              </p>
+              <p className="text-xs text-[#166534] mt-1">
+                Thank you for confirming that you received your order.
+              </p>
+            </div>
+          </div>
+        )}
 
         <div className="mt-8 flex flex-col sm:flex-row gap-3 flex-wrap">
           <button

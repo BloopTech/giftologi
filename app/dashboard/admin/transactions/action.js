@@ -451,3 +451,420 @@ export async function initiateOrderRefund(prevState, formData) {
     data: { orderId, refundId: refund.id },
   };
 }
+
+// ─── Failed Delivery Management ──────────────────────────────────────────────
+
+const deliveryActionSchema = z.object({
+  orderId: z.string().uuid({ message: "Invalid order" }),
+  reason: z.string().trim().optional().or(z.literal("")),
+});
+
+const deliveryAllowedRoles = [
+  "super_admin",
+  "operations_manager_admin",
+  "customer_support_admin",
+];
+
+async function requireDeliveryAdmin(supabase) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "You must be logged in." };
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  if (!profile || !deliveryAllowedRoles.includes(profile.role)) {
+    return { error: "You are not authorized for this action." };
+  }
+  return { user, profile };
+}
+
+export async function markDeliveryFailed(prevState, formData) {
+  const supabase = await createClient();
+  const adminClient = createAdminClient();
+
+  const auth = await requireDeliveryAdmin(supabase);
+  if (auth.error) {
+    return { message: auth.error, errors: {}, values: {}, data: {} };
+  }
+
+  const raw = {
+    orderId: formData.get("orderId"),
+    reason: formData.get("reason") || "",
+  };
+
+  const parsed = deliveryActionSchema.safeParse(raw);
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { orderId, reason } = parsed.data;
+
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("id, status, order_code, buyer_email")
+    .eq("id", orderId)
+    .single();
+
+  if (orderError || !order) {
+    return {
+      message: orderError?.message || "Order not found.",
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
+  // Update delivery details
+  const nowIso = new Date().toISOString();
+  const { data: delivery } = await adminClient
+    .from("order_delivery_details")
+    .select("id, delivery_attempts")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  if (delivery) {
+    await adminClient
+      .from("order_delivery_details")
+      .update({
+        delivery_status: "failed",
+        failed_delivery_reason: reason || null,
+        failed_delivery_at: nowIso,
+        updated_at: nowIso,
+      })
+      .eq("id", delivery.id);
+  } else {
+    await adminClient.from("order_delivery_details").insert({
+      order_id: orderId,
+      delivery_status: "failed",
+      failed_delivery_reason: reason || null,
+      failed_delivery_at: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+  }
+
+  // Update shipment status
+  await adminClient
+    .from("order_shipments")
+    .update({ status: "failed", updated_at: nowIso, last_status_at: nowIso })
+    .eq("order_id", orderId)
+    .is("delivered_at", null);
+
+  // Notify buyer
+  try {
+    const orderCodeLabel = order.order_code || orderId.slice(0, 8);
+
+    if (order.buyer_email) {
+      await adminClient.from("notification_email_queue").insert({
+        recipient_email: order.buyer_email,
+        template_slug: "delivery_failed",
+        variables: {
+          order_code: orderCodeLabel,
+          reason: reason || "Delivery could not be completed.",
+        },
+        status: "pending",
+      });
+    }
+
+    await dispatchToAdmins({
+      client: adminClient,
+      eventType: "system_alert",
+      message: `Delivery failed for order ${orderCodeLabel}. Reason: ${reason || "Not specified"}`,
+      link: "/dashboard/admin/transactions",
+      data: { order_id: orderId, order_code: order.order_code || null },
+    });
+  } catch (err) {
+    console.error("Failed delivery notification error:", err);
+  }
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: auth.profile.id,
+    adminRole: auth.profile.role,
+    adminEmail: auth.user.email || null,
+    adminName: null,
+    action: "marked_delivery_failed",
+    entity: "orders",
+    targetId: orderId,
+    details: `Marked delivery failed for order ${orderId}. Reason: ${reason || "Not specified"}`,
+  });
+
+  revalidatePath("/dashboard/admin/transactions");
+  return {
+    message: "Delivery marked as failed.",
+    errors: {},
+    values: {},
+    data: { orderId },
+  };
+}
+
+export async function reattemptDelivery(prevState, formData) {
+  const supabase = await createClient();
+  const adminClient = createAdminClient();
+
+  const auth = await requireDeliveryAdmin(supabase);
+  if (auth.error) {
+    return { message: auth.error, errors: {}, values: {}, data: {} };
+  }
+
+  const raw = { orderId: formData.get("orderId") };
+  const parsed = z
+    .object({ orderId: z.string().uuid({ message: "Invalid order" }) })
+    .safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { orderId } = parsed.data;
+
+  // Fetch order with shipping info
+  const { data: order, error: orderError } = await adminClient
+    .from("orders")
+    .select(
+      `id, order_code, status, total_amount, shipping_fee,
+       buyer_firstname, buyer_lastname, buyer_email, buyer_phone,
+       shipping_address, shipping_city, shipping_region,
+       shipping_digital_address`
+    )
+    .eq("id", orderId)
+    .single();
+
+  if (orderError || !order) {
+    return {
+      message: orderError?.message || "Order not found.",
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
+  // Get vendor info from order items
+  const { data: orderItems } = await adminClient
+    .from("order_items")
+    .select("vendor_id")
+    .eq("order_id", orderId)
+    .limit(1);
+
+  const vendorId = orderItems?.[0]?.vendor_id;
+  if (!vendorId) {
+    return {
+      message: "Could not determine vendor for this order.",
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { data: vendor } = await adminClient
+    .from("vendors")
+    .select(
+      "business_name, phone, email, address_street, digital_address, address_city, address_state, address_country"
+    )
+    .eq("id", vendorId)
+    .single();
+
+  if (!vendor) {
+    return {
+      message: "Vendor not found.",
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
+  // Get checkout context for weight/pieces
+  const { data: checkoutCtx } = await adminClient
+    .from("checkout_context")
+    .select("total_weight_kg, pieces")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  const totalWeight = Number(checkoutCtx?.total_weight_kg || 1);
+  const totalPieces = Number(checkoutCtx?.pieces || 1);
+
+  // Create new Aramex shipment
+  const { createAramexShipment, buildAramexTrackingUrl } = await import(
+    "../../../utils/shipping/aramex"
+  );
+
+  const consigneeName = [order.buyer_firstname, order.buyer_lastname]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  let shipmentResult;
+  try {
+    shipmentResult = await createAramexShipment({
+      shipper: {
+        name: vendor.business_name || "Giftologi Vendor",
+        company: vendor.business_name || "",
+        phone: vendor.phone || "",
+        email: vendor.email || "",
+        address: vendor.address_street || "",
+        address2: vendor.digital_address || "",
+        city: vendor.address_city || "",
+        state: vendor.address_state || "",
+        postalCode: "",
+        countryCode: vendor.address_country || "GH",
+      },
+      consignee: {
+        name: consigneeName || "Recipient",
+        company: "",
+        phone: order.buyer_phone || "",
+        email: order.buyer_email || "",
+        address: order.shipping_address || "",
+        address2: order.shipping_digital_address || "",
+        city: order.shipping_city || "",
+        state: order.shipping_region || "",
+        postalCode: "",
+        countryCode: vendor.address_country || "GH",
+      },
+      shipment: {
+        weight: Math.max(1, totalWeight || totalPieces || 1),
+        numberOfPieces: Math.max(1, totalPieces || 1),
+        goodsValue: Number(order.total_amount || 0),
+        currency: "GHS",
+        description: `Re-attempt: Order ${order.order_code}`,
+        originCountryCode: vendor.address_country || "GH",
+      },
+      reference: order.order_code,
+    });
+  } catch (err) {
+    console.error("Aramex re-attempt shipment error:", err);
+    return {
+      message: "Failed to create new shipment with Aramex.",
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (shipmentResult.hasErrors || !shipmentResult.shipmentNumber) {
+    return {
+      message: `Aramex error: ${shipmentResult.message || "Shipment creation failed."}`,
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
+  const nowIso = new Date().toISOString();
+  const trackingUrl = buildAramexTrackingUrl(shipmentResult.shipmentNumber);
+
+  // Insert new shipment record
+  await adminClient.from("order_shipments").insert({
+    order_id: orderId,
+    provider: "aramex",
+    status: "created",
+    tracking_number: shipmentResult.shipmentNumber,
+    tracking_url: trackingUrl,
+    label_url: shipmentResult.labelUrl || null,
+    shipment_reference: order.order_code,
+    cost: order.shipping_fee || null,
+    currency: "GHS",
+    metadata: { source: "admin_reattempt" },
+    last_status_at: nowIso,
+  });
+
+  // Update delivery details
+  const { data: delivery } = await adminClient
+    .from("order_delivery_details")
+    .select("id, delivery_attempts")
+    .eq("order_id", orderId)
+    .maybeSingle();
+
+  const newAttempts = (delivery?.delivery_attempts || 1) + 1;
+
+  if (delivery) {
+    await adminClient
+      .from("order_delivery_details")
+      .update({
+        courier_partner: "aramex",
+        tracking_id: shipmentResult.shipmentNumber,
+        delivery_status: "created",
+        delivery_attempts: newAttempts,
+        failed_delivery_reason: null,
+        failed_delivery_at: null,
+        updated_at: nowIso,
+      })
+      .eq("id", delivery.id);
+  } else {
+    await adminClient.from("order_delivery_details").insert({
+      order_id: orderId,
+      courier_partner: "aramex",
+      tracking_id: shipmentResult.shipmentNumber,
+      delivery_status: "created",
+      delivery_attempts: newAttempts,
+      created_at: nowIso,
+      updated_at: nowIso,
+    });
+  }
+
+  // Set order back to shipped
+  await adminClient
+    .from("orders")
+    .update({ status: "shipped", updated_at: nowIso })
+    .eq("id", orderId);
+
+  await adminClient
+    .from("order_items")
+    .update({ fulfillment_status: "shipped" })
+    .eq("order_id", orderId);
+
+  // Notify buyer
+  try {
+    if (order.buyer_email) {
+      await adminClient.from("notification_email_queue").insert({
+        recipient_email: order.buyer_email,
+        template_slug: "delivery_reattempt",
+        variables: {
+          order_code: order.order_code || orderId.slice(0, 8),
+          tracking_number: shipmentResult.shipmentNumber,
+          tracking_url: trackingUrl,
+        },
+        status: "pending",
+      });
+    }
+  } catch (err) {
+    console.error("Re-attempt notification error:", err);
+  }
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: auth.profile.id,
+    adminRole: auth.profile.role,
+    adminEmail: auth.user.email || null,
+    adminName: null,
+    action: "reattempted_delivery",
+    entity: "orders",
+    targetId: orderId,
+    details: `Re-attempted delivery for order ${orderId}. New tracking: ${shipmentResult.shipmentNumber}. Attempt #${newAttempts}`,
+  });
+
+  revalidatePath("/dashboard/admin/transactions");
+  return {
+    message: `Delivery re-attempted. New tracking: ${shipmentResult.shipmentNumber}`,
+    errors: {},
+    values: {},
+    data: {
+      orderId,
+      trackingNumber: shipmentResult.shipmentNumber,
+      trackingUrl,
+      attempt: newAttempts,
+    },
+  };
+}

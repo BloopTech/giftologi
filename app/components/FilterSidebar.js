@@ -29,6 +29,10 @@ export default function FilterSidebar({
   setSortBy,
   ratingFilter,
   setRatingFilter,
+  onSaleFilter,
+  setOnSaleFilter,
+  inStockFilter,
+  setInStockFilter,
 }) {
   // Build category tree from flat list
   const categoryTree = useMemo(() => {
@@ -141,6 +145,44 @@ export default function FilterSidebar({
           })}
         </ul>
       </div>
+
+      {/* Quick Filters */}
+      {(setOnSaleFilter || setInStockFilter) && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3">
+            Quick Filters
+          </h3>
+          <div className="space-y-2">
+            {setOnSaleFilter && (
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={!!onSaleFilter}
+                  onChange={() => setOnSaleFilter(!onSaleFilter)}
+                  className="rounded border-gray-300 text-[#A5914B] focus:ring-[#A5914B]/20 cursor-pointer accent-[#A5914B]"
+                />
+                <span className="flex items-center gap-1.5">
+                  On Sale
+                  <span className="text-[10px] bg-red-500 text-white px-1.5 py-0.5 rounded font-bold">
+                    SALE
+                  </span>
+                </span>
+              </label>
+            )}
+            {setInStockFilter && (
+              <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                <input
+                  type="checkbox"
+                  checked={inStockFilter !== false}
+                  onChange={() => setInStockFilter(inStockFilter === false ? true : false)}
+                  className="rounded border-gray-300 text-[#A5914B] focus:ring-[#A5914B]/20 cursor-pointer accent-[#A5914B]"
+                />
+                In Stock Only
+              </label>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Price Range Slider */}
       <div>
