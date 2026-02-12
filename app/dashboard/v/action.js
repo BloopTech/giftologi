@@ -50,7 +50,14 @@ const parseVariationsPayload = (raw) => {
           : Number(rawPrice);
       const price = Number.isFinite(priceValue) ? priceValue : null;
 
-      if (!label && !color && !size && !sku && price == null) return null;
+      const rawStock = entry.stock_qty;
+      const stockValue =
+        rawStock === null || typeof rawStock === "undefined" || rawStock === ""
+          ? null
+          : Number(rawStock);
+      const stock_qty = Number.isFinite(stockValue) && stockValue >= 0 ? stockValue : null;
+
+      if (!label && !color && !size && !sku && price == null && stock_qty == null) return null;
 
       const variation = {};
       if (label) variation.label = label;
@@ -58,6 +65,7 @@ const parseVariationsPayload = (raw) => {
       if (size) variation.size = size;
       if (sku) variation.sku = sku;
       if (price != null) variation.price = price;
+      if (stock_qty != null) variation.stock_qty = stock_qty;
       return variation;
     })
     .filter(Boolean);
@@ -230,6 +238,8 @@ export async function manageVendor(prevState, formData) {
         variations: variations.length ? variations : null,
         images: [],
         created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        active: true,
       })
       .select("id")
       .single();
@@ -266,15 +276,84 @@ export async function manageVendor(prevState, formData) {
       }
     }
 
-    const imageFile = formData.get("image");
-    if (imageFile && imageFile.size > 0) {
-      try {
-        const imageUrl = await uploadProductImage(imageFile, vendor.id, newProduct.id);
-        if (imageUrl) {
+    const rawImages = formData.getAll("product_images");
+    const validImageFiles = Array.isArray(rawImages)
+      ? rawImages.filter((file) => file && typeof file === "object" && typeof file.size === "number" && file.size > 0)
+      : [];
+
+    if (validImageFiles.length > 3) {
+      return {
+        success: false,
+        message: "Please fix the errors below.",
+        errors: { images: "Upload up to 3 images per product." },
+        values: rawData,
+      };
+    }
+
+    if (!validImageFiles.length) {
+      const legacyImage = formData.get("image");
+      if (legacyImage && legacyImage.size > 0) {
+        validImageFiles.push(legacyImage);
+      }
+    }
+
+    if (!validImageFiles.length) {
+      const rawExistingImages = formData.get("existing_images");
+      if (typeof rawExistingImages === "string" && rawExistingImages.trim()) {
+        try {
+          const parsed = JSON.parse(rawExistingImages);
+          const existing = Array.isArray(parsed)
+            ? parsed.filter((url) => typeof url === "string" && url.trim()).slice(0, 3)
+            : [];
+
+          const featuredRaw = formData.get("featuredImageIndex");
+          const featuredParsed = Number.parseInt(String(featuredRaw ?? ""), 10);
+          const featuredIndex = Number.isFinite(featuredParsed) ? featuredParsed : -1;
+
+          let ordered = existing;
+          if (ordered.length && Number.isInteger(featuredIndex) && featuredIndex >= 0 && featuredIndex < ordered.length) {
+            const clone = [...ordered];
+            const [picked] = clone.splice(featuredIndex, 1);
+            if (picked) ordered = [picked, ...clone];
+          }
+
           await supabase
             .from("products")
-            .update({ images: [imageUrl] })
-            .eq("id", newProduct.id);
+            .update({ images: ordered.length ? ordered : [] })
+            .eq("id", newProduct.id)
+            .eq("vendor_id", vendor.id);
+        } catch (err) {
+          console.error("Existing images parse error:", err);
+        }
+      }
+    }
+
+    if (validImageFiles.length) {
+      try {
+        const featuredRaw = formData.get("featuredImageIndex");
+        const featuredParsed = Number.parseInt(String(featuredRaw ?? ""), 10);
+        const featuredIndex = Number.isFinite(featuredParsed) ? featuredParsed : -1;
+
+        const uploadedUrls = [];
+        for (const file of validImageFiles) {
+          const imageUrl = await uploadProductImage(file, vendor.id, newProduct.id);
+          if (imageUrl) uploadedUrls.push(imageUrl);
+        }
+
+        if (uploadedUrls.length && Number.isInteger(featuredIndex) && featuredIndex >= 0 && featuredIndex < uploadedUrls.length) {
+          const [picked] = uploadedUrls.splice(featuredIndex, 1);
+          if (picked) uploadedUrls.unshift(picked);
+        }
+
+        if (uploadedUrls.length) {
+          const { error: imgUpdateError } = await supabase
+            .from("products")
+            .update({ images: uploadedUrls })
+            .eq("id", newProduct.id)
+            .eq("vendor_id", vendor.id);
+          if (imgUpdateError) {
+            console.error("Image DB update error:", imgUpdateError);
+          }
         }
       } catch (imgErr) {
         console.error("Image upload error:", imgErr);

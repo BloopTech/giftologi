@@ -12,6 +12,7 @@ import {
   DialogClose,
   DialogFooter,
 } from "../../../components/Dialog";
+import CascadingCategoryPicker from "../../../components/CascadingCategoryPicker";
 
 const ACTION_VARIANTS = {
   vendor_dashboard: {
@@ -89,6 +90,10 @@ const parseVariationDrafts = (raw) => {
           entry.price === null || typeof entry.price === "undefined"
             ? ""
             : String(entry.price),
+        stock_qty:
+          entry.stock_qty === null || typeof entry.stock_qty === "undefined"
+            ? ""
+            : String(entry.stock_qty),
       };
     })
     .filter(Boolean);
@@ -125,6 +130,13 @@ const buildVariationPayload = (drafts) => {
       if (size) entry.size = size;
       if (sku) entry.sku = sku;
       if (price != null) entry.price = price;
+      const stockRaw = draft.stock_qty;
+      const stockValue =
+        stockRaw === "" || stockRaw === null || typeof stockRaw === "undefined"
+          ? null
+          : Number(stockRaw);
+      const stock = Number.isFinite(stockValue) && stockValue >= 0 ? stockValue : null;
+      if (stock != null) entry.stock_qty = stock;
       return entry;
     })
     .filter(Boolean);
@@ -247,6 +259,15 @@ export function AddProductDialog({
     [variationDrafts],
   );
 
+  const variationStockSum = React.useMemo(() => {
+    if (!variationDrafts.length) return null;
+    const values = variationDrafts.map((d) => d.stock_qty).filter((v) => v !== "" && v != null);
+    if (!values.length) return null;
+    return values.reduce((sum, v) => sum + (Number(v) || 0), 0);
+  }, [variationDrafts]);
+
+  const hasVariationStock = variationStockSum !== null;
+
   const addVariationDraft = () => {
     setVariationDrafts((prev) => [
       ...prev,
@@ -257,6 +278,7 @@ export function AddProductDialog({
         size: "",
         sku: "",
         price: "",
+        stock_qty: "",
       },
     ]);
   };
@@ -504,7 +526,7 @@ export function AddProductDialog({
           </div>
 
           <div className={currentStep === 0 ? "" : "hidden"}>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[#374151] text-sm font-medium">
                   Product Name <span className="text-red-500">*</span>
@@ -530,7 +552,7 @@ export function AddProductDialog({
                 <select
                   name="status"
                   defaultValue={state.values?.status || "pending"}
-                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                  className="w-full h-[38px] px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                 >
                   <option value="pending">Pending</option>
                   <option value="inactive">Inactive</option>
@@ -538,7 +560,7 @@ export function AddProductDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[#374151] text-sm font-medium">
                   Selling Price(GHS) <span className="text-red-500">*</span>
@@ -560,7 +582,7 @@ export function AddProductDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[#374151] text-sm font-medium">
                   Weight (kg) <span className="text-red-500">*</span>
@@ -592,19 +614,35 @@ export function AddProductDialog({
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[#374151] text-sm font-medium">
                   Initial Stock <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="number"
-                  name="stock_qty"
-                  min="0"
-                  placeholder="0"
-                  defaultValue={state.values?.stock_qty || "0"}
-                  className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
+                {hasVariationStock ? (
+                  <>
+                    <input type="hidden" name="stock_qty" value={variationStockSum} />
+                    <input
+                      type="number"
+                      min="0"
+                      value={variationStockSum}
+                      readOnly
+                      className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm bg-[#F9FAFB] text-[#6B7280] cursor-not-allowed"
+                    />
+                    <span className="text-[11px] text-[#6B7280]">
+                      Auto-calculated from variation stock quantities.
+                    </span>
+                  </>
+                ) : (
+                  <input
+                    type="number"
+                    name="stock_qty"
+                    min="0"
+                    placeholder="0"
+                    defaultValue={state.values?.stock_qty || "0"}
+                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                )}
                 {state.errors?.stock_qty && (
                   <span className="text-red-500 text-xs">
                     {state.errors.stock_qty}
@@ -629,99 +667,17 @@ export function AddProductDialog({
 
           <div className={currentStep === 1 ? "" : "hidden"}>
             <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between gap-2">
-                <label className="text-[#374151] text-sm font-medium">
-                  Categories <span className="text-red-500">*</span>
-                </label>
-                {selectedCategoryIds.length ? (
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCategoryIds([])}
-                    className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
-                  >
-                    Clear
-                  </button>
-                ) : null}
-              </div>
-
-              <div className="rounded-lg border border-[#D1D5DB] bg-white p-3 space-y-3">
-                {selectedCategoryIds.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedCategoryIds.map((id) => {
-                      const category = categoriesById.get(id);
-                      if (!category) return null;
-                      return (
-                        <span
-                          key={id}
-                          className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
-                        >
-                          {getCategoryDisplayName(category)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-[#9CA3AF]">
-                    No categories selected yet.
-                  </p>
-                )}
-
-                <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {parentCategoryOptions.length ? (
-                    parentCategoryOptions.map((parent) => {
-                      const children =
-                        categoriesByParentId.get(parent.id) || [];
-                      return (
-                        <div key={parent.id} className="space-y-2">
-                          <label className="flex items-center gap-2 text-[11px] text-[#111827]">
-                            <input
-                              type="checkbox"
-                              checked={selectedCategoryIdSet.has(parent.id)}
-                              onChange={() => toggleSelectedCategory(parent.id)}
-                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                            />
-                            <span className="font-medium">
-                              {parent.name || "Untitled"}
-                            </span>
-                          </label>
-                          {children.length ? (
-                            <div className="ml-6 grid gap-1">
-                              {children.map((child) => (
-                                <label
-                                  key={child.id}
-                                  className="flex items-center gap-2 text-[11px] text-[#4B5563]"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedCategoryIdSet.has(
-                                      child.id,
-                                    )}
-                                    onChange={() =>
-                                      toggleSelectedCategory(child.id)
-                                    }
-                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                                  />
-                                  <span>{child.name || "Untitled"}</span>
-                                </label>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-[11px] text-[#9CA3AF]">
-                      No categories available.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {state.errors?.categoryIds && (
-                <span className="text-red-500 text-xs">
-                  {state.errors.categoryIds}
-                </span>
-              )}
+              <label className="text-[#374151] text-sm font-medium">
+                Categories <span className="text-red-500">*</span>
+              </label>
+              <CascadingCategoryPicker
+                categories={categories}
+                selectedCategoryIds={selectedCategoryIds}
+                onToggleCategory={toggleSelectedCategory}
+                onClearAll={() => setSelectedCategoryIds([])}
+                disabled={isPending}
+                error={state.errors?.categoryIds}
+              />
             </div>
           </div>
 
@@ -855,7 +811,7 @@ export function AddProductDialog({
                                   className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                   disabled={isPending}
                                 >
-                                  <option value="">Select option…</option>
+                                  <option value="">Select attribute…</option>
                                   <option value="color">Color</option>
                                   <option value="size">Size</option>
                                   <option value="sku">SKU</option>
@@ -1074,9 +1030,65 @@ export function AddProductDialog({
                                     disabled={isPending}
                                   />
                                 ) : null}
+
+                                {activeField && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setActiveVariationFieldById((prev) => ({
+                                        ...prev,
+                                        [draft.id]: "",
+                                      }))
+                                    }
+                                    className="cursor-pointer self-end mt-1 inline-flex items-center gap-1 rounded-lg border border-primary px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
+                                    disabled={isPending}
+                                  >
+                                    Add
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
+
+                          <div className="flex flex-col gap-1 pt-2 border-t border-[#F3F4F6]">
+                            <label className="text-[11px] font-medium text-[#374151]">
+                              Stock / Quantity <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={draft.stock_qty}
+                              onChange={(e) =>
+                                updateVariationDraft(
+                                  draft.id,
+                                  "stock_qty",
+                                  e.target.value,
+                                )
+                              }
+                              placeholder="Available quantity for this variation"
+                              className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                              disabled={isPending}
+                            />
+                          </div>
+                          {(() => {
+                            const hasAttr = Boolean(draft.label || draft.color || draft.size || draft.sku);
+                            const hasStock = draft.stock_qty !== "" && draft.stock_qty != null;
+                            if (!hasAttr && hasStock) {
+                              return (
+                                <p className="text-[11px] text-red-500 mt-1">
+                                  Add at least one attribute (color, size, SKU, or label) for this variation.
+                                </p>
+                              );
+                            }
+                            if (hasAttr && !hasStock) {
+                              return (
+                                <p className="text-[11px] text-red-500 mt-1">
+                                  Stock quantity is required for this variation.
+                                </p>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       );
                     })}
@@ -1134,22 +1146,25 @@ export function AddProductDialog({
                       ))}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={removeAllImages}
-                      className="cursor-pointer text-xs text-red-600 hover:underline"
-                    >
-                      Remove all images
-                    </button>
+                    <div className="flex items-center justify-between mt-2">
+                      <button
+                        type="button"
+                        onClick={removeAllImages}
+                        className="cursor-pointer text-xs text-red-600 hover:underline"
+                      >
+                        Remove all images
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="cursor-pointer text-xs text-primary hover:underline"
-                      disabled={isPending}
-                    >
-                      Add images
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition-colors"
+                        disabled={isPending}
+                      >
+                        <PiUploadSimple className="w-3.5 h-3.5" />
+                        Add more product images
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <div className="space-y-3">

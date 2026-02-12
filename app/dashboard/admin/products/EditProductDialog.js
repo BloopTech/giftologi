@@ -10,6 +10,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
+import CascadingCategoryPicker from "@/app/components/CascadingCategoryPicker";
+
+const computeEditVariationStockSum = (drafts) => {
+  if (!drafts || !drafts.length) return null;
+  const values = drafts.map((d) => d.stock_qty).filter((v) => v !== "" && v != null);
+  if (!values.length) return null;
+  return values.reduce((sum, v) => sum + (Number(v) || 0), 0);
+};
 
 export default function EditProductDialog({
   open,
@@ -25,6 +33,7 @@ export default function EditProductDialog({
   editCategoryIdSet,
   toggleEditCategory,
   clearEditCategories,
+  categories,
   parentCategoryOptions,
   categoriesByParentId,
   categoriesLoading,
@@ -242,26 +251,51 @@ export default function EditProductDialog({
                 <label className="text-xs font-medium text-[#0A0A0A]">
                   Stock Quantity
                 </label>
-                <input
-                  name="stockQty"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  defaultValue={product.stockQty ?? ""}
-                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
-                  disabled={editPending}
-                />
-                {hasEditError("stockQty") ? (
-                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                    {editErrorFor("stockQty").map((err, index) => (
-                      <li key={index}>{err}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-[11px] text-[#717182]">
-                    Optional. Leave blank if stock is managed elsewhere.
-                  </p>
-                )}
+                {(() => {
+                  const editVarStockSum = computeEditVariationStockSum(editVariationDrafts);
+                  const hasVarStock = editVarStockSum !== null;
+                  if (hasVarStock) {
+                    return (
+                      <>
+                        <input type="hidden" name="stockQty" value={editVarStockSum} />
+                        <input
+                          type="number"
+                          min="0"
+                          value={editVarStockSum}
+                          readOnly
+                          className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-[#F9FAFB] border-[#D6D6D6] text-[#6B7280] cursor-not-allowed"
+                        />
+                        <p className="text-[11px] text-[#717182]">
+                          Auto-calculated from variation stock quantities.
+                        </p>
+                      </>
+                    );
+                  }
+                  return (
+                    <>
+                      <input
+                        name="stockQty"
+                        type="number"
+                        inputMode="numeric"
+                        min="0"
+                        defaultValue={product.stockQty ?? ""}
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                        disabled={editPending}
+                      />
+                      {hasEditError("stockQty") ? (
+                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                          {editErrorFor("stockQty").map((err, index) => (
+                            <li key={index}>{err}</li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-[11px] text-[#717182]">
+                          Optional. Leave blank if stock is managed elsewhere.
+                        </p>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="md:col-span-2 space-y-1">
@@ -286,107 +320,22 @@ export default function EditProductDialog({
             </div>
 
             <div className={cx("space-y-2", editStep === 1 ? "" : "hidden")}>
-              <div className="flex items-center justify-between gap-2">
-                <label className="text-xs font-medium text-[#0A0A0A]">
-                  Categories <span className="text-red-500">*</span>
-                  <span className="ml-1 text-[11px] font-normal text-[#6A7282]">
-                    (Select all that apply)
-                  </span>
-                </label>
-                {editCategoryIds?.length ? (
-                  <button
-                    type="button"
-                    onClick={clearEditCategories}
-                    className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
-                    disabled={editPending}
-                  >
-                    Clear
-                  </button>
-                ) : null}
-              </div>
-              <div className="rounded-lg border border-[#D6D6D6] bg-white p-3 space-y-3">
-                {editCategoryIds?.length ? (
-                  <div className="flex flex-wrap gap-2">
-                    {editCategoryIds.map((id) => {
-                      const category = categoriesById?.get(id);
-                      if (!category) return null;
-                      return (
-                        <span
-                          key={id}
-                          className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
-                        >
-                          {getCategoryDisplayName(category)}
-                        </span>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-[11px] text-[#9CA3AF]">
-                    No categories selected yet.
-                  </p>
-                )}
-                <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  {parentCategoryOptions.length ? (
-                    parentCategoryOptions.map((parent) => {
-                      const children =
-                        categoriesByParentId?.get(parent.id) || [];
-                      return (
-                        <div key={parent.id} className="space-y-2">
-                          <label className="flex items-center gap-2 text-[11px] text-[#111827]">
-                            <input
-                              type="checkbox"
-                              checked={editCategoryIdSet?.has(parent.id)}
-                              onChange={() => toggleEditCategory(parent.id)}
-                              disabled={categoriesLoading || editPending}
-                              className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                            />
-                            <span className="font-medium">
-                              {parent.name || "Untitled"}
-                            </span>
-                          </label>
-                          {children.length ? (
-                            <div className="ml-6 grid gap-1">
-                              {children.map((child) => (
-                                <label
-                                  key={child.id}
-                                  className="flex items-center gap-2 text-[11px] text-[#4B5563]"
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={editCategoryIdSet?.has(child.id)}
-                                    onChange={() =>
-                                      toggleEditCategory(child.id)
-                                    }
-                                    disabled={categoriesLoading || editPending}
-                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                                  />
-                                  <span>{child.name || "Untitled"}</span>
-                                </label>
-                              ))}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <p className="text-[11px] text-[#9CA3AF]">
-                      No categories available.
-                    </p>
-                  )}
-                </div>
-              </div>
-              {categoriesError ? (
-                <p className="mt-1 text-[11px] text-red-600">
-                  {categoriesError}
-                </p>
-              ) : null}
-              {hasEditError("categoryIds") ? (
-                <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                  {editErrorFor("categoryIds").map((err, index) => (
-                    <li key={index}>{err}</li>
-                  ))}
-                </ul>
-              ) : null}
+              <label className="text-xs font-medium text-[#0A0A0A]">
+                Categories <span className="text-red-500">*</span>
+              </label>
+              <CascadingCategoryPicker
+                categories={categories}
+                selectedCategoryIds={editCategoryIds || []}
+                onToggleCategory={toggleEditCategory}
+                onClearAll={clearEditCategories}
+                disabled={categoriesLoading || editPending}
+                error={
+                  categoriesError ||
+                  (hasEditError("categoryIds")
+                    ? editErrorFor("categoryIds")[0]
+                    : undefined)
+                }
+              />
             </div>
 
             <div className={cx("space-y-2", editStep === 2 ? "" : "hidden")}>
@@ -521,7 +470,7 @@ export default function EditProductDialog({
                                   className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                   disabled={editPending}
                                 >
-                                  <option value="">Select option…</option>
+                                  <option value="">Select attribute…</option>
                                   <option value="color">Color</option>
                                   <option value="size">Size</option>
                                   <option value="sku">SKU</option>
@@ -740,7 +689,71 @@ export default function EditProductDialog({
                                   />
                                 ) : null}
                               </div>
+
+                              {activeField && activeField !== "color" && activeField !== "size" && activeField !== "price" ? (
+                                <div className="flex items-end">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditActiveVariationFieldById?.(
+                                        (prev) => ({
+                                          ...prev,
+                                          [draft.id]: "",
+                                        }),
+                                      )
+                                    }
+                                    className="cursor-pointer rounded-lg bg-primary px-3 py-2 text-[11px] font-medium text-white hover:bg-primary/90"
+                                    disabled={editPending}
+                                  >
+                                    Add
+                                  </button>
+                                </div>
+                              ) : null}
                             </div>
+
+                            <div className="flex flex-col gap-1">
+                              <label className="text-[11px] font-medium text-[#374151]">
+                                Stock / Quantity <span className="text-red-500">*</span>
+                              </label>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                min="0"
+                                value={draft.stock_qty}
+                                onChange={(e) =>
+                                  updateEditVariationDraft(
+                                    draft.id,
+                                    "stock_qty",
+                                    e.target.value,
+                                  )
+                                }
+                                onKeyDown={(e) => {
+                                  if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault();
+                                }}
+                                placeholder="e.g. 10"
+                                className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                disabled={editPending}
+                              />
+                            </div>
+                            {(() => {
+                              const hasAttr = Boolean(draft.label || draft.color || draft.size || draft.sku);
+                              const hasStock = draft.stock_qty !== "" && draft.stock_qty != null;
+                              if (!hasAttr && hasStock) {
+                                return (
+                                  <p className="text-[11px] text-red-500 mt-1">
+                                    Add at least one attribute (color, size, SKU, or label).
+                                  </p>
+                                );
+                              }
+                              if (hasAttr && !hasStock) {
+                                return (
+                                  <p className="text-[11px] text-red-500 mt-1">
+                                    Stock quantity is required.
+                                  </p>
+                                );
+                              }
+                              return null;
+                            })()}
                           </div>
                         </div>
                       );

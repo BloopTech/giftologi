@@ -35,7 +35,7 @@ export const getStatusBadge = (status) => {
     return { label: "Inactive", className: "bg-[#F3F4F6] text-[#6B7280]" };
   }
   if (s === "out_of_stock") {
-    return { label: "Out of Stock", className: "bg-[#FEE2E2] text-[#DC2626]" };
+    return { label: "Out of Stock", className: "text-xs bg-[#FEE2E2] text-[#DC2626]" };
   }
   return {
     label: status || "Unknown",
@@ -45,7 +45,7 @@ export const getStatusBadge = (status) => {
 
 export const getStockStatus = (stock) => {
   const qty = Number(stock || 0);
-  if (qty === 0) return { label: "Out of Stock", color: "text-[#DC2626]" };
+  if (qty === 0) return { label: "Out of Stock", color: "text-xs text-[#DC2626]" };
   if (qty <= 5) return { label: `${qty}`, color: "text-[#D97706]" };
   return { label: `${qty}`, color: "text-[#111827]" };
 };

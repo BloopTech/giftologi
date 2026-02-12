@@ -224,6 +224,37 @@ export default function BusinessTab(props) {
                 />
               </div>
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <label className="text-[11px] text-[#717182]">
+                  Commission Rate (%)
+                </label>
+                <input
+                  name="commissionRate"
+                  type="text"
+                  value={getFieldValue("commissionRate")}
+                  onChange={(e) =>
+                    onInputChange("commissionRate", e.target.value)
+                  }
+                  className={cx(
+                    "w-full rounded-full border px-3 py-2 text-xs shadow-sm outline-none bg-white",
+                    "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
+                    focusInput,
+                    hasError("commissionRate") ? hasErrorInput : "",
+                  )}
+                  placeholder="e.g. 15"
+                  disabled={isPending}
+                />
+                {hasError("commissionRate") && (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {errorFor("commissionRate").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
             <div className="col-span-2 space-y-1">
               <label className="text-[11px] text-[#717182]">
                 Website <span className="text-red-500">*</span>

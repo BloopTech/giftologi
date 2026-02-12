@@ -96,7 +96,7 @@ export default function StorefrontContent() {
     );
   }
 
-  if (!vendor) {
+  if (!vendor || !vendor.verified) {
     return (
       <div className="min-h-screen font-brasley-medium bg-[#FAFAFA] dark:bg-gray-950" />
     );

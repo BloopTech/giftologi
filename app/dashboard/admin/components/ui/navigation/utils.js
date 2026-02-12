@@ -18,7 +18,38 @@ const filterNavigationByRole = (navigation, role) => {
   if (!role) return navigation;
 
   const normalized = String(role || "").toLowerCase();
+
+  // super_admin sees everything — skip filtering
+  if (normalized === "super_admin") return navigation;
+
+  // Permissions matrix per admin.md:
+  // operations_manager_admin → Vendors, Products, Orders (transactions), Reports, Registry
+  // finance_admin            → Orders (transactions), Payouts, Reports
+  // customer_support_admin   → Support Tickets (activity log as proxy)
+  // store_manager_admin      → Products only
+  // marketing_admin          → Analytics, Content/Policy, Promo Codes
   const allowedByRole = {
+    operations_manager_admin: new Set([
+      "/dashboard/admin/vendor_requests",
+      "/dashboard/admin/close_requests",
+      "/dashboard/admin/vendor_categories",
+      "/dashboard/admin/products",
+      "/dashboard/admin/registry_list",
+      "/dashboard/admin/transactions",
+      "/dashboard/admin/reports",
+      "/dashboard/admin/promo_codes",
+      "/dashboard/admin/analytics_reporting",
+    ]),
+    finance_admin: new Set([
+      "/dashboard/admin/transactions",
+      "/dashboard/admin/payouts",
+      "/dashboard/admin/reports",
+    ]),
+    customer_support_admin: new Set([
+      "/dashboard/admin/registry_list",
+      "/dashboard/admin/activity_log",
+      "/dashboard/admin/all_users",
+    ]),
     store_manager_admin: new Set(["/dashboard/admin/products"]),
     marketing_admin: new Set([
       "/dashboard/admin/analytics_reporting",

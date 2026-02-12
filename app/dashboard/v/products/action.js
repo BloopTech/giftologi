@@ -56,7 +56,14 @@ const parseVariationsPayload = (raw) => {
           : Number(rawPrice);
       const price = Number.isFinite(priceValue) ? priceValue : null;
 
-      if (!label && !color && !size && !sku && price == null) return null;
+      const rawStock = entry.stock_qty;
+      const stockValue =
+        rawStock === null || typeof rawStock === "undefined" || rawStock === ""
+          ? null
+          : Number(rawStock);
+      const stock_qty = Number.isFinite(stockValue) && stockValue >= 0 ? stockValue : null;
+
+      if (!label && !color && !size && !sku && price == null && stock_qty == null) return null;
 
       const variation = {};
       if (label) variation.label = label;
@@ -64,6 +71,7 @@ const parseVariationsPayload = (raw) => {
       if (size) variation.size = size;
       if (sku) variation.sku = sku;
       if (price != null) variation.price = price;
+      if (stock_qty != null) variation.stock_qty = stock_qty;
       return variation;
     })
     .filter(Boolean);
@@ -204,7 +212,7 @@ export async function manageProducts(prevState, formData) {
     const rawData = {
       name: formData.get("name"),
       categoryIds: parseCategoryIds(formData.get("categoryIds")),
-      status: "pending",
+      status: formData.get("status") || "pending",
       price: formData.get("price"),
       weight_kg: formData.get("weight_kg"),
       cost_price: formData.get("cost_price") || undefined,
@@ -233,6 +241,28 @@ export async function manageProducts(prevState, formData) {
     const productCode = generateProductCode();
     const variations = parseVariationsPayload(rawData.variations);
 
+    if (variations.length) {
+      for (const v of variations) {
+        const hasAttribute = Boolean(v.label || v.color || v.size || v.sku);
+        if (!hasAttribute) {
+          return {
+            success: false,
+            message: "Please fix the errors below.",
+            errors: { variations: "Each variation must have at least one attribute (color, size, SKU, or label) alongside stock quantity." },
+            values: rawData,
+          };
+        }
+        if (v.stock_qty == null) {
+          return {
+            success: false,
+            message: "Please fix the errors below.",
+            errors: { variations: "Each variation must have a stock quantity." },
+            values: rawData,
+          };
+        }
+      }
+    }
+
     const { data: categoryRows, error: categoryError } = await supabase
       .from("categories")
       .select("id")
@@ -260,7 +290,7 @@ export async function manageProducts(prevState, formData) {
         name: validation.data.name,
         product_code: productCode,
         category_id: validation.data.categoryIds[0] || null,
-        status: "pending",
+        status: validation?.data?.status || "pending",
         price: validation.data.price,
         weight_kg: validation.data.weight_kg,
         stock_qty: validation.data.stock_qty,
@@ -311,6 +341,7 @@ export async function manageProducts(prevState, formData) {
       ? rawImages.filter((file) => isValidSelectedFile(file))
       : [];
 
+    const existingImages = [];
     const remainingImageSlots = Math.max(0, 3 - existingImages.length);
 
     if (validImageFiles.length > 3) {
@@ -372,7 +403,7 @@ export async function manageProducts(prevState, formData) {
           await supabase
             .from("products")
             .update({ images: ordered.length ? ordered : [] })
-            .eq("id", productId)
+            .eq("id", newProduct.id)
             .eq("vendor_id", vendor.id);
         } catch (err) {
           console.error("Existing images parse error:", err);
@@ -388,7 +419,7 @@ export async function manageProducts(prevState, formData) {
 
         const uploadedUrls = [];
         for (const file of validImageFiles) {
-          const imageUrl = await uploadProductImage(file, vendor.id, productId);
+          const imageUrl = await uploadProductImage(file, vendor.id, newProduct.id);
           if (imageUrl) uploadedUrls.push(imageUrl);
         }
 
@@ -403,10 +434,14 @@ export async function manageProducts(prevState, formData) {
         }
 
         if (uploadedUrls.length) {
-          await supabase
+          const { error: imgUpdateError } = await supabase
             .from("products")
             .update({ images: uploadedUrls })
-            .eq("id", newProduct.id);
+            .eq("id", newProduct.id)
+            .eq("vendor_id", vendor.id);
+          if (imgUpdateError) {
+            console.error("Image DB update error:", imgUpdateError);
+          }
         }
       } catch (imgErr) {
         console.error("Image upload error:", imgErr);
@@ -477,6 +512,28 @@ export async function manageProducts(prevState, formData) {
     }
 
     const variations = parseVariationsPayload(rawData.variations);
+
+    if (variations.length) {
+      for (const v of variations) {
+        const hasAttribute = Boolean(v.label || v.color || v.size || v.sku);
+        if (!hasAttribute) {
+          return {
+            success: false,
+            message: "Please fix the errors below.",
+            errors: { variations: "Each variation must have at least one attribute (color, size, SKU, or label) alongside stock quantity." },
+            values: rawData,
+          };
+        }
+        if (v.stock_qty == null) {
+          return {
+            success: false,
+            message: "Please fix the errors below.",
+            errors: { variations: "Each variation must have a stock quantity." },
+            values: rawData,
+          };
+        }
+      }
+    }
 
     const { data: existingProduct, error: existingProductError } = await supabase
       .from("products")

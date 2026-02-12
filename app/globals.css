@@ -49,6 +49,15 @@ h6 {
   font-family: var(--font-brasley-semibold), serif;
 }
 
+/* Admin dashboard: subheadings (h2) use Brasley Semi-Bold */
+[data-admin-layout] h2,
+[data-admin-layout] h3,
+[data-admin-layout] h4,
+[data-admin-layout] h5,
+[data-admin-layout] h6 {
+  font-family: var(--font-brasley-semibold), serif;
+}
+
 /* Accessibility: Focus visible styles */
 *:focus-visible {
   outline: 2px solid var(--color-primary);

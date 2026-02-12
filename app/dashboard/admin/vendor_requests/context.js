@@ -135,6 +135,7 @@ function useVendorRequestsProviderValue() {
             bank_branch_code,
             bank_branch,
             financial_verification_notes,
+            commission_rate,
             flagged_at,
             flagged_by,
             profiles:profiles!vendor_applications_user_id_fkey (
@@ -174,11 +175,13 @@ function useVendorRequestsProviderValue() {
         const uniqueUserIds = Array.from(new Set(applicationUserIds));
         const vendorLogoByProfileId = new Map();
         const vendorSlugByProfileId = new Map();
+        const vendorCommissionByProfileId = new Map();
+        const vendorVerifiedByProfileId = new Map();
 
         if (uniqueUserIds.length > 0) {
           const { data: vendorRows, error: vendorError } = await supabase
             .from("vendors")
-            .select("profiles_id, logo_url, slug")
+            .select("profiles_id, logo_url, slug, commission_rate, verified")
             .in("profiles_id", uniqueUserIds)
             .order("created_at", { ascending: false });
 
@@ -194,6 +197,18 @@ function useVendorRequestsProviderValue() {
                 vendorSlugByProfileId.set(
                   vendorRow.profiles_id,
                   vendorRow.slug ? String(vendorRow.slug) : "",
+                );
+              }
+              if (!vendorCommissionByProfileId.has(vendorRow.profiles_id)) {
+                vendorCommissionByProfileId.set(
+                  vendorRow.profiles_id,
+                  vendorRow.commission_rate ?? null,
+                );
+              }
+              if (!vendorVerifiedByProfileId.has(vendorRow.profiles_id)) {
+                vendorVerifiedByProfileId.set(
+                  vendorRow.profiles_id,
+                  !!vendorRow.verified,
                 );
               }
             });
@@ -223,6 +238,8 @@ function useVendorRequestsProviderValue() {
               contactEmail: profile?.email || "",
               logoUrl: vendorLogoByProfileId.get(row.user_id) || "",
               storefrontSlug: vendorSlugByProfileId.get(row.user_id) || "",
+              commissionRate: vendorCommissionByProfileId.get(row.user_id) ?? null,
+              vendorVerified: vendorVerifiedByProfileId.get(row.user_id) ?? false,
               __raw: row,
             };
           });

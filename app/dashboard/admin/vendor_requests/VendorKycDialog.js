@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useActionState, useEffect } from "react";
 import {
+  Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -11,8 +12,10 @@ import {
 import { Badge } from "@/app/components/Badge";
 import { cx } from "@/app/components/utils";
 import { RejectVendorDialog } from "./RejectVendorDialog";
-import { Loader2Icon } from "lucide-react";
+import { updateVendorCommissionRate } from "./action";
+import { Loader2Icon, PencilIcon, CheckIcon, XIcon } from "lucide-react";
 import Image from "next/image";
+import Link from "next/link";
 
 const TABS = [
   { id: "business", label: "Business Info" },
@@ -79,14 +82,16 @@ export default function VendorKycDialog({
     const app = request.__raw || {};
 
     return {
-      vendorId: request.vendorId || "",
+      vendorId: request.vendorId || "",
       logoUrl: request.logoUrl || "",
       appliedDate: request.appliedDate || app.created_at || null,
       status: request.status || app.status || "pending",
-      businessName: request.businessName || app.business_name || "",
-      category: request.category || app.category || "",
-      contactName: request.contactName || "",
-      contactEmail: request.contactEmail || "",
+      commissionRate: request.commissionRate ?? null,
+      vendorVerified: request.vendorVerified ?? false,
+      businessName: request.businessName || app.business_name || "",
+      category: request.category || app.category || "",
+      contactName: request.contactName || "",
+      contactEmail: request.contactEmail || "",
       businessType: app.business_type || "",
       businessRegistrationNumber: app.business_registration_number || "",
       taxId: app.tax_id || "",
@@ -112,6 +117,7 @@ export default function VendorKycDialog({
       bankBranch: app.bank_branch || "",
       financialVerificationNotes: app.financial_verification_notes || "",
       applicationId: request.id,
+      vendorProfileId: app.user_id || "",
     };
   }, [request]);
 
@@ -122,6 +128,8 @@ export default function VendorKycDialog({
     logoUrl,
     appliedDate,
     status,
+    commissionRate: existingCommissionRate,
+    vendorVerified,
     businessName,
     category,
     contactName,
@@ -149,10 +157,38 @@ export default function VendorKycDialog({
     bankBranch,
     financialVerificationNotes,
     applicationId,
+    vendorProfileId,
   } = data;
 
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [commissionInput, setCommissionInput] = useState(
+    existingCommissionRate != null ? String(existingCommissionRate) : "",
+  );
+  const [editingCommission, setEditingCommission] = useState(false);
+  const [commissionEditValue, setCommissionEditValue] = useState(
+    existingCommissionRate != null ? String(existingCommissionRate) : "",
+  );
+
+  const [
+    commissionUpdateState,
+    commissionUpdateAction,
+    commissionUpdatePending,
+  ] = useActionState(updateVendorCommissionRate, {
+    message: "",
+    errors: {},
+    data: {},
+  });
+
+  useEffect(() => {
+    if (commissionUpdateState?.data?.commissionRate != null) {
+      setEditingCommission(false);
+    }
+  }, [commissionUpdateState]);
+
   const normalizedStatus = (status || "pending").toLowerCase();
-  const statusLabel = (status || "pending").replace(/^./, (c) => c.toUpperCase());
+  const statusLabel = (status || "pending").replace(/^./, (c) =>
+    c.toUpperCase(),
+  );
   const isPendingStatus = normalizedStatus === "pending";
 
   const hasBusinessCore = !!(businessName && businessName.trim() && category);
@@ -205,23 +241,27 @@ export default function VendorKycDialog({
 
         return candidateTitle === requiredTitleLower && !!url;
       });
-    }
+    },
   );
 
   const hasAllRequiredDocuments = missingRequiredDocuments.length === 0;
   const hasAnyDocuments = normalizedDocuments.length > 0;
 
   const isKycComplete =
-    hasBusinessCore && hasAddress && hasOwner && hasBank && hasAllRequiredDocuments;
+    hasBusinessCore &&
+    hasAddress &&
+    hasOwner &&
+    hasBank &&
+    hasAllRequiredDocuments;
 
   const isRejectedStatus = normalizedStatus === "rejected";
   const canProcess = isPendingStatus || isRejectedStatus;
-  const disableActions =
-    !canProcess || !isKycComplete || approvePending;
+  const disableActions = !canProcess || !isKycComplete || approvePending;
 
   const topMetaLabelParts = [];
   if (vendorId) topMetaLabelParts.push(`Vendor ID: ${vendorId}`);
-  if (appliedDate) topMetaLabelParts.push(`Applied: ${formatDate(appliedDate)}`);
+  if (appliedDate)
+    topMetaLabelParts.push(`Applied: ${formatDate(appliedDate)}`);
   const topMetaLabel = topMetaLabelParts.join(" — ");
 
   return (
@@ -259,8 +299,8 @@ export default function VendorKycDialog({
                 statusLabel === "Approved"
                   ? "success"
                   : statusLabel === "Rejected"
-                  ? "error"
-                  : "neutral"
+                    ? "error"
+                    : "neutral"
               }
               className="text-[11px]"
             >
@@ -289,7 +329,7 @@ export default function VendorKycDialog({
                   "px-3 py-1.5 rounded-full cursor-pointer transition-colors",
                   activeTab === tab.id
                     ? "bg-white text-[#0A0A0A] shadow-sm"
-                    : "text-[#6A7282] hover:text-[#0A0A0A]"
+                    : "text-[#6A7282] hover:text-[#0A0A0A]",
                 )}
               >
                 {tab.label}
@@ -324,21 +364,117 @@ export default function VendorKycDialog({
                         : ""
                     }
                   />
+                  <div>
+                    <p className="text-[11px] text-[#717182]">
+                      Commission Rate
+                    </p>
+                    {editingCommission ? (
+                      <form
+                        action={commissionUpdateAction}
+                        className="mt-1 flex items-center gap-1"
+                      >
+                        <input
+                          type="hidden"
+                          name="vendorProfileId"
+                          value={vendorProfileId}
+                        />
+                        <input
+                          type="text"
+                          name="commissionRate"
+                          value={commissionEditValue}
+                          onChange={(e) =>
+                            setCommissionEditValue(e.target.value)
+                          }
+                          placeholder="e.g. 15"
+                          className="w-20 rounded-full border border-[#D6D6D6] bg-white px-2 py-1 text-xs text-[#0A0A0A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-1 focus:ring-[#6EA30B]"
+                        />
+                        <span className="text-xs text-[#717182]">%</span>
+                        <button
+                          type="submit"
+                          disabled={commissionUpdatePending}
+                          className="p-1 rounded-full text-[#6EA30B] hover:bg-[#6EA30B]/10 cursor-pointer"
+                        >
+                          {commissionUpdatePending ? (
+                            <Loader2Icon className="animate-spin h-3 w-3" />
+                          ) : (
+                            <CheckIcon className="h-3 w-3" />
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditingCommission(false)}
+                          className="p-1 rounded-full text-[#717182] hover:bg-gray-100 cursor-pointer"
+                        >
+                          <XIcon className="h-3 w-3" />
+                        </button>
+                      </form>
+                    ) : (
+                      <div className="mt-1 flex items-center gap-1">
+                        <p
+                          className={cx(
+                            "text-xs font-medium",
+                            existingCommissionRate != null
+                              ? "text-[#0A0A0A]"
+                              : "text-[#F97316]",
+                          )}
+                        >
+                          {existingCommissionRate != null
+                            ? `${commissionUpdateState?.data?.commissionRate ?? existingCommissionRate}%`
+                            : "Not set"}
+                        </p>
+                        {vendorVerified && vendorProfileId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCommissionEditValue(
+                                existingCommissionRate != null
+                                  ? String(
+                                      commissionUpdateState?.data
+                                        ?.commissionRate ??
+                                        existingCommissionRate,
+                                    )
+                                  : "",
+                              );
+                              setEditingCommission(true);
+                            }}
+                            className="p-0.5 rounded text-[#717182] hover:text-[#0A0A0A] cursor-pointer"
+                            title="Edit commission rate"
+                          >
+                            <PencilIcon className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {commissionUpdateState?.message &&
+                      commissionUpdateState?.data?.commissionRate != null && (
+                        <p className="text-[10px] text-[#6EA30B] mt-0.5">
+                          {commissionUpdateState.message}
+                        </p>
+                      )}
+                    {commissionUpdateState?.message &&
+                      !commissionUpdateState?.data?.commissionRate &&
+                      commissionUpdateState.errors &&
+                      Object.keys(commissionUpdateState.errors).length > 0 && (
+                        <p className="text-[10px] text-red-500 mt-0.5">
+                          {commissionUpdateState.message}
+                        </p>
+                      )}
+                  </div>
                   <div className="col-span-2">
                     <p className="text-[11px] text-[#717182]">Website</p>
                     {website ? (
-                      <a
-                        href={website}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-1 inline-flex text-xs text-[#286AD4] break-all"
-                      >
-                        {website}
-                      </a>
+                      <div>
+                        <Link
+                          href={website}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 inline-flex text-xs text-[#286AD4] break-all"
+                        >
+                          {website}
+                        </Link>
+                      </div>
                     ) : (
-                      <p className="mt-1 text-xs text-[#6A7282]">
-                        
-                      </p>
+                      <p className="mt-1 text-xs text-[#6A7282]"></p>
                     )}
                   </div>
                 </div>
@@ -346,14 +482,14 @@ export default function VendorKycDialog({
                 {logoUrl && (
                   <div className="border-t border-[#E5E7EB] pt-3">
                     <p className="text-[11px] text-[#717182]">Logo</p>
-                    <a
+                    <Link
                       href={logoUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="mt-1 inline-flex text-xs text-[#286AD4] hover:underline break-all"
                     >
                       View logo ({formatShortUrl(logoUrl)})
-                    </a>
+                    </Link>
                   </div>
                 )}
               </div>
@@ -392,7 +528,10 @@ export default function VendorKycDialog({
               </p>
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 grid grid-cols-2 gap-4">
                 <Field label="Full Name" value={ownerFullName || contactName} />
-                <Field label="Email Address" value={ownerEmail || contactEmail} />
+                <Field
+                  label="Email Address"
+                  value={ownerEmail || contactEmail}
+                />
                 <Field label="Phone Number" value={ownerPhone} />
               </div>
             </section>
@@ -410,7 +549,9 @@ export default function VendorKycDialog({
                   <div className="grid gap-3 md:grid-cols-2">
                     {businessReferences.map((ref, index) => {
                       const name = safeText(ref?.name || ref?.contact_name);
-                      const company = safeText(ref?.company || ref?.business_name);
+                      const company = safeText(
+                        ref?.company || ref?.business_name,
+                      );
                       const phone = safeText(ref?.phone || ref?.phone_number);
                       const email = safeText(ref?.email);
 
@@ -422,7 +563,9 @@ export default function VendorKycDialog({
                           <p className="text-xs font-medium text-[#0A0A0A]">
                             {name}
                           </p>
-                          <p className="text-[11px] text-[#6A7282]">{company}</p>
+                          <p className="text-[11px] text-[#6A7282]">
+                            {company}
+                          </p>
                           <p className="text-[11px] text-[#6A7282]">{phone}</p>
                           <p className="text-[11px] text-[#6A7282]">{email}</p>
                         </div>
@@ -441,9 +584,9 @@ export default function VendorKycDialog({
               <section>
                 <div className="rounded-2xl border border-[#F97316] bg-[#FFF7ED] p-3">
                   <p className="text-[11px] text-[#9A3412]">
-                    This application is missing one or more required
-                    documents. Please ensure all five required documents
-                    are uploaded and reviewed before approving this vendor.
+                    This application is missing one or more required documents.
+                    Please ensure all five required documents are uploaded and
+                    reviewed before approving this vendor.
                   </p>
                   {missingRequiredDocuments.length > 0 && (
                     <p className="mt-1 text-[10px] text-[#B45309]">
@@ -540,7 +683,10 @@ export default function VendorKycDialog({
                 Bank Account Details
               </p>
               <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 grid grid-cols-2 gap-4">
-                <Field label="Account Name" value={bankAccountName || businessName} />
+                <Field
+                  label="Account Name"
+                  value={bankAccountName || businessName}
+                />
                 <Field label="Account Number" value={bankAccountNumber} />
                 <Field label="Bank Name" value={bankName} />
                 <Field label="Branch Code" value={bankBranchCode} />
@@ -574,7 +720,7 @@ export default function VendorKycDialog({
         </DialogClose>
 
         <div className="flex items-center gap-3">
-          <RejectVendorDialog 
+          <RejectVendorDialog
             applicationId={applicationId || ""}
             businessName={data.businessName || "Unknown Business"}
           >
@@ -585,27 +731,106 @@ export default function VendorKycDialog({
                 "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
                 "border-[#DF0404] text-[#DF0404] bg-white hover:bg-[#DF0404] hover:text-white",
                 disableActions &&
-                  "opacity-60 cursor-not-allowed hover:bg-white hover:text-[#DF0404]"
+                  "opacity-60 cursor-not-allowed hover:bg-white hover:text-[#DF0404]",
               )}
             >
               Reject Application
             </button>
           </RejectVendorDialog>
-          <form action={approveAction}>
-            <input type="hidden" name="applicationId" value={applicationId || ""} />
-            <button
-              type="submit"
-              disabled={disableActions}
-              className={cx(
-                "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
-                "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
-                disableActions &&
-                  "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white"
-              )}
-            >
-              {approvePending ? <Loader2Icon className="animate-spin h-4 w-4" /> : "Approve Vendor"}
-            </button>
-          </form>
+          <button
+            type="button"
+            disabled={disableActions}
+            onClick={() => {
+              setCommissionInput(
+                existingCommissionRate != null
+                  ? String(existingCommissionRate)
+                  : "",
+              );
+              setApproveDialogOpen(true);
+            }}
+            className={cx(
+              "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
+              "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
+              disableActions &&
+                "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white",
+            )}
+          >
+            Approve Vendor
+          </button>
+
+          <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+            <DialogContent className="max-w-sm">
+              <DialogHeader className="pb-3 border-b border-gray-100">
+                <DialogTitle className="text-sm font-semibold text-[#0A0A0A]">
+                  Confirm Vendor Approval
+                </DialogTitle>
+                <DialogDescription className="mt-1 text-[11px] text-[#717182]">
+                  Set the commission rate for{" "}
+                  <span className="font-medium text-[#0A0A0A]">
+                    {businessName || "this vendor"}
+                  </span>{" "}
+                  before approving.
+                </DialogDescription>
+              </DialogHeader>
+
+              <form
+                action={approveAction}
+                onSubmit={() => setApproveDialogOpen(false)}
+                className="mt-3 space-y-4"
+              >
+                <input
+                  type="hidden"
+                  name="applicationId"
+                  value={applicationId || ""}
+                />
+
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-[#0A0A0A]">
+                    Commission Rate (%) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="commissionRate"
+                    value={commissionInput}
+                    onChange={(e) => setCommissionInput(e.target.value)}
+                    placeholder="e.g. 15"
+                    className="w-full rounded-full border border-[#D6D6D6] bg-white px-4 py-2 text-xs text-[#0A0A0A] placeholder:text-[#9CA3AF] focus:outline-none focus:ring-1 focus:ring-[#6EA30B]"
+                  />
+                  {existingCommissionRate != null && (
+                    <p className="text-[10px] text-[#717182]">
+                      Current rate: {existingCommissionRate}%
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setApproveDialogOpen(false)}
+                    className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={approvePending}
+                    className={cx(
+                      "rounded-full px-5 py-2 text-xs font-medium cursor-pointer border",
+                      "border-[#6EA30B] text-white bg-[#6EA30B] hover:bg-white hover:text-[#6EA30B]",
+                      approvePending &&
+                        "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white",
+                    )}
+                  >
+                    {approvePending ? (
+                      <Loader2Icon className="animate-spin h-4 w-4" />
+                    ) : (
+                      "Confirm & Approve"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </DialogContent>
@@ -616,7 +841,9 @@ function Field({ label, value }) {
   return (
     <div>
       <p className="text-[11px] text-[#717182]">{label}</p>
-      <p className="mt-1 text-xs font-medium text-[#0A0A0A]">{safeText(value)}</p>
+      <p className="mt-1 text-xs font-medium text-[#0A0A0A]">
+        {safeText(value)}
+      </p>
     </div>
   );
 }

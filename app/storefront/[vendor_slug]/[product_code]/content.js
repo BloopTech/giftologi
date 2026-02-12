@@ -103,8 +103,6 @@ export default function ProductCodeDetailContent() {
 
   const isClosed = (vendor?.shop_status || "").toLowerCase() === "closed";
   const logoSrc = vendor?.logo_url || vendor?.logo || "/host/toaster.png";
-  const isOutOfStock = product && product?.stock <= 0;
-  const canPurchase = !isClosed && !isOutOfStock;
 
   useEffect(() => {
     let cancelled = false;
@@ -128,11 +126,11 @@ export default function ProductCodeDetailContent() {
       setQuantity((prev) => {
         const next = prev + delta;
         if (next < 1) return 1;
-        if (next > product?.stock) return product?.stock;
+        if (next > effectiveStock) return effectiveStock;
         return next;
       });
     },
-    [product?.stock],
+    [effectiveStock],
   );
 
   const variations = useMemo(
@@ -149,6 +147,7 @@ export default function ProductCodeDetailContent() {
           [variation?.color, variation?.size].filter(Boolean).join(" / ") ||
           `Option ${index + 1}`,
         price: variation?.price,
+        stock_qty: variation?.stock_qty ?? null,
         color: variation?.color,
         size: variation?.size,
         sku: variation?.sku,
@@ -204,11 +203,26 @@ export default function ProductCodeDetailContent() {
   const selectionRequired = variationOptions.length > 0;
   const selectionComplete = !selectionRequired || !!selectedVariation;
 
+  const effectiveStock = useMemo(() => {
+    if (selectedVariation && selectedVariation.stock_qty != null) {
+      return Number(selectedVariation.stock_qty);
+    }
+    return product?.stock ?? 0;
+  }, [selectedVariation, product?.stock]);
+
+  const isOutOfStock = product && effectiveStock <= 0;
+  const canPurchase = !isClosed && !isOutOfStock;
+
   useEffect(() => {
     setSelectedColor("");
     setSelectedSize("");
     setSelectedVariantKey("");
+    setQuantity(1);
   }, [product?.id]);
+
+  useEffect(() => {
+    setQuantity(1);
+  }, [selectedVariation?.key]);
 
   useEffect(() => {
     if (variationOptions.length !== 1) return;
@@ -574,16 +588,21 @@ export default function ProductCodeDetailContent() {
 
             {/* Stock Status */}
             <div className="flex items-center gap-2 mb-6">
-              {product.stock > 0 ? (
+              {effectiveStock > 0 ? (
                 <>
                   <Check className="size-4 text-green-600" />
                   <span className="text-sm text-green-600 font-medium">
-                    In Stock ({product.stock} available)
+                    In Stock ({effectiveStock} available)
                   </span>
+                  {selectedVariation && selectedVariation.stock_qty != null && (
+                    <span className="text-xs text-gray-500">
+                      for {selectedVariation.label}
+                    </span>
+                  )}
                 </>
               ) : (
                 <span className="text-sm text-red-600 font-medium">
-                  Out of Stock
+                  {selectedVariation ? `Out of Stock (${selectedVariation.label})` : "Out of Stock"}
                 </span>
               )}
             </div>
@@ -733,7 +752,7 @@ export default function ProductCodeDetailContent() {
                   </span>
                   <button
                     onClick={() => handleQuantityChange(1)}
-                    disabled={quantity >= product.stock}
+                    disabled={quantity >= effectiveStock}
                     className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     aria-label="Increase quantity"
                   >

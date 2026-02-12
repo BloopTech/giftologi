@@ -47,6 +47,7 @@ export default function VendorDashboardContent() {
   } = useVendorDashboardContext() || {};
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [salesPeriod, setSalesPeriod] = useState(7);
 
   const derivedData = useMemo(() => {
     const productById = new Map(
@@ -86,7 +87,6 @@ export default function VendorDashboardContent() {
       return Number.isFinite(amt) ? sum + amt : sum;
     }, 0);
 
-    const dailySeries = buildDailySeries(orderItems, 7);
 
     const categorySales = new Map();
     orderItems.forEach((row) => {
@@ -158,12 +158,16 @@ export default function VendorDashboardContent() {
       activeProducts,
       lowStockItems,
       pendingPayoutAmount,
-      dailySeries,
       topCategories,
       topProducts,
       recentItems,
     };
   }, [products, orderItems, payouts]);
+
+  const dailySeries = useMemo(
+    () => buildDailySeries(orderItems, salesPeriod),
+    [orderItems, salesPeriod],
+  );
 
   if (loadingVendorData) {
     return (
@@ -208,7 +212,6 @@ export default function VendorDashboardContent() {
     activeProducts,
     lowStockItems,
     pendingPayoutAmount,
-    dailySeries,
     topCategories,
     recentItems,
   } = derivedData;
@@ -249,7 +252,7 @@ export default function VendorDashboardContent() {
           <p className="text-[#717182] text-sm font-brasley-medium">
             Here&apos;s what&apos;s happening with your store today
           </p>
-          {storefrontPath ? (
+          {storefrontPath && vendor?.verified ? (
             <div className="pt-2 w-40">
               <Link
                 href={storefrontPath}
@@ -339,19 +342,24 @@ export default function VendorDashboardContent() {
                 Sales Trend
               </h2>
               <p className="text-[#6B7280] text-sm font-brasley-medium">
-                Daily sales for the last 7 days
+                Daily sales for the last {salesPeriod} days
               </p>
             </div>
             <div className="flex items-center gap-1 bg-[#F3F4F6] rounded-full p-1">
-              <button className="cursor-pointer px-3 py-1.5 text-xs font-medium rounded-full bg-[#111827] text-white">
-                7D
-              </button>
-              <button className="cursor-pointer px-3 py-1.5 text-xs font-medium rounded-full text-[#6B7280] hover:bg-white">
-                30D
-              </button>
-              <button className="cursor-pointer px-3 py-1.5 text-xs font-medium rounded-full text-[#6B7280] hover:bg-white">
-                90D
-              </button>
+              {[7, 30, 90].map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setSalesPeriod(d)}
+                  className={`cursor-pointer px-3 py-1.5 text-xs font-medium rounded-full transition-colors ${
+                    salesPeriod === d
+                      ? "bg-[#111827] text-white"
+                      : "text-[#6B7280] hover:bg-white"
+                  }`}
+                >
+                  {d}D
+                </button>
+              ))}
             </div>
           </div>
 

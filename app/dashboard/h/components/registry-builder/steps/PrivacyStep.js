@@ -70,6 +70,14 @@ export default function PrivacyStep({
           onChange={(value) => updateFormData("privacy", value)}
           disabled={disabled}
         />
+        <RadioOption
+          label="Invite Only"
+          description="Only people you invite can view your registry."
+          value="invite-only"
+          selected={privacyValue === "invite-only"}
+          onChange={(value) => updateFormData("privacy", value)}
+          disabled={disabled}
+        />
       </div>
 
       <div className="flex items-center gap-2 pt-4 text-sm text-gray-500">

@@ -113,6 +113,8 @@ const PURCHASE_STEPS = {
 export const GuestRegistryCodeProvider = ({
   children,
   registryCode,
+  registryPrivacy,
+  tokenValid,
   initialRegistry,
   initialEvent,
   initialHost,
@@ -149,6 +151,7 @@ export const GuestRegistryCodeProvider = ({
   });
 
   const [error, setError] = useState(null);
+  const [accessDenied, setAccessDenied] = useState(false);
 
   const [isLoading, setIsLoading] = useState(
     !initialRegistry && Boolean(registryCode),
@@ -193,6 +196,12 @@ export const GuestRegistryCodeProvider = ({
     }
 
     if (!registryData) {
+      // Registry exists (server confirmed) but RLS blocked access → access denied
+      if (registryPrivacy === "invite-only") {
+        setAccessDenied(true);
+        setIsLoading(false);
+        return;
+      }
       router.replace("/404");
       setIsLoading(false);
       return;
@@ -323,7 +332,7 @@ export const GuestRegistryCodeProvider = ({
     setCategories(Array.isArray(categoriesData) ? categoriesData : []);
     setShippingAddress(shipping);
     setIsLoading(false);
-  }, [registryCode, supabase, router, formatPrice]);
+  }, [registryCode, registryPrivacy, supabase, router, formatPrice]);
 
   useEffect(() => {
     if (initialRegistry) return;
@@ -761,6 +770,7 @@ export const GuestRegistryCodeProvider = ({
       categories,
       refresh,
       isLoading,
+      accessDenied,
 
       // Modal states
       welcomeNoteOpen,
@@ -839,6 +849,7 @@ export const GuestRegistryCodeProvider = ({
       completedOrderId,
       isProcessing,
       error,
+      accessDenied,
       cartItems,
       cartCount,
       cartLoading,

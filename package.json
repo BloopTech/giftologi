@@ -43,6 +43,8 @@
     "react-dom": "^19.2.3",
     "react-email": "^5.2.5",
     "react-icons": "^5.5.0",
+    "react-select": "^5.10.2",
+    "react-share": "^5.2.2",
     "react-simple-phone-input": "^5.2.5",
     "react-slider": "^2.0.6",
     "recharts": "^3.6.0",

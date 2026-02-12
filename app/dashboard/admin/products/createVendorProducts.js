@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LoaderCircle, Search, X } from "lucide-react";
+import CascadingCategoryPicker from "../../../components/CascadingCategoryPicker";
 
 const COLOR_OPTIONS = [
   "Black",
@@ -57,6 +58,7 @@ export default function CreateAllVendorProducts(props) {
     bulkCategoryIds,
     setSelectedCategoryIds,
     createPending,
+    categories,
     categoriesById,
     getCategoryDisplayName,
     parentCategoryOptions,
@@ -90,6 +92,14 @@ export default function CreateAllVendorProducts(props) {
   const [imagePreviews, setImagePreviews] = useState([]);
   const [imageError, setImageError] = useState("");
   const fileInputRef = useRef(null);
+
+  const variationStockSum = React.useMemo(() => {
+    if (!variationDrafts || !variationDrafts.length) return null;
+    const values = variationDrafts.map((d) => d.stock_qty).filter((v) => v !== "" && v != null);
+    if (!values.length) return null;
+    return values.reduce((sum, v) => sum + (Number(v) || 0), 0);
+  }, [variationDrafts]);
+  const hasVariationStock = variationStockSum !== null;
 
   const imageCount = imagePreviews.length;
 
@@ -359,119 +369,22 @@ export default function CreateAllVendorProducts(props) {
                 {createMode === "single" && (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2 md:col-span-2">
-                      <div className="flex items-center justify-between gap-2">
-                        <label className="text-xs font-medium text-[#0A0A0A]">
-                          Categories <span className="text-red-500">*</span>
-                          <span className="ml-1 text-[11px] font-normal text-[#6A7282]">
-                            (Select all that apply)
-                          </span>
-                        </label>
-                        {selectedCategoryIds.length ? (
-                          <button
-                            type="button"
-                            onClick={() => setSelectedCategoryIds([])}
-                            className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
-                            disabled={createPending}
-                          >
-                            Clear
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="rounded-lg border border-[#D6D6D6] bg-white p-3 space-y-3">
-                        {selectedCategoryIds.length ? (
-                          <div className="flex flex-wrap gap-2">
-                            {selectedCategoryIds.map((id) => {
-                              const category = categoriesById.get(id);
-                              if (!category) return null;
-                              return (
-                                <span
-                                  key={id}
-                                  className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
-                                >
-                                  {getCategoryDisplayName(category)}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-[#9CA3AF]">
-                            No categories selected yet.
-                          </p>
-                        )}
-                        <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-                          {parentCategoryOptions.length ? (
-                            parentCategoryOptions.map((parent) => {
-                              const children =
-                                categoriesByParentId.get(parent.id) || [];
-                              return (
-                                <div key={parent.id} className="space-y-2">
-                                  <label className="flex items-center gap-2 text-[11px] text-[#111827]">
-                                    <input
-                                      type="checkbox"
-                                      checked={selectedCategoryIdSet.has(
-                                        parent.id,
-                                      )}
-                                      onChange={() =>
-                                        toggleSelectedCategory(parent.id)
-                                      }
-                                      disabled={
-                                        categoriesLoading || createPending
-                                      }
-                                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                                    />
-                                    <span className="font-medium">
-                                      {parent.name || "Untitled"}
-                                    </span>
-                                  </label>
-                                  {children.length ? (
-                                    <div className="ml-6 grid gap-1">
-                                      {children.map((child) => (
-                                        <label
-                                          key={child.id}
-                                          className="flex items-center gap-2 text-[11px] text-[#4B5563]"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={selectedCategoryIdSet.has(
-                                              child.id,
-                                            )}
-                                            onChange={() =>
-                                              toggleSelectedCategory(child.id)
-                                            }
-                                            disabled={
-                                              categoriesLoading || createPending
-                                            }
-                                            className="accent-primary h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                          />
-                                          <span>
-                                            {child.name || "Untitled"}
-                                          </span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <p className="text-[11px] text-[#9CA3AF]">
-                              No categories available.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {categoriesError ? (
-                        <p className="mt-1 text-[11px] text-red-600">
-                          {categoriesError}
-                        </p>
-                      ) : null}
-                      {(createState?.errors?.categoryIds || []).length ? (
-                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.categoryIds.map((err, index) => (
-                            <li key={index}>{err}</li>
-                          ))}
-                        </ul>
-                      ) : null}
+                      <label className="text-xs font-medium text-[#0A0A0A]">
+                        Categories <span className="text-red-500">*</span>
+                      </label>
+                      <CascadingCategoryPicker
+                        categories={categories}
+                        selectedCategoryIds={selectedCategoryIds}
+                        onToggleCategory={toggleSelectedCategory}
+                        onClearAll={() => setSelectedCategoryIds([])}
+                        disabled={categoriesLoading || createPending}
+                        error={
+                          categoriesError ||
+                          ((createState?.errors?.categoryIds || []).length
+                            ? createState.errors.categoryIds[0]
+                            : undefined)
+                        }
+                      />
                     </div>
 
                     <div className="space-y-1">
@@ -603,27 +516,46 @@ export default function CreateAllVendorProducts(props) {
                       >
                         Stock Quantity
                       </label>
-                      <input
-                        id="product-stock"
-                        name="stockQty"
-                        type="number"
-                        inputMode="numeric"
-                        min="0"
-                        defaultValue={createState?.values?.stockQty || ""}
-                        placeholder="e.g. 50"
-                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
-                        disabled={createPending}
-                      />
-                      {(createState?.errors?.stockQty || []).length ? (
-                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.stockQty.map((err, index) => (
-                            <li key={index}>{err}</li>
-                          ))}
-                        </ul>
+                      {hasVariationStock ? (
+                        <>
+                          <input type="hidden" name="stockQty" value={variationStockSum} />
+                          <input
+                            id="product-stock"
+                            type="number"
+                            min="0"
+                            value={variationStockSum}
+                            readOnly
+                            className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-[#F9FAFB] border-[#D6D6D6] text-[#6B7280] cursor-not-allowed"
+                          />
+                          <p className="text-[11px] text-[#717182]">
+                            Auto-calculated from variation stock quantities.
+                          </p>
+                        </>
                       ) : (
-                        <p className="text-[11px] text-[#717182]">
-                          Optional. Leave blank if stock is managed elsewhere.
-                        </p>
+                        <>
+                          <input
+                            id="product-stock"
+                            name="stockQty"
+                            type="number"
+                            inputMode="numeric"
+                            min="0"
+                            defaultValue={createState?.values?.stockQty || ""}
+                            placeholder="e.g. 50"
+                            className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]"
+                            disabled={createPending}
+                          />
+                          {(createState?.errors?.stockQty || []).length ? (
+                            <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                              {createState.errors.stockQty.map((err, index) => (
+                                <li key={index}>{err}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-[11px] text-[#717182]">
+                              Optional. Leave blank if stock is managed elsewhere.
+                            </p>
+                          )}
+                        </>
                       )}
                     </div>
 
@@ -815,7 +747,7 @@ export default function CreateAllVendorProducts(props) {
                                           disabled={createPending}
                                         >
                                           <option value="">
-                                            Select option…
+                                            Select attribute…
                                           </option>
                                           <option value="color">Color</option>
                                           <option value="size">Size</option>
@@ -1045,7 +977,71 @@ export default function CreateAllVendorProducts(props) {
                                           />
                                         ) : null}
                                       </div>
+
+                                      {activeField && activeField !== "color" && activeField !== "size" && activeField !== "price" ? (
+                                        <div className="flex items-end">
+                                          <button
+                                            type="button"
+                                            onClick={() =>
+                                              setActiveVariationFieldById(
+                                                (prev) => ({
+                                                  ...prev,
+                                                  [draft.id]: "",
+                                                }),
+                                              )
+                                            }
+                                            className="cursor-pointer rounded-lg bg-primary px-3 py-2 text-[11px] font-medium text-white hover:bg-primary/90"
+                                            disabled={createPending}
+                                          >
+                                            Add
+                                          </button>
+                                        </div>
+                                      ) : null}
                                     </div>
+
+                                    <div className="flex flex-col gap-1">
+                                      <label className="text-[11px] font-medium text-[#374151]">
+                                        Stock / Quantity <span className="text-red-500">*</span>
+                                      </label>
+                                      <input
+                                        type="number"
+                                        inputMode="numeric"
+                                        min="0"
+                                        value={draft.stock_qty}
+                                        onChange={(e) =>
+                                          updateVariationDraft(
+                                            draft.id,
+                                            "stock_qty",
+                                            e.target.value,
+                                          )
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (["e", "E", "+", "-", "."].includes(e.key)) e.preventDefault();
+                                        }}
+                                        placeholder="e.g. 10"
+                                        className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                                        disabled={createPending}
+                                      />
+                                    </div>
+                                    {(() => {
+                                      const hasAttr = Boolean(draft.label || draft.color || draft.size || draft.sku);
+                                      const hasStock = draft.stock_qty !== "" && draft.stock_qty != null;
+                                      if (!hasAttr && hasStock) {
+                                        return (
+                                          <p className="text-[11px] text-red-500 mt-1">
+                                            Add at least one attribute (color, size, SKU, or label).
+                                          </p>
+                                        );
+                                      }
+                                      if (hasAttr && !hasStock) {
+                                        return (
+                                          <p className="text-[11px] text-red-500 mt-1">
+                                            Stock quantity is required.
+                                          </p>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 </div>
                               );
@@ -1207,120 +1203,22 @@ export default function CreateAllVendorProducts(props) {
                 {createMode === "bulk" && (
                   <div className="space-y-4">
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <label className="text-xs font-medium text-[#0A0A0A]">
-                          Default Categories (optional)
-                          <span className="ml-1 text-[11px] font-normal text-[#6A7282]">
-                            (Applied to every CSV row)
-                          </span>
-                        </label>
-                        {bulkCategoryIds.length ? (
-                          <button
-                            type="button"
-                            onClick={() => setBulkCategoryIds([])}
-                            className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
-                            disabled={createPending}
-                          >
-                            Clear
-                          </button>
-                        ) : null}
-                      </div>
-                      <div className="rounded-lg border border-[#D6D6D6] bg-white p-3 space-y-3">
-                        {bulkCategoryIds.length ? (
-                          <div className="flex flex-wrap gap-2">
-                            {bulkCategoryIds.map((id) => {
-                              const category = categoriesById.get(id);
-                              if (!category) return null;
-                              return (
-                                <span
-                                  key={id}
-                                  className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
-                                >
-                                  {getCategoryDisplayName(category)}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <p className="text-[11px] text-[#9CA3AF]">
-                            No default categories selected. CSV rows can define
-                            their own.
-                          </p>
-                        )}
-                        <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4">
-                          {parentCategoryOptions.length ? (
-                            parentCategoryOptions.map((parent) => {
-                              const children =
-                                categoriesByParentId.get(parent.id) || [];
-                              return (
-                                <div key={parent.id} className="space-y-2">
-                                  <label className="flex items-center gap-2 text-[11px] text-[#111827]">
-                                    <input
-                                      type="checkbox"
-                                      checked={bulkCategoryIdSet.has(parent.id)}
-                                      onChange={() =>
-                                        toggleBulkCategory(parent.id)
-                                      }
-                                      disabled={
-                                        categoriesLoading || createPending
-                                      }
-                                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                                    />
-                                    <span className="font-medium">
-                                      {parent.name || "Untitled"}
-                                    </span>
-                                  </label>
-                                  {children.length ? (
-                                    <div className="ml-6 grid gap-1">
-                                      {children.map((child) => (
-                                        <label
-                                          key={child.id}
-                                          className="flex items-center gap-2 text-[11px] text-[#4B5563]"
-                                        >
-                                          <input
-                                            type="checkbox"
-                                            checked={bulkCategoryIdSet.has(
-                                              child.id,
-                                            )}
-                                            onChange={() =>
-                                              toggleBulkCategory(child.id)
-                                            }
-                                            disabled={
-                                              categoriesLoading || createPending
-                                            }
-                                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                                          />
-                                          <span>
-                                            {child.name || "Untitled"}
-                                          </span>
-                                        </label>
-                                      ))}
-                                    </div>
-                                  ) : null}
-                                </div>
-                              );
-                            })
-                          ) : (
-                            <p className="text-[11px] text-[#9CA3AF]">
-                              No categories available.
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      {categoriesError ? (
-                        <p className="mt-1 text-[11px] text-red-600">
-                          {categoriesError}
-                        </p>
-                      ) : null}
-                      {(createState?.errors?.bulkCategoryIds || []).length ? (
-                        <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                          {createState.errors.bulkCategoryIds.map(
-                            (err, index) => (
-                              <li key={index}>{err}</li>
-                            ),
-                          )}
-                        </ul>
-                      ) : null}
+                      <label className="text-xs font-medium text-[#0A0A0A]">
+                        Default Categories (optional)
+                      </label>
+                      <CascadingCategoryPicker
+                        categories={categories}
+                        selectedCategoryIds={bulkCategoryIds}
+                        onToggleCategory={toggleBulkCategory}
+                        onClearAll={() => setBulkCategoryIds([])}
+                        disabled={categoriesLoading || createPending}
+                        error={
+                          categoriesError ||
+                          ((createState?.errors?.bulkCategoryIds || []).length
+                            ? createState.errors.bulkCategoryIds[0]
+                            : undefined)
+                        }
+                      />
                       <p className="text-[11px] text-[#717182]">
                         When set, all products created from this CSV will use
                         these categories.
@@ -1460,6 +1358,31 @@ export default function CreateAllVendorProducts(props) {
 
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-[#0A0A0A]">
+                              Service Charge Column{" "}
+                              <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={bulkMapping.serviceCharge}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  serviceCharge: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Select column</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
                               Description Column
                             </label>
                             <select
@@ -1528,6 +1451,33 @@ export default function CreateAllVendorProducts(props) {
                                 </option>
                               ))}
                             </select>
+                          </div>
+
+                          <div className="space-y-1 md:col-span-2">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Variations Column (JSON)
+                            </label>
+                            <select
+                              value={bulkMapping.variations || ""}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  variations: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Optional</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-[11px] text-[#717182]">
+                              JSON array, e.g. [&#123;&quot;color&quot;:&quot;Red&quot;,&quot;stock_qty&quot;:5&#125;,&#123;&quot;color&quot;:&quot;Blue&quot;,&quot;stock_qty&quot;:3&#125;]
+                            </p>
                           </div>
                         </div>
                       )}

@@ -78,8 +78,8 @@ export default function AdminSidebar() {
   return (
     <>
       {/* sidebar (lg+) */}
-      <nav className="hidden lg:fixed lg:top-[6rem] lg:bottom-0 lg:z-40 lg:flex lg:w-64 lg:flex-col left-[2rem]">
-      <aside className={`max-h-[30rem] h-auto py-4 w-full mx-auto border border-[#f4f4f4] bg-white rounded-xl overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent`}>
+      <nav className="hidden lg:fixed lg:top-[6rem] lg:bottom-4 lg:z-40 lg:flex lg:w-64 lg:flex-col left-[2rem]">
+      <aside className={`flex-1 py-4 w-full mx-auto border border-[#f4f4f4] bg-white rounded-xl overflow-y-auto [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent`}>
         {pathname !== "/dashboard/admin" ? (
           <div className="px-[1rem]">
             <Link

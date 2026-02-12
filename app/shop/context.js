@@ -323,6 +323,7 @@ export function ShopProvider({
           )
           .eq("status", "approved")
           .eq("active", true)
+          .eq("vendor.verified", true)
           .eq("vendor.shop_status", "active")
           .gt("stock_qty", 0);
 

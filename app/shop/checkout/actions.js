@@ -95,6 +95,13 @@ export async function processShopCheckout(prevState, formData) {
 
     const productMap = new Map((products || []).map((p) => [p.id, p]));
 
+    // Fetch vendors to check verification status
+    const vendorIds = Array.from(new Set((products || []).map((p) => p.vendor_id).filter(Boolean)));
+    const { data: vendorRows } = vendorIds.length
+      ? await adminClient.from("vendors").select("id, verified").in("id", vendorIds)
+      : { data: [] };
+    const vendorMap = new Map((vendorRows || []).map((v) => [v.id, v]));
+
     // Fetch product categories for promo evaluation
     const { data: productCategories } = await adminClient
       .from("product_categories")
@@ -131,6 +138,13 @@ export async function processShopCheckout(prevState, formData) {
         return {
           success: false,
           error: `"${product?.name || "A product"}" is no longer available.`,
+        };
+      }
+      const productVendor = vendorMap.get(product.vendor_id);
+      if (!productVendor || !productVendor.verified) {
+        return {
+          success: false,
+          error: `"${product.name}" is from a vendor that is no longer available.`,
         };
       }
       if ((product.stock_qty || 0) < (item.quantity || 0)) {

@@ -69,7 +69,45 @@ function RegistryContentInner() {
     cartProductIds,
     removeFromCart,
     goToCheckout,
+    accessDenied,
+    isLoading,
   } = useGuestRegistryCodeContext();
+
+  if (accessDenied) {
+    return (
+      <div className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen flex items-center justify-center px-4 font-brasley-medium">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="mx-auto w-16 h-16 rounded-full bg-[#FEF3C7] flex items-center justify-center">
+            <svg className="w-8 h-8 text-[#D97706]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v.01M12 9v3m9-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+            This registry is invite-only
+          </h1>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            You need an invitation from the host to view this registry.
+            If you believe you should have access, please log in with the
+            email address that was invited.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center px-6 py-2.5 text-sm font-medium text-white bg-primary rounded-full hover:bg-primary/90 transition-colors"
+            >
+              Log in
+            </Link>
+            <Link
+              href="/registry"
+              className="inline-flex items-center px-6 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
+            >
+              Find a public registry
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const hasProducts = Array.isArray(products) && products.length > 0;
 

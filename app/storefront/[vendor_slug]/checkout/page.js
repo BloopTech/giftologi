@@ -37,6 +37,7 @@ const buildVariationOptions = (variations = []) =>
         [variation?.color, variation?.size].filter(Boolean).join(" / ") ||
         `Option ${index + 1}`,
       price: variation?.price,
+      stock_qty: variation?.stock_qty ?? null,
       raw: variation,
     }))
     .filter((option) => option.label);
@@ -119,6 +120,11 @@ export default async function CheckoutPage({ params, searchParams }) {
     return notFound();
   }
 
+  // Block checkout for unapproved vendors
+  if (!vendor.verified) {
+    return notFound();
+  }
+
   // Check if shop is closed
   if ((vendor.shop_status || "").toLowerCase() === "closed") {
     redirect(`/storefront/${vendor_slug}`);
@@ -154,13 +160,12 @@ export default async function CheckoutPage({ params, searchParams }) {
     return notFound();
   }
 
-  // Check stock
+  // Check general stock
   if (product.stock_qty <= 0) {
     redirect(`/storefront/${vendor_slug}/${product.product_code}`);
   }
 
   const images = Array.isArray(product.images) ? product.images : [];
-  const actualQuantity = Math.min(quantity, product.stock_qty);
   const variations = normalizeVariations(product.variations);
   const variationOptions = buildVariationOptions(variations);
   const selectedVariation = variantKey
@@ -170,6 +175,19 @@ export default async function CheckoutPage({ params, searchParams }) {
   if (variations.length > 0 && !selectedVariation) {
     redirect(`/storefront/${vendor_slug}/${product.product_code}`);
   }
+
+  // Determine effective stock: variation stock_qty if selected, else general
+  const effectiveStock =
+    selectedVariation && selectedVariation.stock_qty != null
+      ? Number(selectedVariation.stock_qty)
+      : product.stock_qty;
+
+  // If the selected variation is out of stock, redirect back
+  if (effectiveStock <= 0) {
+    redirect(`/storefront/${vendor_slug}/${product.product_code}`);
+  }
+
+  const actualQuantity = Math.min(quantity, effectiveStock);
   const basePrice = Number(product.price);
   const serviceCharge = Number(product.service_charge || 0);
   const baseWithCharge = Number.isFinite(basePrice)

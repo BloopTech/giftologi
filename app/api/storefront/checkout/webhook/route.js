@@ -104,24 +104,43 @@ export async function POST(request) {
       // Get order items
       const { data: orderItems } = await supabase
         .from("order_items")
-        .select("product_id, quantity, registry_item_id, vendor_id")
+        .select("product_id, quantity, registry_item_id, vendor_id, variation")
         .eq("order_id", order.id);
 
       // Update stock for each product + registry purchased quantities
       if (orderItems) {
         for (const item of orderItems) {
-          // Get current stock and decrement
+          // Get current stock and variations, then decrement
           const { data: product } = await supabase
             .from("products")
-            .select("stock_qty")
+            .select("stock_qty, variations")
             .eq("id", item.product_id)
             .single();
 
           if (product) {
+            const nowIso = new Date().toISOString();
             const newStock = Math.max(0, (product.stock_qty || 0) - item.quantity);
+            const updatePayload = { stock_qty: newStock, updated_at: nowIso };
+
+            // Also decrement variation stock_qty if a variation was purchased
+            const itemVariation = item.variation;
+            if (itemVariation && typeof itemVariation === "object" && Array.isArray(product.variations)) {
+              const varKey = itemVariation.key || itemVariation.sku || itemVariation.label;
+              if (varKey) {
+                const updatedVariations = product.variations.map((v, idx) => {
+                  const vKey = String(v?.id || v?.sku || v?.label || idx);
+                  if (vKey === String(varKey) && typeof v?.stock_qty === "number") {
+                    return { ...v, stock_qty: Math.max(0, v.stock_qty - item.quantity) };
+                  }
+                  return v;
+                });
+                updatePayload.variations = updatedVariations;
+              }
+            }
+
             await supabase
               .from("products")
-              .update({ stock_qty: newStock, updated_at: new Date().toISOString() })
+              .update(updatePayload)
               .eq("id", item.product_id);
           }
 

@@ -141,6 +141,7 @@ export default function AddToRegistryModal({
             .join(" / ") ||
           `Option ${index + 1}`,
         price: variation?.price,
+        stock_qty: variation?.stock_qty ?? null,
         color: variation?.color,
         size: variation?.size,
         sku: variation?.sku,
@@ -198,6 +199,13 @@ export default function AddToRegistryModal({
   const selectionRequired = variationOptions.length > 0;
   const selectionComplete = !selectionRequired || !!selectedVariation;
 
+  const effectiveStock = useMemo(() => {
+    if (selectedVariation && selectedVariation.stock_qty != null) {
+      return Number(selectedVariation.stock_qty);
+    }
+    return product?.stock ?? 10;
+  }, [selectedVariation, product?.stock]);
+
   useEffect(() => {
     if (variationOptions.length !== 1) return;
     const [option] = variationOptions;
@@ -218,11 +226,16 @@ export default function AddToRegistryModal({
     }
   }, [selectedVariantKey, selectedColor, selectedSize, variationOptions]);
 
+  // Reset quantity when selected variation changes to avoid exceeding new stock limit
+  useEffect(() => {
+    setQuantity(1);
+  }, [selectedVariation?.key]);
+
   const handleQuantityChange = (delta) => {
     setQuantity((prev) => {
       const next = prev + delta;
       if (next < 1) return 1;
-      if (next > (product?.stock || 10)) return product?.stock || 10;
+      if (next > effectiveStock) return effectiveStock;
       return next;
     });
   };
@@ -312,7 +325,7 @@ export default function AddToRegistryModal({
                   <button
                     type="button"
                     onClick={() => handleQuantityChange(1)}
-                    disabled={quantity >= (product.stock || 10)}
+                    disabled={quantity >= effectiveStock}
                     className="p-2 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
                     aria-label="Increase quantity"
                   >
@@ -320,7 +333,7 @@ export default function AddToRegistryModal({
                   </button>
                 </div>
                 <span className="text-sm text-gray-500">
-                  {product.stock} available
+                  {effectiveStock} available{selectedVariation?.stock_qty != null ? ` (${selectedVariation.label})` : ""}
                 </span>
               </div>
             </div>
@@ -470,6 +483,11 @@ export default function AddToRegistryModal({
                     <span className="text-sm text-green-700 font-medium">
                       ✓ {selectedVariation.label}
                     </span>
+                    {selectedVariation.stock_qty != null && (
+                      <span className={`text-xs ${Number(selectedVariation.stock_qty) > 0 ? "text-green-600" : "text-red-600"}`}>
+                        {Number(selectedVariation.stock_qty) > 0 ? `${selectedVariation.stock_qty} in stock` : "Out of stock"}
+                      </span>
+                    )}
                     {selectedVariation.price != null && (
                       <span className="text-sm font-semibold text-[#A5914B] ml-auto">
                         {formatPrice(selectedVariation.price)}
@@ -534,7 +552,7 @@ export default function AddToRegistryModal({
               </button>
               <button
                 type="submit"
-                disabled={isPending || !selectionComplete}
+                disabled={isPending || !selectionComplete || effectiveStock <= 0}
                 className="flex-1 py-3 bg-[#A5914B] text-white font-medium rounded-full hover:bg-[#8B7A3F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isPending ? (

@@ -80,10 +80,19 @@ async function uploadVendorDocument(file, keyPrefix) {
 
 const defaultApproveVendorValues = {
   applicationId: [],
+  commissionRate: [],
 };
 
 const approveVendorSchema = z.object({
   applicationId: z.uuid({ message: "Invalid vendor request" }),
+  commissionRate: z
+    .string()
+    .trim()
+    .min(1, { message: "Commission rate is required" })
+    .refine((value) => {
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num >= 0 && num <= 100;
+    }, "Enter a valid commission rate (0–100)"),
 });
 
 export async function approveVendorRequest(prevState, formData) {
@@ -121,6 +130,7 @@ export async function approveVendorRequest(prevState, formData) {
 
   const raw = {
     applicationId: formData.get("applicationId"),
+    commissionRate: formData.get("commissionRate") || "",
   };
 
   const parsed = approveVendorSchema.safeParse(raw);
@@ -134,12 +144,13 @@ export async function approveVendorRequest(prevState, formData) {
     };
   }
 
-  const { applicationId } = parsed.data;
+  const { applicationId, commissionRate } = parsed.data;
+  const commissionRateNumber = Number(commissionRate.replace(/,/g, ""));
 
   const { data: application, error: applicationError } = await supabase
     .from("vendor_applications")
     .select(
-      "id, user_id, business_name, category, status, business_description, tax_id, website, owner_email, owner_phone, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, draft_data",
+      "id, user_id, business_name, category, status, business_description, tax_id, website, owner_email, owner_phone, street_address, city, region, digital_address, bank_account_name, bank_name, bank_account_number, bank_branch, bank_branch_code, draft_data, commission_rate",
     )
     .eq("id", applicationId)
     .single();
@@ -204,6 +215,7 @@ export async function approveVendorRequest(prevState, formData) {
         address_city: application.city || null,
         address_state: application.region || null,
         digital_address: application.digital_address || null,
+        commission_rate: Number.isFinite(commissionRateNumber) ? commissionRateNumber : null,
         verified: true,
         updated_at: new Date().toISOString(),
       })
@@ -231,7 +243,7 @@ export async function approveVendorRequest(prevState, formData) {
           category: application.category,
           slug: vendorSlug,
           description: application.business_description || null,
-          commission_rate: null,
+          commission_rate: Number.isFinite(commissionRateNumber) ? commissionRateNumber : null,
           verified: true,
           email: application.owner_email || null,
           phone: application.owner_phone || null,
@@ -1002,6 +1014,16 @@ const createVendorApplicationSchema = z.object({
         "Branch name must contain only letters, numbers, spaces, and hyphens",
     }),
   financialVerificationNotes: z.string().trim().optional().or(z.literal("")),
+  commissionRate: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .transform((value) => {
+      if (!value) return null;
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num >= 0 && num <= 100 ? num : null;
+    }),
 });
 
 const updateVendorApplicationSchema = createVendorApplicationSchema
@@ -1076,6 +1098,7 @@ export async function createVendorApplication(prevState, formData) {
     bankBranch: formData.get("bankBranch") || "",
     financialVerificationNotes:
       formData.get("financialVerificationNotes") || "",
+    commissionRate: formData.get("commissionRate") || "",
   };
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
@@ -1130,6 +1153,7 @@ export async function createVendorApplication(prevState, formData) {
     bankBranchCode,
     bankBranch,
     financialVerificationNotes,
+    commissionRate: parsedCommissionRate,
   } = parsed.data;
 
   const categoryPayload = JSON.stringify(category);
@@ -1361,6 +1385,7 @@ export async function createVendorApplication(prevState, formData) {
     bank_branch_code: bankBranchCode || null,
     bank_branch: bankBranch || null,
     financial_verification_notes: financialVerificationNotes || null,
+    commission_rate: parsedCommissionRate,
     updated_at: new Date().toISOString(),
   };
   const { data: application, error: insertError } = await supabase
@@ -1457,6 +1482,7 @@ export async function updateVendorApplication(prevState, formData) {
     bankBranch: formData.get("bankBranch") || "",
     financialVerificationNotes:
       formData.get("financialVerificationNotes") || "",
+    commissionRate: formData.get("commissionRate") || "",
   };
 
   if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
@@ -1511,6 +1537,7 @@ export async function updateVendorApplication(prevState, formData) {
     bankBranchCode,
     bankBranch,
     financialVerificationNotes,
+    commissionRate: parsedCommissionRate,
   } = parsed.data;
 
   const categoryPayload = JSON.stringify(category);
@@ -1700,6 +1727,7 @@ export async function updateVendorApplication(prevState, formData) {
     bank_branch_code: bankBranchCode || null,
     bank_branch: bankBranch || null,
     financial_verification_notes: financialVerificationNotes || null,
+    commission_rate: parsedCommissionRate,
     updated_at: new Date().toISOString(),
   };
 
@@ -1738,5 +1766,111 @@ export async function updateVendorApplication(prevState, formData) {
     errors: {},
     values: {},
     data: { applicationId: updated.id },
+  };
+}
+
+const updateCommissionRateSchema = z.object({
+  vendorProfileId: z.uuid({ message: "Invalid vendor profile" }),
+  commissionRate: z
+    .string()
+    .trim()
+    .min(1, { message: "Commission rate is required" })
+    .refine((value) => {
+      const num = Number(value.replace(/,/g, ""));
+      return Number.isFinite(num) && num >= 0 && num <= 100;
+    }, "Enter a valid commission rate (0–100)"),
+});
+
+export async function updateVendorCommissionRate(prevState, formData) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { message: "You must be logged in.", errors: {}, data: {} };
+  }
+
+  const { data: currentProfile } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", user.id)
+    .single();
+
+  const allowedRoles = ["super_admin", "operations_manager_admin", "finance_admin"];
+
+  if (!currentProfile || !allowedRoles.includes(currentProfile.role)) {
+    return { message: "You are not authorized.", errors: {}, data: {} };
+  }
+
+  const raw = {
+    vendorProfileId: formData.get("vendorProfileId") || "",
+    commissionRate: formData.get("commissionRate") || "",
+  };
+
+  const parsed = updateCommissionRateSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      data: {},
+    };
+  }
+
+  const { vendorProfileId, commissionRate } = parsed.data;
+  const commissionRateNumber = Number(commissionRate.replace(/,/g, ""));
+
+  const { data: vendor, error: vendorError } = await supabase
+    .from("vendors")
+    .select("id, business_name")
+    .eq("profiles_id", vendorProfileId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (vendorError || !vendor) {
+    return {
+      message: vendorError?.message || "Vendor not found.",
+      errors: {},
+      data: {},
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("vendors")
+    .update({
+      commission_rate: Number.isFinite(commissionRateNumber) ? commissionRateNumber : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", vendor.id);
+
+  if (updateError) {
+    return {
+      message: updateError.message || "Failed to update commission rate.",
+      errors: {},
+      data: {},
+    };
+  }
+
+  await logAdminActivityWithClient(supabase, {
+    adminId: currentProfile.id,
+    adminRole: currentProfile.role,
+    adminEmail: user.email || null,
+    adminName: null,
+    action: "updated_vendor_commission_rate",
+    entity: "vendors",
+    targetId: vendor.id,
+    details: `Updated commission rate to ${commissionRateNumber}% for vendor ${vendor.business_name}`,
+  });
+
+  revalidatePath("/dashboard/admin/vendor_requests");
+  revalidatePath("/dashboard/admin");
+
+  return {
+    message: "Commission rate updated.",
+    errors: {},
+    data: { vendorId: vendor.id, commissionRate: commissionRateNumber },
   };
 }

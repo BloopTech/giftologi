@@ -36,6 +36,7 @@ const buildVariationPayload = (variation, key) => {
     color: variation?.color ?? null,
     size: variation?.size ?? null,
     price: variation?.price ?? null,
+    stock_qty: variation?.stock_qty ?? null,
   };
 };
 

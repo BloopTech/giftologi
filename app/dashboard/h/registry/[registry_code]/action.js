@@ -570,7 +570,7 @@ export async function sendRegistryInvites(prev, queryData) {
 
   const { data: eventData, error: eventError } = await supabase
     .from("events")
-    .select("id")
+    .select("id, privacy")
     .eq("host_id", profile.id)
     .eq("id", event_id)
     .single();
@@ -598,18 +598,31 @@ export async function sendRegistryInvites(prev, queryData) {
     };
   }
 
+  const isInviteOnly = eventData.privacy === "invite-only";
   const invitedAt = new Date().toISOString();
-  const invitePayload = emailList.map((email) => ({
+  const admin = createAdminClient();
+  const lowerEmails = emailList.map((e) => e.toLowerCase());
+
+  // Remove existing invites for these emails so re-invites get fresh tokens
+  await admin
+    .from("registry_invites")
+    .delete()
+    .eq("registry_id", registryData.id)
+    .in("email", lowerEmails);
+
+  const invitePayload = lowerEmails.map((email) => ({
     registry_id: registryData.id,
     email,
     invited_by: profile.id,
     status: "sent",
     invited_at: invitedAt,
+    invite_token: crypto.randomUUID(),
   }));
 
-  const { error: inviteError } = await supabase
+  const { data: insertedInvites, error: inviteError } = await admin
     .from("registry_invites")
-    .insert(invitePayload);
+    .insert(invitePayload)
+    .select("email, invite_token");
 
   if (inviteError) {
     return {
@@ -619,21 +632,30 @@ export async function sendRegistryInvites(prev, queryData) {
     };
   }
 
+  // Build a map of email → invite_token for token-based URLs
+  const tokenMap = new Map(
+    (insertedInvites || []).map((inv) => [inv.email.toLowerCase(), inv.invite_token])
+  );
+
   const hostName = getHostName(profile);
-  const registryUrl = registryData?.registry_code
+  const baseUrl = registryData?.registry_code
     ? `${getSiteUrl()}/registry/${registryData.registry_code}`
     : getSiteUrl();
 
   await Promise.allSettled(
-    emailList.map((email) =>
-      sendRegistryInviteEmail({
+    emailList.map((email) => {
+      // For invite-only registries, append the token so the link grants access
+      const token = isInviteOnly ? tokenMap.get(email.toLowerCase()) : null;
+      const registryUrl = token ? `${baseUrl}?token=${token}` : baseUrl;
+
+      return sendRegistryInviteEmail({
         to: email,
         registryTitle: registryData?.title,
         registryUrl,
         hostName,
         message,
-      })
-    )
+      });
+    })
   );
 
   if (registryData?.registry_code) {

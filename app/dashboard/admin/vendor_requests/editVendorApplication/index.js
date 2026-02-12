@@ -73,6 +73,7 @@ const FORM_FIELDS = [
   "bankBranchCode",
   "bankBranch",
   "financialVerificationNotes",
+  "commissionRate",
 ];
 
 const DOCUMENT_FIELDS = [
@@ -169,6 +170,7 @@ const buildInitialValues = (request) => {
     bankBranchCode: raw.bank_branch_code || "",
     bankBranch: raw.bank_branch || "",
     financialVerificationNotes: raw.financial_verification_notes || "",
+    commissionRate: raw.commission_rate != null ? String(raw.commission_rate) : "",
   };
 };
 

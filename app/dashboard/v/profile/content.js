@@ -765,6 +765,27 @@ export default function VendorProfileContent() {
         />
       </form>
 
+      <ProfileHeader
+        vendorSummary={vendorSummary}
+        vendor={vendor}
+        logoPreview={logoPreview}
+        logoState={logoState}
+        canSaveLogo={Boolean(logoFile) && !isLogoSaved}
+        isLogoPending={isLogoPending}
+        profileCompletion={profileCompletion}
+      />
+      {logoState?.message && (
+        <div
+          className={`rounded-xl border px-4 py-3 text-sm ${
+            logoState.success
+              ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]"
+              : "border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]"
+          }`}
+        >
+          {logoState.message}
+        </div>
+      )}
+
       <form
         key={formKey}
         action={formAction}
@@ -782,34 +803,6 @@ export default function VendorProfileContent() {
           name="notification_preferences_id"
           value={notificationPreferences?.id || ""}
         />
-        {Object.entries(notificationFields).map(([key, value]) => (
-          <input
-            key={key}
-            type="hidden"
-            name={key}
-            value={value ? "true" : "false"}
-          />
-        ))}
-        <ProfileHeader
-          vendorSummary={vendorSummary}
-          vendor={vendor}
-          logoPreview={logoPreview}
-          logoState={logoState}
-          canSaveLogo={Boolean(logoFile) && !isLogoSaved}
-          isLogoPending={isLogoPending}
-          profileCompletion={profileCompletion}
-        />
-        {logoState?.message && (
-          <div
-            className={`rounded-xl border px-4 py-3 text-sm ${
-              logoState.success
-                ? "border-[#BBF7D0] bg-[#F0FDF4] text-[#166534]"
-                : "border-[#FECACA] bg-[#FEF2F2] text-[#991B1B]"
-            }`}
-          >
-            {logoState.message}
-          </div>
-        )}
         <BusinessInformationSection
           vendorSummary={vendorSummary}
           isVerifiedVendor={isVerifiedVendor}
@@ -825,29 +818,6 @@ export default function VendorProfileContent() {
         <BusinessReferencesSection
           vendorSummary={vendorSummary}
           errors={formErrors}
-        />
-        <VerificationNotesSection
-          vendorSummary={vendorSummary}
-          errors={formErrors}
-        />
-        <PaymentInformationSection
-          paymentSummary={paymentSummary}
-          isVerifiedVendor={isVerifiedVendor}
-          requestLinks={requestLinks}
-          isPending={isPending}
-          errors={formErrors}
-          onEditPayment={handleEditPayment}
-          paymentFieldRefs={{
-            accountName: accountNameRef,
-            bankName: bankNameRef,
-            bankBranch: bankBranchRef,
-            accountNumber: accountNumberRef,
-            routingNumber: routingNumberRef,
-          }}
-        />
-        <NotificationPreferencesSection
-          notifications={notifications}
-          onChange={handleNotificationChange}
         />
         <div className="flex justify-end gap-4">
           <button
@@ -866,6 +836,26 @@ export default function VendorProfileContent() {
           </button>
         </div>
       </form>
+
+      <VerificationNotesSection
+        vendorSummary={vendorSummary}
+        errors={formErrors}
+      />
+      <PaymentInformationSection
+        paymentSummary={paymentSummary}
+        isVerifiedVendor={isVerifiedVendor}
+        requestLinks={requestLinks}
+        isPending={isPending}
+        errors={formErrors}
+        onEditPayment={handleEditPayment}
+        paymentFieldRefs={{
+          accountName: accountNameRef,
+          bankName: bankNameRef,
+          bankBranch: bankBranchRef,
+          accountNumber: accountNumberRef,
+          routingNumber: routingNumberRef,
+        }}
+      />
 
       <DocumentsSection
         documentList={documentList}

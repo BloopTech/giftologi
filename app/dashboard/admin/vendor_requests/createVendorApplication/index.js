@@ -71,6 +71,7 @@ const FORM_FIELDS = [
   "bankBranchCode",
   "bankBranch",
   "financialVerificationNotes",
+  "commissionRate",
 ];
 
 const DOCUMENT_FIELDS = [

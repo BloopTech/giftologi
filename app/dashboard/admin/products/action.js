@@ -150,6 +150,13 @@ const parseVariationsPayload = (raw) => {
       if (size) variation.size = size;
       if (sku) variation.sku = sku;
       if (price != null) variation.price = price;
+      const rawStock = entry.stock_qty;
+      const stockValue =
+        rawStock === null || typeof rawStock === "undefined" || rawStock === ""
+          ? null
+          : Number(rawStock);
+      const stock = Number.isFinite(stockValue) && stockValue >= 0 ? stockValue : null;
+      if (stock != null) variation.stock_qty = stock;
       return variation;
     })
     .filter(Boolean);
@@ -277,6 +284,25 @@ export async function approveProduct(prevState, formData) {
       values: {},
       data: { productId },
     };
+  }
+
+  // Block approval if the vendor is not verified/approved
+  if (product.vendor_id) {
+    const { data: vendorCheck } = await supabase
+      .from("vendors")
+      .select("id, verified")
+      .eq("id", product.vendor_id)
+      .maybeSingle();
+
+    if (!vendorCheck || !vendorCheck.verified) {
+      return {
+        message:
+          "Cannot approve this product because its vendor has not been approved yet. Please approve the vendor first.",
+        errors: { ...defaultApproveProductValues },
+        values: raw,
+        data: {},
+      };
+    }
   }
 
   const serviceChargeNumber = Number(serviceCharge.replace(/,/g, ""));
@@ -1730,6 +1756,28 @@ export async function updateProduct(prevState, formData) {
   const stockNumber = stockQty ? Number(stockQty.replace(/,/g, "")) : null;
   const variations = parseVariationsPayload(variationsRaw);
 
+  if (variations.length) {
+    for (const v of variations) {
+      const hasAttribute = Boolean(v.label || v.color || v.size || v.sku);
+      if (!hasAttribute) {
+        return {
+          message: "Each variation must have at least one attribute (color, size, SKU, or label) alongside stock quantity.",
+          errors: { variations: ["Each variation must have at least one attribute."] },
+          values: {},
+          data: {},
+        };
+      }
+      if (v.stock_qty == null) {
+        return {
+          message: "Each variation must have a stock quantity.",
+          errors: { variations: ["Each variation must have a stock quantity."] },
+          values: {},
+          data: {},
+        };
+      }
+    }
+  }
+
   let existingImages = Array.isArray(product.images) ? product.images : [];
   if (typeof existingImagesRaw === "string" && existingImagesRaw.trim()) {
     try {
@@ -1961,9 +2009,11 @@ const createBulkMappingSchema = z.object({
   name: z.string().trim().min(1, { message: "Map a column to product name" }),
   price: z.string().trim().min(1, { message: "Map a column to price" }),
   weightKg: z.string().trim().min(1, { message: "Map a column to weight" }),
+  serviceCharge: z.string().trim().min(1, { message: "Map a column to service charge" }),
   description: z.string().trim().optional().or(z.literal("")),
   stockQty: z.string().trim().optional().or(z.literal("")),
   imageUrl: z.string().trim().optional().or(z.literal("")),
+  variations: z.string().trim().optional().or(z.literal("")),
 });
 
 const bulkRowSchema = z.object({
@@ -1971,12 +2021,21 @@ const bulkRowSchema = z.object({
   description: z.string().trim().optional().or(z.literal("")),
   price: z.number().nonnegative({ message: "Price must be zero or greater" }),
   weightKg: z.number().positive({ message: "Weight must be greater than zero" }),
+  serviceCharge: z.number().nonnegative({ message: "Service charge must be zero or greater" }),
   stockQty: z.number().int().nonnegative().optional(),
   imageUrl: z
     .string()
     .trim()
     .url({ message: "Image URL must be a valid URL" })
     .optional(),
+  variations: z.array(z.object({
+    label: z.string().optional(),
+    color: z.string().optional(),
+    size: z.string().optional(),
+    sku: z.string().optional(),
+    price: z.number().nonnegative().optional().nullable(),
+    stock_qty: z.number().int().nonnegative().optional(),
+  })).optional(),
 });
 
 function parseCsvLine(line) {
@@ -2201,6 +2260,29 @@ export async function createVendorProducts(prevState, formData) {
       ? Number(single.stockQty.replace(/,/g, ""))
       : null;
     const variations = parseVariationsPayload(single.variations);
+
+    if (variations.length) {
+      for (const v of variations) {
+        const hasAttribute = Boolean(v.label || v.color || v.size || v.sku);
+        if (!hasAttribute) {
+          return {
+            message: "Each variation must have at least one attribute (color, size, SKU, or label) alongside stock quantity.",
+            errors: { ...defaultCreateProductValues, variations: ["Each variation must have at least one attribute."] },
+            values: rawBase,
+            data: {},
+          };
+        }
+        if (v.stock_qty == null) {
+          return {
+            message: "Each variation must have a stock quantity.",
+            errors: { ...defaultCreateProductValues, variations: ["Each variation must have a stock quantity."] },
+            values: rawBase,
+            data: {},
+          };
+        }
+      }
+    }
+
     const nowIso = new Date().toISOString();
 
     const productPayload = {
@@ -2415,11 +2497,12 @@ export async function createVendorProducts(prevState, formData) {
   const nameIndex = getIndex(mapping.name);
   const priceIndex = getIndex(mapping.price);
   const weightIndex = getIndex(mapping.weightKg);
+  const serviceChargeIndex = getIndex(mapping.serviceCharge);
 
-  if (nameIndex === -1 || priceIndex === -1 || weightIndex === -1) {
+  if (nameIndex === -1 || priceIndex === -1 || weightIndex === -1 || serviceChargeIndex === -1) {
     return {
       message:
-        "Mapped name, price, or weight column was not found in the CSV header.",
+        "Mapped name, price, weight, or service charge column was not found in the CSV header.",
       errors: {
         ...defaultCreateProductValues,
         bulkMapping: ["Mapped columns must exist in the CSV header."],
@@ -2432,6 +2515,7 @@ export async function createVendorProducts(prevState, formData) {
   const descriptionIndex = getIndex(mapping.description);
   const stockQtyIndex = getIndex(mapping.stockQty);
   const imageUrlIndex = getIndex(mapping.imageUrl);
+  const variationsIndex = getIndex(mapping.variations);
 
   const rows = [];
 
@@ -2446,6 +2530,7 @@ export async function createVendorProducts(prevState, formData) {
     const nameValue = (values[nameIndex] || "").trim();
     const priceRaw = (values[priceIndex] || "").trim();
     const weightRaw = (values[weightIndex] || "").trim();
+    const serviceChargeRaw = (values[serviceChargeIndex] || "").trim();
 
     if (!nameValue) continue;
     const priceNumber = Number(priceRaw.replace(/,/g, ""));
@@ -2454,6 +2539,10 @@ export async function createVendorProducts(prevState, formData) {
     }
     const weightNumber = Number(weightRaw.replace(/,/g, ""));
     if (!Number.isFinite(weightNumber) || weightNumber <= 0) {
+      continue;
+    }
+    const serviceChargeNumber = Number(serviceChargeRaw.replace(/,/g, ""));
+    if (!Number.isFinite(serviceChargeNumber) || serviceChargeNumber < 0) {
       continue;
     }
 
@@ -2481,13 +2570,44 @@ export async function createVendorProducts(prevState, formData) {
       }
     }
 
+    let parsedVariations = undefined;
+    if (variationsIndex >= 0 && variationsIndex < values.length) {
+      const varRaw = (values[variationsIndex] || "").trim();
+      if (varRaw) {
+        try {
+          const varParsed = JSON.parse(varRaw);
+          if (Array.isArray(varParsed) && varParsed.length) {
+            parsedVariations = varParsed
+              .filter((v) => v && typeof v === "object")
+              .map((v) => ({
+                ...(v.label ? { label: String(v.label) } : {}),
+                ...(v.color ? { color: String(v.color) } : {}),
+                ...(v.size ? { size: String(v.size) } : {}),
+                ...(v.sku ? { sku: String(v.sku) } : {}),
+                ...(v.price != null && Number.isFinite(Number(v.price)) ? { price: Number(v.price) } : {}),
+                ...(v.stock_qty != null && Number.isInteger(Number(v.stock_qty)) && Number(v.stock_qty) >= 0 ? { stock_qty: Number(v.stock_qty) } : {}),
+              }));
+            // Auto-calculate stock_qty from variation sums
+            const varStockValues = parsedVariations.map((v) => v.stock_qty).filter((v) => v != null);
+            if (varStockValues.length) {
+              stockQtyNumber = varStockValues.reduce((sum, v) => sum + v, 0);
+            }
+          }
+        } catch {
+          // skip invalid JSON
+        }
+      }
+    }
+
     const candidate = {
       name: nameValue,
       description: descriptionValue,
       price: priceNumber,
       weightKg: weightNumber,
+      serviceCharge: serviceChargeNumber,
       stockQty: stockQtyNumber == null ? undefined : stockQtyNumber,
       imageUrl: imageUrlValue || undefined,
+      variations: parsedVariations,
     };
 
     const parsedRow = bulkRowSchema.safeParse(candidate);
@@ -2518,10 +2638,15 @@ export async function createVendorProducts(prevState, formData) {
     description: row.description || null,
     price: row.price,
     weight_kg: row.weightKg,
+    service_charge:
+      typeof row.serviceCharge === "number" && Number.isFinite(row.serviceCharge)
+        ? row.serviceCharge
+        : null,
     stock_qty:
       typeof row.stockQty === "number" && Number.isFinite(row.stockQty)
         ? row.stockQty
         : null,
+    variations: Array.isArray(row.variations) && row.variations.length ? row.variations : null,
     images: row.imageUrl ? [row.imageUrl] : null,
     status: "approved",
     active: true,
@@ -2530,18 +2655,32 @@ export async function createVendorProducts(prevState, formData) {
     product_code: generateProductCode(),
   }));
 
-  const { data: createdBulk, error: bulkError } = await supabase
-    .from("products")
-    .insert(payloads)
-    .select("id");
+  // Batch inserts in chunks of 50 to avoid request size limits
+  const BATCH_SIZE = 50;
+  const createdBulk = [];
 
-  if (bulkError) {
-    return {
-      message: bulkError.message,
-      errors: { ...defaultCreateProductValues },
-      values: rawBase,
-      data: {},
-    };
+  for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
+    const batch = payloads.slice(i, i + BATCH_SIZE);
+    const { data: batchResult, error: batchError } = await supabase
+      .from("products")
+      .insert(batch)
+      .select("id");
+
+    if (batchError) {
+      return {
+        message: batchError.message,
+        errors: { ...defaultCreateProductValues },
+        values: rawBase,
+        data: {
+          mode: "bulk",
+          partialCount: createdBulk.length,
+        },
+      };
+    }
+
+    if (Array.isArray(batchResult)) {
+      createdBulk.push(...batchResult);
+    }
   }
 
   if (bulkCategoryIds.length && Array.isArray(createdBulk)) {

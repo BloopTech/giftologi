@@ -503,6 +503,7 @@ export default function ProductsTable({
         size: "",
         sku: "",
         price: "",
+        stock_qty: "",
       },
     ]);
   };
@@ -1135,6 +1136,7 @@ export default function ProductsTable({
         categoriesByParentId={categoriesByParentId}
         categoriesLoading={categoriesLoading}
         categoriesError={categoriesError}
+        categories={categories}
         categoriesById={categoriesById}
         editVariationsPayload={editVariationsPayload}
         editVariationDrafts={editVariationDrafts}

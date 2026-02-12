@@ -237,7 +237,7 @@ export async function processStorefrontCheckout(prevState, formData) {
       const { data: products } = await adminClient
         .from("products")
         .select(
-          "id, name, stock_qty, vendor_id, status, active, category_id, weight_kg"
+          "id, name, stock_qty, variations, vendor_id, status, active, category_id, weight_kg"
         )
         .in("id", productIds);
 
@@ -283,6 +283,23 @@ export async function processStorefrontCheckout(prevState, formData) {
             success: false,
             error: `Only ${product.stock_qty} items available for ${product.name}.`,
           };
+        }
+        // Validate variation-specific stock for cart items
+        const cartItemVariation = item.variation;
+        if (cartItemVariation && typeof cartItemVariation === "object" && Array.isArray(product.variations)) {
+          const varKey = cartItemVariation.key || cartItemVariation.sku || cartItemVariation.label;
+          if (varKey) {
+            const matchedVar = product.variations.find((v, idx) => {
+              const vKey = String(v?.id || v?.sku || v?.label || idx);
+              return vKey === String(varKey);
+            });
+            if (matchedVar && typeof matchedVar.stock_qty === "number" && matchedVar.stock_qty < (item.quantity || 0)) {
+              return {
+                success: false,
+                error: `Only ${matchedVar.stock_qty} items available for ${product.name} (${matchedVar.label || "variation"}).`,
+              };
+            }
+          }
         }
         const itemTotal = Number(item.total_price || 0);
         computedSubtotal += itemTotal;
@@ -331,7 +348,7 @@ export async function processStorefrontCheckout(prevState, formData) {
       const { data: product, error: productError } = await adminClient
         .from("products")
         .select(
-          "id, name, price, service_charge, stock_qty, vendor_id, category_id, weight_kg"
+          "id, name, price, service_charge, stock_qty, variations, vendor_id, category_id, weight_kg"
         )
         .eq("id", productId)
         .eq("vendor_id", vendorId)
@@ -351,6 +368,23 @@ export async function processStorefrontCheckout(prevState, formData) {
       }
 
       const selectedVariation = parseVariationPayload(variationRaw);
+
+      // Validate variation-specific stock
+      if (selectedVariation && Array.isArray(product.variations)) {
+        const varKey = selectedVariation.key || selectedVariation.sku || selectedVariation.label;
+        if (varKey) {
+          const matchedVar = product.variations.find((v, idx) => {
+            const vKey = String(v?.id || v?.sku || v?.label || idx);
+            return vKey === String(varKey);
+          });
+          if (matchedVar && typeof matchedVar.stock_qty === "number" && matchedVar.stock_qty < quantity) {
+            return {
+              success: false,
+              error: `Only ${matchedVar.stock_qty} items available for ${matchedVar.label || "this variation"}.`,
+            };
+          }
+        }
+      }
       const variationPrice = Number(selectedVariation?.price);
       const basePrice = Number(product.price);
       const serviceCharge = Number(product.service_charge || 0);

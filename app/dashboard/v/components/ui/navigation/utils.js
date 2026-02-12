@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Bell,
   ChartColumn,
   DollarSign,
   LayoutDashboard,
@@ -8,6 +9,7 @@ import {
   ShoppingCart,
   Package,
   Tag,
+  UserCircle,
 } from "lucide-react";
 
 export const useNavigationData = () => {
@@ -91,6 +93,18 @@ export const useNavigationData = () => {
         {
           name: "Profile",
           href: "/dashboard/v/profile",
+          icon: UserCircle,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 8,
+      items: [
+        {
+          name: "Settings",
+          href: "/dashboard/v/settings",
           icon: Settings,
           other_items: [],
         },
@@ -180,6 +194,18 @@ export const navigation = [
       {
         name: "Profile",
         href: "/dashboard/v/profile",
+        icon: UserCircle,
+        other_items: [],
+      },
+    ],
+  },
+  {
+    label: "",
+    id: 8,
+    items: [
+      {
+        name: "Settings",
+        href: "/dashboard/v/settings",
         icon: Settings,
         other_items: [],
       },

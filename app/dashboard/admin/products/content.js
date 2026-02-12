@@ -61,6 +61,10 @@ const parseVariationDrafts = (raw) => {
           entry.price === null || typeof entry.price === "undefined"
             ? ""
             : String(entry.price),
+        stock_qty:
+          entry.stock_qty === null || typeof entry.stock_qty === "undefined"
+            ? ""
+            : String(entry.stock_qty),
       };
     })
     .filter(Boolean);
@@ -97,6 +101,13 @@ const buildVariationPayload = (drafts) => {
       if (size) entry.size = size;
       if (sku) entry.sku = sku;
       if (price != null) entry.price = price;
+      const stockRaw = draft.stock_qty;
+      const stockValue =
+        stockRaw === "" || stockRaw === null || typeof stockRaw === "undefined"
+          ? null
+          : Number(stockRaw);
+      const stock = Number.isFinite(stockValue) && stockValue >= 0 ? stockValue : null;
+      if (stock != null) entry.stock_qty = stock;
       return entry;
     })
     .filter(Boolean);
@@ -190,6 +201,7 @@ export default function ManageProductsContent() {
     name: "",
     price: "",
     weightKg: "",
+    serviceCharge: "",
     description: "",
     stockQty: "",
     imageUrl: "",
@@ -222,6 +234,7 @@ export default function ManageProductsContent() {
         size: "",
         sku: "",
         price: "",
+        stock_qty: "",
       },
     ]);
   }, []);
@@ -600,6 +613,11 @@ export default function ManageProductsContent() {
             autoMap(
               (h) => h.includes("weight") || h.includes("kg") || h.includes("mass")
             ),
+          serviceCharge:
+            prev.serviceCharge ||
+            autoMap(
+              (h) => h.includes("service") || h.includes("charge") || h.includes("fee")
+            ),
           description:
             prev.description ||
             autoMap((h) => h.includes("description") || h.includes("details")),
@@ -702,6 +720,7 @@ export default function ManageProductsContent() {
         bulkCategoryIds={bulkCategoryIds}
         setSelectedCategoryIds={setSelectedCategoryIds}
         createPending={createPending}
+        categories={categories}
         categoriesById={categoriesById}
         getCategoryDisplayName={getCategoryDisplayName}
         parentCategoryOptions={parentCategoryOptions}

@@ -50,6 +50,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../../components/Dropdown";
+import CascadingCategoryPicker from "../../../components/CascadingCategoryPicker";
 
 const COLOR_OPTIONS = [
   "Black",
@@ -810,7 +811,35 @@ export default function VendorProductsContent() {
                       <td
                         className={`px-4 py-3 text-center text-sm font-medium ${stockStatus.color}`}
                       >
-                        {stockStatus.label}
+                        <span>{stockStatus.label}</span>
+                        {(() => {
+                          const vars = Array.isArray(product.variations)
+                            ? product.variations
+                            : typeof product.variations === "string"
+                              ? (() => { try { return JSON.parse(product.variations); } catch { return []; } })()
+                              : [];
+                          if (!vars.length) return null;
+                          const withStock = vars.filter((v) => v && typeof v.stock_qty === "number");
+                          if (!withStock.length) return null;
+                          return (
+                            <details className="mt-1 text-left">
+                              <summary className="cursor-pointer text-[11px] text-[#6B7280] hover:text-[#374151]">
+                                {withStock.length} variation{withStock.length > 1 ? "s" : ""}
+                              </summary>
+                              <ul className="mt-1 space-y-0.5">
+                                {withStock.map((v, i) => {
+                                  const label = v.label || [v.color, v.size].filter(Boolean).join(" / ") || v.sku || `#${i + 1}`;
+                                  const qty = v.stock_qty;
+                                  return (
+                                    <li key={i} className={`text-[11px] ${qty === 0 ? "text-[#DC2626]" : qty <= 5 ? "text-[#D97706]" : "text-[#374151]"}`}>
+                                      {label}: {qty}
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+                            </details>
+                          );
+                        })()}
                       </td>
                       <td className="px-4 py-3 text-center text-[#111827] text-sm">
                         {formatCount(product.salesUnits)}
@@ -1080,94 +1109,21 @@ export default function VendorProductsContent() {
 
             <div className={editCurrentStep === 1 ? "" : "hidden"}>
               <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <label className="text-[#374151] text-sm font-medium">
-                    Categories <span className="text-red-500">*</span>
-                  </label>
-                  {editCategoryIds.length ? (
-                    <button
-                      type="button"
-                      onClick={() => setEditCategoryIds([])}
-                      className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
-                    >
-                      Clear
-                    </button>
-                  ) : null}
-                </div>
-                <div className="rounded-lg border border-[#D1D5DB] bg-white p-3 space-y-3">
-                  {editCategoryIds.length ? (
-                    <div className="flex flex-wrap gap-2">
-                      {editCategoryIds.map((id) => {
-                        const category = categoriesById.get(id);
-                        if (!category) return null;
-                        return (
-                          <span
-                            key={id}
-                            className="rounded-full bg-[#F3F4F6] px-2.5 py-1 text-[11px] text-[#374151]"
-                          >
-                            {getCategoryDisplayName(category)}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-[11px] text-[#9CA3AF]">
-                      No categories selected yet.
-                    </p>
-                  )}
-                  <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                    {parentCategoryOptions.length ? (
-                      parentCategoryOptions.map((parent) => {
-                        const children =
-                          categoriesByParentId.get(parent.id) || [];
-                        return (
-                          <div key={parent.id} className="space-y-2">
-                            <label className="flex items-center gap-2 text-[11px] text-[#111827]">
-                              <input
-                                type="checkbox"
-                                checked={editCategoryIdSet.has(parent.id)}
-                                onChange={() => toggleEditCategory(parent.id)}
-                                className="accent-primary h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                              />
-                              <span className="font-medium">
-                                {parent.name || "Untitled"}
-                              </span>
-                            </label>
-                            {children.length ? (
-                              <div className="ml-6 grid gap-1">
-                                {children.map((child) => (
-                                  <label
-                                    key={child.id}
-                                    className="flex items-center gap-2 text-[11px] text-[#4B5563]"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={editCategoryIdSet.has(child.id)}
-                                      onChange={() =>
-                                        toggleEditCategory(child.id)
-                                      }
-                                      className="accent-primary h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                    />
-                                    <span>{child.name || "Untitled"}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-[11px] text-[#9CA3AF]">
-                        No categories available.
-                      </p>
-                    )}
-                  </div>
-                </div>
-                {hasEditError("categoryIds") ? (
-                  <span className="text-red-500 text-xs">
-                    {toErrorList(editErrorFor("categoryIds"))[0]}
-                  </span>
-                ) : null}
+                <label className="text-[#374151] text-sm font-medium">
+                  Categories <span className="text-red-500">*</span>
+                </label>
+                <CascadingCategoryPicker
+                  categories={categories}
+                  selectedCategoryIds={editCategoryIds}
+                  onToggleCategory={toggleEditCategory}
+                  onClearAll={() => setEditCategoryIds([])}
+                  disabled={editPending}
+                  error={
+                    hasEditError("categoryIds")
+                      ? toErrorList(editErrorFor("categoryIds"))[0]
+                      : undefined
+                  }
+                />
               </div>
             </div>
 
@@ -1586,10 +1542,10 @@ export default function VendorProductsContent() {
                         <button
                           type="button"
                           onClick={() => editFileInputRef.current?.click()}
-                          className="cursor-pointer text-xs text-primary hover:underline"
+                          className="px-2 py-1 flex items-center justiy-center cursor-pointer text-xs text-white bg-primary border border-primary hover:bg-white hover:text-primary rounded-lg"
                           disabled={editPending}
                         >
-                          Add images
+                          Add product images
                         </button>
                       </div>
                     </div>
@@ -1624,10 +1580,10 @@ export default function VendorProductsContent() {
                         <button
                           type="button"
                           onClick={() => editFileInputRef.current?.click()}
-                          className="cursor-pointer text-xs text-primary hover:underline"
+                          className="px-2 py-1 flex items-center justify-center cursor-pointer text-xs text-white bg-primary hover:text-primary hover:bg-white border border-primary rounded-lg"
                           disabled={editPending}
                         >
-                          Add images
+                          Add product images
                         </button>
                       </div>
                     </div>

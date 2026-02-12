@@ -106,8 +106,9 @@ export const VendorDashboardProvider = ({ children }) => {
             .eq("vendor_id", vendorRecord.id),
           supabase
             .from("order_items")
-            .select("order_id, product_id, quantity, price, created_at")
+            .select("order_id, product_id, quantity, price, created_at, orders!inner(status)")
             .eq("vendor_id", vendorRecord.id)
+            .eq("orders.status", "paid")
             .gte("created_at", windowIso),
           supabase
             .from("vendor_payouts")

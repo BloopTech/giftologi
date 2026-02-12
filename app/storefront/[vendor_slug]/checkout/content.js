@@ -173,17 +173,23 @@ export default function CheckoutContent({
     { success: false, error: null }
   );
 
+  const effectiveStock = useMemo(() => {
+    if (selectedVariation && selectedVariation.stock_qty != null) {
+      return Number(selectedVariation.stock_qty);
+    }
+    return Number(product?.stock ?? 0);
+  }, [selectedVariation, product?.stock]);
+
   const handleQuantityChange = useCallback(
     (delta) => {
       setQuantity((prev) => {
         const next = prev + delta;
         if (next < 1) return 1;
-        const stockLimit = Number(product?.stock ?? 0);
-        if (stockLimit > 0 && next > stockLimit) return stockLimit;
+        if (effectiveStock > 0 && next > effectiveStock) return effectiveStock;
         return next;
       });
     },
-    [product?.stock]
+    [effectiveStock]
   );
 
   const handleInputChange = useCallback((e) => {
@@ -1207,7 +1213,7 @@ export default function CheckoutContent({
                         <button
                           type="button"
                           onClick={() => handleQuantityChange(1)}
-                          disabled={quantity >= product.stock}
+                          disabled={quantity >= effectiveStock}
                           className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           <Plus className="size-3" />
