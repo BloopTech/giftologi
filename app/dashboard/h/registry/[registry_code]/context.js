@@ -28,6 +28,7 @@ export const HostRegistryCodeProvider = ({
   const [registryInvites, setRegistryInvites] = useState([]);
   const [thankYouNotes, setThankYouNotes] = useState([]);
   const [registryOrders, setRegistryOrders] = useState([]);
+  const [pageViews, setPageViews] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -57,6 +58,8 @@ export const HostRegistryCodeProvider = ({
         cover_photo,
         deadline,
         welcome_note,
+        price_range_min,
+        price_range_max,
         event:events!inner(
           id,
           host_id,
@@ -91,6 +94,11 @@ export const HostRegistryCodeProvider = ({
           id,
           quantity_needed,
           purchased_qty,
+          priority,
+          notes,
+          color,
+          size,
+          variation,
           product:products(
             id,
             name,
@@ -196,6 +204,15 @@ export const HostRegistryCodeProvider = ({
       }
     }
 
+    // Fetch page views for analytics (last 90 days)
+    const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: viewsData } = await supabase
+      .from("registry_page_views")
+      .select("id, viewed_at")
+      .eq("registry_id", registryData.id)
+      .gte("viewed_at", ninetyDaysAgo)
+      .order("viewed_at", { ascending: true });
+
     setRegistry(registryData);
     setEvent(eventData || null);
     setDeliveryAddress(deliveryAddressData || null);
@@ -203,6 +220,7 @@ export const HostRegistryCodeProvider = ({
     setRegistryInvites(Array.isArray(invitesResult.data) ? invitesResult.data : []);
     setThankYouNotes(Array.isArray(thankYouResult.data) ? thankYouResult.data : []);
     setRegistryOrders(Array.isArray(ordersPayload) ? ordersPayload : []);
+    setPageViews(Array.isArray(viewsData) ? viewsData : []);
     setIsLoading(false);
   }, [registryCode, supabase]);
 
@@ -237,6 +255,7 @@ export const HostRegistryCodeProvider = ({
       registryInvites,
       thankYouNotes,
       registryOrders,
+      pageViews,
       totals,
       isLoading,
       error,
@@ -250,6 +269,7 @@ export const HostRegistryCodeProvider = ({
       registryInvites,
       thankYouNotes,
       registryOrders,
+      pageViews,
       totals,
       isLoading,
       error,

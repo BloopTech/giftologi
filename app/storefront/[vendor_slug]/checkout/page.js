@@ -148,7 +148,10 @@ export default async function CheckoutPage({ params, searchParams }) {
       description,
       stock_qty,
       status,
-      product_code
+      product_code,
+      sale_price,
+      sale_starts_at,
+      sale_ends_at
     `)
     .eq("id", productId)
     .eq("vendor_id", vendor.id)
@@ -194,13 +197,32 @@ export default async function CheckoutPage({ params, searchParams }) {
     ? basePrice + serviceCharge
     : serviceCharge;
 
+  // Compute effective price accounting for active sale
+  let effectiveBaseWithCharge = baseWithCharge;
+  let isOnSale = false;
+  const rawSalePrice = Number(product.sale_price);
+  if (Number.isFinite(rawSalePrice) && rawSalePrice > 0) {
+    const now = Date.now();
+    const sStarts = product.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+    const sEnds = product.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+    const saleActive =
+      (!sStarts || (!Number.isNaN(sStarts) && now >= sStarts)) &&
+      (!sEnds || (!Number.isNaN(sEnds) && now <= sEnds));
+    if (saleActive) {
+      effectiveBaseWithCharge = rawSalePrice + serviceCharge;
+      isOnSale = true;
+    }
+  }
+
   const formattedProduct = {
     id: product.id,
     name: product.name || "Product",
     image: images[0] || "/host/toaster.png",
-    price: formatPrice(baseWithCharge),
-    rawPrice: Number.isFinite(baseWithCharge) ? baseWithCharge : product.price,
+    price: formatPrice(effectiveBaseWithCharge),
+    rawPrice: Number.isFinite(effectiveBaseWithCharge) ? effectiveBaseWithCharge : product.price,
     basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
+    originalPrice: isOnSale ? formatPrice(baseWithCharge) : null,
+    isOnSale,
     serviceCharge,
     weightKg: product.weight_kg ?? null,
     description: product.description || "",

@@ -249,6 +249,61 @@ export default function EditProductDialog({
 
               <div className="space-y-1">
                 <label className="text-xs font-medium text-[#0A0A0A]">
+                  Sale Price (GHS)
+                </label>
+                <input
+                  name="salePrice"
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.01"
+                  defaultValue={
+                    product.sale_price == null ? "" : String(product.sale_price)
+                  }
+                  placeholder="0.00"
+                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  disabled={editPending}
+                />
+                <p className="text-[11px] text-[#717182]">
+                  Leave empty for no sale. Must be less than selling price.
+                </p>
+                {hasEditError("salePrice") ? (
+                  <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
+                    {editErrorFor("salePrice").map((err, index) => (
+                      <li key={index}>{err}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[#0A0A0A]">
+                  Sale Starts
+                </label>
+                <input
+                  name="saleStartsAt"
+                  type="datetime-local"
+                  defaultValue={product.sale_starts_at ? product.sale_starts_at.slice(0, 16) : ""}
+                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  disabled={editPending}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[#0A0A0A]">
+                  Sale Ends
+                </label>
+                <input
+                  name="saleEndsAt"
+                  type="datetime-local"
+                  defaultValue={product.sale_ends_at ? product.sale_ends_at.slice(0, 16) : ""}
+                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  disabled={editPending}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[#0A0A0A]">
                   Stock Quantity
                 </label>
                 {(() => {

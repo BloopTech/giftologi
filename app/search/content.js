@@ -368,6 +368,13 @@ export default function GlobalSearchContent() {
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="object-cover transition duration-300 group-hover:scale-105"
                         />
+                        {product.isOnSale && product.discountPercent > 0 && (
+                          <div className="absolute top-2 left-2">
+                            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                              {product.discountPercent}% OFF
+                            </span>
+                          </div>
+                        )}
                       </div>
                       <div className="mt-4">
                         <p className="text-xs uppercase tracking-[0.2em] text-[#A5914B]">
@@ -377,9 +384,16 @@ export default function GlobalSearchContent() {
                           {product.name}
                         </h3>
                         <div className="mt-3 flex items-center justify-between text-sm text-[#6A6456]">
-                          <span className="font-semibold text-[#A5914B]">
-                            {formatCurrency(product.price)}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold text-[#A5914B]">
+                              {formatCurrency(product.price)}
+                            </span>
+                            {product.isOnSale && product.originalPrice && (
+                              <span className="text-xs text-gray-400 line-through">
+                                {formatCurrency(product.originalPrice)}
+                              </span>
+                            )}
+                          </div>
                           <span className="inline-flex items-center gap-1">
                             View
                             <ArrowUpRight className="size-3" />

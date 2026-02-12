@@ -48,6 +48,17 @@ const getVariationPriceStats = (variations, serviceCharge = 0) => {
   };
 };
 
+const isSaleActive = (product) => {
+  const salePrice = Number(product?.sale_price);
+  if (!Number.isFinite(salePrice) || salePrice <= 0) return false;
+  const now = Date.now();
+  const startsAt = product?.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+  const endsAt = product?.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+  if (startsAt && !Number.isNaN(startsAt) && now < startsAt) return false;
+  if (endsAt && !Number.isNaN(endsAt) && now > endsAt) return false;
+  return true;
+};
+
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const serviceCharge = Number(product?.service_charge || 0);
@@ -63,6 +74,14 @@ const mapProduct = (product) => {
       : Number.isFinite(baseWithCharge)
       ? baseWithCharge
       : null;
+
+  const onSale = isSaleActive(product);
+  const salePriceWithCharge = onSale ? Number(product.sale_price) + serviceCharge : null;
+  const discountPercent =
+    onSale && baseWithCharge > 0
+      ? Math.round(((baseWithCharge - salePriceWithCharge) / baseWithCharge) * 100)
+      : 0;
+
   return {
     id: product?.id,
     product_code: product?.product_code || null,
@@ -82,6 +101,14 @@ const mapProduct = (product) => {
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
     category: product?.category || null,
+    isOnSale: onSale,
+    salePrice: salePriceWithCharge,
+    salePriceFormatted: onSale ? formatPrice(salePriceWithCharge) : null,
+    originalPriceFormatted: onSale ? formatPrice(baseWithCharge) : null,
+    discountPercent,
+    sale_price: product?.sale_price ?? null,
+    sale_starts_at: product?.sale_starts_at ?? null,
+    sale_ends_at: product?.sale_ends_at ?? null,
   };
 };
 

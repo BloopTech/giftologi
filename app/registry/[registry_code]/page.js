@@ -50,6 +50,7 @@ async function fetchRegistryForToken(admin, registryId) {
       id, quantity_needed, purchased_qty,
       product:products(
         id, name, price, weight_kg, service_charge, images, vendor_id, category_id,
+        sale_price, sale_starts_at, sale_ends_at,
         vendor:vendors(slug),
         product_categories(category_id)
       )
@@ -88,13 +89,39 @@ async function fetchRegistryForToken(admin, registryId) {
         const totalPrice = Number.isFinite(basePrice)
           ? basePrice + serviceCharge
           : serviceCharge;
+
+        // Sale pricing
+        let onSale = false;
+        let effectivePrice = totalPrice;
+        const rawSalePrice = Number(product.sale_price);
+        if (Number.isFinite(rawSalePrice) && rawSalePrice > 0) {
+          const now = Date.now();
+          const sStarts = product.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+          const sEnds = product.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+          const saleActive =
+            (!sStarts || (!Number.isNaN(sStarts) && now >= sStarts)) &&
+            (!sEnds || (!Number.isNaN(sEnds) && now <= sEnds));
+          if (saleActive) {
+            onSale = true;
+            effectivePrice = rawSalePrice + serviceCharge;
+          }
+        }
+        const discountPercent =
+          onSale && totalPrice > 0
+            ? Math.round(((totalPrice - effectivePrice) / totalPrice) * 100)
+            : 0;
+
         return {
           id: item.id,
           productId: product.id,
           title: product.name || "Gift item",
           image: images[0] || "/host/toaster.png",
-          price: formatPrice(totalPrice),
-          rawPrice: totalPrice,
+          price: formatPrice(effectivePrice),
+          rawPrice: effectivePrice,
+          originalPrice: onSale ? formatPrice(totalPrice) : null,
+          rawOriginalPrice: onSale ? totalPrice : null,
+          isOnSale: onSale,
+          discountPercent,
           desired: item.quantity_needed ?? 0,
           purchased: item.purchased_qty ?? 0,
           vendorId: product.vendor_id,

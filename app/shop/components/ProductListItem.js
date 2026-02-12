@@ -50,6 +50,13 @@ export default function ProductListItem({ product }) {
             </span>
           </div>
         )}
+        {p.isOnSale && p.stock > 0 && (
+          <div className="absolute top-2 left-2">
+            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+              {p.discountPercent}% OFF
+            </span>
+          </div>
+        )}
       </div>
       <div className="flex-1 p-4 flex flex-col justify-center">
         <Link
@@ -68,7 +75,12 @@ export default function ProductListItem({ product }) {
         >
           {p.name}
         </p>
-        <p className="text-xl font-bold text-[#A5914B] mb-3">{p.price}</p>
+        <div className="flex items-center gap-2 mb-3">
+          <p className="text-xl font-bold text-[#A5914B]">{p.price}</p>
+          {p.isOnSale && p.originalPrice && (
+            <p className="text-sm text-gray-400 line-through">{p.originalPrice}</p>
+          )}
+        </div>
         {p.stock > 0 && (
           <div className="flex items-center gap-2 flex-wrap">
             {inCart ? (

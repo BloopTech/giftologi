@@ -1039,6 +1039,48 @@ export default function VendorProductsContent() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[#374151] text-sm font-medium">
+                    Sale Price (GHS)
+                  </label>
+                  <input
+                    type="number"
+                    name="sale_price"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    defaultValue={selectedProduct?.sale_price ?? ""}
+                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                  <span className="text-[11px] text-[#6B7280]">
+                    Leave empty for no sale. Must be less than selling price.
+                  </span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[#374151] text-sm font-medium">
+                    Sale Starts
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="sale_starts_at"
+                    defaultValue={selectedProduct?.sale_starts_at ? selectedProduct.sale_starts_at.slice(0, 16) : ""}
+                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[#374151] text-sm font-medium">
+                    Sale Ends
+                  </label>
+                  <input
+                    type="datetime-local"
+                    name="sale_ends_at"
+                    defaultValue={selectedProduct?.sale_ends_at ? selectedProduct.sale_ends_at.slice(0, 16) : ""}
+                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[#374151] text-sm font-medium">

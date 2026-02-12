@@ -13,6 +13,17 @@ const formatPrice = (value) => {
   return num;
 };
 
+const isSaleActive = (row) => {
+  const sp = Number(row?.sale_price);
+  if (!Number.isFinite(sp) || sp <= 0) return false;
+  const now = Date.now();
+  const s = row?.sale_starts_at ? new Date(row.sale_starts_at).getTime() : null;
+  const e = row?.sale_ends_at ? new Date(row.sale_ends_at).getTime() : null;
+  if (s && !Number.isNaN(s) && now < s) return false;
+  if (e && !Number.isNaN(e) && now > e) return false;
+  return true;
+};
+
 const serializeProduct = (row) => {
   const images = Array.isArray(row?.images) ? row.images : [];
   const vendor = row?.vendor || {};
@@ -20,11 +31,22 @@ const serializeProduct = (row) => {
   const serviceCharge = formatPrice(row?.service_charge);
   const totalPrice =
     basePrice == null ? null : basePrice + (serviceCharge || 0);
+
+  const onSale = isSaleActive(row);
+  const salePriceWithCharge = onSale ? Number(row.sale_price) + (serviceCharge || 0) : null;
+  const discountPercent =
+    onSale && totalPrice > 0
+      ? Math.round(((totalPrice - salePriceWithCharge) / totalPrice) * 100)
+      : 0;
+
   return {
     id: row?.id || null,
     productCode: row?.product_code || null,
     name: row?.name || "",
-    price: totalPrice,
+    price: onSale ? salePriceWithCharge : totalPrice,
+    originalPrice: onSale ? totalPrice : null,
+    isOnSale: onSale,
+    discountPercent,
     serviceCharge,
     image: images[0] || "/host/toaster.png",
     vendor: {
@@ -151,6 +173,9 @@ export async function GET(req) {
           price,
           service_charge,
           images,
+          sale_price,
+          sale_starts_at,
+          sale_ends_at,
           vendor:vendors!inner(
             id,
             slug,

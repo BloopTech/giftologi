@@ -1379,6 +1379,203 @@ export async function updateWelcomeNote(prev, queryData) {
   };
 }
 
+const updateRegistryItemSchema = z.object({
+  registry_item_id: z.string().uuid({ message: "Invalid registry item" }),
+  registry_id: z.string().uuid({ message: "Invalid registry" }),
+  event_id: z.string().uuid({ message: "Invalid event" }),
+  priority: z.enum(["must-have", "nice-to-have"]).optional(),
+  notes: z.string().max(500).optional(),
+  color: z.string().max(100).optional(),
+  size: z.string().max(100).optional(),
+  quantity_needed: z.coerce.number().int().min(1).max(99).optional(),
+});
+
+export async function updateRegistryItem(prev, queryData) {
+  const supabase = await createClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .single();
+
+  if (profileError || !profile?.id) {
+    return {
+      errors: { item: [profileError?.message || "Unable to load profile"] },
+      message: "Failed to update item",
+      data: {},
+    };
+  }
+
+  const raw = {
+    registry_item_id: queryData.get("registry_item_id"),
+    registry_id: queryData.get("registry_id"),
+    event_id: queryData.get("event_id"),
+    priority: queryData.get("priority") || undefined,
+    notes: (queryData.get("notes") || "").toString().trim() || undefined,
+    color: (queryData.get("color") || "").toString().trim() || undefined,
+    size: (queryData.get("size") || "").toString().trim() || undefined,
+    quantity_needed: queryData.get("quantity_needed") || undefined,
+  };
+
+  const parsed = updateRegistryItemSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { registry_item_id, registry_id, event_id, ...fields } = parsed.data;
+
+  // Verify ownership
+  const { error: eventError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("host_id", profile.id)
+    .eq("id", event_id)
+    .single();
+
+  if (eventError) {
+    return {
+      errors: { item: ["Event not found or permission denied."] },
+      message: "Failed to update item",
+      data: {},
+    };
+  }
+
+  const updatePayload = { updated_at: new Date().toISOString() };
+  if (fields.priority !== undefined) updatePayload.priority = fields.priority;
+  if (fields.notes !== undefined) updatePayload.notes = fields.notes || null;
+  if (fields.color !== undefined) updatePayload.color = fields.color || null;
+  if (fields.size !== undefined) updatePayload.size = fields.size || null;
+  if (fields.quantity_needed !== undefined)
+    updatePayload.quantity_needed = fields.quantity_needed;
+
+  const { data: updated, error: updateError } = await supabase
+    .from("registry_items")
+    .update(updatePayload)
+    .eq("id", registry_item_id)
+    .eq("registry_id", registry_id)
+    .select()
+    .single();
+
+  if (updateError) {
+    return {
+      errors: { item: [updateError.message] },
+      message: "Failed to update item",
+      data: {},
+    };
+  }
+
+  return {
+    message: "Item updated successfully",
+    data: updated,
+    errors: {},
+    status_code: 200,
+  };
+}
+
+const priceRangeSchema = z.object({
+  registry_id: z.string().uuid(),
+  event_id: z.string().uuid(),
+  price_range_min: z.coerce.number().min(0).nullable().optional(),
+  price_range_max: z.coerce.number().min(0).nullable().optional(),
+});
+
+export async function updateRegistryPriceRange(prev, queryData) {
+  const supabase = await createClient();
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("id")
+    .single();
+
+  if (profileError || !profile?.id) {
+    return {
+      errors: { price_range: [profileError?.message || "Unable to load profile"] },
+      message: "Failed to update price range",
+      data: {},
+    };
+  }
+
+  const rawMin = queryData.get("price_range_min");
+  const rawMax = queryData.get("price_range_max");
+
+  const raw = {
+    registry_id: queryData.get("registry_id"),
+    event_id: queryData.get("event_id"),
+    price_range_min: rawMin === "" || rawMin === null ? null : Number(rawMin),
+    price_range_max: rawMax === "" || rawMax === null ? null : Number(rawMax),
+  };
+
+  const parsed = priceRangeSchema.safeParse(raw);
+
+  if (!parsed.success) {
+    return {
+      message: parsed.error.issues?.[0]?.message || "Validation failed",
+      errors: parsed.error.flatten().fieldErrors,
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { registry_id, event_id, price_range_min, price_range_max } = parsed.data;
+
+  if (
+    price_range_min != null &&
+    price_range_max != null &&
+    price_range_min > price_range_max
+  ) {
+    return {
+      message: "Minimum price cannot exceed maximum price.",
+      errors: { price_range: ["Min must be ≤ Max"] },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { error: eventError } = await supabase
+    .from("events")
+    .select("id")
+    .eq("host_id", profile.id)
+    .eq("id", event_id)
+    .single();
+
+  if (eventError) {
+    return {
+      errors: { price_range: ["Permission denied."] },
+      message: "Failed to update price range",
+      data: {},
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("registries")
+    .update({
+      price_range_min: price_range_min ?? null,
+      price_range_max: price_range_max ?? null,
+    })
+    .eq("id", registry_id);
+
+  if (updateError) {
+    return {
+      errors: { price_range: [updateError.message] },
+      message: "Failed to update price range",
+      data: {},
+    };
+  }
+
+  return {
+    message: "Price range updated successfully",
+    data: {},
+    errors: {},
+    status_code: 200,
+  };
+}
+
 // Keep the original function for backward compatibility
 export default async function updateRegistryAction(prev, queryData) {
   return saveRegistryCoverPhoto(prev, queryData);

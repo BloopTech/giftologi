@@ -173,6 +173,8 @@ export const GuestRegistryCodeProvider = ({
         deadline,
         welcome_note,
         category_ids,
+        price_range_min,
+        price_range_max,
         event:events(
           id,
           host_id,
@@ -228,6 +230,10 @@ export const GuestRegistryCodeProvider = ({
         id,
         quantity_needed,
         purchased_qty,
+        priority,
+        notes,
+        color,
+        size,
         product:products(
           id,
           name,
@@ -237,6 +243,9 @@ export const GuestRegistryCodeProvider = ({
           images,
           vendor_id,
           category_id,
+          sale_price,
+          sale_starts_at,
+          sale_ends_at,
           vendor:vendors(slug),
           product_categories (category_id)
         )
@@ -285,15 +294,45 @@ export const GuestRegistryCodeProvider = ({
           const totalPrice = Number.isFinite(basePrice)
             ? basePrice + serviceCharge
             : serviceCharge;
+
+          // Sale pricing
+          let onSale = false;
+          let effectivePrice = totalPrice;
+          const rawSalePrice = Number(product.sale_price);
+          if (Number.isFinite(rawSalePrice) && rawSalePrice > 0) {
+            const now = Date.now();
+            const sStarts = product.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+            const sEnds = product.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+            const saleActive =
+              (!sStarts || (!Number.isNaN(sStarts) && now >= sStarts)) &&
+              (!sEnds || (!Number.isNaN(sEnds) && now <= sEnds));
+            if (saleActive) {
+              onSale = true;
+              effectivePrice = rawSalePrice + serviceCharge;
+            }
+          }
+          const discountPercent =
+            onSale && totalPrice > 0
+              ? Math.round(((totalPrice - effectivePrice) / totalPrice) * 100)
+              : 0;
+
           return {
             id: item.id,
             productId: product.id,
             title: product.name || "Gift item",
             image: images[0] || "/host/toaster.png",
-            price: formatPrice(totalPrice),
-            rawPrice: totalPrice,
+            price: formatPrice(effectivePrice),
+            rawPrice: effectivePrice,
+            originalPrice: onSale ? formatPrice(totalPrice) : null,
+            rawOriginalPrice: onSale ? totalPrice : null,
+            isOnSale: onSale,
+            discountPercent,
             desired: item.quantity_needed ?? 0,
             purchased: item.purchased_qty ?? 0,
+            priority: item.priority || null,
+            notes: item.notes || null,
+            color: item.color || null,
+            size: item.size || null,
             vendorId: product.vendor_id,
             vendorSlug: product.vendor?.slug || null,
             categoryId: product.category_id,
@@ -440,6 +479,9 @@ export const GuestRegistryCodeProvider = ({
   // Filter states
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [sortBy, setSortBy] = useState("default");
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
+  const [hideFullyPurchased, setHideFullyPurchased] = useState(false);
 
   const derivedDefaultShippingRegionId = useMemo(
     () => getDerivedShippingRegionId(shippingAddress, shippingRegions),
@@ -720,6 +762,23 @@ export const GuestRegistryCodeProvider = ({
       });
     }
 
+    // Apply price range filter
+    const minVal = priceMin !== "" ? parseFloat(priceMin) : null;
+    const maxVal = priceMax !== "" ? parseFloat(priceMax) : null;
+    if (minVal !== null && Number.isFinite(minVal)) {
+      result = result.filter((p) => (p.rawPrice ?? 0) >= minVal);
+    }
+    if (maxVal !== null && Number.isFinite(maxVal)) {
+      result = result.filter((p) => (p.rawPrice ?? 0) <= maxVal);
+    }
+
+    // Apply availability filter — hide fully purchased items
+    if (hideFullyPurchased) {
+      result = result.filter(
+        (p) => (p.desired ?? 0) === 0 || (p.purchased ?? 0) < (p.desired ?? 0)
+      );
+    }
+
     // Apply sorting
     if (sortBy === "price_low") {
       result.sort((a, b) => {
@@ -744,7 +803,7 @@ export const GuestRegistryCodeProvider = ({
     }
 
     return result;
-  }, [products, categoryFilter, sortBy]);
+  }, [products, categoryFilter, sortBy, priceMin, priceMax, hideFullyPurchased]);
 
   // Host display name
   const hostDisplayName = useMemo(() => {
@@ -811,6 +870,12 @@ export const GuestRegistryCodeProvider = ({
       setCategoryFilter,
       sortBy,
       setSortBy,
+      priceMin,
+      setPriceMin,
+      priceMax,
+      setPriceMax,
+      hideFullyPurchased,
+      setHideFullyPurchased,
 
       // Actions
       openProductDetail,
@@ -860,6 +925,9 @@ export const GuestRegistryCodeProvider = ({
       goToCheckout,
       categoryFilter,
       sortBy,
+      priceMin,
+      priceMax,
+      hideFullyPurchased,
       openProductDetail,
       closeProductDetail,
       startBuyThis,

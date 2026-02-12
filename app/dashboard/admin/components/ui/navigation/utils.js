@@ -12,6 +12,7 @@ import {
   PiStorefront,
   PiTag,
   PiUsers,
+  PiScales,
 } from "react-icons/pi";
 
 const filterNavigationByRole = (navigation, role) => {
@@ -36,6 +37,7 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/products",
       "/dashboard/admin/registry_list",
       "/dashboard/admin/transactions",
+      "/dashboard/admin/disputes",
       "/dashboard/admin/reports",
       "/dashboard/admin/promo_codes",
       "/dashboard/admin/analytics_reporting",
@@ -47,6 +49,7 @@ const filterNavigationByRole = (navigation, role) => {
     ]),
     customer_support_admin: new Set([
       "/dashboard/admin/registry_list",
+      "/dashboard/admin/disputes",
       "/dashboard/admin/activity_log",
       "/dashboard/admin/all_users",
     ]),
@@ -165,6 +168,18 @@ export const useNavigationData = (role) => {
           name: "View Transactions",
           href: "/dashboard/admin/transactions",
           icon: PiShoppingBagOpen,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 16,
+      items: [
+        {
+          name: "Disputes",
+          href: "/dashboard/admin/disputes",
+          icon: PiScales,
           other_items: [],
         },
       ],

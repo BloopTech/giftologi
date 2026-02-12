@@ -15,7 +15,19 @@ import Footer from "../../../../components/footer";
 import Advertisement from "../../../../components/advertisement";
 import { format } from "date-fns";
 import ShareRegistryDialog from "../../components/ShareRegistryDialog";
-import { ShoppingCart, X } from "lucide-react";
+import {
+  ShoppingCart,
+  X,
+  Star,
+  Heart,
+  Palette,
+  Ruler,
+  StickyNote,
+  AlertTriangle,
+  BarChart3,
+  Eye,
+  TrendingUp,
+} from "lucide-react";
 import { ProgressBar } from "../../../../components/ProgressBar";
 import {
   saveRegistryCoverPhoto,
@@ -26,7 +38,9 @@ import {
   deleteRegistry,
   sendRegistryInvites,
   sendRegistryThankYou,
+  updateRegistryPriceRange,
 } from "./action";
+import EditRegistryItemDialog from "./EditRegistryItemDialog";
 import { toast } from "sonner";
 import { useHostRegistryCodeContext } from "./context";
 import {
@@ -65,6 +79,7 @@ export default function HostDashboardRegistryContent(props) {
     registryInvites,
     thankYouNotes,
     registryOrders,
+    pageViews,
     totals,
     refresh,
   } = useHostRegistryCodeContext() || {};
@@ -118,6 +133,12 @@ export default function HostDashboardRegistryContent(props) {
   const [thankYouRecipientName, setThankYouRecipientName] = useState("");
   const [thankYouMessage, setThankYouMessage] = useState("");
   const [showThankYouSuggestions, setShowThankYouSuggestions] = useState(false);
+  const [editItemOpen, setEditItemOpen] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [priceRangeState, priceRangeAction, isPriceRangePending] =
+    useActionState(updateRegistryPriceRange, initialState);
+  const [priceMin, setPriceMin] = useState("");
+  const [priceMax, setPriceMax] = useState("");
   const [addressInput, setAddressInput] = useState({
     street_address: "",
     street_address_2: "",
@@ -139,6 +160,21 @@ export default function HostDashboardRegistryContent(props) {
   useEffect(() => {
     setWelcomeNoteInput((registry?.welcome_note || "").toString());
   }, [registry?.welcome_note]);
+
+  useEffect(() => {
+    setPriceMin(registry?.price_range_min != null ? String(registry.price_range_min) : "");
+    setPriceMax(registry?.price_range_max != null ? String(registry.price_range_max) : "");
+  }, [registry?.price_range_min, registry?.price_range_max]);
+
+  useEffect(() => {
+    if (priceRangeState?.message && Object.keys(priceRangeState?.errors || {}).length > 0) {
+      toast.error(priceRangeState.message);
+    }
+    if (priceRangeState?.status_code === 200) {
+      toast.success(priceRangeState.message);
+      refresh?.();
+    }
+  }, [priceRangeState, refresh]);
 
   useEffect(() => {
     setAddressInput({
@@ -333,14 +369,69 @@ export default function HostDashboardRegistryContent(props) {
         const price = Number.isFinite(num) ? `GHS ${num.toFixed(2)}` : "";
         return {
           id: item.id,
+          productId: product.id,
           title: product.name || "Gift item",
           image: images[0] || "/host/toaster.png",
           price,
           desired: item?.quantity_needed ?? 0,
           purchased: item?.purchased_qty ?? 0,
+          priority: item?.priority || null,
+          notes: item?.notes || null,
+          color: item?.color || null,
+          size: item?.size || null,
+          _raw: item,
         };
       })
     : [];
+
+  // Duplicate gift detection: flag products appearing more than once by productId
+  const duplicateProductIds = useMemo(() => {
+    const counts = {};
+    products.forEach((p) => {
+      if (p.productId) counts[p.productId] = (counts[p.productId] || 0) + 1;
+    });
+    return new Set(
+      Object.entries(counts)
+        .filter(([, count]) => count > 1)
+        .map(([id]) => id)
+    );
+  }, [products]);
+
+  // Analytics computations
+  const analytics = useMemo(() => {
+    const items = Array.isArray(registryItems) ? registryItems : [];
+    const totalDesired = items.reduce((s, i) => s + (i?.quantity_needed ?? 0), 0);
+    const totalPurchased = items.reduce((s, i) => s + (i?.purchased_qty ?? 0), 0);
+    const completionRate =
+      totalDesired > 0 ? Math.round((totalPurchased / totalDesired) * 100) : 0;
+
+    // Most wanted: items with highest desired qty that aren't fully purchased
+    const mostWanted = [...items]
+      .filter((i) => (i?.quantity_needed ?? 0) > (i?.purchased_qty ?? 0))
+      .sort((a, b) => (b?.quantity_needed ?? 0) - (a?.quantity_needed ?? 0))
+      .slice(0, 5)
+      .map((i) => ({
+        id: i.id,
+        name: i?.product?.name || "Item",
+        desired: i?.quantity_needed ?? 0,
+        purchased: i?.purchased_qty ?? 0,
+        remaining: (i?.quantity_needed ?? 0) - (i?.purchased_qty ?? 0),
+      }));
+
+    // Views over time: group page views by date
+    const viewsByDate = {};
+    (Array.isArray(pageViews) ? pageViews : []).forEach((v) => {
+      const date = v.viewed_at ? v.viewed_at.slice(0, 10) : null;
+      if (date) viewsByDate[date] = (viewsByDate[date] || 0) + 1;
+    });
+    const viewsTimeline = Object.entries(viewsByDate)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+
+    const totalViews = (Array.isArray(pageViews) ? pageViews : []).length;
+
+    return { completionRate, mostWanted, viewsTimeline, totalViews };
+  }, [registryItems, pageViews]);
 
   const itemsCount = totals?.itemsCount ?? products.length;
   const desiredQty =
@@ -798,11 +889,41 @@ export default function HostDashboardRegistryContent(props) {
                 const isPurchased =
                   (p.purchased ?? 0) >= (p.desired ?? 0) &&
                   (p.desired ?? 0) > 0;
+                const isDuplicate = duplicateProductIds.has(p.productId);
+                const hasSpecs = p.color || p.size || p.notes;
                 return (
                   <div
                     key={p.id}
-                    className="group flex bg-white rounded-lg flex-col space-y-4 w-[200px] overflow-hidden border border-gray-200"
+                    className="group flex bg-white rounded-lg flex-col w-[220px] overflow-hidden border border-gray-200 relative"
                   >
+                    {/* Priority badge */}
+                    {p.priority && (
+                      <span
+                        className={`absolute top-2 left-2 z-10 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                          p.priority === "must-have"
+                            ? "bg-red-100 text-red-700 border border-red-200"
+                            : "bg-blue-50 text-blue-600 border border-blue-200"
+                        }`}
+                      >
+                        {p.priority === "must-have" ? (
+                          <span className="flex items-center gap-0.5">
+                            <Star className="w-3 h-3" /> Must-have
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-0.5">
+                            <Heart className="w-3 h-3" /> Nice-to-have
+                          </span>
+                        )}
+                      </span>
+                    )}
+
+                    {/* Duplicate warning badge */}
+                    {isDuplicate && (
+                      <span className="absolute top-2 right-2 z-10 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200" title="This product appears more than once in your registry">
+                        <AlertTriangle className="w-3 h-3 inline" />
+                      </span>
+                    )}
+
                     <div className="relative aspect-square overflow-hidden w-full">
                       <Image
                         src={p.image}
@@ -812,11 +933,33 @@ export default function HostDashboardRegistryContent(props) {
                         priority
                       />
                     </div>
-                    <div className="flex flex-col space-y-2 w-full pb-4">
-                      <p className="text-sm font-semibold text-black line-clamp-2 w-full px-4">
+                    <div className="flex flex-col space-y-2 w-full pb-3">
+                      <p className="text-sm font-semibold text-black line-clamp-2 w-full px-3 pt-2">
                         {p.title}
                       </p>
-                      <div className="flex items-center w-full justify-between px-4">
+
+                      {/* Specs row */}
+                      {hasSpecs && (
+                        <div className="flex flex-wrap gap-1.5 px-3">
+                          {p.color && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full border border-purple-100">
+                              <Palette className="w-2.5 h-2.5" /> {p.color}
+                            </span>
+                          )}
+                          {p.size && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-teal-50 text-teal-600 rounded-full border border-teal-100">
+                              <Ruler className="w-2.5 h-2.5" /> {p.size}
+                            </span>
+                          )}
+                          {p.notes && (
+                            <span className="inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 bg-amber-50 text-amber-600 rounded-full border border-amber-100" title={p.notes}>
+                              <StickyNote className="w-2.5 h-2.5" /> Note
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="flex items-center w-full justify-between px-3">
                         <p className="text-xs text-[#939393]">
                           Desired {p.desired}
                         </p>
@@ -824,15 +967,22 @@ export default function HostDashboardRegistryContent(props) {
                           Purchased {p.purchased}
                         </p>
                       </div>
-                      <div className="flex items-center w-full justify-between pl-4">
+                      <div className="flex items-center w-full justify-between pl-3">
                         <p className="text-xs text-[#939393]">{p.price}</p>
                         {isPurchased ? (
                           <p className="text-xs text-white bg-[#8DC76C] border border-[#8DC76C] rounded-l-xl px-2 py-1 flex items-center">
                             Purchased
                           </p>
                         ) : (
-                          <button className="text-xs text-white cursor-pointer bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-l-xl px-2 py-1 flex items-center">
-                            View Product
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditItem(p._raw);
+                              setEditItemOpen(true);
+                            }}
+                            className="text-xs text-white cursor-pointer bg-[#247ACB] border border-[#247ACB] hover:bg-white hover:text-[#247ACB] rounded-l-xl px-2 py-1 flex items-center gap-1"
+                          >
+                            <PiPencilSimple className="w-3 h-3" /> Edit
                           </button>
                         )}
                       </div>
@@ -844,10 +994,144 @@ export default function HostDashboardRegistryContent(props) {
           </div>
         )}
 
+        {/* Registry Analytics */}
+        {itemsCount > 0 && (
+          <div className="w-full space-y-4">
+            <div className="flex items-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#394B71]" />
+              <p className="text-[#394B71] font-semibold">Registry Analytics</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Completion Rate */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-[#247ACB]" />
+                  <p className="text-sm font-medium text-[#394B71]">Completion Rate</p>
+                </div>
+                <p className="text-3xl font-bold text-[#247ACB]">
+                  {analytics.completionRate}%
+                </p>
+                <ProgressBar value={purchasedQty} max={desiredQty || 1} />
+                <p className="text-xs text-[#6B7280]">
+                  {purchasedQty} of {desiredQty} items purchased
+                </p>
+              </div>
+
+              {/* Page Views */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-[#247ACB]" />
+                  <p className="text-sm font-medium text-[#394B71]">Page Views</p>
+                </div>
+                <p className="text-3xl font-bold text-[#247ACB]">
+                  {analytics.totalViews}
+                </p>
+                <p className="text-xs text-[#6B7280]">Last 90 days</p>
+                {analytics.viewsTimeline.length > 0 && (
+                  <div className="flex items-end gap-px h-10 mt-1">
+                    {analytics.viewsTimeline.slice(-30).map((v, i) => {
+                      const max = Math.max(...analytics.viewsTimeline.slice(-30).map((d) => d.count));
+                      const height = max > 0 ? Math.max(4, (v.count / max) * 40) : 4;
+                      return (
+                        <div
+                          key={i}
+                          className="flex-1 bg-[#247ACB] rounded-t-sm opacity-70"
+                          style={{ height: `${height}px` }}
+                          title={`${v.date}: ${v.count} views`}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Most Wanted */}
+              <div className="bg-white border border-[#E5E7EB] rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-[#247ACB]" />
+                  <p className="text-sm font-medium text-[#394B71]">Most Wanted</p>
+                </div>
+                {analytics.mostWanted.length > 0 ? (
+                  <div className="space-y-2">
+                    {analytics.mostWanted.map((mw) => (
+                      <div key={mw.id} className="flex items-center justify-between">
+                        <p className="text-xs text-[#111827] line-clamp-1 flex-1 mr-2">
+                          {mw.name}
+                        </p>
+                        <span className="text-[10px] font-medium text-[#247ACB] bg-blue-50 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                          {mw.remaining} left
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#9CA3AF]">All items fulfilled!</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Price Range Settings */}
+        <div className="w-full space-y-4">
+          <p className="text-[#394B71] font-semibold">Gift Price Guidance</p>
+          <p className="text-xs text-[#6B7280]">
+            Set a suggested price range so guests know what to expect.
+          </p>
+          <form action={priceRangeAction} className="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="registry_id" value={registry?.id || ""} />
+            <input type="hidden" name="event_id" value={event?.id || ""} />
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">Min (GHS)</label>
+              <input
+                type="number"
+                name="price_range_min"
+                min={0}
+                step="0.01"
+                value={priceMin}
+                onChange={(e) => setPriceMin(e.target.value)}
+                placeholder="0.00"
+                disabled={isPriceRangePending}
+                className="w-28 rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none hover:border-gray-400 transition"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-gray-600">Max (GHS)</label>
+              <input
+                type="number"
+                name="price_range_max"
+                min={0}
+                step="0.01"
+                value={priceMax}
+                onChange={(e) => setPriceMax(e.target.value)}
+                placeholder="0.00"
+                disabled={isPriceRangePending}
+                className="w-28 rounded-xl border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder-gray-400 outline-none hover:border-gray-400 transition"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={isPriceRangePending}
+              className="px-5 py-2 text-sm font-medium text-white bg-[#A5914B] border border-[#A5914B] rounded-full hover:bg-white hover:text-[#A5914B] transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {isPriceRangePending ? "Saving..." : "Save"}
+            </button>
+          </form>
+        </div>
+
         <Advertisement />
 
         <Footer />
       </main>
+
+      <EditRegistryItemDialog
+        open={editItemOpen}
+        onOpenChange={setEditItemOpen}
+        item={editItem}
+        registryId={registry?.id}
+        eventId={event?.id}
+        onSuccess={refresh}
+      />
 
       <Dialog open={welcomeOpen} onOpenChange={setWelcomeOpen}>
         <DialogContent className="w-full max-w-lg rounded-2xl shadow-xl p-6">

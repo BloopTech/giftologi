@@ -60,6 +60,13 @@ export default function ProductCard({ product }) {
             </span>
           </div>
         )}
+        {p.isOnSale && p.stock > 0 && (
+          <div className="absolute top-2 left-2">
+            <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+              {p.discountPercent}% OFF
+            </span>
+          </div>
+        )}
       </div>
       <div className="p-3">
         <p
@@ -68,7 +75,12 @@ export default function ProductCard({ product }) {
         >
           {p.name}
         </p>
-        <p className="text-base font-bold text-[#A5914B] mb-2">{p.price}</p>
+        <div className="flex items-center gap-2 mb-2">
+          <p className="text-base font-bold text-[#A5914B]">{p.price}</p>
+          {p.isOnSale && p.originalPrice && (
+            <p className="text-sm text-gray-400 line-through">{p.originalPrice}</p>
+          )}
+        </div>
 
         {/* Buy + Cart */}
         {p.stock > 0 && (

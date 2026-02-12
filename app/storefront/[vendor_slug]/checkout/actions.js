@@ -348,7 +348,7 @@ export async function processStorefrontCheckout(prevState, formData) {
       const { data: product, error: productError } = await adminClient
         .from("products")
         .select(
-          "id, name, price, service_charge, stock_qty, variations, vendor_id, category_id, weight_kg"
+          "id, name, price, service_charge, stock_qty, variations, vendor_id, category_id, weight_kg, sale_price, sale_starts_at, sale_ends_at"
         )
         .eq("id", productId)
         .eq("vendor_id", vendorId)
@@ -391,10 +391,26 @@ export async function processStorefrontCheckout(prevState, formData) {
       const baseWithCharge = Number.isFinite(basePrice)
         ? basePrice + serviceCharge
         : serviceCharge;
+
+      // Apply sale price if active
+      let effectiveBaseWithCharge = baseWithCharge;
+      const rawSalePrice = Number(product.sale_price);
+      if (Number.isFinite(rawSalePrice) && rawSalePrice > 0) {
+        const now = Date.now();
+        const sStarts = product.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+        const sEnds = product.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+        const saleActive =
+          (!sStarts || !Number.isNaN(sStarts) && now >= sStarts) &&
+          (!sEnds || !Number.isNaN(sEnds) && now <= sEnds);
+        if (saleActive) {
+          effectiveBaseWithCharge = rawSalePrice + serviceCharge;
+        }
+      }
+
       const unitPrice = Number.isFinite(variationPrice)
         ? variationPrice + serviceCharge
-        : Number.isFinite(baseWithCharge)
-        ? baseWithCharge
+        : Number.isFinite(effectiveBaseWithCharge)
+        ? effectiveBaseWithCharge
         : 0;
       computedSubtotal = unitPrice * quantity;
       if (giftWrapOptionId) {

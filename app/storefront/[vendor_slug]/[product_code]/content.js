@@ -395,11 +395,17 @@ export default function ProductCodeDetailContent() {
       ? Number(selectedVariation.price) + serviceCharge
       : null;
   const basePrice = product?.basePrice ?? product?.rawPrice ?? null;
+
+  const effectiveSalePrice = product?.isOnSale && product?.salePrice != null ? product.salePrice : null;
   const priceLabel = selectedPrice != null
     ? formatPrice(selectedPrice)
+    : effectiveSalePrice != null
+    ? formatPrice(effectiveSalePrice)
     : product?.variationPriceRange
     ? `${formatPrice(product.variationPriceRange.min)} - ${formatPrice(product.variationPriceRange.max)}`
     : product.price;
+  const showStrikethrough =
+    product?.isOnSale && !selectedVariation && product?.originalPriceFormatted;
   const showBasePrice =
     selectedPrice != null && Number.isFinite(basePrice) && basePrice !== selectedPrice;
 
@@ -553,8 +559,18 @@ export default function ProductCodeDetailContent() {
             )}
 
             <div className="mb-6">
-              <div className="text-3xl font-bold text-[#A5914B]">{priceLabel}</div>
-              {product?.variationPriceRange && !selectedVariation && (
+              <div className="flex items-center gap-3">
+                <div className="text-3xl font-bold text-[#A5914B]">{priceLabel}</div>
+                {showStrikethrough && (
+                  <div className="text-xl text-gray-400 line-through">{product.originalPriceFormatted}</div>
+                )}
+                {product?.isOnSale && product?.discountPercent > 0 && !selectedVariation && (
+                  <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+                    {product.discountPercent}% OFF
+                  </span>
+                )}
+              </div>
+              {product?.variationPriceRange && !selectedVariation && !product?.isOnSale && (
                 <p className="text-xs text-gray-500 mt-1">Price varies by option.</p>
               )}
               {showBasePrice && (

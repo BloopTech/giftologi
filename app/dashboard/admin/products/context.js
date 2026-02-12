@@ -238,6 +238,9 @@ function useManageProductsProviderValue() {
             rejection_reason,
             vendor_id,
             created_at,
+            sale_price,
+            sale_starts_at,
+            sale_ends_at,
             featured_products (
               id,
               active

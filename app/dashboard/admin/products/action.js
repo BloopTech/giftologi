@@ -1036,6 +1036,18 @@ const updateProductSchema = z.object({
       return Number.isFinite(num) && num >= 0;
     }, "Enter a valid service charge"),
   variations: z.string().trim().optional().or(z.literal("")),
+  salePrice: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => {
+      if (!value) return true;
+      const num = Number(value);
+      return Number.isFinite(num) && num >= 0;
+    }, "Enter a valid sale price"),
+  saleStartsAt: z.string().trim().optional().or(z.literal("")),
+  saleEndsAt: z.string().trim().optional().or(z.literal("")),
   featuredImageIndex: z
     .string()
     .trim()
@@ -1680,6 +1692,9 @@ export async function updateProduct(prevState, formData) {
     categoryIds: parseCategoryIds(formData.get("categoryIds")),
     serviceCharge: formData.get("serviceCharge") || "",
     variations: formData.get("variations") || "",
+    salePrice: formData.get("salePrice") || "",
+    saleStartsAt: formData.get("saleStartsAt") || "",
+    saleEndsAt: formData.get("saleEndsAt") || "",
     featuredImageIndex: formData.get("featuredImageIndex") || "",
     existingImages: formData.get("existing_images") || "",
   };
@@ -1708,6 +1723,9 @@ export async function updateProduct(prevState, formData) {
     categoryIds,
     serviceCharge,
     variations: variationsRaw,
+    salePrice,
+    saleStartsAt,
+    saleEndsAt,
     featuredImageIndex,
     existingImages: existingImagesRaw,
   } = parsed.data;
@@ -1847,6 +1865,25 @@ export async function updateProduct(prevState, formData) {
     }
   }
 
+  // Sale price validation
+  const salePriceNumber = salePrice ? Number(salePrice) : null;
+  if (
+    salePriceNumber != null &&
+    Number.isFinite(salePriceNumber) &&
+    salePriceNumber > 0 &&
+    salePriceNumber >= priceNumber
+  ) {
+    return {
+      message: "Sale price must be less than the selling price.",
+      errors: {
+        ...defaultUpdateProductValues,
+        salePrice: ["Sale price must be less than the selling price."],
+      },
+      values: raw,
+      data: {},
+    };
+  }
+
   const { error: updateError } = await supabase
     .from("products")
     .update({
@@ -1865,6 +1902,9 @@ export async function updateProduct(prevState, formData) {
       category_id: categoryIds[0] || null,
       variations: variations.length ? variations : null,
       images: orderedImages.length ? orderedImages : null,
+      sale_price: salePriceNumber != null && Number.isFinite(salePriceNumber) && salePriceNumber > 0 ? salePriceNumber : null,
+      sale_starts_at: saleStartsAt || null,
+      sale_ends_at: saleEndsAt || null,
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
@@ -1991,6 +2031,18 @@ const createSingleProductSchema = z.object({
     .array(z.string().trim().uuid({ message: "Select a valid category" }))
     .min(1, { message: "Select at least one category" }),
   variations: z.string().trim().optional().or(z.literal("")),
+  salePrice: z
+    .string()
+    .trim()
+    .optional()
+    .or(z.literal(""))
+    .refine((value) => {
+      if (!value) return true;
+      const num = Number(value);
+      return Number.isFinite(num) && num >= 0;
+    }, "Enter a valid sale price"),
+  saleStartsAt: z.string().trim().optional().or(z.literal("")),
+  saleEndsAt: z.string().trim().optional().or(z.literal("")),
   featuredImageIndex: z
     .string()
     .trim()
@@ -2155,6 +2207,9 @@ export async function createVendorProducts(prevState, formData) {
       productCode: formData.get("productCode") || "",
       categoryIds: parseCategoryIds(formData.get("categoryIds")),
       variations: formData.get("variations") || "",
+      salePrice: formData.get("salePrice") || "",
+      saleStartsAt: formData.get("saleStartsAt") || "",
+      saleEndsAt: formData.get("saleEndsAt") || "",
       featuredImageIndex: formData.get("featuredImageIndex") || "",
     };
 
@@ -2285,6 +2340,25 @@ export async function createVendorProducts(prevState, formData) {
 
     const nowIso = new Date().toISOString();
 
+    // Sale price validation
+    const salePriceNumber = single.salePrice ? Number(single.salePrice) : null;
+    if (
+      salePriceNumber != null &&
+      Number.isFinite(salePriceNumber) &&
+      salePriceNumber > 0 &&
+      salePriceNumber >= priceNumber
+    ) {
+      return {
+        message: "Sale price must be less than the selling price.",
+        errors: {
+          ...defaultCreateProductValues,
+          salePrice: ["Sale price must be less than the selling price."],
+        },
+        values: { ...rawBase, ...rawSingle },
+        data: {},
+      };
+    }
+
     const productPayload = {
       vendor_id: vendorId,
       category_id: single.categoryIds[0] || null,
@@ -2302,6 +2376,9 @@ export async function createVendorProducts(prevState, formData) {
           : null,
       variations: variations.length ? variations : null,
       images: orderedImageUrls.length ? orderedImageUrls : null,
+      sale_price: salePriceNumber != null && Number.isFinite(salePriceNumber) && salePriceNumber > 0 ? salePriceNumber : null,
+      sale_starts_at: single.saleStartsAt || null,
+      sale_ends_at: single.saleEndsAt || null,
       status: "approved",
       active: true,
       created_at: nowIso,

@@ -90,7 +90,7 @@ export function HostProfileContentProvider({ children }) {
         console.error("Notification preferences fetch error", notificationError);
       }
       if (registriesError) {
-        console.error("Registries summary fetch error", registriesError);
+        console.error("Registries summary fetch error", JSON.stringify(registriesError, null, 2));
       }
       if (contactError) {
         console.error("Contact settings fetch error", contactError);

@@ -145,7 +145,17 @@ export default function ProductDetailModal({
             </DialogTitle>
 
             {/* Price */}
-            <p className="text-2xl font-bold text-[#A5914B] mb-4">{price}</p>
+            <div className="flex items-center gap-3 mb-4">
+              <p className="text-2xl font-bold text-[#A5914B]">{price}</p>
+              {product?.isOnSale && product?.originalPrice && (
+                <p className="text-lg text-gray-400 line-through">{product.originalPrice}</p>
+              )}
+              {product?.isOnSale && product?.discountPercent > 0 && (
+                <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+                  {product.discountPercent}% OFF
+                </span>
+              )}
+            </div>
 
             {/* Stock Status */}
             <div className="flex items-center gap-2 mb-4">

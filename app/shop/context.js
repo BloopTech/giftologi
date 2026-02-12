@@ -56,6 +56,17 @@ const getVariationPriceStats = (variations, serviceCharge = 0) => {
   };
 };
 
+const isSaleActive = (product) => {
+  const salePrice = Number(product?.sale_price);
+  if (!Number.isFinite(salePrice) || salePrice <= 0) return false;
+  const now = Date.now();
+  const startsAt = product?.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+  const endsAt = product?.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+  if (startsAt && !Number.isNaN(startsAt) && now < startsAt) return false;
+  if (endsAt && !Number.isNaN(endsAt) && now > endsAt) return false;
+  return true;
+};
+
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const vendor = product?.vendor || {};
@@ -82,14 +93,26 @@ const mapProduct = (product) => {
       : Number.isFinite(baseWithCharge)
       ? baseWithCharge
       : null;
+
+  const onSale = isSaleActive(product);
+  const salePriceWithCharge = onSale ? Number(product.sale_price) + serviceCharge : null;
+  const discountPercent =
+    onSale && displayPrice > 0
+      ? Math.round(((displayPrice - salePriceWithCharge) / displayPrice) * 100)
+      : 0;
+
   return {
     id: product?.id,
     productCode: product?.product_code || null,
     name: product?.name || "Product",
     image: images[0] || "/host/toaster.png",
     images,
-    price: formatPrice(displayPrice),
-    rawPrice: displayPrice,
+    price: onSale ? formatPrice(salePriceWithCharge) : formatPrice(displayPrice),
+    originalPrice: onSale ? formatPrice(displayPrice) : null,
+    rawPrice: onSale ? salePriceWithCharge : displayPrice,
+    rawOriginalPrice: onSale ? displayPrice : null,
+    isOnSale: onSale,
+    discountPercent,
     basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
     serviceCharge,
     variationPriceRange:
@@ -310,6 +333,9 @@ export function ShopProvider({
             review_count,
             is_featured,
             purchase_count,
+            sale_price,
+            sale_starts_at,
+            sale_ends_at,
             product_categories (category_id),
             vendor:vendors!inner(
               id,

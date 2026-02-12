@@ -120,6 +120,9 @@ const productSchema = z.object({
   stock_qty: z.coerce.number().int().min(0, "Stock must be 0 or greater"),
   description: z.string().max(2000).optional(),
   variations: z.string().optional().or(z.literal("")),
+  sale_price: z.coerce.number().min(0).optional().or(z.literal("")).or(z.literal(NaN)).transform((v) => (Number.isFinite(v) && v > 0 ? v : null)),
+  sale_starts_at: z.string().optional().or(z.literal("")).transform((v) => (v && v.trim() ? v.trim() : null)),
+  sale_ends_at: z.string().optional().or(z.literal("")).transform((v) => (v && v.trim() ? v.trim() : null)),
 });
 
 const generateProductCode = () =>
@@ -219,6 +222,9 @@ export async function manageProducts(prevState, formData) {
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
       variations: formData.get("variations") || "",
+      sale_price: formData.get("sale_price") || "",
+      sale_starts_at: formData.get("sale_starts_at") || "",
+      sale_ends_at: formData.get("sale_ends_at") || "",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -263,6 +269,18 @@ export async function manageProducts(prevState, formData) {
       }
     }
 
+    if (
+      validation.data.sale_price != null &&
+      validation.data.sale_price >= validation.data.price
+    ) {
+      return {
+        success: false,
+        message: "Please fix the errors below.",
+        errors: { sale_price: "Sale price must be less than the selling price." },
+        values: rawData,
+      };
+    }
+
     const { data: categoryRows, error: categoryError } = await supabase
       .from("categories")
       .select("id")
@@ -296,6 +314,9 @@ export async function manageProducts(prevState, formData) {
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
         variations: variations.length ? variations : null,
+        sale_price: validation.data.sale_price ?? null,
+        sale_starts_at: validation.data.sale_starts_at ?? null,
+        sale_ends_at: validation.data.sale_ends_at ?? null,
         images: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -492,6 +513,9 @@ export async function manageProducts(prevState, formData) {
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
       variations: formData.get("variations") || "",
+      sale_price: formData.get("sale_price") || "",
+      sale_starts_at: formData.get("sale_starts_at") || "",
+      sale_ends_at: formData.get("sale_ends_at") || "",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -533,6 +557,18 @@ export async function manageProducts(prevState, formData) {
           };
         }
       }
+    }
+
+    if (
+      validation.data.sale_price != null &&
+      validation.data.sale_price >= validation.data.price
+    ) {
+      return {
+        success: false,
+        message: "Please fix the errors below.",
+        errors: { sale_price: "Sale price must be less than the selling price." },
+        values: rawData,
+      };
     }
 
     const { data: existingProduct, error: existingProductError } = await supabase
@@ -585,6 +621,9 @@ export async function manageProducts(prevState, formData) {
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
         variations: variations.length ? variations : null,
+        sale_price: validation.data.sale_price ?? null,
+        sale_starts_at: validation.data.sale_starts_at ?? null,
+        sale_ends_at: validation.data.sale_ends_at ?? null,
         updated_at: new Date().toISOString(),
         active: true,
       })

@@ -399,14 +399,28 @@ export default function StorefrontContent() {
                               </span>
                             </div>
                           )}
+                          {p.isOnSale && !isClosed && (
+                            <div className="absolute top-2 left-2">
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                {p.discountPercent}% OFF
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div className="p-3">
                           <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2 mb-1 group-hover:text-[#A5914B] transition-colors">
                             {p.name}
                           </p>
-                          <p className="text-base font-bold text-[#A5914B]">
-                            {p.price}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-base font-bold text-[#A5914B]">
+                              {p.price}
+                            </p>
+                            {p.isOnSale && p.originalPrice && (
+                              <p className="text-sm text-gray-400 line-through">
+                                {p.originalPrice}
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </Link>
                     ))}
@@ -435,6 +449,13 @@ export default function StorefrontContent() {
                               </span>
                             </div>
                           )}
+                          {p.isOnSale && !isClosed && (
+                            <div className="absolute top-2 left-2">
+                              <span className="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                                {p.discountPercent}% OFF
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex-1 p-4 flex flex-col justify-center">
                           <p className="text-base font-medium text-gray-900 dark:text-white line-clamp-2 mb-2 group-hover:text-[#A5914B] transition-colors">
@@ -446,9 +467,16 @@ export default function StorefrontContent() {
                             </p>
                           )}
                           <div className="flex items-center justify-between">
-                            <p className="text-xl font-bold text-[#A5914B]">
-                              {p.price}
-                            </p>
+                            <div className="flex items-center gap-2">
+                              <p className="text-xl font-bold text-[#A5914B]">
+                                {p.price}
+                              </p>
+                              {p.isOnSale && p.originalPrice && (
+                                <p className="text-sm text-gray-400 line-through">
+                                  {p.originalPrice}
+                                </p>
+                              )}
+                            </div>
                             {!isClosed && p.stock > 0 && (
                               <span className="text-sm text-green-600 font-medium">
                                 In Stock ({p.stock})

@@ -53,6 +53,12 @@ function RegistryContentInner() {
     setCategoryFilter,
     sortBy,
     setSortBy,
+    priceMin,
+    setPriceMin,
+    priceMax,
+    setPriceMax,
+    hideFullyPurchased,
+    setHideFullyPurchased,
     openProductDetail,
     closeProductDetail,
     startBuyThis,
@@ -207,47 +213,99 @@ function RegistryContentInner() {
         {/* Products Section */}
         <div className="w-full rounded-3xl border border-[#DCDCDE] p-6 bg-white flex flex-col space-y-6">
           {/* Header with filters */}
-          <div className="flex items-center justify-between w-full flex-wrap gap-4">
-            <div className="flex flex-col">
-              <h2 className="text-[#394B71] text-xl font-semibold">
-                Gift Registry
-              </h2>
-              {hostDisplayName && (
-                <span className="text-xs text-[#6A7282]">
-                  Hosted by {hostDisplayName}
-                </span>
-              )}
+          <div className="flex flex-col gap-4 w-full">
+            <div className="flex items-center justify-between w-full flex-wrap gap-4">
+              <div className="flex flex-col">
+                <h2 className="text-[#394B71] text-xl font-semibold">
+                  Gift Registry
+                </h2>
+                {hostDisplayName && (
+                  <span className="text-xs text-[#6A7282]">
+                    Hosted by {hostDisplayName}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="min-w-[160px]">
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="border-[#DCDCDE] text-[#A5914B]">
+                      <SelectValue placeholder="Gift Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      {categoryOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-[160px]">
+                  <Select value={sortBy} onValueChange={setSortBy}>
+                    <SelectTrigger className="border-[#DCDCDE] text-[#A5914B]">
+                      <SelectValue placeholder="Sort by" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="min-w-[180px]">
-                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                  <SelectTrigger className="border-[#DCDCDE] text-[#A5914B]">
-                    <SelectValue placeholder="Gift Category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
-                    {categoryOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+            {/* Price range + availability filters */}
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs text-[#6A7282] whitespace-nowrap">Price</label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={priceMin}
+                  onChange={(e) => setPriceMin(e.target.value)}
+                  placeholder="Min"
+                  className="w-20 rounded-lg border border-[#DCDCDE] px-2 py-1.5 text-xs text-gray-900 placeholder-gray-400 outline-none hover:border-[#A5914B] focus:border-[#A5914B] transition"
+                />
+                <span className="text-xs text-gray-400">–</span>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={priceMax}
+                  onChange={(e) => setPriceMax(e.target.value)}
+                  placeholder="Max"
+                  className="w-20 rounded-lg border border-[#DCDCDE] px-2 py-1.5 text-xs text-gray-900 placeholder-gray-400 outline-none hover:border-[#A5914B] focus:border-[#A5914B] transition"
+                />
               </div>
-              <div className="min-w-[180px]">
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="border-[#DCDCDE] text-[#A5914B]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sortOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={hideFullyPurchased}
+                  onChange={(e) => setHideFullyPurchased(e.target.checked)}
+                  className="accent-[#A5914B] w-3.5 h-3.5 cursor-pointer"
+                />
+                <span className="text-xs text-[#6A7282]">Hide fulfilled</span>
+              </label>
+              {(priceMin || priceMax || hideFullyPurchased || (categoryFilter && categoryFilter !== "all")) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPriceMin("");
+                    setPriceMax("");
+                    setHideFullyPurchased(false);
+                    setCategoryFilter("all");
+                    setSortBy("default");
+                  }}
+                  className="text-xs text-[#A5914B] hover:underline cursor-pointer"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           </div>
 

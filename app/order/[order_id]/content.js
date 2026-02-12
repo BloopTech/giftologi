@@ -247,7 +247,7 @@ export default function OrderTrackingContent({ orderCode }) {
           )}
         </div>
 
-        <div className="mt-8 flex flex-col sm:flex-row gap-3">
+        <div className="mt-8 flex flex-col sm:flex-row gap-3 flex-wrap">
           <button
             type="button"
             onClick={() => window.history.back()}
@@ -256,6 +256,18 @@ export default function OrderTrackingContent({ orderCode }) {
             <PiArrowLeft className="w-4 h-4" />
             Back
           </button>
+          <Link
+            href={`/order/${orderCode}/receipt`}
+            className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-[#111827] text-white text-sm font-medium hover:bg-[#1F2937]"
+          >
+            View Receipt
+          </Link>
+          <Link
+            href={`/order/${orderCode}/return`}
+            className="inline-flex items-center justify-center px-4 py-2 rounded-full border border-[#D1D5DB] text-[#374151] text-sm font-medium hover:bg-white"
+          >
+            Return / Exchange
+          </Link>
           <Link
             href="/"
             className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-[#A5914B] text-white text-sm font-medium hover:bg-[#8B7A3F]"

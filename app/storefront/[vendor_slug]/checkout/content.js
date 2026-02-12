@@ -1184,9 +1184,16 @@ export default function CheckoutContent({
                         <p className="text-sm font-medium text-gray-900 line-clamp-2">
                           {product.name}
                         </p>
-                        <p className="text-sm text-[#A5914B] font-semibold mt-1">
-                          {formatPrice(unitPrice)}
-                        </p>
+                        <div className="flex items-center gap-2 mt-1">
+                          <p className="text-sm text-[#A5914B] font-semibold">
+                            {formatPrice(unitPrice)}
+                          </p>
+                          {product?.isOnSale && product?.originalPrice && !selectedVariation && (
+                            <p className="text-xs text-gray-400 line-through">
+                              {product.originalPrice}
+                            </p>
+                          )}
+                        </div>
                         {selectedVariation?.label && (
                           <p className="text-xs text-gray-500 mt-1">
                             {selectedVariation.label}

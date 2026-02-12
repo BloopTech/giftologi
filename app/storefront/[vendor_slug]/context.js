@@ -46,6 +46,17 @@ const getVariationPriceStats = (variations, serviceCharge = 0) => {
   return { min: Math.min(...prices), max: Math.max(...prices) };
 };
 
+const isSaleActive = (product) => {
+  const salePrice = Number(product?.sale_price);
+  if (!Number.isFinite(salePrice) || salePrice <= 0) return false;
+  const now = Date.now();
+  const startsAt = product?.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+  const endsAt = product?.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+  if (startsAt && !Number.isNaN(startsAt) && now < startsAt) return false;
+  if (endsAt && !Number.isNaN(endsAt) && now > endsAt) return false;
+  return true;
+};
+
 const mapProduct = (product) => {
   const images = Array.isArray(product?.images) ? product.images : [];
   const serviceCharge = Number(product?.service_charge || 0);
@@ -71,13 +82,28 @@ const mapProduct = (product) => {
       : Number.isFinite(baseWithCharge)
       ? baseWithCharge
       : null;
+
+  const onSale = isSaleActive(product);
+  const salePrice = onSale ? Number(product.sale_price) + serviceCharge : null;
+  const discountPercent =
+    onSale && displayPrice > 0
+      ? Math.round(((displayPrice - salePrice) / displayPrice) * 100)
+      : 0;
+
   return {
     id: product?.id,
     product_code: product?.product_code || null,
     name: product?.name || "Product",
     image: images[0] || "/host/toaster.png",
-    price: formatPrice(displayPrice),
-    rawPrice: displayPrice,
+    price: onSale ? formatPrice(salePrice) : formatPrice(displayPrice),
+    originalPrice: onSale ? formatPrice(displayPrice) : null,
+    rawPrice: onSale ? salePrice : displayPrice,
+    rawOriginalPrice: onSale ? displayPrice : null,
+    isOnSale: onSale,
+    discountPercent,
+    sale_price: product?.sale_price ?? null,
+    sale_starts_at: product?.sale_starts_at ?? null,
+    sale_ends_at: product?.sale_ends_at ?? null,
     description: product?.description || "",
     stock: product?.stock_qty ?? 0,
     categoryId: product?.category_id || null,
@@ -341,6 +367,9 @@ export function StorefrontProvider({
             review_count,
             is_featured,
             purchase_count,
+            sale_price,
+            sale_starts_at,
+            sale_ends_at,
             product_categories (category_id)
           `,
             { count: "exact" }
