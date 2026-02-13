@@ -9,7 +9,7 @@
  * - Subscription creation and server sync
  */
 
-const SW_PATH = "/sw-push.js";
+const SW_PATH = "/sw.js";
 
 function urlBase64ToUint8Array(base64String) {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);

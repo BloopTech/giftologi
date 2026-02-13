@@ -22,6 +22,7 @@ import {
   DocumentsSection,
 } from "./components/profileSections";
 import { DOCUMENT_UPLOAD_OPTIONS } from "./documentTypes";
+import AccountDataSection from "../../../components/AccountDataSection";
 
 const defaultNotificationSettings = {
   newOrders: false,
@@ -870,6 +871,9 @@ export default function VendorProfileContent() {
         onRemoveDocumentRow={handleRemoveDocumentRow}
         onDocumentRowChange={handleDocumentRowChange}
       />
+
+      {/* Data & Privacy (Export + Deletion) */}
+      <AccountDataSection />
     </section>
   );
 }

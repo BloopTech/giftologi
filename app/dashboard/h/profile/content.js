@@ -28,6 +28,7 @@ import {
   TextAreaField,
   NotificationRow,
 } from "../../v/profile/components/formControls";
+import AccountDataSection from "../../../components/AccountDataSection";
 
 const defaultNotificationSettings = {
   registryUpdates: true,
@@ -532,6 +533,9 @@ export default function HostProfileContent() {
             </button>
           </div>
         </form>
+
+        {/* Data & Privacy (Export + Deletion) */}
+        <AccountDataSection />
       </div>
     </section>
   );

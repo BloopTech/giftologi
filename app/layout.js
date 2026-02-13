@@ -16,12 +16,24 @@ import { createMetadata, getPageSeo } from "./utils/seo";
 import { SkipLink } from "./components/accessibility";
 import { headers } from "next/headers";
 import GoogleAnalytics from "./components/googleanalytics";
+import CookieConsentBanner from "./components/CookieConsentBanner";
+import PWARegistrar from "./components/PWARegistrar";
+import InstallPrompt from "./components/InstallPrompt";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata() {
   const pageSeo = await getPageSeo("home");
-  return createMetadata(pageSeo);
+  const metadata = await createMetadata(pageSeo);
+  return {
+    ...metadata,
+    manifest: "/site.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "Giftologi",
+    },
+  };
 }
 
 const geistSans = Geist({
@@ -121,6 +133,9 @@ export default async function RootLayout({ children }) {
           >
             <NuqsAdapter>{children}</NuqsAdapter>
           </main>
+          <PWARegistrar />
+          <InstallPrompt />
+          <CookieConsentBanner />
         </ThemeProvider>
       </body>
     </html>
