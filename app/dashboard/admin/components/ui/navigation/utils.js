@@ -13,6 +13,8 @@ import {
   PiTag,
   PiUsers,
   PiScales,
+  PiGift,
+  PiHeadset,
 } from "react-icons/pi";
 
 const filterNavigationByRole = (navigation, role) => {
@@ -41,6 +43,8 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/reports",
       "/dashboard/admin/promo_codes",
       "/dashboard/admin/analytics_reporting",
+      "/dashboard/admin/gift_guides",
+      "/dashboard/admin/support",
     ]),
     finance_admin: new Set([
       "/dashboard/admin/transactions",
@@ -52,12 +56,14 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/disputes",
       "/dashboard/admin/activity_log",
       "/dashboard/admin/all_users",
+      "/dashboard/admin/support",
     ]),
     store_manager_admin: new Set(["/dashboard/admin/products"]),
     marketing_admin: new Set([
       "/dashboard/admin/analytics_reporting",
       "/dashboard/admin/content_policy_pages",
       "/dashboard/admin/promo_codes",
+      "/dashboard/admin/gift_guides",
     ]),
   };
 
@@ -264,6 +270,30 @@ export const useNavigationData = (role) => {
           name: "All Users",
           href: "/dashboard/admin/all_users",
           icon: PiUsers,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 17,
+      items: [
+        {
+          name: "Gift Guides",
+          href: "/dashboard/admin/gift_guides",
+          icon: PiGift,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 18,
+      items: [
+        {
+          name: "Support Tickets",
+          href: "/dashboard/admin/support",
+          icon: PiHeadset,
           other_items: [],
         },
       ],

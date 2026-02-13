@@ -612,6 +612,25 @@ export default function CreateAllVendorProducts(props) {
                       )}
                     </div>
 
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="product-type"
+                        className="text-xs font-medium text-[#0A0A0A]"
+                      >
+                        Product Type
+                      </label>
+                      <select
+                        id="product-type"
+                        name="productType"
+                        defaultValue={createState?.values?.productType || "physical"}
+                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                        disabled={createPending}
+                      >
+                        <option value="physical">Physical Product</option>
+                        <option value="treat">Treat (Intangible)</option>
+                      </select>
+                    </div>
+
                     <div className="md:col-span-2 space-y-1">
                       <label
                         htmlFor="product-description"
@@ -1530,6 +1549,33 @@ export default function CreateAllVendorProducts(props) {
                             </select>
                             <p className="text-[11px] text-[#717182]">
                               JSON array, e.g. [&#123;&quot;color&quot;:&quot;Red&quot;,&quot;stock_qty&quot;:5&#125;,&#123;&quot;color&quot;:&quot;Blue&quot;,&quot;stock_qty&quot;:3&#125;]
+                            </p>
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-xs font-medium text-[#0A0A0A]">
+                              Product Type Column
+                            </label>
+                            <select
+                              value={bulkMapping.productType || ""}
+                              onChange={(e) =>
+                                setBulkMapping((prev) => ({
+                                  ...prev,
+                                  productType: e.target.value,
+                                }))
+                              }
+                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                              disabled={createPending}
+                            >
+                              <option value="">Optional (defaults to Physical)</option>
+                              {bulkColumns.map((col) => (
+                                <option key={col} value={col}>
+                                  {col}
+                                </option>
+                              ))}
+                            </select>
+                            <p className="text-[11px] text-[#717182]">
+                              Values: &quot;physical&quot; or &quot;treat&quot;
                             </p>
                           </div>
                         </div>

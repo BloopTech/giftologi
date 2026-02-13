@@ -372,7 +372,7 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+                className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
               >
                 {primaryLabel}
               </button>
@@ -435,7 +435,7 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
                   <button
                     type="submit"
                     disabled={testPending || !testEmail.trim()}
-                    className="inline-flex items-center justify-center rounded-full border border-[#3979D2] bg-[#3979D2] px-4 py-2 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-4 py-2 text-[11px] font-medium text-white hover:bg-white hover:text-primary cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     Send Test
                   </button>

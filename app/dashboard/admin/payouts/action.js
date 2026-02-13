@@ -158,7 +158,7 @@ export async function updateVendorPayoutApproval(prevState, formData) {
     await supabase
       .from("order_items")
       .select(
-        "id, order_id, created_at, price, quantity, vendor_payout_id, finance_payout_approved, super_admin_payout_approved, fulfillment_status"
+        "id, order_id, product_id, created_at, price, quantity, vendor_payout_id, finance_payout_approved, super_admin_payout_approved, fulfillment_status"
       )
       .eq("vendor_id", vendorId)
       .eq("fulfillment_status", "delivered")
@@ -188,6 +188,20 @@ export async function updateVendorPayoutApproval(prevState, formData) {
         commissionRate = commissionRate / 100;
       }
 
+      // Fetch service charges for all products in approved items
+      // Commission is calculated on product price ONLY, excluding service_charge
+      const productIds = [...new Set(fullyApprovedItems.map((i) => i.product_id).filter(Boolean))];
+      const serviceChargeMap = new Map();
+      if (productIds.length) {
+        const { data: products } = await supabase
+          .from("products")
+          .select("id, service_charge")
+          .in("id", productIds);
+        (products || []).forEach((p) => {
+          serviceChargeMap.set(p.id, Number(p.service_charge || 0));
+        });
+      }
+
       let totalGross = 0;
       let totalCommission = 0;
       let totalNet = 0;
@@ -202,7 +216,10 @@ export async function updateVendorPayoutApproval(prevState, formData) {
           ? quantity * price
           : 0;
 
-        const feeAmount = lineAmount * commissionRate;
+        // Subtract service_charge from unit price before applying commission
+        const serviceCharge = serviceChargeMap.get(item.product_id) || 0;
+        const commissionableAmount = Math.max(0, (price - serviceCharge) * quantity);
+        const feeAmount = commissionableAmount * commissionRate;
         const vendorShare = lineAmount - feeAmount;
 
         totalGross += lineAmount;

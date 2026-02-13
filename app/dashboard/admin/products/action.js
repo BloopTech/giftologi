@@ -1059,6 +1059,7 @@ const updateProductSchema = z.object({
       return Number.isInteger(idx) && idx >= 0 && idx <= 2;
     }, "Invalid featured image selection"),
   existingImages: z.string().optional().or(z.literal("")),
+  productType: z.enum(["physical", "treat"]).optional().default("physical"),
 });
 
 const createCategorySchema = z.object({
@@ -1697,6 +1698,7 @@ export async function updateProduct(prevState, formData) {
     saleEndsAt: formData.get("saleEndsAt") || "",
     featuredImageIndex: formData.get("featuredImageIndex") || "",
     existingImages: formData.get("existing_images") || "",
+    productType: formData.get("productType") || "physical",
   };
 
   const parsed = updateProductSchema.safeParse(raw);
@@ -1905,6 +1907,7 @@ export async function updateProduct(prevState, formData) {
       sale_price: salePriceNumber != null && Number.isFinite(salePriceNumber) && salePriceNumber > 0 ? salePriceNumber : null,
       sale_starts_at: saleStartsAt || null,
       sale_ends_at: saleEndsAt || null,
+      product_type: parsed.data.productType || "physical",
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
@@ -2053,6 +2056,7 @@ const createSingleProductSchema = z.object({
       const idx = Number(value);
       return Number.isInteger(idx) && idx >= 0 && idx <= 2;
     }, "Invalid featured image selection"),
+  productType: z.enum(["physical", "treat"]).optional().default("physical"),
 });
 
 const MAX_BULK_PRODUCTS = 200;
@@ -2066,6 +2070,7 @@ const createBulkMappingSchema = z.object({
   stockQty: z.string().trim().optional().or(z.literal("")),
   imageUrl: z.string().trim().optional().or(z.literal("")),
   variations: z.string().trim().optional().or(z.literal("")),
+  productType: z.string().trim().optional().or(z.literal("")),
 });
 
 const bulkRowSchema = z.object({
@@ -2088,6 +2093,7 @@ const bulkRowSchema = z.object({
     price: z.number().nonnegative().optional().nullable(),
     stock_qty: z.number().int().nonnegative().optional(),
   })).optional(),
+  productType: z.enum(["physical", "treat"]).optional().default("physical"),
 });
 
 function parseCsvLine(line) {
@@ -2211,6 +2217,7 @@ export async function createVendorProducts(prevState, formData) {
       saleStartsAt: formData.get("saleStartsAt") || "",
       saleEndsAt: formData.get("saleEndsAt") || "",
       featuredImageIndex: formData.get("featuredImageIndex") || "",
+      productType: formData.get("productType") || "physical",
     };
 
     const parsedSingle = createSingleProductSchema.safeParse(rawSingle);
@@ -2379,6 +2386,7 @@ export async function createVendorProducts(prevState, formData) {
       sale_price: salePriceNumber != null && Number.isFinite(salePriceNumber) && salePriceNumber > 0 ? salePriceNumber : null,
       sale_starts_at: single.saleStartsAt || null,
       sale_ends_at: single.saleEndsAt || null,
+      product_type: single.productType || "physical",
       status: "approved",
       active: true,
       created_at: nowIso,
@@ -2593,6 +2601,7 @@ export async function createVendorProducts(prevState, formData) {
   const stockQtyIndex = getIndex(mapping.stockQty);
   const imageUrlIndex = getIndex(mapping.imageUrl);
   const variationsIndex = getIndex(mapping.variations);
+  const productTypeIndex = getIndex(mapping.productType);
 
   const rows = [];
 
@@ -2676,6 +2685,14 @@ export async function createVendorProducts(prevState, formData) {
       }
     }
 
+    let productTypeValue = "physical";
+    if (productTypeIndex >= 0 && productTypeIndex < values.length) {
+      const raw = (values[productTypeIndex] || "").trim().toLowerCase();
+      if (raw === "treat" || raw === "treats") {
+        productTypeValue = "treat";
+      }
+    }
+
     const candidate = {
       name: nameValue,
       description: descriptionValue,
@@ -2685,6 +2702,7 @@ export async function createVendorProducts(prevState, formData) {
       stockQty: stockQtyNumber == null ? undefined : stockQtyNumber,
       imageUrl: imageUrlValue || undefined,
       variations: parsedVariations,
+      productType: productTypeValue,
     };
 
     const parsedRow = bulkRowSchema.safeParse(candidate);
@@ -2729,6 +2747,7 @@ export async function createVendorProducts(prevState, formData) {
     active: true,
     created_at: nowIso,
     updated_at: nowIso,
+    product_type: row.productType || "physical",
     product_code: generateProductCode(),
   }));
 

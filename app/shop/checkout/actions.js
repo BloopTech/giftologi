@@ -38,8 +38,8 @@ export async function processShopCheckout(prevState, formData) {
     const digitalAddress = formData.get("digitalAddress")?.trim();
     const notes = formData.get("notes")?.trim();
 
-    if (!firstName || !lastName || !email || !phone || !address || !city) {
-      return { success: false, error: "Please fill in all required fields." };
+    if (!firstName || !lastName || !email || !phone) {
+      return { success: false, error: "Please fill in all required contact fields." };
     }
 
     const supabase = await createClient();
@@ -90,7 +90,7 @@ export async function processShopCheckout(prevState, formData) {
     const productIds = cartItems.map((item) => item.product_id).filter(Boolean);
     const { data: products } = await adminClient
       .from("products")
-      .select("id, name, stock_qty, vendor_id, status, active, category_id, weight_kg")
+      .select("id, name, stock_qty, vendor_id, status, active, category_id, weight_kg, product_type")
       .in("id", productIds);
 
     const productMap = new Map((products || []).map((p) => [p.id, p]));
@@ -201,6 +201,17 @@ export async function processShopCheckout(prevState, formData) {
 
     const totalWeight = computeShipmentWeight(weightItems);
 
+    // Detect treat-only orders (all products are intangible treats) — skip shipping
+    const isTreatOnly = orderItemsPayload.every((item) => {
+      const p = productMap.get(item.product_id);
+      return p?.product_type === "treat";
+    });
+
+    // Physical orders require shipping address
+    if (!isTreatOnly && (!address || !city)) {
+      return { success: false, error: "Please provide a shipping address for physical products." };
+    }
+
     // Promo code evaluation (use first vendor for promo scope — promos are global anyway)
     let promoSummary = null;
     if (promoCode) {
@@ -256,9 +267,10 @@ export async function processShopCheckout(prevState, formData) {
       await adminClient.from("carts").delete().eq("id", cartId);
     }
 
+    const effectiveShippingFee = isTreatOnly ? 0 : (Number.isFinite(shippingFee) ? shippingFee : 0);
     const computedTotal =
       computedSubtotal +
-      (Number.isFinite(shippingFee) ? shippingFee : 0) +
+      effectiveShippingFee +
       (Number.isFinite(giftWrapFee) ? giftWrapFee : 0);
 
     const orderId = generateOrderId();
@@ -283,9 +295,11 @@ export async function processShopCheckout(prevState, formData) {
         shipping_city: city,
         shipping_region: shippingRegion,
         shipping_digital_address: digitalAddress,
-        shipping_fee: shippingFee,
+        shipping_fee: effectiveShippingFee,
         delivery_notes: notes,
         order_type: "storefront",
+        registry_id: null,
+        guest_browser_id: !user?.id ? guestBrowserId : null,
         promo_id: promoSummary?.id || null,
         promo_code: promoSummary?.code || null,
         promo_scope: promoSummary?.scope || null,
@@ -302,12 +316,12 @@ export async function processShopCheckout(prevState, formData) {
       return { success: false, error: "Failed to create order. Please try again." };
     }
 
-    if (Number.isFinite(giftWrapFee) || Number.isFinite(shippingFee)) {
+    if (Number.isFinite(giftWrapFee) || effectiveShippingFee > 0) {
       await adminClient.from("order_delivery_details").insert({
         order_id: order.id,
         gift_wrapping_fee: Number.isFinite(giftWrapFee) ? giftWrapFee : 0,
-        outbound_shipping_fee: Number.isFinite(shippingFee) ? shippingFee : 0,
-        courier_partner: Number.isFinite(shippingFee) ? "aramex" : null,
+        outbound_shipping_fee: effectiveShippingFee,
+        courier_partner: effectiveShippingFee > 0 ? "aramex" : null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });

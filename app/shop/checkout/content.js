@@ -18,9 +18,10 @@ import {
   Loader2,
   Store,
   Trash2,
+  Gift,
 } from "lucide-react";
 import { processShopCheckout, getShopAramexRateQuote } from "./actions";
-import { getGuestIdentifier } from "../../utils/guest";
+import { getOrCreateGuestBrowserId } from "../../utils/guest";
 import { computeShipmentWeight } from "../../utils/shipping/weights";
 
 const DEFAULT_SHIPPING_REGIONS = [
@@ -97,8 +98,15 @@ export default function ShopCheckoutContent({ userProfile = null }) {
     [allItems]
   );
 
+  // Detect treat-only carts (all items are intangible treats — skip shipping)
+  const isTreatOnly = useMemo(
+    () => allItems.length > 0 && allItems.every((i) => i.product_type === "treat"),
+    [allItems]
+  );
+
   const fallbackShippingFee = Number(selectedRegion?.fee) || 0;
-  const shippingFee = Number.isFinite(shippingQuote.amount) ? shippingQuote.amount : fallbackShippingFee;
+  const rawShippingFee = Number.isFinite(shippingQuote.amount) ? shippingQuote.amount : fallbackShippingFee;
+  const shippingFee = isTreatOnly ? 0 : rawShippingFee;
   const promoDiscount = promoState.applied ? Number(promoState.discount?.totalDiscount || 0) : 0;
   const discountedSubtotal = promoState.applied && Number.isFinite(promoState.discountedSubtotal)
     ? Number(promoState.discountedSubtotal)
@@ -180,7 +188,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
     setCartLoading(true);
     setCartError(null);
     try {
-      const gid = await getGuestIdentifier();
+      const gid = getOrCreateGuestBrowserId();
       if (gid) setGuestBrowserId(gid);
       const url = new URL("/api/shop/cart-details", window.location.origin);
       if (gid) url.searchParams.set("guestBrowserId", gid);
@@ -386,63 +394,78 @@ export default function ShopCheckoutContent({ userProfile = null }) {
               </div>
             </div>
 
-            {/* Shipping Address */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <MapPin className="size-5 text-[#A5914B]" />
-                Shipping Address
-              </h2>
-              <div className="space-y-4">
+            {isTreatOnly ? (
+              /* Treat-only order: no shipping needed */
+              <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex items-start gap-3">
+                <Gift className="size-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">Region *</label>
-                  <select id="region" name="region" required value={selectedRegion?.id || ""} onChange={handleRegionChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors bg-white">
-                    {shippingRegions.map((region) => (
-                      <option key={region.id} value={region.id}>{region.name} - {formatPrice(region.fee)} shipping</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {zonesState.loading ? "Loading delivery zones..."
-                      : zonesState.error ? "Using default shipping zones."
-                      : shippingQuote.loading ? "Calculating Aramex rate..."
-                      : shippingQuote.amount ? `Aramex rate: ${formatPrice(shippingQuote.amount)}`
-                      : shippingQuote.error ? "Aramex rate unavailable, using standard shipping."
-                      : "Enter your address to get an Aramex rate."}
+                  <p className="text-sm font-medium text-amber-900">Digital Treat — No Shipping Required</p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Your order contains only treats (intangible gifts). No shipping address or fee is needed. You will receive details via email after payment.
                   </p>
                 </div>
-                <div>
-                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City/Town *</label>
-                  <input type="text" id="city" name="city" required value={formData.city} onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors" placeholder="Accra" />
-                </div>
-                <div>
-                  <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Street Address *</label>
-                  <input type="text" id="address" name="address" required value={formData.address} onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors" placeholder="123 Main Street, East Legon" />
-                </div>
-                <div>
-                  <label htmlFor="digitalAddress" className="block text-sm font-medium text-gray-700 mb-1">Ghana Post Digital Address</label>
-                  <input type="text" id="digitalAddress" name="digitalAddress" value={formData.digitalAddress} onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors" placeholder="GA-123-4567" />
-                </div>
-                <div>
-                  <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">Delivery Notes (Optional)</label>
-                  <textarea id="notes" name="notes" rows={3} value={formData.notes} onChange={handleInputChange}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors resize-none" placeholder="Any special delivery instructions..." />
-                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Shipping Address */}
+                <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <MapPin className="size-5 text-[#A5914B]" />
+                    Shipping Address
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="region" className="block text-sm font-medium text-gray-700 mb-1">Region *</label>
+                      <select id="region" name="region" required value={selectedRegion?.id || ""} onChange={handleRegionChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors bg-white">
+                        {shippingRegions.map((region) => (
+                          <option key={region.id} value={region.id}>{region.name} - {formatPrice(region.fee)} shipping</option>
+                        ))}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {zonesState.loading ? "Loading delivery zones..."
+                          : zonesState.error ? "Using default shipping zones."
+                          : shippingQuote.loading ? "Calculating Aramex rate..."
+                          : shippingQuote.amount ? `Aramex rate: ${formatPrice(shippingQuote.amount)}`
+                          : shippingQuote.error ? "Aramex rate unavailable, using standard shipping."
+                          : "Enter your address to get an Aramex rate."}
+                      </p>
+                    </div>
+                    <div>
+                      <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City/Town *</label>
+                      <input type="text" id="city" name="city" required value={formData.city} onChange={handleInputChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors" placeholder="Accra" />
+                    </div>
+                    <div>
+                      <label htmlFor="address" className="block text-sm font-medium text-gray-700 mb-1">Street Address *</label>
+                      <input type="text" id="address" name="address" required value={formData.address} onChange={handleInputChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors" placeholder="123 Main Street, East Legon" />
+                    </div>
+                    <div>
+                      <label htmlFor="digitalAddress" className="block text-sm font-medium text-gray-700 mb-1">Ghana Post Digital Address</label>
+                      <input type="text" id="digitalAddress" name="digitalAddress" value={formData.digitalAddress} onChange={handleInputChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors" placeholder="GA-123-4567" />
+                    </div>
+                    <div>
+                      <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">Delivery Notes (Optional)</label>
+                      <textarea id="notes" name="notes" rows={3} value={formData.notes} onChange={handleInputChange}
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors resize-none" placeholder="Any special delivery instructions..." />
+                    </div>
+                  </div>
+                </div>
 
-            {/* Shipping Info */}
-            <div className="bg-blue-50 rounded-2xl border border-blue-200 p-4 flex items-start gap-3">
-              <Truck className="size-5 text-blue-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-900">Delivery by Aramex</p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Estimated delivery: 2-5 business days depending on your location. You will receive tracking information via email.
-                </p>
-              </div>
-            </div>
+                {/* Shipping Info */}
+                <div className="bg-blue-50 rounded-2xl border border-blue-200 p-4 flex items-start gap-3">
+                  <Truck className="size-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Delivery by Aramex</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Estimated delivery: 2-5 business days depending on your location. You will receive tracking information via email.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Right Column - Order Summary */}

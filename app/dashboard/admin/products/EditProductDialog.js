@@ -249,6 +249,24 @@ export default function EditProductDialog({
 
               <div className="space-y-1">
                 <label className="text-xs font-medium text-[#0A0A0A]">
+                  Product Type
+                </label>
+                <select
+                  name="productType"
+                  defaultValue={product.product_type || "physical"}
+                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  disabled={editPending}
+                >
+                  <option value="physical">Physical Product</option>
+                  <option value="treat">Treat (Intangible Service)</option>
+                </select>
+                <p className="text-[11px] text-[#717182]">
+                  Treats are intangible services like spa visits, cinema tickets, etc.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-[#0A0A0A]">
                   Sale Price (GHS)
                 </label>
                 <input

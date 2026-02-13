@@ -1,9 +1,6 @@
+"use server";
 import VendorSettingsContent from "./content";
 
-export const metadata = {
-  title: "Settings | Vendor Dashboard",
-};
-
-export default function VendorSettingsPage() {
+export default async function VendorSettingsPage() {
   return <VendorSettingsContent />;
 }

@@ -563,6 +563,25 @@ export function AddProductDialog({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
               <div className="flex flex-col gap-1.5">
                 <label className="text-[#374151] text-sm font-medium">
+                  Product Type
+                </label>
+                <select
+                  name="product_type"
+                  defaultValue={state.values?.product_type || "physical"}
+                  className="w-full h-[38px] px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                >
+                  <option value="physical">Physical Product</option>
+                  <option value="treat">Treat (Intangible Service)</option>
+                </select>
+                <span className="text-[11px] text-[#6B7280]">
+                  Treats are intangible services like spa visits, cinema tickets, etc.
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">
                   Selling Price(GHS) <span className="text-red-500">*</span>
                 </label>
                 <input

@@ -92,7 +92,7 @@ export default function ContactInfoTab(props) {
               <button
                 type="button"
                 onClick={handleEditSettings}
-                className="inline-flex items-center justify-center gap-1 rounded-full border border-primary bg-primary px-4 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-[#3979D2] cursor-pointer"
+                className="inline-flex items-center justify-center gap-1 rounded-full border border-primary bg-primary px-4 py-1.5 text-[11px] font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
               >
                 <Pencil className="size-4" />
                 <span>Edit Details</span>

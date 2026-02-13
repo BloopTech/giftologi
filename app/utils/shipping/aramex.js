@@ -9,6 +9,8 @@ const DEFAULT_LOCATION_URL =
   "https://ws.aramex.net/ShippingAPI.V2/Location/Service_1_0.svc";
 const DEFAULT_STATES_SOAP_ACTION =
   "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/FetchStates";
+const DEFAULT_TRACK_SOAP_ACTION =
+  "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/TrackShipments";
 
 const getRequiredEnv = (key) => {
   const value = process.env[key];
@@ -236,7 +238,8 @@ export const createAramexShipment = async ({ shipper, consignee, shipment, refer
 
 export const trackAramexShipment = async ({ trackingNumber }) => {
   const trackingUrl = getRequiredEnv("ARAMEX_TRACKING_URL");
-  const soapAction = process.env.ARAMEX_TRACK_SOAP_ACTION;
+  const soapAction =
+    process.env.ARAMEX_TRACK_SOAP_ACTION || DEFAULT_TRACK_SOAP_ACTION;
 
   const body = `
     <TrackShipments xmlns="http://ws.aramex.net/ShippingAPI/v1/">

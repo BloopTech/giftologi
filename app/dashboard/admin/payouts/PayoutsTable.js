@@ -739,9 +739,9 @@ export default function PayoutsTable() {
                   disabled={updatePending || !canApproveSelected}
                   className={cx(
                     "inline-flex items-center justify-center rounded-full border px-6 py-2 text-xs font-medium cursor-pointer",
-                    "border-[#3979D2] bg-[#3979D2] text-white hover:bg-white hover:text-[#3979D2]",
+                    "border-primary bg-primary text-white hover:bg-white hover:text-primary",
                     (updatePending || !canApproveSelected) &&
-                      "opacity-60 cursor-not-allowed hover:bg-[#3979D2] hover:text-white"
+                      "opacity-60 cursor-not-allowed hover:bg-primary hover:text-white"
                   )}
                 >
                   Approve Payout
@@ -848,10 +848,10 @@ export default function PayoutsTable() {
             }
             disabled={!canPrevious}
             className={cx(
-              "flex h-7 w-7 items-center justify-center rounded-full border text-[#3979D2]",
+              "flex h-7 w-7 items-center justify-center rounded-full border text-primary",
               !canPrevious
                 ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                : "border-[#3979D2] bg-white hover:bg-[#3979D2] hover:text-white cursor-pointer"
+                : "border-primary bg-white hover:bg-primary hover:text-white cursor-pointer"
             )}
           >
             <ChevronLeft className="size-4" />
@@ -866,10 +866,10 @@ export default function PayoutsTable() {
             }
             disabled={!canNext}
             className={cx(
-              "flex h-7 w-7 items-center justify-center rounded-full border text-[#3979D2]",
+              "flex h-7 w-7 items-center justify-center rounded-full border text-primary",
               !canNext
                 ? "border-gray-200 text-gray-300 cursor-not-allowed"
-                : "border-[#3979D2] bg-white hover:bg-[#3979D2] hover:text-white cursor-pointer"
+                : "border-primary bg-white hover:bg-primary hover:text-white cursor-pointer"
             )}
           >
             <ChevronRight className="size-4" />

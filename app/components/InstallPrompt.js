@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { X, Download, Smartphone } from "lucide-react";
+
+const DISMISS_KEY = "pwa-install-dismissed";
+const SESSION_KEY = "pwa-install-shown-this-session";
+const DISMISS_DAYS = 7;
 
 export default function InstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
@@ -9,6 +13,9 @@ export default function InstallPrompt() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
   const [showIOSGuide, setShowIOSGuide] = useState(false);
+
+  const dismissedRef = useRef(false);
+  const timerRef = useRef(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -22,11 +29,20 @@ export default function InstallPrompt() {
       return;
     }
 
-    // Check if user dismissed previously (respect for 7 days)
-    const dismissed = localStorage.getItem("pwa-install-dismissed");
+    // Check if user dismissed previously (respect for N days)
+    const dismissed = localStorage.getItem(DISMISS_KEY);
     if (dismissed) {
       const dismissedAt = parseInt(dismissed, 10);
-      if (Date.now() - dismissedAt < 7 * 24 * 60 * 60 * 1000) return;
+      if (Date.now() - dismissedAt < DISMISS_DAYS * 24 * 60 * 60 * 1000) {
+        dismissedRef.current = true;
+        return;
+      }
+    }
+
+    // Only show once per browser session to avoid repeated prompts on navigation
+    if (sessionStorage.getItem(SESSION_KEY) === "1") {
+      dismissedRef.current = true;
+      return;
     }
 
     // Detect iOS
@@ -39,16 +55,20 @@ export default function InstallPrompt() {
       e.preventDefault();
       setDeferredPrompt(e);
       // Show our custom prompt after a short delay (don't interrupt page load)
-      setTimeout(() => setShowPrompt(true), 3000);
+      timerRef.current = setTimeout(() => {
+        if (!dismissedRef.current) setShowPrompt(true);
+      }, 3000);
     };
 
     window.addEventListener("beforeinstallprompt", handler);
 
     // On iOS, show our custom guide after delay if not installed
     if (isiOS) {
-      const timer = setTimeout(() => setShowPrompt(true), 5000);
+      timerRef.current = setTimeout(() => {
+        if (!dismissedRef.current) setShowPrompt(true);
+      }, 5000);
       return () => {
-        clearTimeout(timer);
+        if (timerRef.current) clearTimeout(timerRef.current);
         window.removeEventListener("beforeinstallprompt", handler);
       };
     }
@@ -62,6 +82,7 @@ export default function InstallPrompt() {
     window.addEventListener("appinstalled", installedHandler);
 
     return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
       window.removeEventListener("beforeinstallprompt", handler);
       window.removeEventListener("appinstalled", installedHandler);
     };
@@ -90,9 +111,12 @@ export default function InstallPrompt() {
   }, [deferredPrompt, isIOS]);
 
   const handleDismiss = useCallback(() => {
+    dismissedRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
     setShowPrompt(false);
     setShowIOSGuide(false);
-    localStorage.setItem("pwa-install-dismissed", String(Date.now()));
+    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    sessionStorage.setItem(SESSION_KEY, "1");
   }, []);
 
   if (isInstalled || !showPrompt) return null;

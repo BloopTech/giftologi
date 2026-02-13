@@ -13,6 +13,10 @@ export const eventPublicRoutes = [
   `/storefront/:vendor_slug/:product_code`,
   `/storefront/:vendor_slug/checkout`,
   `/search`,
+  `/gift-guides`,
+  `/gift-guides/:slug`,
+  `/treats`,
+  `/support`,
 ];
 
 export const authRoutes = [

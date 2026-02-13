@@ -19,6 +19,7 @@ export default function RichTextEditor({ value, onChange, className, placeholder
       const html = editor.getHTML();
       if (onChange) onChange(html);
     },
+    immediatelyRender: true
   });
 
   useEffect(() => {
@@ -98,7 +99,7 @@ function ToolbarButton({ editor, command, label }) {
       className={cx(
         "px-2 py-1 rounded-full border text-[10px] cursor-pointer",
         isActive()
-          ? "bg-[#3979D2] border-[#3979D2] text-white"
+          ? "bg-primary border-primary text-white"
           : "border-[#E5E7EB] text-[#4B5563] bg-white hover:bg-[#F3F4F6]"
       )}
     >
