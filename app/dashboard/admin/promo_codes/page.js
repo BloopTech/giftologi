@@ -1,8 +1,13 @@
 "use server";
 
 import React from "react";
+import { PromoCodesProvider } from "./context";
 import PromoCodesContent from "./content";
 
 export default async function PromoCodesPage() {
-  return <PromoCodesContent />;
+  return (
+    <PromoCodesProvider>
+      <PromoCodesContent />
+    </PromoCodesProvider>
+  );
 }

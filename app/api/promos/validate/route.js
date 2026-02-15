@@ -25,6 +25,7 @@ export async function POST(request) {
       unitPrice,
       giftWrapOptionId,
       guestBrowserId,
+      deviceFingerprint,
     } = body || {};
 
     const trimmedCode = typeof code === "string" ? code.trim() : "";
@@ -95,7 +96,7 @@ export async function POST(request) {
         await Promise.all([
           adminClient
             .from("products")
-            .select("id, category_id")
+            .select("id, category_id, vendor_id, is_shippable, product_type")
             .in("id", productIds),
           adminClient
             .from("product_categories")
@@ -136,10 +137,13 @@ export async function POST(request) {
         promoItems.push({
           itemId: item.id,
           productId: item.product_id,
+          vendorId: product?.vendor_id || vendorId,
           categoryIds,
           subtotal: Number(item?.total_price || 0),
           giftWrapFee: roundCurrency(wrapFee * quantityValue),
           quantity: quantityValue,
+          isShippable: product?.is_shippable !== false,
+          productType: product?.product_type || "physical",
         });
       });
     } else {
@@ -152,7 +156,7 @@ export async function POST(request) {
 
       const { data: product } = await adminClient
         .from("products")
-        .select("id, category_id")
+        .select("id, category_id, vendor_id, is_shippable, product_type")
         .eq("id", productId)
         .eq("vendor_id", vendorId)
         .maybeSingle();
@@ -190,10 +194,13 @@ export async function POST(request) {
       promoItems.push({
         itemId: productId,
         productId,
+        vendorId: product.vendor_id || vendorId,
         categoryIds,
         subtotal,
         giftWrapFee: roundCurrency(giftWrapFee),
         quantity: Number(quantity || 1),
+        isShippable: product.is_shippable !== false,
+        productType: product.product_type || "physical",
       });
     }
 
@@ -203,6 +210,7 @@ export async function POST(request) {
       vendorId,
       userId,
       guestBrowserId: userId ? null : guestBrowserId || null,
+      deviceFingerprint: deviceFingerprint || null,
       items: promoItems,
     });
 

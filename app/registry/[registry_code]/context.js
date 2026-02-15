@@ -71,25 +71,13 @@ const getGuestIdentifier = async () => {
   return getOrCreateGuestBrowserId();
 };
 
-const DEFAULT_SHIPPING_REGIONS = [
-  { id: "accra", name: "Greater Accra", fee: 25 },
-  { id: "kumasi", name: "Ashanti Region", fee: 35 },
-  { id: "takoradi", name: "Western Region", fee: 40 },
-  { id: "tamale", name: "Northern Region", fee: 50 },
-  { id: "cape_coast", name: "Central Region", fee: 35 },
-  { id: "ho", name: "Volta Region", fee: 40 },
-  { id: "other", name: "Other Regions", fee: 55 },
-];
-
-const DEFAULT_SHIPPING_REGION_ID = DEFAULT_SHIPPING_REGIONS[0]?.id || "";
-
 const getDerivedShippingRegionId = (shippingAddress, regions) => {
   const city = String(shippingAddress?.city || "").toLowerCase();
   const state = String(shippingAddress?.stateProvince || "").toLowerCase();
   const combined = `${city} ${state}`.trim();
   const source = Array.isArray(regions) && regions.length > 0 ? regions : [];
 
-  if (!combined) return source[0]?.id || DEFAULT_SHIPPING_REGION_ID;
+  if (!combined) return source[0]?.id || "";
 
   const match = source.find((region) => {
     const name = String(region?.name || "").toLowerCase();
@@ -97,7 +85,7 @@ const getDerivedShippingRegionId = (shippingAddress, regions) => {
     return combined.includes(name) || name.includes(combined);
   });
 
-  return match?.id || source[0]?.id || DEFAULT_SHIPPING_REGION_ID;
+  return match?.id || source[0]?.id || "";
 };
 
 // Purchase flow steps
@@ -142,11 +130,9 @@ export const GuestRegistryCodeProvider = ({
     initialShippingAddress,
   );
   const [categories, setCategories] = useState(initialCategories || []);
-  const [shippingRegions, setShippingRegions] = useState(
-    DEFAULT_SHIPPING_REGIONS
-  );
+  const [shippingRegions, setShippingRegions] = useState([]);
   const [zonesState, setZonesState] = useState({
-    loading: false,
+    loading: true,
     error: null,
   });
 

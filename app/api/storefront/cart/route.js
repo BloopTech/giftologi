@@ -45,7 +45,7 @@ const fetchCartPayload = async (adminClient, cartId) => {
   const { data: items, error } = await adminClient
     .from("cart_items")
     .select(
-      "id, cart_id, product_id, registry_item_id, quantity, price, total_price, variation, wrapping, gift_wrap_option_id, created_at, product:products(id, name, price, weight_kg, service_charge, stock_qty, images, product_code, vendor_id, sale_price, sale_starts_at, sale_ends_at, vendor:vendors(id, slug, business_name, logo, logo_url))"
+      "id, cart_id, product_id, registry_item_id, quantity, price, total_price, variation, wrapping, gift_wrap_option_id, created_at, product:products(id, name, price, weight_kg, service_charge, stock_qty, images, product_code, vendor_id, product_type, is_shippable, sale_price, sale_starts_at, sale_ends_at, vendor:vendors(id, slug, business_name, logo, logo_url))"
     )
     .eq("cart_id", cartId)
     .order("created_at", { ascending: true });

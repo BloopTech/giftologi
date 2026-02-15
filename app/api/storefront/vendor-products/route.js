@@ -49,6 +49,8 @@ export async function GET(req) {
         stock_qty,
         status,
         category_id,
+        product_type,
+        is_shippable,
         product_categories (category_id)
       `
       )

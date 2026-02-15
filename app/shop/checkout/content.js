@@ -22,17 +22,9 @@ import {
 } from "lucide-react";
 import { processShopCheckout, getShopAramexRateQuote } from "./actions";
 import { getOrCreateGuestBrowserId } from "../../utils/guest";
+import { getDeviceFingerprint } from "../../utils/fingerprint";
 import { computeShipmentWeight } from "../../utils/shipping/weights";
 
-const DEFAULT_SHIPPING_REGIONS = [
-  { id: "accra", name: "Greater Accra", fee: 25 },
-  { id: "kumasi", name: "Ashanti Region", fee: 35 },
-  { id: "takoradi", name: "Western Region", fee: 40 },
-  { id: "tamale", name: "Northern Region", fee: 50 },
-  { id: "cape_coast", name: "Central Region", fee: 35 },
-  { id: "ho", name: "Volta Region", fee: 40 },
-  { id: "other", name: "Other Regions", fee: 55 },
-];
 
 const formatPrice = (value) => {
   if (value === null || value === undefined) return "GHS 0.00";
@@ -42,19 +34,12 @@ const formatPrice = (value) => {
 };
 
 export default function ShopCheckoutContent({ userProfile = null }) {
-  const [shippingRegions, setShippingRegions] = useState(DEFAULT_SHIPPING_REGIONS);
-  const [selectedRegion, setSelectedRegion] = useState(() => {
-    if (userProfile?.address_state) {
-      const match = DEFAULT_SHIPPING_REGIONS.find(
-        (r) => r.name.toLowerCase() === userProfile.address_state.toLowerCase()
-      );
-      if (match) return match;
-    }
-    return DEFAULT_SHIPPING_REGIONS[0] || null;
-  });
-  const [zonesState, setZonesState] = useState({ loading: false, error: null });
+  const [shippingRegions, setShippingRegions] = useState([]);
+  const [selectedRegion, setSelectedRegion] = useState(null);
+  const [zonesState, setZonesState] = useState({ loading: true, error: null });
   const [shippingQuote, setShippingQuote] = useState({ amount: null, loading: false, error: null });
   const [guestBrowserId, setGuestBrowserId] = useState("");
+  const [deviceFingerprint, setDeviceFingerprint] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [promoState, setPromoState] = useState({
     applied: false, loading: false, error: null,
@@ -93,20 +78,21 @@ export default function ShopCheckoutContent({ userProfile = null }) {
     [allItems]
   );
 
-  const totalWeight = useMemo(
-    () => computeShipmentWeight(allItems.map((i) => ({ quantity: i.quantity, weight_kg: i.weight_kg ?? null }))),
+  const shippableItems = useMemo(
+    () => allItems.filter((i) => i.is_shippable !== false),
     [allItems]
   );
 
-  // Detect treat-only carts (all items are intangible treats — skip shipping)
-  const isTreatOnly = useMemo(
-    () => allItems.length > 0 && allItems.every((i) => i.product_type === "treat"),
-    [allItems]
+  const totalWeight = useMemo(
+    () => computeShipmentWeight(shippableItems.map((i) => ({ quantity: i.quantity, weight_kg: i.weight_kg ?? null }))),
+    [shippableItems]
   );
+
+  const hasShippableItems = shippableItems.length > 0;
 
   const fallbackShippingFee = Number(selectedRegion?.fee) || 0;
   const rawShippingFee = Number.isFinite(shippingQuote.amount) ? shippingQuote.amount : fallbackShippingFee;
-  const shippingFee = isTreatOnly ? 0 : rawShippingFee;
+  const shippingFee = hasShippableItems ? rawShippingFee : 0;
   const promoDiscount = promoState.applied ? Number(promoState.discount?.totalDiscount || 0) : 0;
   const discountedSubtotal = promoState.applied && Number.isFinite(promoState.discountedSubtotal)
     ? Number(promoState.discountedSubtotal)
@@ -140,7 +126,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
       const response = await fetch("/api/shop/promos/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, guestBrowserId: guestBrowserId || null }),
+        body: JSON.stringify({ code, guestBrowserId: guestBrowserId || null, deviceFingerprint: deviceFingerprint || null }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -164,7 +150,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
         promo: null, discount: null, discountedSubtotal: null, discountedGiftWrapFee: null,
       });
     }
-  }, [promoCode, guestBrowserId]);
+  }, [promoCode, guestBrowserId, deviceFingerprint]);
 
   const resolveSelectedRegion = useCallback((regions, current) => {
     if (!Array.isArray(regions) || regions.length === 0) return current || null;
@@ -190,6 +176,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
     try {
       const gid = getOrCreateGuestBrowserId();
       if (gid) setGuestBrowserId(gid);
+      getDeviceFingerprint().then((fp) => { if (fp) setDeviceFingerprint(fp); });
       const url = new URL("/api/shop/cart-details", window.location.origin);
       if (gid) url.searchParams.set("guestBrowserId", gid);
       const res = await fetch(url.toString());
@@ -394,8 +381,8 @@ export default function ShopCheckoutContent({ userProfile = null }) {
               </div>
             </div>
 
-            {isTreatOnly ? (
-              /* Treat-only order: no shipping needed */
+            {!hasShippableItems ? (
+              /* No shippable items: no shipping needed */
               <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex items-start gap-3">
                 <Gift className="size-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
@@ -607,6 +594,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
 
               {/* Hidden fields */}
               <input type="hidden" name="guestBrowserId" value={guestBrowserId} />
+              <input type="hidden" name="deviceFingerprint" value={deviceFingerprint} />
               <input type="hidden" name="subtotal" value={subtotal} />
               <input type="hidden" name="shippingFee" value={shippingFee} />
               <input type="hidden" name="shippingRegion" value={selectedRegion?.name || ""} />

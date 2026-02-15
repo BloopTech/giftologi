@@ -241,6 +241,8 @@ function useManageProductsProviderValue() {
             sale_price,
             sale_starts_at,
             sale_ends_at,
+            product_type,
+            is_shippable,
             featured_products (
               id,
               active
@@ -324,6 +326,11 @@ function useManageProductsProviderValue() {
               rejection_reason: row.rejection_reason || null,
               vendorId: row.vendor_id || null,
               isFeatured,
+              product_type: row.product_type || "physical",
+              is_shippable: row.is_shippable !== false,
+              sale_price: row.sale_price ?? null,
+              sale_starts_at: row.sale_starts_at ?? null,
+              sale_ends_at: row.sale_ends_at ?? null,
               __raw: row,
             };
           });

@@ -20,6 +20,7 @@ const initialState = {
   errors: {
     productId: [],
     serviceCharge: [],
+    productType: [],
   },
   values: {},
   data: {},
@@ -32,6 +33,7 @@ export default function ApproveProductDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [serviceCharge, setServiceCharge] = useState("");
+  const [productType, setProductType] = useState("");
   const [state, formAction, pending] = useActionState(
     approveProduct,
     initialState,
@@ -48,6 +50,7 @@ export default function ApproveProductDialog({
       onSuccess?.(state.data);
       setOpen(false);
       setServiceCharge("");
+      setProductType("");
     } else if (hasErrors) {
       toast.error(state.message);
     }
@@ -55,14 +58,19 @@ export default function ApproveProductDialog({
 
   useEffect(() => {
     if (!open) return;
-    if (product?.serviceCharge == null) return;
-    setServiceCharge(String(product.serviceCharge));
-  }, [open, product?.serviceCharge]);
+    if (product?.serviceCharge != null) {
+      setServiceCharge(String(product.serviceCharge));
+    }
+    if (product?.product_type) {
+      setProductType(product.product_type);
+    }
+  }, [open, product?.serviceCharge, product?.product_type]);
 
   const handleOpenChange = (nextOpen) => {
     setOpen(nextOpen);
     if (!nextOpen) {
       setServiceCharge("");
+      setProductType("");
     }
   };
 
@@ -89,6 +97,40 @@ export default function ApproveProductDialog({
               <p className="text-[11px] text-[#9CA3AF]">
                 {product.vendorName || "—"}
               </p>
+            </div>
+            <div className="space-y-1">
+              <label
+                htmlFor="approve-product-type"
+                className="text-xs font-medium text-[#0A0A0A]"
+              >
+                Product Type <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="approve-product-type"
+                name="productType"
+                value={productType}
+                onChange={(event) => setProductType(event.target.value)}
+                className={cx(
+                  "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
+                  "border-[#D6D6D6] text-[#0A0A0A]",
+                  focusInput,
+                  state.errors?.productType?.length ? hasErrorInput : "",
+                )}
+                disabled={pending}
+                required
+              >
+                <option value="" disabled>
+                  Select product type
+                </option>
+                <option value="physical">Physical Product</option>
+                <option value="treat">Treat (Intangible Service)</option>
+              </select>
+              {state.errors?.productType?.length ? (
+                <div className="flex items-center gap-2 text-[11px] text-red-600">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  <span>{state.errors.productType[0]}</span>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-1">
               <label
@@ -129,7 +171,7 @@ export default function ApproveProductDialog({
               ) : null}
             </div>
 
-            {state.message && hasErrors && !state.errors?.serviceCharge?.length ? (
+            {state.message && hasErrors && !state.errors?.serviceCharge?.length && !state.errors?.productType?.length ? (
               <div className="rounded-md bg-red-50 p-3 text-[11px] text-red-700">
                 {state.message}
               </div>
@@ -146,11 +188,11 @@ export default function ApproveProductDialog({
               </button>
               <button
                 type="submit"
-                disabled={pending || !serviceCharge.trim()}
+                disabled={pending || !serviceCharge.trim() || !productType}
                 className={cx(
                   "inline-flex items-center justify-center rounded-full border px-6 py-2 text-xs font-medium cursor-pointer",
                   "border-[#6EA30B] bg-[#6EA30B] text-white hover:bg-white hover:text-[#6EA30B]",
-                  (pending || !serviceCharge.trim()) &&
+                  (pending || !serviceCharge.trim() || !productType) &&
                     "opacity-60 cursor-not-allowed hover:bg-[#6EA30B] hover:text-white",
                 )}
               >

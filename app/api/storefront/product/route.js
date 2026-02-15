@@ -68,6 +68,8 @@ export async function GET(req) {
         sale_price,
         sale_starts_at,
         sale_ends_at,
+        product_type,
+        is_shippable,
         category:categories!Products_category_id_fkey(id, name, slug)
       `
       )

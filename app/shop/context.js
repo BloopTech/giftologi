@@ -133,6 +133,8 @@ const mapProduct = (product) => {
       verified: vendor.verified,
       status: vendor.shop_status,
     },
+    product_type: product?.product_type || "physical",
+    is_shippable: product?.is_shippable !== false,
   };
 };
 
@@ -340,6 +342,8 @@ export function ShopProvider({
             sale_price,
             sale_starts_at,
             sale_ends_at,
+            product_type,
+            is_shippable,
             product_categories (category_id),
             vendor:vendors!inner(
               id,

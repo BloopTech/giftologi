@@ -631,6 +631,24 @@ export default function CreateAllVendorProducts(props) {
                       </select>
                     </div>
 
+                    <div className="space-y-1">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name="isShippable"
+                          value="true"
+                          defaultChecked={createState?.values?.isShippable !== "false"}
+                          className="accent-primary h-4 w-4"
+                        />
+                        <span className="text-xs font-medium text-[#0A0A0A]">
+                          Shippable
+                        </span>
+                      </label>
+                      <p className="text-[11px] text-[#717182]">
+                        Uncheck if this product does not require physical shipping. Shippable products incur Aramex shipping costs.
+                      </p>
+                    </div>
+
                     <div className="md:col-span-2 space-y-1">
                       <label
                         htmlFor="product-description"

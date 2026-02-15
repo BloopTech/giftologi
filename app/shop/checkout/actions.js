@@ -26,6 +26,7 @@ export async function processShopCheckout(prevState, formData) {
     const shippingRegion = formData.get("shippingRegion");
     const total = parseFloat(formData.get("total") || "0");
     const guestBrowserId = formData.get("guestBrowserId")?.trim() || null;
+    const deviceFingerprint = formData.get("deviceFingerprint")?.trim() || null;
     const promoCode = formData.get("promoCode")?.trim() || "";
 
     const firstName = formData.get("firstName")?.trim();
@@ -90,7 +91,7 @@ export async function processShopCheckout(prevState, formData) {
     const productIds = cartItems.map((item) => item.product_id).filter(Boolean);
     const { data: products } = await adminClient
       .from("products")
-      .select("id, name, stock_qty, vendor_id, status, active, category_id, weight_kg, product_type")
+      .select("id, name, stock_qty, vendor_id, status, active, category_id, weight_kg, product_type, is_shippable")
       .in("id", productIds);
 
     const productMap = new Map((products || []).map((p) => [p.id, p]));
@@ -169,18 +170,23 @@ export async function processShopCheckout(prevState, formData) {
       ].filter(Boolean);
 
       totalPieces += Number(item.quantity || 0);
-      weightItems.push({
-        quantity: item.quantity || 0,
-        weight_kg: product.weight_kg ?? null,
-      });
+      if (product.is_shippable !== false) {
+        weightItems.push({
+          quantity: item.quantity || 0,
+          weight_kg: product.weight_kg ?? null,
+        });
+      }
 
       promoItems.push({
         itemId: item.id,
         productId: item.product_id,
+        vendorId: product.vendor_id || null,
         categoryIds,
         subtotal: itemTotal,
         giftWrapFee: wrapFee * (item.quantity || 0),
         quantity: item.quantity || 1,
+        isShippable: product.is_shippable !== false,
+        productType: product.product_type || "physical",
       });
 
       orderItemsPayload.push({
@@ -201,15 +207,15 @@ export async function processShopCheckout(prevState, formData) {
 
     const totalWeight = computeShipmentWeight(weightItems);
 
-    // Detect treat-only orders (all products are intangible treats) — skip shipping
-    const isTreatOnly = orderItemsPayload.every((item) => {
+    // Detect whether any items require shipping
+    const hasShippableItems = orderItemsPayload.some((item) => {
       const p = productMap.get(item.product_id);
-      return p?.product_type === "treat";
+      return p?.is_shippable !== false;
     });
 
-    // Physical orders require shipping address
-    if (!isTreatOnly && (!address || !city)) {
-      return { success: false, error: "Please provide a shipping address for physical products." };
+    // Shippable orders require shipping address
+    if (hasShippableItems && (!address || !city)) {
+      return { success: false, error: "Please provide a shipping address for shippable products." };
     }
 
     // Promo code evaluation (use first vendor for promo scope — promos are global anyway)
@@ -222,6 +228,7 @@ export async function processShopCheckout(prevState, formData) {
         vendorId: firstVendorId,
         userId: user?.id || null,
         guestBrowserId,
+        deviceFingerprint,
         items: promoItems,
       });
 
@@ -267,7 +274,7 @@ export async function processShopCheckout(prevState, formData) {
       await adminClient.from("carts").delete().eq("id", cartId);
     }
 
-    const effectiveShippingFee = isTreatOnly ? 0 : (Number.isFinite(shippingFee) ? shippingFee : 0);
+    const effectiveShippingFee = !hasShippableItems ? 0 : (Number.isFinite(shippingFee) ? shippingFee : 0);
     const computedTotal =
       computedSubtotal +
       effectiveShippingFee +
@@ -300,6 +307,7 @@ export async function processShopCheckout(prevState, formData) {
         order_type: "storefront",
         registry_id: null,
         guest_browser_id: !user?.id ? guestBrowserId : null,
+        device_fingerprint: deviceFingerprint || null,
         promo_id: promoSummary?.id || null,
         promo_code: promoSummary?.code || null,
         promo_scope: promoSummary?.scope || null,
@@ -391,6 +399,7 @@ export async function processShopCheckout(prevState, formData) {
         order_id: order.id,
         user_id: user?.id || null,
         guest_browser_id: user?.id ? null : guestBrowserId || null,
+        device_fingerprint: deviceFingerprint || null,
         amount: promoSummary.discount || 0,
         meta: {
           code: promoSummary.code,

@@ -1137,6 +1137,24 @@ export default function VendorProductsContent() {
               </div>
 
               <div className="flex flex-col gap-1.5">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="is_shippable"
+                    value="true"
+                    defaultChecked={selectedProduct?.is_shippable !== false}
+                    className="accent-primary h-4 w-4"
+                  />
+                  <span className="text-[#374151] text-sm font-medium">
+                    Shippable
+                  </span>
+                </label>
+                <span className="text-[11px] text-[#6B7280]">
+                  Uncheck if this product does not require physical shipping.
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
                 <label className="text-[#374151] text-sm font-medium">
                   Description
                 </label>

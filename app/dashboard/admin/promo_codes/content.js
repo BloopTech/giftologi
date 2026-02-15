@@ -2,6 +2,7 @@
 
 import React, {
   startTransition,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -19,8 +20,8 @@ import {
 } from "@/app/components/Dialog";
 import { Switch } from "@/app/components/Switch";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
-import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
-import { PROMO_SCOPES } from "../../../utils/promos";
+import CascadingCategoryPicker from "@/app/components/CascadingCategoryPicker";
+import { usePromoCodes } from "./context";
 import { createPromoCode, updatePromoCode } from "./action";
 
 const initialCreateState = {
@@ -76,39 +77,53 @@ const formatDate = (value) => {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-GH", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  return (
+    date.toLocaleString("en-GH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+      timeZone: "UTC",
+    }) + " GMT"
+  );
 };
 
 const toInputDate = (value) => {
   if (!value) return "";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
-  return date.toISOString().slice(0, 10);
+  // Format as YYYY-MM-DDThh:mm in UTC for datetime-local input
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  const h = String(date.getUTCHours()).padStart(2, "0");
+  const min = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d}T${h}:${min}`;
 };
 
-const getTodayString = () => {
-  const today = new Date();
-  return today.toISOString().slice(0, 10);
+const getNowUTCString = () => {
+  const now = new Date();
+  const y = now.getUTCFullYear();
+  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(now.getUTCDate()).padStart(2, "0");
+  const h = String(now.getUTCHours()).padStart(2, "0");
+  const min = String(now.getUTCMinutes()).padStart(2, "0");
+  return `${y}-${m}-${d}T${h}:${min}`;
 };
 
-const buildTargetMap = (targets) => {
-  const map = new Map();
-  (targets || []).forEach((target) => {
-    if (!target?.promo_id) return;
-    const existing = map.get(target.promo_id) || {
-      productIds: new Set(),
-      categoryIds: new Set(),
-    };
-    if (target.product_id) existing.productIds.add(target.product_id);
-    if (target.category_id) existing.categoryIds.add(target.category_id);
-    map.set(target.promo_id, existing);
-  });
-  return map;
-};
+const SHIPPABLE_OPTIONS = [
+  { value: "any", label: "Any product" },
+  { value: "shippable", label: "Shippable only" },
+  { value: "non_shippable", label: "Non-shippable only" },
+];
+
+const PRODUCT_TYPE_OPTIONS = [
+  { value: "any", label: "Any type" },
+  { value: "physical", label: "Physical only" },
+  { value: "treat", label: "Treat only" },
+];
 
 const getPromoStatus = (promo) => {
   if (!promo?.active) {
@@ -131,15 +146,19 @@ const sortByName = (list) =>
     String(a?.name || "").localeCompare(String(b?.name || "")),
   );
 
-const promoStepLabels = ["Details", "Limits", "Categories", "Targets"];
+const promoStepLabels = ["Details", "Limits", "Filters", "Categories", "Targets"];
 
 export default function PromoCodesContent() {
-  const [promos, setPromos] = useState([]);
-  const [promoTargets, setPromoTargets] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    promos,
+    targetMap,
+    categories,
+    loading,
+    error,
+    refreshPromos,
+    selectedProductsCache,
+    setSelectedProductsCache,
+  } = usePromoCodes();
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -156,6 +175,8 @@ export default function PromoCodesContent() {
   const [newActive, setNewActive] = useState(true);
   const [newTargetProductIds, setNewTargetProductIds] = useState([]);
   const [newTargetCategoryIds, setNewTargetCategoryIds] = useState([]);
+  const [newTargetShippable, setNewTargetShippable] = useState("any");
+  const [newTargetProductType, setNewTargetProductType] = useState("any");
 
   const [editCode, setEditCode] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -168,12 +189,86 @@ export default function PromoCodesContent() {
   const [editActive, setEditActive] = useState(true);
   const [editTargetProductIds, setEditTargetProductIds] = useState([]);
   const [editTargetCategoryIds, setEditTargetCategoryIds] = useState([]);
+  const [editTargetShippable, setEditTargetShippable] = useState("any");
+  const [editTargetProductType, setEditTargetProductType] = useState("any");
 
   const [createStep, setCreateStep] = useState(0);
   const [editStep, setEditStep] = useState(0);
 
-  const [productSearch, setProductSearch] = useState("");
+  // Debounced product search state
+  const [createProductSearch, setCreateProductSearch] = useState("");
   const [editProductSearch, setEditProductSearch] = useState("");
+  const [createSearchResults, setCreateSearchResults] = useState([]);
+  const [editSearchResults, setEditSearchResults] = useState([]);
+  const [createSearchLoading, setCreateSearchLoading] = useState(false);
+  const [editSearchLoading, setEditSearchLoading] = useState(false);
+  const createSearchTimer = useRef(null);
+  const editSearchTimer = useRef(null);
+
+  const searchProductsFor = useCallback(async (query, setResults, setLoading, { productType, shippable, categoryIds } = {}) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: "20" });
+      if ((query || "").trim()) params.set("q", query.trim());
+      if (productType && productType !== "any") params.set("product_type", productType);
+      if (shippable && shippable !== "any") params.set("is_shippable", shippable);
+      if (Array.isArray(categoryIds) && categoryIds.length > 0) params.set("category_ids", categoryIds.join(","));
+      const res = await fetch(`/api/dashboard/product-search?${params}`);
+      if (!res.ok) { setResults([]); return; }
+      const body = await res.json();
+      const products = Array.isArray(body.products) ? body.products : [];
+      setResults(products);
+      setSelectedProductsCache((prev) => {
+        const next = new Map(prev);
+        products.forEach((p) => next.set(p.id, p));
+        return next;
+      });
+    } catch {
+      setResults([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [setSelectedProductsCache]);
+
+  const handleCreateProductSearch = useCallback((value) => {
+    setCreateProductSearch(value);
+    if (createSearchTimer.current) clearTimeout(createSearchTimer.current);
+    createSearchTimer.current = setTimeout(() => {
+      searchProductsFor(value, setCreateSearchResults, setCreateSearchLoading, {
+        productType: newTargetProductType,
+        shippable: newTargetShippable,
+        categoryIds: newTargetCategoryIds,
+      });
+    }, 350);
+  }, [searchProductsFor, newTargetProductType, newTargetShippable, newTargetCategoryIds]);
+
+  const handleEditProductSearch = useCallback((value) => {
+    setEditProductSearch(value);
+    if (editSearchTimer.current) clearTimeout(editSearchTimer.current);
+    editSearchTimer.current = setTimeout(() => {
+      searchProductsFor(value, setEditSearchResults, setEditSearchLoading, {
+        productType: editTargetProductType,
+        shippable: editTargetShippable,
+        categoryIds: editTargetCategoryIds,
+      });
+    }, 350);
+  }, [searchProductsFor, editTargetProductType, editTargetShippable, editTargetCategoryIds]);
+
+  useEffect(() => {
+    if (createOpen) searchProductsFor("", setCreateSearchResults, setCreateSearchLoading, {
+      productType: newTargetProductType,
+      shippable: newTargetShippable,
+      categoryIds: newTargetCategoryIds,
+    });
+  }, [createOpen, searchProductsFor, newTargetProductType, newTargetShippable, newTargetCategoryIds]);
+
+  useEffect(() => {
+    if (editOpen) searchProductsFor("", setEditSearchResults, setEditSearchLoading, {
+      productType: editTargetProductType,
+      shippable: editTargetShippable,
+      categoryIds: editTargetCategoryIds,
+    });
+  }, [editOpen, searchProductsFor, editTargetProductType, editTargetShippable, editTargetCategoryIds]);
 
   const [createState, createAction, createPending] = useActionState(
     createPromoCode,
@@ -211,66 +306,6 @@ export default function PromoCodesContent() {
     });
   };
 
-  const refreshPromos = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const supabase = createSupabaseClient();
-      const { data: promosData, error: promosError } = await supabase
-        .from("promo_codes")
-        .select(
-          "id, code, description, percent_off, scope, vendor_id, active, start_at, end_at, min_spend, usage_limit, usage_count, per_user_limit, created_at",
-        )
-        .eq("scope", PROMO_SCOPES.PLATFORM)
-        .order("created_at", { ascending: false });
-
-      if (promosError) throw promosError;
-
-      const promoIds = (promosData || []).map((promo) => promo.id).filter(Boolean);
-      let targets = [];
-      if (promoIds.length) {
-        const { data: targetData, error: targetError } = await supabase
-          .from("promo_code_targets")
-          .select("promo_id, product_id, category_id")
-          .in("promo_id", promoIds);
-        if (targetError) throw targetError;
-        targets = targetData || [];
-      }
-
-      const [{ data: categoriesData, error: categoriesError }, { data: productsData, error: productsError }] =
-        await Promise.all([
-          supabase
-            .from("categories")
-            .select("id, name, parent_category_id")
-            .order("name"),
-          supabase
-            .from("products")
-            .select(
-              "id, name, vendor_id, status, active, vendor:vendors!Products_vendor_id_fkey (id, business_name)",
-            )
-            .eq("status", "approved")
-            .eq("active", true)
-            .order("name"),
-        ]);
-
-      if (categoriesError) throw categoriesError;
-      if (productsError) throw productsError;
-
-      setPromos(promosData || []);
-      setPromoTargets(targets || []);
-      setCategories(categoriesData || []);
-      setProducts(productsData || []);
-    } catch (err) {
-      setError(err?.message || "Unable to load promo codes.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    refreshPromos();
-  }, []);
-
   useEffect(() => {
     if (!createState?.message) return;
     const hasErrors = Object.values(createState.errors || {}).some((value) =>
@@ -294,7 +329,9 @@ export default function PromoCodesContent() {
     setNewActive(true);
     setNewTargetProductIds([]);
     setNewTargetCategoryIds([]);
-    setProductSearch("");
+    setNewTargetShippable("any");
+    setNewTargetProductType("any");
+    setCreateProductSearch("");
     setCreateStep(0);
     setCreateOpen(false);
     refreshPromos();
@@ -319,70 +356,37 @@ export default function PromoCodesContent() {
     refreshPromos();
   }, [updateState]);
 
-  const targetMap = useMemo(() => buildTargetMap(promoTargets), [promoTargets]);
-
-  const categoriesById = useMemo(() => {
-    const map = new Map();
-    (categories || []).forEach((category) => {
-      map.set(category.id, category);
+  // Build display list: selected products (from cache) first, then search results
+  const buildProductDisplayList = useCallback((searchResults, selectedIds) => {
+    const seen = new Set();
+    const list = [];
+    selectedIds.forEach((id) => {
+      const product = selectedProductsCache.get(id);
+      if (product && !seen.has(id)) { list.push(product); seen.add(id); }
     });
-    return map;
-  }, [categories]);
-
-  const categoriesByParentId = useMemo(() => {
-    const map = new Map();
-    (categories || []).forEach((category) => {
-      const parentId = category.parent_category_id || null;
-      const list = map.get(parentId) || [];
-      list.push(category);
-      map.set(parentId, list);
+    (searchResults || []).forEach((product) => {
+      if (!seen.has(product.id)) { list.push(product); seen.add(product.id); }
     });
-    return map;
-  }, [categories]);
+    return list;
+  }, [selectedProductsCache]);
 
-  const parentCategoryOptions = useMemo(() => {
-    return sortByName(categoriesByParentId.get(null) || []);
-  }, [categoriesByParentId]);
+  const createProductList = useMemo(
+    () => buildProductDisplayList(createSearchResults, newTargetProductIds),
+    [buildProductDisplayList, createSearchResults, newTargetProductIds],
+  );
 
-  const productsById = useMemo(() => {
-    const map = new Map();
-    (products || []).forEach((product) => {
-      map.set(product.id, product);
-    });
-    return map;
-  }, [products]);
-
-  const filteredProducts = useMemo(() => {
-    const query = productSearch.trim().toLowerCase();
-    if (!query) return products;
-    return (products || []).filter((product) =>
-      String(product?.name || "").toLowerCase().includes(query),
-    );
-  }, [productSearch, products]);
-
-  const filteredEditProducts = useMemo(() => {
-    const query = editProductSearch.trim().toLowerCase();
-    if (!query) return products;
-    return (products || []).filter((product) =>
-      String(product?.name || "").toLowerCase().includes(query),
-    );
-  }, [editProductSearch, products]);
+  const editProductList = useMemo(
+    () => buildProductDisplayList(editSearchResults, editTargetProductIds),
+    [buildProductDisplayList, editSearchResults, editTargetProductIds],
+  );
 
   const newProductSet = useMemo(
     () => new Set(newTargetProductIds),
     [newTargetProductIds],
   );
-  const newCategorySet = useMemo(
-    () => new Set(newTargetCategoryIds),
-    [newTargetCategoryIds],
-  );
   const editProductSet = useMemo(
     () => new Set(editTargetProductIds),
     [editTargetProductIds],
-  );
-  const editCategorySet = useMemo(
-    () => new Set(editTargetCategoryIds),
-    [editTargetCategoryIds],
   );
 
   const toggleNewProduct = (id) => {
@@ -442,6 +446,8 @@ export default function PromoCodesContent() {
     setEditStartAt(toInputDate(promo.start_at));
     setEditEndAt(toInputDate(promo.end_at));
     setEditActive(promo.active !== false);
+    setEditTargetShippable(promo.target_shippable || "any");
+    setEditTargetProductType(promo.target_product_type || "any");
     setEditTargetProductIds(
       targets ? Array.from(targets.productIds || []) : [],
     );
@@ -456,22 +462,22 @@ export default function PromoCodesContent() {
     if (!targets || (!targets.productIds.size && !targets.categoryIds.size)) {
       return "All products";
     }
-    const productNames = Array.from(targets.productIds)
-      .map((id) => productsById.get(id)?.name)
-      .filter(Boolean);
-    const categoryNames = Array.from(targets.categoryIds)
-      .map((id) => categoriesById.get(id)?.name)
-      .filter(Boolean);
-
+    const productCount = targets.productIds.size;
+    const categoryCount = targets.categoryIds.size;
     const summary = [];
-    if (productNames.length) {
-      summary.push(`${productNames.length} product${productNames.length > 1 ? "s" : ""}`);
-    }
-    if (categoryNames.length) {
-      summary.push(`${categoryNames.length} categor${categoryNames.length > 1 ? "ies" : "y"}`);
-    }
-
+    if (productCount) summary.push(`${productCount} product${productCount > 1 ? "s" : ""}`);
+    if (categoryCount) summary.push(`${categoryCount} categor${categoryCount > 1 ? "ies" : "y"}`);
     return summary.join(" • ");
+  };
+
+  const renderShippableLabel = (val) => {
+    const opt = SHIPPABLE_OPTIONS.find((o) => o.value === val);
+    return opt ? opt.label : "Any";
+  };
+
+  const renderProductTypeLabel = (val) => {
+    const opt = PRODUCT_TYPE_OPTIONS.find((o) => o.value === val);
+    return opt ? opt.label : "Any";
   };
 
   return (
@@ -528,6 +534,9 @@ export default function PromoCodesContent() {
                     Targets
                   </th>
                   <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">
+                    Filters
+                  </th>
+                  <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">
                     Usage
                   </th>
                   <th className="text-left py-2 px-2 font-medium text-[#0A0A0A]">
@@ -568,6 +577,12 @@ export default function PromoCodesContent() {
                       </td>
                       <td className="py-2 px-2 text-[#6B7280]">
                         {renderTargetSummary(promo.id)}
+                      </td>
+                      <td className="py-2 px-2 text-[#6B7280]">
+                        <div className="flex flex-col text-[11px]">
+                          <span>{renderShippableLabel(promo.target_shippable)}</span>
+                          <span>{renderProductTypeLabel(promo.target_product_type)}</span>
+                        </div>
                       </td>
                       <td className="py-2 px-2 text-[#6B7280]">
                         <div className="flex flex-col">
@@ -641,16 +656,10 @@ export default function PromoCodesContent() {
             className="space-y-4"
           >
             <input type="hidden" name="active" value={newActive ? "true" : "false"} />
-            <input
-              type="hidden"
-              name="targetProductIds"
-              value={JSON.stringify(newTargetProductIds || [])}
-            />
-            <input
-              type="hidden"
-              name="targetCategoryIds"
-              value={JSON.stringify(newTargetCategoryIds || [])}
-            />
+            <input type="hidden" name="targetProductIds" value={JSON.stringify(newTargetProductIds || [])} />
+            <input type="hidden" name="targetCategoryIds" value={JSON.stringify(newTargetCategoryIds || [])} />
+            <input type="hidden" name="targetShippable" value={newTargetShippable} />
+            <input type="hidden" name="targetProductType" value={newTargetProductType} />
             <div className="rounded-full border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 flex flex-wrap gap-2">
               {promoStepLabels.map((label, index) => (
                 <button
@@ -799,12 +808,12 @@ export default function PromoCodesContent() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-[#0A0A0A]">
-                    Start Date
+                    Start Date & Time <span className="text-[11px] font-normal text-[#6B7280]">(GMT)</span>
                   </label>
                   <input
                     name="startAt"
-                    type="date"
-                    min={getTodayString()}
+                    type="datetime-local"
+                    min={getNowUTCString()}
                     value={newStartAt}
                     onChange={(event) => setNewStartAt(event.target.value)}
                     className="w-full rounded-full border border-[#D6D6D6] px-4 py-2 text-xs text-[#0A0A0A] shadow-sm outline-none"
@@ -818,12 +827,12 @@ export default function PromoCodesContent() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-[#0A0A0A]">
-                    End Date
+                    End Date & Time <span className="text-[11px] font-normal text-[#6B7280]">(GMT)</span>
                   </label>
                   <input
                     name="endAt"
-                    type="date"
-                    min={newStartAt || getTodayString()}
+                    type="datetime-local"
+                    min={newStartAt || getNowUTCString()}
                     value={newEndAt}
                     onChange={(event) => setNewEndAt(event.target.value)}
                     className="w-full rounded-full border border-[#D6D6D6] px-4 py-2 text-xs text-[#0A0A0A] shadow-sm outline-none"
@@ -847,77 +856,83 @@ export default function PromoCodesContent() {
               </div>
             </div>
 
+            {/* Step 2: Filters */}
             <div className={cx("space-y-4", createStep === 2 ? "" : "hidden")}>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-medium text-[#0A0A0A]">
-                      Target Categories (optional)
-                    </h3>
-                    <p className="text-[11px] text-[#6B7280]">
-                      Leave empty to apply to all categories.
-                    </p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-[#0A0A0A]">Shippability Filter</label>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Restrict this promo code to products based on whether they require shipping.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {SHIPPABLE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewTargetShippable(opt.value)}
+                        disabled={createPending}
+                        className={cx(
+                          "cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-medium border transition-colors",
+                          newTargetShippable === opt.value
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-[#6B7280] border-[#D1D5DB] hover:border-primary/40",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
-                  {newTargetCategoryIds.length ? (
-                    <button
-                      type="button"
-                      onClick={() => setNewTargetCategoryIds([])}
-                      className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
-                    >
-                      Clear
-                    </button>
-                  ) : null}
                 </div>
-                <div className="rounded-lg border border-[#D1D5DB] bg-white p-3 space-y-3">
-                  <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                    {parentCategoryOptions.length ? (
-                      parentCategoryOptions.map((parent) => {
-                        const children = categoriesByParentId.get(parent.id) || [];
-                        return (
-                          <div key={parent.id} className="space-y-2">
-                            <label className="flex items-center gap-2 text-[11px] text-[#111827]">
-                              <input
-                                type="checkbox"
-                                checked={newCategorySet.has(parent.id)}
-                                onChange={() => toggleNewCategory(parent.id)}
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                              />
-                              <span className="font-medium">
-                                {parent.name || "Untitled"}
-                              </span>
-                            </label>
-                            {children.length ? (
-                              <div className="ml-6 grid gap-1">
-                                {sortByName(children).map((child) => (
-                                  <label
-                                    key={child.id}
-                                    className="flex items-center gap-2 text-[11px] text-[#4B5563]"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={newCategorySet.has(child.id)}
-                                      onChange={() => toggleNewCategory(child.id)}
-                                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                                    />
-                                    <span>{child.name || "Untitled"}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-[11px] text-[#9CA3AF]">
-                        No categories available.
-                      </p>
-                    )}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-[#0A0A0A]">Product Type Filter</label>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Restrict this promo code to a specific product type.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRODUCT_TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setNewTargetProductType(opt.value)}
+                        disabled={createPending}
+                        className={cx(
+                          "cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-medium border transition-colors",
+                          newTargetProductType === opt.value
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-[#6B7280] border-[#D1D5DB] hover:border-primary/40",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Step 3: Categories */}
             <div className={cx("space-y-4", createStep === 3 ? "" : "hidden")}>
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-xs font-medium text-[#0A0A0A]">
+                    Target Categories (optional)
+                  </h3>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Leave empty to apply to all categories.
+                  </p>
+                </div>
+                <CascadingCategoryPicker
+                  categories={categories}
+                  selectedCategoryIds={newTargetCategoryIds}
+                  onToggleCategory={toggleNewCategory}
+                  onClearAll={() => setNewTargetCategoryIds([])}
+                  disabled={createPending}
+                />
+              </div>
+            </div>
+
+            {/* Step 4: Targets */}
+            <div className={cx("space-y-4", createStep === 4 ? "" : "hidden")}>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -934,20 +949,26 @@ export default function PromoCodesContent() {
                       onClick={() => setNewTargetProductIds([])}
                       className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
                     >
-                      Clear
+                      Clear ({newTargetProductIds.length})
                     </button>
                   ) : null}
                 </div>
                 <input
                   type="text"
-                  value={productSearch}
-                  onChange={(event) => setProductSearch(event.target.value)}
-                  placeholder="Search products"
+                  value={createProductSearch}
+                  onChange={(e) => handleCreateProductSearch(e.target.value)}
+                  placeholder="Search products by name..."
                   className="w-full rounded-full border border-[#D6D6D6] px-4 py-2 text-xs text-[#0A0A0A] shadow-sm outline-none"
+                  disabled={createPending}
                 />
                 <div className="max-h-56 overflow-y-auto rounded-lg border border-[#D1D5DB] bg-white p-3 space-y-2">
-                  {filteredProducts.length ? (
-                    filteredProducts.map((product) => (
+                  {createSearchLoading ? (
+                    <div className="flex items-center gap-2 py-2 text-[11px] text-[#717182]">
+                      <LoaderCircle className="size-3 animate-spin" />
+                      <span>Searching...</span>
+                    </div>
+                  ) : createProductList.length ? (
+                    createProductList.map((product) => (
                       <label
                         key={product.id}
                         className="flex items-center gap-2 text-[11px] text-[#111827]"
@@ -970,7 +991,7 @@ export default function PromoCodesContent() {
                     ))
                   ) : (
                     <p className="text-[11px] text-[#9CA3AF]">
-                      No products match this search.
+                      No products found.
                     </p>
                   )}
                 </div>
@@ -1047,16 +1068,10 @@ export default function PromoCodesContent() {
           >
             <input type="hidden" name="promoId" value={editingPromo?.id || ""} />
             <input type="hidden" name="active" value={editActive ? "true" : "false"} />
-            <input
-              type="hidden"
-              name="targetProductIds"
-              value={JSON.stringify(editTargetProductIds || [])}
-            />
-            <input
-              type="hidden"
-              name="targetCategoryIds"
-              value={JSON.stringify(editTargetCategoryIds || [])}
-            />
+            <input type="hidden" name="targetProductIds" value={JSON.stringify(editTargetProductIds || [])} />
+            <input type="hidden" name="targetCategoryIds" value={JSON.stringify(editTargetCategoryIds || [])} />
+            <input type="hidden" name="targetShippable" value={editTargetShippable} />
+            <input type="hidden" name="targetProductType" value={editTargetProductType} />
             <div className="rounded-full border border-[#E5E7EB] bg-[#F9FAFB] px-3 py-2 flex flex-wrap gap-2">
               {promoStepLabels.map((label, index) => (
                 <button
@@ -1199,12 +1214,12 @@ export default function PromoCodesContent() {
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-[#0A0A0A]">
-                    Start Date
+                    Start Date & Time <span className="text-[11px] font-normal text-[#6B7280]">(GMT)</span>
                   </label>
                   <input
                     name="startAt"
-                    type="date"
-                    min={getTodayString()}
+                    type="datetime-local"
+                    min={getNowUTCString()}
                     value={editStartAt}
                     onChange={(event) => setEditStartAt(event.target.value)}
                     className="w-full rounded-full border border-[#D6D6D6] px-4 py-2 text-xs text-[#0A0A0A] shadow-sm outline-none"
@@ -1218,12 +1233,12 @@ export default function PromoCodesContent() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-[#0A0A0A]">
-                    End Date
+                    End Date & Time <span className="text-[11px] font-normal text-[#6B7280]">(GMT)</span>
                   </label>
                   <input
                     name="endAt"
-                    type="date"
-                    min={editStartAt || getTodayString()}
+                    type="datetime-local"
+                    min={editStartAt || getNowUTCString()}
                     value={editEndAt}
                     onChange={(event) => setEditEndAt(event.target.value)}
                     className="w-full rounded-full border border-[#D6D6D6] px-4 py-2 text-xs text-[#0A0A0A] shadow-sm outline-none"
@@ -1247,77 +1262,83 @@ export default function PromoCodesContent() {
               </div>
             </div>
 
+            {/* Step 2: Filters */}
             <div className={cx("space-y-4", editStep === 2 ? "" : "hidden")}>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-xs font-medium text-[#0A0A0A]">
-                      Target Categories (optional)
-                    </h3>
-                    <p className="text-[11px] text-[#6B7280]">
-                      Leave empty to apply to all categories.
-                    </p>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-[#0A0A0A]">Shippability Filter</label>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Restrict this promo code to products based on whether they require shipping.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {SHIPPABLE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setEditTargetShippable(opt.value)}
+                        disabled={updatePending}
+                        className={cx(
+                          "rounded-full px-3 py-1.5 text-[11px] font-medium border transition-colors",
+                          editTargetShippable === opt.value
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-[#6B7280] border-[#D1D5DB] hover:border-primary/40",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
-                  {editTargetCategoryIds.length ? (
-                    <button
-                      type="button"
-                      onClick={() => setEditTargetCategoryIds([])}
-                      className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
-                    >
-                      Clear
-                    </button>
-                  ) : null}
                 </div>
-                <div className="rounded-lg border border-[#D1D5DB] bg-white p-3 space-y-3">
-                  <div className="space-y-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                    {parentCategoryOptions.length ? (
-                      parentCategoryOptions.map((parent) => {
-                        const children = categoriesByParentId.get(parent.id) || [];
-                        return (
-                          <div key={parent.id} className="space-y-2">
-                            <label className="flex items-center gap-2 text-[11px] text-[#111827]">
-                              <input
-                                type="checkbox"
-                                checked={editCategorySet.has(parent.id)}
-                                onChange={() => toggleEditCategory(parent.id)}
-                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                              />
-                              <span className="font-medium">
-                                {parent.name || "Untitled"}
-                              </span>
-                            </label>
-                            {children.length ? (
-                              <div className="ml-6 grid gap-1">
-                                {sortByName(children).map((child) => (
-                                  <label
-                                    key={child.id}
-                                    className="flex items-center gap-2 text-[11px] text-[#4B5563]"
-                                  >
-                                    <input
-                                      type="checkbox"
-                                      checked={editCategorySet.has(child.id)}
-                                      onChange={() => toggleEditCategory(child.id)}
-                                      className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary accent-primary"
-                                    />
-                                    <span>{child.name || "Untitled"}</span>
-                                  </label>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        );
-                      })
-                    ) : (
-                      <p className="text-[11px] text-[#9CA3AF]">
-                        No categories available.
-                      </p>
-                    )}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-[#0A0A0A]">Product Type Filter</label>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Restrict this promo code to a specific product type.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {PRODUCT_TYPE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setEditTargetProductType(opt.value)}
+                        disabled={updatePending}
+                        className={cx(
+                          "rounded-full px-3 py-1.5 text-[11px] font-medium border transition-colors",
+                          editTargetProductType === opt.value
+                            ? "bg-primary text-white border-primary"
+                            : "bg-white text-[#6B7280] border-[#D1D5DB] hover:border-primary/40",
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
 
+            {/* Step 3: Categories */}
             <div className={cx("space-y-4", editStep === 3 ? "" : "hidden")}>
+              <div className="space-y-3">
+                <div>
+                  <h3 className="text-xs font-medium text-[#0A0A0A]">
+                    Target Categories (optional)
+                  </h3>
+                  <p className="text-[11px] text-[#6B7280]">
+                    Leave empty to apply to all categories.
+                  </p>
+                </div>
+                <CascadingCategoryPicker
+                  categories={categories}
+                  selectedCategoryIds={editTargetCategoryIds}
+                  onToggleCategory={toggleEditCategory}
+                  onClearAll={() => setEditTargetCategoryIds([])}
+                  disabled={updatePending}
+                />
+              </div>
+            </div>
+
+            {/* Step 4: Targets */}
+            <div className={cx("space-y-4", editStep === 4 ? "" : "hidden")}>
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1334,20 +1355,26 @@ export default function PromoCodesContent() {
                       onClick={() => setEditTargetProductIds([])}
                       className="text-[11px] text-[#6A7282] hover:text-[#0A0A0A]"
                     >
-                      Clear
+                      Clear ({editTargetProductIds.length})
                     </button>
                   ) : null}
                 </div>
                 <input
                   type="text"
                   value={editProductSearch}
-                  onChange={(event) => setEditProductSearch(event.target.value)}
-                  placeholder="Search products"
+                  onChange={(e) => handleEditProductSearch(e.target.value)}
+                  placeholder="Search products by name..."
                   className="w-full rounded-full border border-[#D6D6D6] px-4 py-2 text-xs text-[#0A0A0A] shadow-sm outline-none"
+                  disabled={updatePending}
                 />
                 <div className="max-h-56 overflow-y-auto rounded-lg border border-[#D1D5DB] bg-white p-3 space-y-2">
-                  {filteredEditProducts.length ? (
-                    filteredEditProducts.map((product) => (
+                  {editSearchLoading ? (
+                    <div className="flex items-center gap-2 py-2 text-[11px] text-[#717182]">
+                      <LoaderCircle className="size-3 animate-spin" />
+                      <span>Searching...</span>
+                    </div>
+                  ) : editProductList.length ? (
+                    editProductList.map((product) => (
                       <label
                         key={product.id}
                         className="flex items-center gap-2 text-[11px] text-[#111827]"
@@ -1370,7 +1397,7 @@ export default function PromoCodesContent() {
                     ))
                   ) : (
                     <p className="text-[11px] text-[#9CA3AF]">
-                      No products match this search.
+                      No products found.
                     </p>
                   )}
                 </div>

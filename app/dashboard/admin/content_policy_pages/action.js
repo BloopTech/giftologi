@@ -215,6 +215,9 @@ export async function saveStaticPage(prevState, formData) {
 
   revalidatePath("/dashboard/admin/content_policy_pages");
   revalidatePath("/dashboard/admin");
+  if (page?.slug) {
+    revalidatePath(`/pages/${page.slug}`);
+  }
 
   return {
     message: pageId ? "Page updated." : "Page created.",

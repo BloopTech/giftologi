@@ -17,6 +17,7 @@ export const eventPublicRoutes = [
   `/gift-guides/:slug`,
   `/treats`,
   `/support`,
+  `/pages/:slug`,
 ];
 
 export const authRoutes = [

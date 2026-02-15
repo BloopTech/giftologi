@@ -19,7 +19,7 @@ const productSchema = z.object({
   stock_qty: z.coerce.number().int().min(0, "Stock must be 0 or greater"),
   description: z.string().max(2000).optional(),
   variations: z.string().optional().or(z.literal("")),
-  product_type: z.enum(["physical", "treat"]).optional().default("physical"),
+  is_shippable: z.boolean().optional().default(true),
 });
 
 const generateProductCode = () =>
@@ -184,7 +184,7 @@ export async function manageVendor(prevState, formData) {
       stock_qty: formData.get("stock_qty"),
       description: formData.get("description") || "",
       variations: formData.get("variations") || "",
-      product_type: formData.get("product_type") || "physical",
+      is_shippable: formData.get("is_shippable") === "true",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -238,7 +238,7 @@ export async function manageVendor(prevState, formData) {
         stock_qty: validation.data.stock_qty,
         description: validation.data.description || null,
         variations: variations.length ? variations : null,
-        product_type: validation.data.product_type || "physical",
+        is_shippable: validation.data.is_shippable ?? true,
         images: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

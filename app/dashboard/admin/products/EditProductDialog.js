@@ -266,6 +266,25 @@ export default function EditProductDialog({
               </div>
 
               <div className="space-y-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="isShippable"
+                    value="true"
+                    defaultChecked={product.is_shippable !== false}
+                    className="accent-primary h-4 w-4"
+                    disabled={editPending}
+                  />
+                  <span className="text-xs font-medium text-[#0A0A0A]">
+                    Shippable
+                  </span>
+                </label>
+                <p className="text-[11px] text-[#717182]">
+                  Shippable products incur Aramex shipping costs. A treat can also be shippable.
+                </p>
+              </div>
+
+              <div className="space-y-1">
                 <label className="text-xs font-medium text-[#0A0A0A]">
                   Sale Price (GHS)
                 </label>

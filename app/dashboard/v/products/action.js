@@ -123,6 +123,7 @@ const productSchema = z.object({
   sale_price: z.coerce.number().min(0).optional().or(z.literal("")).or(z.literal(NaN)).transform((v) => (Number.isFinite(v) && v > 0 ? v : null)),
   sale_starts_at: z.string().optional().or(z.literal("")).transform((v) => (v && v.trim() ? v.trim() : null)),
   sale_ends_at: z.string().optional().or(z.literal("")).transform((v) => (v && v.trim() ? v.trim() : null)),
+  is_shippable: z.boolean().optional().default(true),
 });
 
 const generateProductCode = () =>
@@ -225,6 +226,7 @@ export async function manageProducts(prevState, formData) {
       sale_price: formData.get("sale_price") || "",
       sale_starts_at: formData.get("sale_starts_at") || "",
       sale_ends_at: formData.get("sale_ends_at") || "",
+      is_shippable: formData.get("is_shippable") === "true",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -317,6 +319,7 @@ export async function manageProducts(prevState, formData) {
         sale_price: validation.data.sale_price ?? null,
         sale_starts_at: validation.data.sale_starts_at ?? null,
         sale_ends_at: validation.data.sale_ends_at ?? null,
+        is_shippable: validation.data.is_shippable ?? true,
         images: [],
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -516,6 +519,7 @@ export async function manageProducts(prevState, formData) {
       sale_price: formData.get("sale_price") || "",
       sale_starts_at: formData.get("sale_starts_at") || "",
       sale_ends_at: formData.get("sale_ends_at") || "",
+      is_shippable: formData.get("is_shippable") === "true",
     };
 
     const validation = productSchema.safeParse(rawData);
@@ -624,6 +628,7 @@ export async function manageProducts(prevState, formData) {
         sale_price: validation.data.sale_price ?? null,
         sale_starts_at: validation.data.sale_starts_at ?? null,
         sale_ends_at: validation.data.sale_ends_at ?? null,
+        is_shippable: validation.data.is_shippable ?? true,
         updated_at: new Date().toISOString(),
         active: true,
       })

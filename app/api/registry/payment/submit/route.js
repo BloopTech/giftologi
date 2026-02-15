@@ -30,6 +30,7 @@ export async function POST(request) {
       gifterInfo,
       message,
       guestBrowserId,
+      deviceFingerprint,
       shippingRegionId,
       promoCode,
     } = body;
@@ -68,7 +69,9 @@ export async function POST(request) {
           weight_kg,
           service_charge,
           vendor_id,
-          category_id
+          category_id,
+          is_shippable,
+          product_type
         )
       `
       )
@@ -142,14 +145,18 @@ export async function POST(request) {
         vendorId: registryItem?.product?.vendor_id || null,
         userId: buyerId,
         guestBrowserId,
+        deviceFingerprint: deviceFingerprint || null,
         items: [
           {
             itemId: registryItemId,
             productId: registryItem?.product?.id,
+            vendorId: registryItem?.product?.vendor_id || null,
             categoryIds,
             subtotal: computedSubtotal,
             giftWrapFee,
             quantity,
+            isShippable: registryItem?.product?.is_shippable !== false,
+            productType: registryItem?.product?.product_type || "physical",
           },
         ],
       });
@@ -207,6 +214,7 @@ export async function POST(request) {
         registry_id: registryId,
         buyer_id: buyerId,
         guest_browser_id: buyerId ? null : guestBrowserId || null,
+        device_fingerprint: deviceFingerprint || null,
         status: "pending",
         total_amount: totalAmount,
         currency,
@@ -315,6 +323,7 @@ export async function POST(request) {
         order_id: order.id,
         user_id: buyerId,
         guest_browser_id: buyerId ? null : guestBrowserId || null,
+        device_fingerprint: deviceFingerprint || null,
         amount: promoSummary.discount || 0,
         meta: {
           code: promoSummary.code,

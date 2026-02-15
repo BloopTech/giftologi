@@ -62,7 +62,15 @@ const parseOptionalInt = (value) => {
 
 const parseDateInput = (value) => {
   if (!value) return null;
-  const date = value instanceof Date ? value : new Date(value);
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return value.toISOString();
+  }
+  const str = String(value).trim();
+  if (!str) return null;
+  // datetime-local values are YYYY-MM-DDThh:mm without timezone — treat as UTC
+  const utcStr = str.includes("T") && !str.endsWith("Z") ? str + ":00Z" : str;
+  const date = new Date(utcStr);
   if (Number.isNaN(date.getTime())) return null;
   return date.toISOString();
 };
@@ -122,6 +130,8 @@ const createSchema = z.object({
     parseIdList,
     z.array(z.string().uuid()).optional()
   ),
+  targetShippable: z.enum(["any", "shippable", "non_shippable"]).default("any"),
+  targetProductType: z.enum(["any", "physical", "treat"]).default("any"),
 });
 
 const updateSchema = createSchema.extend({
@@ -145,36 +155,33 @@ const getCurrentAdmin = async (supabase) => {
 };
 
 const validateDates = (rawStartAt, rawEndAt, startAt, endAt) => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const now = new Date();
 
   if (rawStartAt && !startAt) {
-    return { field: "startAt", message: "Start date is invalid." };
+    return { field: "startAt", message: "Start date/time is invalid." };
   }
   if (rawEndAt && !endAt) {
-    return { field: "endAt", message: "End date is invalid." };
+    return { field: "endAt", message: "End date/time is invalid." };
   }
   if (startAt) {
     const startDate = new Date(startAt);
-    startDate.setHours(0, 0, 0, 0);
-    if (startDate < today) {
-      return { field: "startAt", message: "Start date cannot be in the past." };
+    if (startDate < now) {
+      return { field: "startAt", message: "Start date/time cannot be in the past." };
     }
   }
   if (endAt) {
     const endDate = new Date(endAt);
-    endDate.setHours(0, 0, 0, 0);
-    if (endDate < today) {
-      return { field: "endAt", message: "End date cannot be in the past." };
+    if (endDate < now) {
+      return { field: "endAt", message: "End date/time cannot be in the past." };
     }
   }
   if (startAt && endAt) {
     const startDate = new Date(startAt);
     const endDate = new Date(endAt);
-    if (startDate > endDate) {
+    if (startDate >= endDate) {
       return {
         field: "endAt",
-        message: "End date must be after the start date.",
+        message: "End date/time must be after the start date/time.",
       };
     }
   }
@@ -227,6 +234,8 @@ export async function createPromoCode(prevState, formData) {
     active: formData.get("active"),
     targetProductIds: formData.get("targetProductIds"),
     targetCategoryIds: formData.get("targetCategoryIds"),
+    targetShippable: formData.get("targetShippable") || "any",
+    targetProductType: formData.get("targetProductType") || "any",
   };
 
   const startAtValue = parseDateInput(raw.startAt);
@@ -315,6 +324,8 @@ export async function createPromoCode(prevState, formData) {
       usage_limit: parsed.data.usageLimit ?? null,
       usage_count: 0,
       per_user_limit: parsed.data.perUserLimit ?? 1,
+      target_shippable: parsed.data.targetShippable,
+      target_product_type: parsed.data.targetProductType,
       created_by: profile.id,
       created_at: now,
       updated_at: now,
@@ -403,6 +414,8 @@ export async function updatePromoCode(prevState, formData) {
     active: formData.get("active"),
     targetProductIds: formData.get("targetProductIds"),
     targetCategoryIds: formData.get("targetCategoryIds"),
+    targetShippable: formData.get("targetShippable") || "any",
+    targetProductType: formData.get("targetProductType") || "any",
   };
 
   const startAtValue = parseDateInput(raw.startAt);
@@ -500,6 +513,8 @@ export async function updatePromoCode(prevState, formData) {
       min_spend: parsed.data.minSpend ?? 0,
       usage_limit: parsed.data.usageLimit ?? null,
       per_user_limit: parsed.data.perUserLimit ?? 1,
+      target_shippable: parsed.data.targetShippable,
+      target_product_type: parsed.data.targetProductType,
       updated_at: now,
     })
     .eq("id", parsed.data.promoId)

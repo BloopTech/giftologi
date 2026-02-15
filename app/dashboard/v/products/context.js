@@ -62,7 +62,7 @@ export const VendorProductsProvider = ({ children }) => {
             .from("products")
             .select(`
               id, name, description, price, weight_kg, service_charge, stock_qty, images, variations, status, product_code, created_at,
-              category_id, sale_price, sale_starts_at, sale_ends_at,
+              category_id, sale_price, sale_starts_at, sale_ends_at, is_shippable,
               product_categories (category_id),
               categories:category_id (id, name, slug)
             `)

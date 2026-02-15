@@ -44,26 +44,33 @@ const computePromoDiscount = ({ promo, targets = [], items = [] }) => {
     ? Math.min(Math.max(percentOff, 0), 100)
     : 0;
 
+  const makeIneligible = (itemsList) => ({
+    items: itemsList.map((item) => ({
+      ...item,
+      eligible: false,
+      productDiscount: 0,
+      giftWrapDiscount: 0,
+      discountedSubtotal: roundCurrency(item.subtotal),
+      discountedGiftWrapFee: roundCurrency(item.giftWrapFee),
+    })),
+    percentOff: safePercent,
+    eligibleSubtotal: 0,
+    productDiscountTotal: 0,
+    giftWrapDiscountTotal: 0,
+    totalDiscount: 0,
+  });
+
   if (!safePercent || !items.length) {
-    return {
-      items: items.map((item) => ({
-        ...item,
-        eligible: false,
-        productDiscount: 0,
-        giftWrapDiscount: 0,
-        discountedSubtotal: roundCurrency(item.subtotal),
-        discountedGiftWrapFee: roundCurrency(item.giftWrapFee),
-      })),
-      percentOff: safePercent,
-      eligibleSubtotal: 0,
-      productDiscountTotal: 0,
-      giftWrapDiscountTotal: 0,
-      totalDiscount: 0,
-    };
+    return makeIneligible(items);
   }
 
   const { targetProductIds, targetCategoryIds } = buildTargetLookup(targets);
-  const hasTargets = targetProductIds.size > 0 || targetCategoryIds.size > 0;
+  const hasProductOrCategoryTargets = targetProductIds.size > 0 || targetCategoryIds.size > 0;
+
+  const targetShippable = promo?.target_shippable || "any";
+  const targetProductType = promo?.target_product_type || "any";
+  const promoVendorId = promo?.vendor_id || null;
+  const isVendorPromo = promo?.scope === PROMO_SCOPES.VENDOR && !!promoVendorId;
 
   let eligibleSubtotal = 0;
   let productDiscountTotal = 0;
@@ -74,20 +81,46 @@ const computePromoDiscount = ({ promo, targets = [], items = [] }) => {
     const giftWrapFee = roundCurrency(item.giftWrapFee);
     const categoryIds = Array.isArray(item.categoryIds) ? item.categoryIds : [];
 
-    const isEligible = hasTargets
-      ? targetProductIds.has(item.productId) ||
-        categoryIds.some((id) => targetCategoryIds.has(id))
-      : true;
-
-    if (!isEligible) {
+    // --- Vendor scope check ---
+    if (isVendorPromo && item.vendorId && item.vendorId !== promoVendorId) {
       return {
-        ...item,
-        eligible: false,
-        productDiscount: 0,
-        giftWrapDiscount: 0,
-        discountedSubtotal: subtotal,
-        discountedGiftWrapFee: giftWrapFee,
+        ...item, eligible: false, productDiscount: 0, giftWrapDiscount: 0,
+        discountedSubtotal: subtotal, discountedGiftWrapFee: giftWrapFee,
       };
+    }
+
+    // --- Shippability filter ---
+    if (targetShippable === "shippable" && item.isShippable === false) {
+      return {
+        ...item, eligible: false, productDiscount: 0, giftWrapDiscount: 0,
+        discountedSubtotal: subtotal, discountedGiftWrapFee: giftWrapFee,
+      };
+    }
+    if (targetShippable === "non_shippable" && item.isShippable !== false) {
+      return {
+        ...item, eligible: false, productDiscount: 0, giftWrapDiscount: 0,
+        discountedSubtotal: subtotal, discountedGiftWrapFee: giftWrapFee,
+      };
+    }
+
+    // --- Product type filter ---
+    if (targetProductType !== "any" && item.productType && item.productType !== targetProductType) {
+      return {
+        ...item, eligible: false, productDiscount: 0, giftWrapDiscount: 0,
+        discountedSubtotal: subtotal, discountedGiftWrapFee: giftWrapFee,
+      };
+    }
+
+    // --- Product / Category target check ---
+    if (hasProductOrCategoryTargets) {
+      const matchesProduct = targetProductIds.has(item.productId);
+      const matchesCategory = categoryIds.some((id) => targetCategoryIds.has(id));
+      if (!matchesProduct && !matchesCategory) {
+        return {
+          ...item, eligible: false, productDiscount: 0, giftWrapDiscount: 0,
+          discountedSubtotal: subtotal, discountedGiftWrapFee: giftWrapFee,
+        };
+      }
     }
 
     eligibleSubtotal += subtotal + giftWrapFee;
@@ -120,7 +153,7 @@ const fetchPromoCode = async ({ adminClient, code, vendorId }) => {
   if (!adminClient || !code) return null;
 
   const selectFields =
-    "id, code, description, percent_off, scope, vendor_id, active, start_at, end_at, min_spend, usage_limit, usage_count, per_user_limit";
+    "id, code, description, percent_off, scope, vendor_id, active, start_at, end_at, min_spend, usage_limit, usage_count, per_user_limit, target_shippable, target_product_type";
 
   const normalizedCode = normalizePromoCode(code);
   if (!normalizedCode) return null;
@@ -164,22 +197,44 @@ const fetchRedemptionCount = async ({
   promoId,
   userId,
   guestBrowserId,
+  deviceFingerprint,
 }) => {
-  if (!promoId || (!userId && !guestBrowserId)) return 0;
+  if (!promoId || (!userId && !guestBrowserId && !deviceFingerprint)) return 0;
 
-  let query = adminClient
-    .from("promo_redemptions")
-    .select("id", { count: "exact", head: true })
-    .eq("promo_id", promoId);
-
+  // Check by user_id
+  let userCount = 0;
   if (userId) {
-    query = query.eq("user_id", userId);
-  } else {
-    query = query.eq("guest_browser_id", guestBrowserId);
+    const { count } = await adminClient
+      .from("promo_redemptions")
+      .select("id", { count: "exact", head: true })
+      .eq("promo_id", promoId)
+      .eq("user_id", userId);
+    userCount = Number(count || 0);
   }
 
-  const { count } = await query;
-  return Number(count || 0);
+  // Check by guest_browser_id (separate query to catch guests who later signed up)
+  let guestCount = 0;
+  if (guestBrowserId) {
+    const { count } = await adminClient
+      .from("promo_redemptions")
+      .select("id", { count: "exact", head: true })
+      .eq("promo_id", promoId)
+      .eq("guest_browser_id", guestBrowserId);
+    guestCount = Number(count || 0);
+  }
+
+  // Check by device fingerprint (catches incognito / cleared storage)
+  let fpCount = 0;
+  if (deviceFingerprint) {
+    const { count } = await adminClient
+      .from("promo_redemptions")
+      .select("id", { count: "exact", head: true })
+      .eq("promo_id", promoId)
+      .eq("device_fingerprint", deviceFingerprint);
+    fpCount = Number(count || 0);
+  }
+
+  return Math.max(userCount, guestCount, fpCount);
 };
 
 const sumDiscounted = (items, field) =>
@@ -193,6 +248,7 @@ const evaluatePromoCode = async ({
   vendorId,
   userId,
   guestBrowserId,
+  deviceFingerprint,
   items = [],
 }) => {
   const normalized = normalizePromoCode(code);
@@ -230,15 +286,26 @@ const evaluatePromoCode = async ({
     return { valid: false, error: "Promo code usage limit reached.", promo };
   }
 
-  if (promo.per_user_limit && (userId || guestBrowserId)) {
+  const perUserLimit = Number(promo.per_user_limit || 0);
+  if (perUserLimit > 0) {
+    if (!userId && !guestBrowserId && !deviceFingerprint) {
+      return { valid: false, error: "Cannot verify promo usage — please sign in or try again.", promo };
+    }
     const redemptionCount = await fetchRedemptionCount({
       adminClient,
       promoId: promo.id,
       userId,
       guestBrowserId,
+      deviceFingerprint,
     });
-    if (redemptionCount >= promo.per_user_limit) {
-      return { valid: false, error: "Promo code limit reached for this user.", promo };
+    if (redemptionCount >= perUserLimit) {
+      return {
+        valid: false,
+        error: perUserLimit === 1
+          ? "You have already used this promo code."
+          : `Promo code limit reached (${perUserLimit} uses per user).`,
+        promo,
+      };
     }
   }
 

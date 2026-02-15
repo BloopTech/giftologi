@@ -127,7 +127,7 @@ export default function StaticPagesTab(props) {
                       </td>
                       <td className={cx(bodyCell())}>
                         <span className="text-xs text-[#6A7282]">
-                          {page.slug ? `/${page.slug}` : "—"}
+                          {page.slug ? `/pages/${page.slug}` : "—"}
                         </span>
                       </td>
                       <td className={cx(bodyCell())}>

@@ -109,6 +109,8 @@ const mapProduct = (product) => {
     sale_price: product?.sale_price ?? null,
     sale_starts_at: product?.sale_starts_at ?? null,
     sale_ends_at: product?.sale_ends_at ?? null,
+    product_type: product?.product_type || "physical",
+    is_shippable: product?.is_shippable !== false,
   };
 };
 

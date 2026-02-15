@@ -9,7 +9,9 @@ import React, {
 } from "react";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 
-const AdminGiftGuidesContext = createContext();
+// Labels = filter/category options. 
+// Gift Guides = curated product lists that use those labels.
+const AdminGiftGuidesContext = createContext({});
 
 export const AdminGiftGuidesProvider = ({ children }) => {
   const value = useAdminGiftGuidesProviderValue();
@@ -38,8 +40,14 @@ function useAdminGiftGuidesProviderValue() {
   const [budgetLabels, setBudgetLabels] = useState([]);
   const [labelsLoading, setLabelsLoading] = useState(true);
 
-  // Unassigned dialog visibility
+  // Unassigned products (server-side paginated via RPC)
   const [showUnassigned, setShowUnassigned] = useState(false);
+  const [unassignedProducts, setUnassignedProducts] = useState([]);
+  const [unassignedTotalCount, setUnassignedTotalCount] = useState(0);
+  const [unassignedPage, setUnassignedPage] = useState(1);
+  const [unassignedSearch, setUnassignedSearch] = useState("");
+  const [unassignedLoading, setUnassignedLoading] = useState(false);
+  const UNASSIGNED_PAGE_SIZE = 20;
 
   const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 
@@ -126,6 +134,16 @@ function useAdminGiftGuidesProviderValue() {
   }, [selectedGuide?.id, fetchGuideItems]);
 
 
+  // Normalize RPC rows to match the { vendor: { id, business_name } } shape used by UI
+  const normalizeRpcProducts = useCallback(
+    (rows) =>
+      (rows || []).map((p) => ({
+        ...p,
+        vendor: { id: p.vendor_id, business_name: p.vendor_name },
+      })),
+    []
+  );
+
   // Search products to add to a guide — uses DB function with trigram similarity
   const searchProducts = useCallback(
     async (query) => {
@@ -139,17 +157,59 @@ function useAdminGiftGuidesProviderValue() {
         { search_query: query.trim(), result_limit: 20 }
       );
       if (searchErr) console.error("Product search error:", searchErr);
-      // Normalize vendor shape for UI compatibility
-      setProductResults(
-        (data || []).map((p) => ({
-          ...p,
-          vendor: { id: p.vendor_id, business_name: p.vendor_name },
-        }))
-      );
+      setProductResults(normalizeRpcProducts(data));
       setSearchingProducts(false);
     },
-    [supabase]
+    [supabase, normalizeRpcProducts]
   );
+
+  // Fetch unassigned products via RPC (paginated, with search)
+  const fetchUnassignedProducts = useCallback(
+    async (page = 1, search = "") => {
+      setUnassignedLoading(true);
+      const { data, error: rpcErr } = await supabase.rpc(
+        "get_unassigned_products",
+        {
+          search_query: search,
+          page_number: page,
+          page_size: UNASSIGNED_PAGE_SIZE,
+        }
+      );
+      if (rpcErr) {
+        console.error("Unassigned products error:", rpcErr);
+        setUnassignedLoading(false);
+        return;
+      }
+      const total = data?.[0]?.total_count ?? 0;
+      setUnassignedProducts(normalizeRpcProducts(data));
+      setUnassignedTotalCount(Number(total));
+      setUnassignedLoading(false);
+    },
+    [supabase, normalizeRpcProducts, UNASSIGNED_PAGE_SIZE]
+  );
+
+  // Load unassigned on open / page change
+  useEffect(() => {
+    if (!showUnassigned) {
+      // Reset when closed
+      setUnassignedProducts([]);
+      setUnassignedTotalCount(0);
+      setUnassignedPage(1);
+      setUnassignedSearch("");
+      return;
+    }
+    fetchUnassignedProducts(unassignedPage, unassignedSearch);
+  }, [showUnassigned, unassignedPage, fetchUnassignedProducts]);
+
+  // Debounced search for unassigned
+  useEffect(() => {
+    if (!showUnassigned) return;
+    const t = setTimeout(() => {
+      setUnassignedPage(1);
+      fetchUnassignedProducts(1, unassignedSearch);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [unassignedSearch, showUnassigned, fetchUnassignedProducts]);
 
   const filteredGuides = useMemo(() => {
     if (!searchTerm.trim()) return guides;
@@ -184,5 +244,14 @@ function useAdminGiftGuidesProviderValue() {
     labelsLoading,
     showUnassigned,
     setShowUnassigned,
+    unassignedProducts,
+    unassignedTotalCount,
+    unassignedPage,
+    setUnassignedPage,
+    unassignedSearch,
+    setUnassignedSearch,
+    unassignedLoading,
+    fetchUnassignedProducts,
+    unassignedPageSize: UNASSIGNED_PAGE_SIZE,
   };
 }

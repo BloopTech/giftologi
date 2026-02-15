@@ -1,103 +1,23 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
-const companyInfo = [
-  {
-    title: "About Us",
-    href: "/about",
-  },
-  {
-    title: "Wedding Guides",
-    href: "/wedding-guides",
-  },
-  {
-    title: "Baby Guides",
-    href: "/baby-guides",
-  },
-  {
-    title: "What is a Universal Gift List?",
-    href: "/what-is-a-universal-gift-list",
-  },
-  {
-    title: "Contact Us",
-    href: "/contact",
-  },
-  {
-    title: "News and Press Releases",
-    href: "/news",
-  },
-  {
-    title: "Terms and Conditions",
-    href: "/terms-and-conditions",
-  },
-  {
-    title: "Privacy Statement",
-    href: "/privacy-statement",
-  },
-  {
-    title: "Careers",
-    href: "/careers",
-  },
-  {
-    title: "Search Engine",
-    href: "/search",
-  },
-  {
-    title: "Registries",
-    href: "/registry",
-  },
-  {
-    title: "Shop",
-    href: "/shop",
-  },
-  {
-    title: "Vendors' Storefront",
-    href: "/storefront",
-  },
+const companyInfoStatic = [
+  { title: "Search Engine", href: "/search" },
+  { title: "Registries", href: "/registry" },
+  { title: "Shop", href: "/shop" },
+  { title: "Vendors' Storefront", href: "/storefront" },
+  { title: "Gift Guides", href: "/gift-guides" },
+  { title: "Support", href: "/support" },
 ];
 
-const members = [
-  {
-    title: "About Us",
-    href: "/about",
-  },
-  {
-    title: "Track Order",
-    href: "/order/lookup",
-  },
-  {
-    title: "Wedding Guides",
-    href: "/wedding-guides",
-  },
-  {
-    title: "Baby Guides",
-    href: "/baby-guides",
-  },
-  {
-    title: "What is a Universal Gift List?",
-    href: "/what-is-a-universal-gift-list",
-  },
-  {
-    title: "Contact Us",
-    href: "/contact",
-  },
-  {
-    title: "News and Press Releases",
-    href: "/news",
-  },
-  {
-    title: "Terms and Conditions",
-    href: "/terms-and-conditions",
-  },
-  {
-    title: "Privacy Statement",
-    href: "/privacy-statement",
-  },
-  {
-    title: "Careers",
-    href: "/careers",
-  },
+const membersStatic = [
+  { title: "Track Order", href: "/order/lookup" },
+  { title: "Search Engine", href: "/search" },
+  { title: "Registries", href: "/registry" },
+  { title: "Shop", href: "/shop" },
+  { title: "Gift Guides", href: "/gift-guides" },
+  { title: "Support", href: "/support" },
 ];
 
 const partners = [
@@ -120,6 +40,32 @@ const partners = [
 ];
 
 export default function Footer() {
+  const [dynamicPages, setDynamicPages] = useState([]);
+
+  useEffect(() => {
+    let active = true;
+    const loadPages = async () => {
+      try {
+        const res = await fetch("/api/static-pages");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active && Array.isArray(data?.pages)) {
+          setDynamicPages(
+            data.pages.map((p) => ({
+              title: p.title,
+              href: `/pages/${p.slug}`,
+            }))
+          );
+        }
+      } catch {}
+    };
+    loadPages();
+    return () => { active = false; };
+  }, []);
+
+  const companyInfo = [...companyInfoStatic, ...dynamicPages];
+  const members = [...membersStatic, ...dynamicPages];
+
   return (
     <footer
       role="contentinfo"
@@ -135,7 +81,7 @@ export default function Footer() {
             <h2 className="font-semibold">Company Info</h2>
             <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {companyInfo.map((item) => (
-                <li key={item.title}>
+                <li key={item.href}>
                   <Link
                     href={item.href}
                     className="text-xs text-[#909090] hover:text-[#247ACB] focus:text-[#247ACB]"
@@ -153,7 +99,7 @@ export default function Footer() {
             <h2 className="font-semibold">For Members</h2>
             <ul className="flex flex-col space-y-2 list-none p-0 m-0">
               {members.map((item) => (
-                <li key={item.title}>
+                <li key={item.href}>
                   <Link
                     href={item.href}
                     className="text-xs text-[#909090] hover:text-[#247ACB] focus:text-[#247ACB]"
@@ -215,7 +161,7 @@ export default function Footer() {
         </div>
       </div>
       <p className="text-xs text-[#909090]">
-        © 2025 All rights reserved - Giftologi LLC —{" "}
+        © {new Date().getFullYear()} All rights reserved - Giftologi LLC —{" "}
         <Link
           href="/sitemap"
           className="text-[#85753C] hover:underline focus:underline"

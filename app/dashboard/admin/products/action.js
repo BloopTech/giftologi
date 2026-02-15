@@ -179,6 +179,7 @@ const isValidDecimalInput = (value) => {
 const defaultApproveProductValues = {
   productId: [],
   serviceCharge: [],
+  productType: [],
 };
 
 const approveProductSchema = z.object({
@@ -192,6 +193,7 @@ const approveProductSchema = z.object({
       const num = Number(value.replace(/,/g, ""));
       return Number.isFinite(num) && num >= 0;
     }, "Enter a valid service charge"),
+  productType: z.enum(["physical", "treat"], { message: "Select a product type" }),
 });
 
 const defaultFeaturedStateValues = {
@@ -247,6 +249,7 @@ export async function approveProduct(prevState, formData) {
   const raw = {
     productId: formData.get("productId"),
     serviceCharge: formData.get("serviceCharge") || "",
+    productType: formData.get("productType") || "",
   };
 
   const parsed = approveProductSchema.safeParse(raw);
@@ -260,7 +263,7 @@ export async function approveProduct(prevState, formData) {
     };
   }
 
-  const { productId, serviceCharge } = parsed.data;
+  const { productId, serviceCharge, productType } = parsed.data;
 
   const { data: product, error: productError } = await supabase
     .from("products")
@@ -315,6 +318,7 @@ export async function approveProduct(prevState, formData) {
       service_charge: Number.isFinite(serviceChargeNumber)
         ? serviceChargeNumber
         : null,
+      product_type: productType || "physical",
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
@@ -1060,6 +1064,7 @@ const updateProductSchema = z.object({
     }, "Invalid featured image selection"),
   existingImages: z.string().optional().or(z.literal("")),
   productType: z.enum(["physical", "treat"]).optional().default("physical"),
+  isShippable: z.enum(["true", "false"]).optional().default("true"),
 });
 
 const createCategorySchema = z.object({
@@ -1699,6 +1704,7 @@ export async function updateProduct(prevState, formData) {
     featuredImageIndex: formData.get("featuredImageIndex") || "",
     existingImages: formData.get("existing_images") || "",
     productType: formData.get("productType") || "physical",
+    isShippable: formData.get("isShippable") === "true" ? "true" : "false",
   };
 
   const parsed = updateProductSchema.safeParse(raw);
@@ -1908,6 +1914,7 @@ export async function updateProduct(prevState, formData) {
       sale_starts_at: saleStartsAt || null,
       sale_ends_at: saleEndsAt || null,
       product_type: parsed.data.productType || "physical",
+      is_shippable: parsed.data.isShippable === "true",
       updated_at: new Date().toISOString(),
     })
     .eq("id", productId);
@@ -2057,6 +2064,7 @@ const createSingleProductSchema = z.object({
       return Number.isInteger(idx) && idx >= 0 && idx <= 2;
     }, "Invalid featured image selection"),
   productType: z.enum(["physical", "treat"]).optional().default("physical"),
+  isShippable: z.enum(["true", "false"]).optional().default("true"),
 });
 
 const MAX_BULK_PRODUCTS = 200;
@@ -2218,6 +2226,7 @@ export async function createVendorProducts(prevState, formData) {
       saleEndsAt: formData.get("saleEndsAt") || "",
       featuredImageIndex: formData.get("featuredImageIndex") || "",
       productType: formData.get("productType") || "physical",
+      isShippable: formData.get("isShippable") === "true" ? "true" : "false",
     };
 
     const parsedSingle = createSingleProductSchema.safeParse(rawSingle);
@@ -2387,6 +2396,7 @@ export async function createVendorProducts(prevState, formData) {
       sale_starts_at: single.saleStartsAt || null,
       sale_ends_at: single.saleEndsAt || null,
       product_type: single.productType || "physical",
+      is_shippable: single.isShippable === "true",
       status: "approved",
       active: true,
       created_at: nowIso,
@@ -2748,6 +2758,7 @@ export async function createVendorProducts(prevState, formData) {
     created_at: nowIso,
     updated_at: nowIso,
     product_type: row.productType || "physical",
+    is_shippable: true,
     product_code: generateProductCode(),
   }));
 

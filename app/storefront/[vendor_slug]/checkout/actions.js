@@ -33,6 +33,7 @@ export async function processStorefrontCheckout(prevState, formData) {
     const variationRaw = formData.get("variation")?.trim();
     const cartMode = formData.get("cartMode") === "1";
     const guestBrowserId = formData.get("guestBrowserId")?.trim() || null;
+    const deviceFingerprint = formData.get("deviceFingerprint")?.trim() || null;
     const giftWrapOptionId = formData.get("giftWrapOptionId")?.trim() || null;
     const promoCode = formData.get("promoCode")?.trim() || "";
     const registryId = formData.get("registryId")?.trim() || null;
@@ -47,10 +48,14 @@ export async function processStorefrontCheckout(prevState, formData) {
     const region = formData.get("region");
     const digitalAddress = formData.get("digitalAddress")?.trim();
     const notes = formData.get("notes")?.trim();
+    const hasShippableItems = formData.get("hasShippableItems") !== "0";
 
     // Validation
-    if (!firstName || !lastName || !email || !phone || !address || !city) {
+    if (!firstName || !lastName || !email || !phone) {
       return { success: false, error: "Please fill in all required fields." };
+    }
+    if (hasShippableItems && (!address || !city)) {
+      return { success: false, error: "Shipping address is required for shippable items." };
     }
 
     if (!vendorId || (!cartMode && !productId) || !total) {
@@ -237,7 +242,7 @@ export async function processStorefrontCheckout(prevState, formData) {
       const { data: products } = await adminClient
         .from("products")
         .select(
-          "id, name, stock_qty, variations, vendor_id, status, active, category_id, weight_kg"
+          "id, name, stock_qty, variations, vendor_id, status, active, category_id, weight_kg, is_shippable, product_type"
         )
         .in("id", productIds);
 
@@ -313,17 +318,22 @@ export async function processStorefrontCheckout(prevState, formData) {
           product.category_id,
         ].filter(Boolean);
         totalPieces += Number(item.quantity || 0);
-        weightItems.push({
-          quantity: item.quantity || 0,
-          weight_kg: product.weight_kg ?? null,
-        });
+        if (product.is_shippable !== false) {
+          weightItems.push({
+            quantity: item.quantity || 0,
+            weight_kg: product.weight_kg ?? null,
+          });
+        }
         promoItems.push({
           itemId: item.id,
           productId: item.product_id,
+          vendorId: product.vendor_id || vendorId,
           categoryIds,
           subtotal: itemTotal,
           giftWrapFee: wrapFee * (item.quantity || 0),
           quantity: item.quantity || 1,
+          isShippable: product.is_shippable !== false,
+          productType: product.product_type || "physical",
         });
         orderItemsPayload.push({
           order_id: null,
@@ -348,7 +358,7 @@ export async function processStorefrontCheckout(prevState, formData) {
       const { data: product, error: productError } = await adminClient
         .from("products")
         .select(
-          "id, name, price, service_charge, stock_qty, variations, vendor_id, category_id, weight_kg, sale_price, sale_starts_at, sale_ends_at"
+          "id, name, price, service_charge, stock_qty, variations, vendor_id, category_id, weight_kg, sale_price, sale_starts_at, sale_ends_at, is_shippable, product_type"
         )
         .eq("id", productId)
         .eq("vendor_id", vendorId)
@@ -443,10 +453,13 @@ export async function processStorefrontCheckout(prevState, formData) {
         {
           itemId: productId,
           productId,
+          vendorId: product.vendor_id || vendorId,
           categoryIds,
           subtotal: computedSubtotal,
           giftWrapFee,
           quantity,
+          isShippable: product.is_shippable !== false,
+          productType: product.product_type || "physical",
         },
       ];
       orderItemsPayload = [
@@ -478,6 +491,7 @@ export async function processStorefrontCheckout(prevState, formData) {
         vendorId,
         userId: user?.id || null,
         guestBrowserId,
+        deviceFingerprint,
         items: promoItems,
       });
 
@@ -561,6 +575,7 @@ export async function processStorefrontCheckout(prevState, formData) {
         registry_id: registryId || null,
         gift_message: giftMessage || null,
         guest_browser_id: !user?.id ? guestBrowserId : null,
+        device_fingerprint: deviceFingerprint || null,
         promo_id: promoSummary?.id || null,
         promo_code: promoSummary?.code || null,
         promo_scope: promoSummary?.scope || null,
@@ -656,6 +671,7 @@ export async function processStorefrontCheckout(prevState, formData) {
         order_id: order.id,
         user_id: user?.id || null,
         guest_browser_id: user?.id ? null : guestBrowserId || null,
+        device_fingerprint: deviceFingerprint || null,
         amount: promoSummary.discount || 0,
         meta: {
           code: promoSummary.code,

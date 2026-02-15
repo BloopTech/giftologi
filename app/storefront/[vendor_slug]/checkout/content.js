@@ -1,5 +1,12 @@
 "use client";
-import React, { useState, useCallback, useActionState, useEffect, useMemo, useRef } from "react";
+import React, {
+  useState,
+  useCallback,
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -21,17 +28,9 @@ import {
 } from "lucide-react";
 import { getAramexRateQuote, processStorefrontCheckout } from "./actions";
 import { getGuestIdentifier } from "../../../utils/guest";
+import { getDeviceFingerprint } from "../../../utils/fingerprint";
 import { computeShipmentWeight } from "../../../utils/shipping/weights";
 
-const DEFAULT_SHIPPING_REGIONS = [
-  { id: "accra", name: "Greater Accra", fee: 25 },
-  { id: "kumasi", name: "Ashanti Region", fee: 35 },
-  { id: "takoradi", name: "Western Region", fee: 40 },
-  { id: "tamale", name: "Northern Region", fee: 50 },
-  { id: "cape_coast", name: "Central Region", fee: 35 },
-  { id: "ho", name: "Volta Region", fee: 40 },
-  { id: "other", name: "Other Regions", fee: 55 },
-];
 
 const formatPrice = (value) => {
   if (value === null || value === undefined) return "GHS 0.00";
@@ -52,20 +51,10 @@ export default function CheckoutContent({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [quantity, setQuantity] = useState(initialQuantity);
-  const [shippingRegions, setShippingRegions] = useState(
-    DEFAULT_SHIPPING_REGIONS
-  );
-  const [selectedRegion, setSelectedRegion] = useState(() => {
-    if (userProfile?.address_state) {
-      const match = DEFAULT_SHIPPING_REGIONS.find(
-        (r) => r.name.toLowerCase() === userProfile.address_state.toLowerCase()
-      );
-      if (match) return match;
-    }
-    return DEFAULT_SHIPPING_REGIONS[0] || null;
-  });
+  const [shippingRegions, setShippingRegions] = useState([]);
+  const [selectedRegion, setSelectedRegion] = useState(null);
   const [zonesState, setZonesState] = useState({
-    loading: false,
+    loading: true,
     error: null,
   });
   const [shippingQuote, setShippingQuote] = useState({
@@ -74,6 +63,7 @@ export default function CheckoutContent({
     error: null,
   });
   const [guestBrowserId, setGuestBrowserId] = useState("");
+  const [deviceFingerprint, setDeviceFingerprint] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [promoState, setPromoState] = useState({
     applied: false,
@@ -123,11 +113,11 @@ export default function CheckoutContent({
   const unitPrice = Number.isFinite(variationPrice)
     ? variationPrice + serviceCharge
     : Number.isFinite(basePrice)
-    ? basePrice
-    : 0;
+      ? basePrice
+      : 0;
   const cartItems = useMemo(
     () => (cartMode ? cartState.items : []),
-    [cartMode, cartState.items]
+    [cartMode, cartState.items],
   );
   const giftWrapOptionMap = useMemo(() => {
     const map = new Map();
@@ -148,29 +138,43 @@ export default function CheckoutContent({
     const option = giftWrapOptionMap.get(selectedGiftWrapOptionId);
     const fee = Number(option?.fee || 0);
     return fee * quantity;
-  }, [cartMode, cartItems, giftWrapOptionMap, selectedGiftWrapOptionId, quantity]);
+  }, [
+    cartMode,
+    cartItems,
+    giftWrapOptionMap,
+    selectedGiftWrapOptionId,
+    quantity,
+  ]);
   const cartSubtotal = Number(cartState.subtotal) || 0;
   const subtotal = cartMode ? cartSubtotal : unitPrice * quantity;
+  const hasShippableItems = useMemo(() => {
+    if (cartMode) {
+      return cartItems.some((i) => i.product?.is_shippable !== false);
+    }
+    return product?.is_shippable !== false;
+  }, [cartMode, cartItems, product?.is_shippable]);
+
   const fallbackShippingFee = Number(selectedRegion?.fee) || 0;
-  const shippingFee = Number.isFinite(shippingQuote.amount)
+  const rawShippingFee = Number.isFinite(shippingQuote.amount)
     ? shippingQuote.amount
     : fallbackShippingFee;
+  const shippingFee = hasShippableItems ? rawShippingFee : 0;
   const selectedRegionName = selectedRegion?.name || "";
   const promoDiscount = promoState.applied
     ? Number(promoState.discount?.totalDiscount || 0)
     : 0;
-  const discountedSubtotal = promoState.applied &&
-    Number.isFinite(promoState.discountedSubtotal)
+  const discountedSubtotal =
+    promoState.applied && Number.isFinite(promoState.discountedSubtotal)
       ? Number(promoState.discountedSubtotal)
       : subtotal;
-  const discountedGiftWrapFee = promoState.applied &&
-    Number.isFinite(promoState.discountedGiftWrapFee)
+  const discountedGiftWrapFee =
+    promoState.applied && Number.isFinite(promoState.discountedGiftWrapFee)
       ? Number(promoState.discountedGiftWrapFee)
       : giftWrapFee;
 
   const [state, formAction, isPending] = useActionState(
     processStorefrontCheckout,
-    { success: false, error: null }
+    { success: false, error: null },
   );
 
   const effectiveStock = useMemo(() => {
@@ -189,7 +193,7 @@ export default function CheckoutContent({
         return next;
       });
     },
-    [effectiveStock]
+    [effectiveStock],
   );
 
   const handleInputChange = useCallback((e) => {
@@ -215,7 +219,7 @@ export default function CheckoutContent({
       const region = shippingRegions.find((r) => r.id === e.target.value);
       if (region) setSelectedRegion(region);
     },
-    [shippingRegions]
+    [shippingRegions],
   );
 
   useEffect(() => {
@@ -225,18 +229,31 @@ export default function CheckoutContent({
       setZonesState({ loading: true, error: null });
       try {
         const response = await fetch(
-          `/api/shipping/aramex/zones?country=${encodeURIComponent(countryCode)}`
+          `/api/shipping/aramex/zones?country=${encodeURIComponent(countryCode)}`,
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
           throw new Error(
-            payload?.details || payload?.error || "Failed to load shipping zones."
+            payload?.details ||
+              payload?.error ||
+              "Failed to load shipping zones.",
           );
         }
         const zones = Array.isArray(payload?.zones) ? payload.zones : [];
         if (active && zones.length > 0) {
           setShippingRegions(zones);
-          setSelectedRegion((prev) => resolveSelectedRegion(zones, prev));
+          setSelectedRegion((prev) => {
+            if (prev) return resolveSelectedRegion(zones, prev);
+            if (userProfile?.address_state) {
+              const match = zones.find(
+                (z) =>
+                  z.name.toLowerCase() ===
+                  userProfile.address_state.toLowerCase(),
+              );
+              if (match) return match;
+            }
+            return zones[0];
+          });
         }
         if (active) {
           setZonesState({ loading: false, error: null });
@@ -255,7 +272,7 @@ export default function CheckoutContent({
     return () => {
       active = false;
     };
-  }, [resolveSelectedRegion, vendor?.address_country]);
+  }, [resolveSelectedRegion, vendor?.address_country, userProfile?.address_state]);
 
   useEffect(() => {
     if (!cartMode) return;
@@ -264,7 +281,12 @@ export default function CheckoutContent({
       const id = await getGuestIdentifier();
       if (active && id) setGuestBrowserId(id);
     };
+    const resolveFingerprint = async () => {
+      const fp = await getDeviceFingerprint();
+      if (active && fp) setDeviceFingerprint(fp);
+    };
     resolveGuestId();
+    resolveFingerprint();
     return () => {
       active = false;
     };
@@ -288,7 +310,12 @@ export default function CheckoutContent({
     });
   }, []);
 
-  const lastCartDepsRef = useRef({ subtotal: cartState.subtotal, giftWrapFee, quantity, selectedGiftWrapOptionId });
+  const lastCartDepsRef = useRef({
+    subtotal: cartState.subtotal,
+    giftWrapFee,
+    quantity,
+    selectedGiftWrapOptionId,
+  });
   useEffect(() => {
     const prev = lastCartDepsRef.current;
     const changed =
@@ -296,11 +323,24 @@ export default function CheckoutContent({
       prev.giftWrapFee !== giftWrapFee ||
       prev.quantity !== quantity ||
       prev.selectedGiftWrapOptionId !== selectedGiftWrapOptionId;
-    lastCartDepsRef.current = { subtotal: cartState.subtotal, giftWrapFee, quantity, selectedGiftWrapOptionId };
+    lastCartDepsRef.current = {
+      subtotal: cartState.subtotal,
+      giftWrapFee,
+      quantity,
+      selectedGiftWrapOptionId,
+    };
     if (changed && promoState.applied) {
       resetPromoState();
     }
-  }, [cartMode, cartState.subtotal, giftWrapFee, quantity, selectedGiftWrapOptionId, resetPromoState, promoState.applied]);
+  }, [
+    cartMode,
+    cartState.subtotal,
+    giftWrapFee,
+    quantity,
+    selectedGiftWrapOptionId,
+    resetPromoState,
+    promoState.applied,
+  ]);
 
   useEffect(() => {
     let active = true;
@@ -310,10 +350,14 @@ export default function CheckoutContent({
         const response = await fetch("/api/gift-wrap-options");
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(payload?.message || "Failed to load gift wrap options.");
+          throw new Error(
+            payload?.message || "Failed to load gift wrap options.",
+          );
         }
         if (!active) return;
-        setGiftWrapOptions(Array.isArray(payload?.options) ? payload.options : []);
+        setGiftWrapOptions(
+          Array.isArray(payload?.options) ? payload.options : [],
+        );
         setGiftWrapState({ loading: false, error: null });
       } catch (error) {
         if (!active) return;
@@ -368,7 +412,7 @@ export default function CheckoutContent({
         }));
       }
     },
-    [cartMode, vendor?.slug, registryId, guestBrowserId]
+    [cartMode, vendor?.slug, registryId, guestBrowserId],
   );
 
   useEffect(() => {
@@ -390,11 +434,13 @@ export default function CheckoutContent({
       setRegistryLoading(true);
       try {
         const response = await fetch(
-          `/api/registry/shipping?registry_id=${encodeURIComponent(cartState.registryId)}`
+          `/api/registry/shipping?registry_id=${encodeURIComponent(cartState.registryId)}`,
         );
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(payload?.message || "Failed to load registry shipping.");
+          throw new Error(
+            payload?.message || "Failed to load registry shipping.",
+          );
         }
         if (cancelled) return;
         setRegistryShipping(payload);
@@ -428,7 +474,9 @@ export default function CheckoutContent({
       }
     };
     loadRegistryShipping();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isRegistryCart, cartState.registryId, registryShipping, shippingRegions]);
 
   const updateCartItemQuantity = useCallback(
@@ -460,7 +508,7 @@ export default function CheckoutContent({
         });
       }
     },
-    [fetchCart]
+    [fetchCart],
   );
 
   const updateCartItemGiftWrap = useCallback(
@@ -492,36 +540,47 @@ export default function CheckoutContent({
         });
       }
     },
-    [fetchCart]
+    [fetchCart],
   );
 
   const handleRemoveItem = useCallback(
     (itemId) => {
       updateCartItemQuantity(itemId, 0);
     },
-    [updateCartItemQuantity]
+    [updateCartItemQuantity],
   );
 
   const totalPieces = useMemo(() => {
     if (cartMode) {
       return cartItems.reduce(
         (sum, item) => sum + (Number(item?.quantity) || 0),
-        0
+        0,
       );
     }
     return quantity;
   }, [cartMode, cartItems, quantity]);
   const totalWeight = useMemo(() => {
     if (cartMode) {
-      return computeShipmentWeight(cartItems);
+      const shippable = cartItems.filter(
+        (i) => i.product?.is_shippable !== false,
+      );
+      return computeShipmentWeight(shippable);
     }
+    if (product?.is_shippable === false) return 0;
     return computeShipmentWeight([
       {
         quantity,
         weight_kg: product?.weightKg ?? product?.weight_kg,
       },
     ]);
-  }, [cartMode, cartItems, product?.weightKg, product?.weight_kg, quantity]);
+  }, [
+    cartMode,
+    cartItems,
+    product?.is_shippable,
+    product?.weightKg,
+    product?.weight_kg,
+    quantity,
+  ]);
   const handlePromoInputChange = useCallback(
     (event) => {
       const value = event.target.value;
@@ -530,7 +589,7 @@ export default function CheckoutContent({
         resetPromoState();
       }
     },
-    [promoState.applied, resetPromoState]
+    [promoState.applied, resetPromoState],
   );
   const cartHasItems = cartItems.length > 0;
   const cartLoading = cartMode && cartState.loading;
@@ -555,6 +614,7 @@ export default function CheckoutContent({
           vendorId: vendor?.id,
           cartMode,
           guestBrowserId: guestBrowserId || null,
+          deviceFingerprint: deviceFingerprint || null,
         };
 
         if (!cartMode) {
@@ -598,7 +658,17 @@ export default function CheckoutContent({
         });
       }
     },
-    [promoCode, vendor?.id, cartMode, guestBrowserId, product?.id, quantity, unitPrice, selectedGiftWrapOptionId]
+    [
+      promoCode,
+      vendor?.id,
+      cartMode,
+      guestBrowserId,
+      deviceFingerprint,
+      product?.id,
+      quantity,
+      unitPrice,
+      selectedGiftWrapOptionId,
+    ],
   );
 
   useEffect(() => {
@@ -607,7 +677,16 @@ export default function CheckoutContent({
     if (cartMode && (cartLoading || cartUpdating)) return;
     if (!cartMode && !product?.id) return;
     applyPromoCode(codeParam);
-  }, [searchParams, promoState.applied, promoState.loading, cartMode, cartLoading, cartUpdating, product?.id, applyPromoCode]);
+  }, [
+    searchParams,
+    promoState.applied,
+    promoState.loading,
+    cartMode,
+    cartLoading,
+    cartUpdating,
+    product?.id,
+    applyPromoCode,
+  ]);
   const originAddress = useMemo(
     () => ({
       line1: vendor?.address_street || "",
@@ -617,7 +696,7 @@ export default function CheckoutContent({
       postalCode: "",
       countryCode: vendor?.address_country || "GH",
     }),
-    [vendor]
+    [vendor],
   );
   const destinationAddress = useMemo(
     () => ({
@@ -628,12 +707,23 @@ export default function CheckoutContent({
       postalCode: "",
       countryCode: vendor?.address_country || "GH",
     }),
-    [formData.address, formData.city, formData.digitalAddress, formData.region, selectedRegion?.name, vendor?.address_country]
+    [
+      formData.address,
+      formData.city,
+      formData.digitalAddress,
+      formData.region,
+      selectedRegion?.name,
+      vendor?.address_country,
+    ],
   );
   useEffect(() => {
     if (cartMode && (cartLoading || cartUpdating)) return;
     if (!originAddress.line1 || !originAddress.city) return;
-    if (!destinationAddress.line1 || !destinationAddress.city || !destinationAddress.state) {
+    if (
+      !destinationAddress.line1 ||
+      !destinationAddress.city ||
+      !destinationAddress.state
+    ) {
       setShippingQuote((prev) => ({ ...prev, amount: null, error: null }));
       return;
     }
@@ -654,7 +744,9 @@ export default function CheckoutContent({
         });
         if (!payload?.success) {
           throw new Error(
-            payload?.error || payload?.details || "Failed to fetch shipping rate."
+            payload?.error ||
+              payload?.details ||
+              "Failed to fetch shipping rate.",
           );
         }
         if (!cancelled) {
@@ -848,7 +940,8 @@ export default function CheckoutContent({
                     Registry Gift for {registryShipping.hostName || "the host"}
                   </p>
                   <p className="text-xs text-amber-700 mt-1">
-                    Shipping to the host&apos;s delivery address. These fields cannot be changed.
+                    Shipping to the host&apos;s delivery address. These fields
+                    cannot be changed.
                   </p>
                 </div>
               </div>
@@ -873,138 +966,161 @@ export default function CheckoutContent({
             )}
 
             {/* Shipping Address */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <MapPin className="size-5 text-[#A5914B]" />
-                Shipping Address
-              </h2>
-              <div className="space-y-4">
+            {!hasShippableItems ? (
+              <div className="bg-amber-50 rounded-2xl border border-amber-200 p-4 flex items-start gap-3">
+                <Gift className="size-5 text-amber-600 shrink-0 mt-0.5" />
                 <div>
-                  <label
-                    htmlFor="region"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Region *
-                  </label>
-                  <select
-                    id="region"
-                    name="region"
-                    required
-                    value={selectedRegion?.id || ""}
-                    onChange={handleRegionChange}
-                    disabled={isRegistryCart}
-                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"}`}
-                  >
-                    {shippingRegions.map((region) => (
-                      <option key={region.id} value={region.id}>
-                        {region.name} - {formatPrice(region.fee)} shipping
-                      </option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {zonesState.loading
-                      ? "Loading delivery zones..."
-                      : zonesState.error
-                      ? "Using default shipping zones."
-                      : shippingQuote.loading
-                      ? "Calculating Aramex rate..."
-                      : shippingQuote.amount
-                      ? `Aramex rate: ${formatPrice(shippingQuote.amount)}`
-                      : shippingQuote.error
-                      ? "Aramex rate unavailable, using standard shipping."
-                      : "Enter your address to get an Aramex rate."}
+                  <p className="text-sm font-medium text-amber-900">
+                    No Shipping Required
+                  </p>
+                  <p className="text-xs text-amber-700 mt-1">
+                    Your order contains only non-shippable items. No shipping
+                    address or fee is needed.
                   </p>
                 </div>
-                <div>
-                  <label
-                    htmlFor="city"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    City/Town *
-                  </label>
-                  <input
-                    type="text"
-                    id="city"
-                    name="city"
-                    required
-                    readOnly={isRegistryCart}
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
-                    placeholder="Accra"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="address"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Street Address *
-                  </label>
-                  <input
-                    type="text"
-                    id="address"
-                    name="address"
-                    required
-                    readOnly={isRegistryCart}
-                    value={formData.address}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
-                    placeholder="123 Main Street, East Legon"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="digitalAddress"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Ghana Post Digital Address
-                  </label>
-                  <input
-                    type="text"
-                    id="digitalAddress"
-                    name="digitalAddress"
-                    readOnly={isRegistryCart}
-                    value={formData.digitalAddress}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
-                    placeholder="GA-123-4567"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="notes"
-                    className="block text-sm font-medium text-gray-700 mb-1"
-                  >
-                    Delivery Notes (Optional)
-                  </label>
-                  <textarea
-                    id="notes"
-                    name="notes"
-                    rows={3}
-                    readOnly={isRegistryCart}
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors resize-none ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
-                    placeholder="Any special delivery instructions..."
-                  />
-                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                  <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                    <MapPin className="size-5 text-[#A5914B]" />
+                    Shipping Address
+                  </h2>
+                  <div className="space-y-4">
+                    <div>
+                      <label
+                        htmlFor="region"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Region *
+                      </label>
+                      <select
+                        id="region"
+                        name="region"
+                        required
+                        value={selectedRegion?.id || ""}
+                        onChange={handleRegionChange}
+                        disabled={isRegistryCart || zonesState.loading}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart || zonesState.loading ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"}`}
+                      >
+                        {zonesState.loading ? (
+                          <option value="">Loading zones...</option>
+                        ) : shippingRegions.length === 0 ? (
+                          <option value="">No delivery zones available</option>
+                        ) : (
+                          shippingRegions.map((region) => (
+                            <option key={region.id} value={region.id}>
+                              {region.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <p className="text-xs text-gray-500 mt-2">
+                        {zonesState.loading
+                          ? "Loading delivery zones from Aramex..."
+                          : zonesState.error
+                            ? zonesState.error
+                            : shippingQuote.loading
+                              ? "Calculating shipping rate..."
+                              : shippingQuote.amount
+                                ? `Shipping: ${formatPrice(shippingQuote.amount)} (based on weight & destination)`
+                                : shippingQuote.error
+                                  ? "Could not calculate rate. Please check your address."
+                                  : "Enter your address to calculate shipping."}
+                      </p>
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="city"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        City/Town *
+                      </label>
+                      <input
+                        type="text"
+                        id="city"
+                        name="city"
+                        required
+                        readOnly={isRegistryCart}
+                        value={formData.city}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
+                        placeholder="Accra"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="address"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Street Address *
+                      </label>
+                      <input
+                        type="text"
+                        id="address"
+                        name="address"
+                        required
+                        readOnly={isRegistryCart}
+                        value={formData.address}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
+                        placeholder="123 Main Street, East Legon"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="digitalAddress"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Ghana Post Digital Address
+                      </label>
+                      <input
+                        type="text"
+                        id="digitalAddress"
+                        name="digitalAddress"
+                        readOnly={isRegistryCart}
+                        value={formData.digitalAddress}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
+                        placeholder="GA-123-4567"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="notes"
+                        className="block text-sm font-medium text-gray-700 mb-1"
+                      >
+                        Delivery Notes (Optional)
+                      </label>
+                      <textarea
+                        id="notes"
+                        name="notes"
+                        rows={3}
+                        readOnly={isRegistryCart}
+                        value={formData.notes}
+                        onChange={handleInputChange}
+                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors resize-none ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
+                        placeholder="Any special delivery instructions..."
+                      />
+                    </div>
+                  </div>
+                </div>
 
-            {/* Shipping Info */}
-            <div className="bg-blue-50 rounded-2xl border border-blue-200 p-4 flex items-start gap-3">
-              <Truck className="size-5 text-blue-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-blue-900">
-                  Delivery by Aramex
-                </p>
-                <p className="text-xs text-blue-700 mt-1">
-                  Estimated delivery: 2-5 business days depending on your
-                  location. You will receive tracking information via email.
-                </p>
-              </div>
-            </div>
+                {/* Shipping Info */}
+                <div className="bg-blue-50 rounded-2xl border border-blue-200 p-4 flex items-start gap-3">
+                  <Truck className="size-5 text-blue-600 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">
+                      Delivery by Aramex
+                    </p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Estimated delivery: 2-5 business days depending on your
+                      location. You will receive tracking information via email.
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Right Column - Order Summary */}
@@ -1049,7 +1165,9 @@ export default function CheckoutContent({
                   cartLoading ? (
                     <div className="text-sm text-gray-500">Loading cart...</div>
                   ) : cartState.error ? (
-                    <div className="text-sm text-red-600">{cartState.error}</div>
+                    <div className="text-sm text-red-600">
+                      {cartState.error}
+                    </div>
                   ) : cartHasItems ? (
                     <div className="space-y-4">
                       {cartItems.map((item) => {
@@ -1059,7 +1177,8 @@ export default function CheckoutContent({
                         const itemPrice = Number(item?.price || 0);
                         const itemTotal = itemPrice * (item.quantity || 0);
                         const isUpdating =
-                          cartActionState.loading && cartActionState.itemId === item.id;
+                          cartActionState.loading &&
+                          cartActionState.itemId === item.id;
                         return (
                           <div key={item.id} className="flex gap-4">
                             <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
@@ -1090,15 +1209,21 @@ export default function CheckoutContent({
                                   <select
                                     value={item?.gift_wrap_option_id || ""}
                                     onChange={(e) =>
-                                      updateCartItemGiftWrap(item.id, e.target.value)
+                                      updateCartItemGiftWrap(
+                                        item.id,
+                                        e.target.value,
+                                      )
                                     }
-                                    disabled={isUpdating || giftWrapState.loading}
+                                    disabled={
+                                      isUpdating || giftWrapState.loading
+                                    }
                                     className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm outline-none transition hover:border-gray-300 disabled:opacity-50"
                                   >
                                     <option value="">No gift wrap</option>
                                     {giftWrapOptions.map((option) => (
                                       <option key={option.id} value={option.id}>
-                                        {option.name} (+{formatPrice(option.fee)})
+                                        {option.name} (+
+                                        {formatPrice(option.fee)})
                                       </option>
                                     ))}
                                   </select>
@@ -1117,9 +1242,14 @@ export default function CheckoutContent({
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      updateCartItemQuantity(item.id, (item.quantity || 1) - 1)
+                                      updateCartItemQuantity(
+                                        item.id,
+                                        (item.quantity || 1) - 1,
+                                      )
                                     }
-                                    disabled={isUpdating || (item.quantity || 1) <= 1}
+                                    disabled={
+                                      isUpdating || (item.quantity || 1) <= 1
+                                    }
                                     className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                   >
                                     <Minus className="size-3" />
@@ -1130,7 +1260,10 @@ export default function CheckoutContent({
                                   <button
                                     type="button"
                                     onClick={() =>
-                                      updateCartItemQuantity(item.id, (item.quantity || 0) + 1)
+                                      updateCartItemQuantity(
+                                        item.id,
+                                        (item.quantity || 0) + 1,
+                                      )
                                     }
                                     disabled={isUpdating}
                                     className="p-1.5 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -1188,11 +1321,13 @@ export default function CheckoutContent({
                           <p className="text-sm text-[#A5914B] font-semibold">
                             {formatPrice(unitPrice)}
                           </p>
-                          {product?.isOnSale && product?.originalPrice && !selectedVariation && (
-                            <p className="text-xs text-gray-400 line-through">
-                              {product.originalPrice}
-                            </p>
-                          )}
+                          {product?.isOnSale &&
+                            product?.originalPrice &&
+                            !selectedVariation && (
+                              <p className="text-xs text-gray-400 line-through">
+                                {product.originalPrice}
+                              </p>
+                            )}
                         </div>
                         {selectedVariation?.label && (
                           <p className="text-xs text-gray-500 mt-1">
@@ -1229,10 +1364,14 @@ export default function CheckoutContent({
                     </div>
                     {giftWrapOptions.length ? (
                       <div className="mt-4 space-y-2">
-                        <label className="text-sm text-gray-600">Gift wrap</label>
+                        <label className="text-sm text-gray-600">
+                          Gift wrap
+                        </label>
                         <select
                           value={selectedGiftWrapOptionId}
-                          onChange={(e) => setSelectedGiftWrapOptionId(e.target.value)}
+                          onChange={(e) =>
+                            setSelectedGiftWrapOptionId(e.target.value)
+                          }
                           disabled={giftWrapState.loading}
                           className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm outline-none transition hover:border-gray-400 disabled:opacity-50"
                         >
@@ -1273,19 +1412,21 @@ export default function CheckoutContent({
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Shipping</span>
-                  <span className="font-medium">{formatPrice(shippingFee)}</span>
+                  <span className="font-medium">
+                    {formatPrice(shippingFee)}
+                  </span>
                 </div>
                 {giftWrapFee > 0 ? (
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Gift wrapping</span>
-                    <span className="font-medium">{formatPrice(giftWrapFee)}</span>
+                    <span className="font-medium">
+                      {formatPrice(giftWrapFee)}
+                    </span>
                   </div>
                 ) : null}
                 {promoState.applied && promoDiscount > 0 ? (
                   <div className="flex justify-between text-sm text-green-700">
-                    <span>
-                      Promo ({promoState.promo?.code || promoCode})
-                    </span>
+                    <span>Promo ({promoState.promo?.code || promoCode})</span>
                     <span className="font-semibold">
                       -{formatPrice(promoDiscount)}
                     </span>
@@ -1312,7 +1453,10 @@ export default function CheckoutContent({
                   <button
                     type="button"
                     onClick={() => applyPromoCode()}
-                    disabled={promoState.loading || (cartMode && (cartLoading || cartUpdating))}
+                    disabled={
+                      promoState.loading ||
+                      (cartMode && (cartLoading || cartUpdating))
+                    }
                     className="rounded-xl border border-[#A5914B] px-4 text-sm font-semibold text-[#A5914B] transition hover:bg-[#A5914B]/10 disabled:opacity-50"
                   >
                     {promoState.loading ? "Applying" : "Apply"}
@@ -1321,8 +1465,9 @@ export default function CheckoutContent({
                 {promoState.applied ? (
                   <div className="flex items-center justify-between text-xs text-green-700">
                     <span>
-                      {promoState.promo?.percent_off || promoState.discount?.percentOff}% off
-                      applied to eligible items
+                      {promoState.promo?.percent_off ||
+                        promoState.discount?.percentOff}
+                      % off applied to eligible items
                     </span>
                     <button
                       type="button"
@@ -1343,7 +1488,11 @@ export default function CheckoutContent({
               {cartMode ? (
                 <>
                   <input type="hidden" name="cartMode" value="1" />
-                  <input type="hidden" name="guestBrowserId" value={guestBrowserId} />
+                  <input
+                    type="hidden"
+                    name="guestBrowserId"
+                    value={guestBrowserId}
+                  />
                   <input type="hidden" name="subtotal" value={subtotal} />
                   <input type="hidden" name="giftWrapFee" value={giftWrapFee} />
                 </>
@@ -1375,7 +1524,21 @@ export default function CheckoutContent({
               )}
               <input type="hidden" name="giftWrapFee" value={giftWrapFee} />
               <input type="hidden" name="shippingFee" value={shippingFee} />
-              <input type="hidden" name="shippingRegion" value={selectedRegionName} />
+              <input
+                type="hidden"
+                name="shippingRegion"
+                value={selectedRegionName}
+              />
+              <input
+                type="hidden"
+                name="hasShippableItems"
+                value={hasShippableItems ? "1" : "0"}
+              />
+              <input
+                type="hidden"
+                name="deviceFingerprint"
+                value={deviceFingerprint}
+              />
               <input type="hidden" name="total" value={total} />
               <input
                 type="hidden"
@@ -1384,7 +1547,11 @@ export default function CheckoutContent({
               />
               {isRegistryCart && (
                 <>
-                  <input type="hidden" name="registryId" value={cartState.registryId} />
+                  <input
+                    type="hidden"
+                    name="registryId"
+                    value={cartState.registryId}
+                  />
                   <input type="hidden" name="giftMessage" value={giftMessage} />
                 </>
               )}

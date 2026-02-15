@@ -16,7 +16,7 @@ const buildCategoryMap = (rows = []) => {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { code, guestBrowserId } = body || {};
+    const { code, guestBrowserId, deviceFingerprint } = body || {};
 
     const trimmedCode = typeof code === "string" ? code.trim() : "";
     if (!trimmedCode) {
@@ -77,7 +77,7 @@ export async function POST(request) {
 
     const productIds = cartItems.map((item) => item.product_id).filter(Boolean);
     const [{ data: products }, { data: productCategories }] = await Promise.all([
-      adminClient.from("products").select("id, category_id, vendor_id").in("id", productIds),
+      adminClient.from("products").select("id, category_id, vendor_id, is_shippable, product_type").in("id", productIds),
       adminClient.from("product_categories").select("product_id, category_id").in("product_id", productIds),
     ]);
 
@@ -104,10 +104,13 @@ export async function POST(request) {
       promoItems.push({
         itemId: item.id,
         productId: item.product_id,
+        vendorId: product?.vendor_id || null,
         categoryIds,
         subtotal: Number(item?.total_price || 0),
         giftWrapFee: roundCurrency(wrapFee * quantityValue),
         quantity: quantityValue,
+        isShippable: product?.is_shippable !== false,
+        productType: product?.product_type || "physical",
       });
     });
 
@@ -120,6 +123,7 @@ export async function POST(request) {
       vendorId: firstVendorId,
       userId,
       guestBrowserId: userId ? null : guestBrowserId || null,
+      deviceFingerprint: deviceFingerprint || null,
       items: promoItems,
     });
 

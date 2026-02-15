@@ -34,7 +34,7 @@ export async function GET(request) {
     const { data: items, error: itemsError } = await adminClient
       .from("cart_items")
       .select(
-        "id, product_id, cart_id, quantity, price, total_price, variation, product:products(id, name, price, service_charge, images, product_code, stock_qty, weight_kg, product_type, vendor_id, vendor:vendors(id, slug, business_name, logo_url))"
+        "id, product_id, cart_id, quantity, price, total_price, variation, product:products(id, name, price, service_charge, images, product_code, stock_qty, weight_kg, product_type, is_shippable, vendor_id, vendor:vendors(id, slug, business_name, logo_url))"
       )
       .in("cart_id", cartIds)
       .order("created_at", { ascending: true });
@@ -80,6 +80,7 @@ export async function GET(request) {
         stock: item.product?.stock_qty,
         weight_kg: item.product?.weight_kg ?? null,
         product_type: item.product?.product_type || "physical",
+        is_shippable: item.product?.is_shippable !== false,
       };
       group.items.push(itemData);
       group.subtotal += itemData.totalPrice;
