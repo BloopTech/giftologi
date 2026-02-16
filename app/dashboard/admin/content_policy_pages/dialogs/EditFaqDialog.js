@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
-import { X } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { Switch } from "@/app/components/Switch";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import RichTextEditor from "@/app/components/RichTextEditor";
@@ -134,7 +134,7 @@ export default function EditFaqDialog({ open, onOpenChange, faq }) {
                 "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
-                hasError(state, "question") ? hasErrorInput : ""
+                hasError(state, "question") ? hasErrorInput : "",
               )}
               disabled={pending}
             />
@@ -181,7 +181,7 @@ export default function EditFaqDialog({ open, onOpenChange, faq }) {
                   "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                   focusInput,
-                  hasError(state, "category") ? hasErrorInput : ""
+                  hasError(state, "category") ? hasErrorInput : "",
                 )}
                 disabled={pending}
               />
@@ -205,7 +205,7 @@ export default function EditFaqDialog({ open, onOpenChange, faq }) {
                   "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                   focusInput,
-                  hasError(state, "sortOrder") ? hasErrorInput : ""
+                  hasError(state, "sortOrder") ? hasErrorInput : "",
                 )}
                 disabled={pending}
               />
@@ -225,7 +225,7 @@ export default function EditFaqDialog({ open, onOpenChange, faq }) {
               <DialogClose asChild>
                 <button
                   type="button"
-                  className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                  className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   disabled={pending}
                 >
                   Cancel
@@ -234,9 +234,13 @@ export default function EditFaqDialog({ open, onOpenChange, faq }) {
               <button
                 type="submit"
                 disabled={pending}
-                className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
+                className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {primaryLabel}
+                {pending ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  primaryLabel
+                )}
               </button>
             </div>
           </div>

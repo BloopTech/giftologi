@@ -7,7 +7,7 @@ import React, {
   useRef,
   useMemo,
 } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import {
   PiPackage,
@@ -749,12 +749,13 @@ export default function VendorProductsContent() {
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center overflow-hidden">
                             {product.images?.[0] ? (
-                              <Image
+                              <ImageWithFallback
                                 src={product.images[0]}
                                 alt={product.name}
                                 width={40}
                                 height={40}
                                 className="object-cover w-full h-full"
+                                priority
                               />
                             ) : (
                               <PiImage className="w-5 h-5 text-[#9CA3AF]" />

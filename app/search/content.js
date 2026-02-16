@@ -1,6 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import {
   Search,
@@ -361,10 +361,11 @@ export default function GlobalSearchContent() {
                       className="group rounded-3xl border border-[#EFE3CC] bg-white p-4 transition hover:-translate-y-1 hover:shadow-lg"
                     >
                       <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#F7F2EA]">
-                        <Image
+                        <ImageWithFallback
                           src={product.image || "/host/toaster.png"}
                           alt={product.name}
                           fill
+                          priority
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="object-cover transition duration-300 group-hover:scale-105"
                         />
@@ -441,10 +442,11 @@ export default function GlobalSearchContent() {
                       className="group flex flex-col overflow-hidden rounded-3xl border border-[#EFE3CC] bg-white transition hover:-translate-y-1 hover:shadow-lg"
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F7F2EA]">
-                        <Image
+                        <ImageWithFallback
                           src={registry.coverPhoto || "/host/toaster.png"}
                           alt={registry.registryName}
                           fill
+                          priority
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="object-cover transition duration-300 group-hover:scale-105"
                         />
@@ -508,11 +510,13 @@ export default function GlobalSearchContent() {
                     >
                       <div className="flex items-center gap-3">
                         <div className="relative size-12 overflow-hidden rounded-2xl bg-[#F7F2EA]">
-                          <Image
+                          <ImageWithFallback
                             src={vendor.logo || "/host/toaster.png"}
                             alt={vendor.name}
                             fill
                             className="object-cover"
+                            priority
+                            sizes="48px"
                           />
                         </div>
                         <div>
@@ -570,10 +574,11 @@ export default function GlobalSearchContent() {
                         className="group rounded-3xl border border-[#EFE3CC] bg-white p-4 transition hover:-translate-y-1 hover:shadow-lg"
                       >
                         <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-[#F7F2EA]">
-                          <Image
+                          <ImageWithFallback
                             src={product.image || "/host/toaster.png"}
                             alt={product.name}
                             fill
+                            priority
                             sizes="(max-width: 768px) 100vw, 33vw"
                             className="object-cover transition duration-300 group-hover:scale-105"
                           />
@@ -621,10 +626,11 @@ export default function GlobalSearchContent() {
                         className="group flex flex-col overflow-hidden rounded-3xl border border-[#EFE3CC] bg-white transition hover:-translate-y-1 hover:shadow-lg"
                       >
                         <div className="relative aspect-[4/3] w-full overflow-hidden bg-[#F7F2EA]">
-                          <Image
+                          <ImageWithFallback
                             src={registry.coverPhoto || "/host/toaster.png"}
                             alt={registry.registryName}
                             fill
+                            priority
                             sizes="(max-width: 768px) 100vw, 33vw"
                             className="object-cover transition duration-300 group-hover:scale-105"
                           />
@@ -673,11 +679,13 @@ export default function GlobalSearchContent() {
                       >
                         <div className="flex items-center gap-3">
                           <div className="relative size-12 overflow-hidden rounded-2xl bg-[#F7F2EA]">
-                            <Image
+                            <ImageWithFallback
                               src={vendor.logo || "/host/toaster.png"}
                               alt={vendor.name}
                               fill
                               className="object-cover"
+                              priority
+                              sizes="48px"
                             />
                           </div>
                           <div>

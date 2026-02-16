@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import {
   PiUserCircle,
   PiPencilSimple,
@@ -275,12 +275,13 @@ export default function HostProfileContent() {
               <div className="relative group">
                 <div className="w-20 h-20 rounded-full bg-[#F3F4F6] flex items-center justify-center overflow-hidden border-2 border-[#E5E7EB]">
                   {photoPreview ? (
-                    <Image
+                    <ImageWithFallback
                       src={photoPreview}
                       alt="Profile photo"
                       width={80}
                       height={80}
                       className="object-cover w-full h-full"
+                      priority
                     />
                   ) : (
                     <PiUserCircle className="w-10 h-10 text-[#9CA3AF]" />

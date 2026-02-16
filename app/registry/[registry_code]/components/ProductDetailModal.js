@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../../components/Dialog";
 import { X, ChevronDown, ChevronUp, ShoppingCart, Check } from "lucide-react";
 
@@ -56,12 +56,13 @@ export default function ProductDetailModal({
           {/* Product Image */}
           <div className="w-full md:w-1/2 bg-gray-50 rounded-l-2xl p-8 flex items-center justify-center">
             <div className="relative w-full aspect-square max-w-[300px]">
-              <Image
-                src={image || "/host/toaster.png"}
+              <ImageWithFallback
+                src={image}
                 alt={title}
                 fill
                 className="object-contain"
                 sizes="300px"
+                priority
               />
             </div>
           </div>

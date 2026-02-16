@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import { PiGift, PiMagnifyingGlass, PiFunnel } from "react-icons/pi";
 import Footer from "../components/footer";
 
@@ -21,10 +21,11 @@ function GuideCard({ guide, occasionLabels = {}, budgetLabels = {} }) {
     >
       <div className="aspect-video relative bg-[#F3F4F6]">
         {guide.cover_image ? (
-          <Image
+          <ImageWithFallback
             src={guide.cover_image}
             alt={guide.title}
             fill
+            priority
             className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />

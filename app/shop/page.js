@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { createClient } from "../utils/supabase/server";
 import ShopContent from "./content";
 import { ShopProvider } from "./context";
@@ -87,14 +88,25 @@ export default async function ShopPage({ searchParams }) {
   }
 
   return (
-    <ShopProvider
-      initialProducts={[]}
-      initialCategories={[]}
-      activeRegistry={activeRegistry}
-      hostProfile={hostProfile}
-      initialSearchParams={params}
-    >
-      <ShopContent />
-    </ShopProvider>
+    <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#shop-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to shop content
+      </Link>
+      <main id="shop-content" role="main" aria-label="Gift shop">
+        <ShopProvider
+          initialProducts={[]}
+          initialCategories={[]}
+          activeRegistry={activeRegistry}
+          hostProfile={hostProfile}
+          initialSearchParams={params}
+        >
+          <ShopContent />
+        </ShopProvider>
+      </main>
+    </>
   );
 }

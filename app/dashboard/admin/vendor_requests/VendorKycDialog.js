@@ -14,7 +14,7 @@ import { cx } from "@/app/components/utils";
 import { RejectVendorDialog } from "./RejectVendorDialog";
 import { updateVendorCommissionRate } from "./action";
 import { Loader2Icon, PencilIcon, CheckIcon, XIcon } from "lucide-react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 
 const TABS = [
@@ -271,12 +271,13 @@ export default function VendorKycDialog({
           <div className="flex items-start gap-3">
             <div className="h-10 w-10 overflow-hidden rounded-xl border border-gray-200 bg-white">
               {logoUrl ? (
-                <Image
+                <ImageWithFallback
                   src={logoUrl}
                   alt="Vendor logo"
                   width={40}
                   height={40}
                   className="h-10 w-10 object-cover"
+                  priority
                 />
               ) : (
                 <div className="h-10 w-10 bg-gray-100" />

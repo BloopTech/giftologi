@@ -4,8 +4,127 @@ import { fetchAramexStates } from "../../../../utils/shipping/aramex";
 
 const DEFAULT_COUNTRY_CODE = "GH";
 
-const normalizeCountryCode = (value) =>
-  String(value || "").trim().toUpperCase() || DEFAULT_COUNTRY_CODE;
+const COUNTRY_NAME_TO_CODE = {
+  GHANA: "GH",
+  NIGERIA: "NG",
+  KENYA: "KE",
+  SOUTH_AFRICA: "ZA",
+  EGYPT: "EG",
+  UAE: "AE",
+  DUBAI: "AE",
+  ABU_DHABI: "AE",
+  SAUDI_ARABIA: "SA",
+  UNITED_STATES: "US",
+  USA: "US",
+  UNITED_KINGDOM: "GB",
+  UK: "GB",
+  CANADA: "CA",
+  AUSTRALIA: "AU",
+  INDIA: "IN",
+  PAKISTAN: "PK",
+  BANGLADESH: "BD",
+  SRI_LANKA: "LK",
+  PHILIPPINES: "PH",
+  INDONESIA: "ID",
+  MALAYSIA: "MY",
+  SINGAPORE: "SG",
+  THAILAND: "TH",
+  CHINA: "CN",
+  JAPAN: "JP",
+  KOREA: "KR",
+  SOUTH_KOREA: "KR",
+  GERMANY: "DE",
+  FRANCE: "FR",
+  ITALY: "IT",
+  SPAIN: "ES",
+  NETHERLANDS: "NL",
+  BELGIUM: "BE",
+  SWITZERLAND: "CH",
+  AUSTRIA: "AT",
+  PORTUGAL: "PT",
+  IRELAND: "IE",
+  DENMARK: "DK",
+  NORWAY: "NO",
+  SWEDEN: "SE",
+  FINLAND: "FI",
+  POLAND: "PL",
+  CZECH_REPUBLIC: "CZ",
+  GREECE: "GR",
+  TURKEY: "TR",
+  ISRAEL: "IL",
+  JORDAN: "JO",
+  LEBANON: "LB",
+  KUWAIT: "KW",
+  BAHRAIN: "BH",
+  OMAN: "OM",
+  QATAR: "QA",
+  IRAQ: "IQ",
+  IRAN: "IR",
+  MOROCCO: "MA",
+  TUNISIA: "TN",
+  ALGERIA: "DZ",
+  LIBYA: "LY",
+  SUDAN: "SD",
+  ETHIOPIA: "ET",
+  UGANDA: "UG",
+  TANZANIA: "TZ",
+  ZAMBIA: "ZM",
+  ZIMBABWE: "ZW",
+  BOTSWANA: "BW",
+  NAMIBIA: "NA",
+  MOZAMBIQUE: "MZ",
+  MALAWI: "MW",
+  MADAGASCAR: "MG",
+  MAURITIUS: "MU",
+  SEYCHELLES: "SC",
+  COMOROS: "KM",
+  DJIBOUTI: "DJ",
+  SOMALIA: "SO",
+  ERITREA: "ER",
+  CHAD: "TD",
+  NIGER: "NE",
+  MALI: "ML",
+  BURKINA_FASO: "BF",
+  SENEGAL: "SN",
+  GAMBIA: "GM",
+  GUINEA: "GN",
+  SIERRA_LEONE: "SL",
+  LIBERIA: "LR",
+  IVORY_COAST: "CI",
+  COTE_DIVOIRE: "CI",
+  TOGO: "TG",
+  BENIN: "BJ",
+  CAMEROON: "CM",
+  CENTRAL_AFRICAN_REPUBLIC: "CF",
+  EQUATORIAL_GUINEA: "GQ",
+  GABON: "GA",
+  CONGO: "CG",
+  DEMOCRATIC_REPUBLIC_OF_CONGO: "CD",
+  DRC: "CD",
+  ANGOLA: "AO",
+  RWANDA: "RW",
+  BURUNDI: "BI",
+  SOUTH_SUDAN: "SS",
+  LESOTHO: "LS",
+  ESWATINI: "SZ",
+  SWAZILAND: "SZ",
+};
+
+const normalizeCountryCode = (value) => {
+  const trimmed = String(value || "").trim().toUpperCase();
+  if (!trimmed) return DEFAULT_COUNTRY_CODE;
+
+  // If already a 2-letter code, return as-is
+  if (trimmed.length === 2 && /^[A-Z]{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  // Replace spaces and special chars with underscores for lookup
+  const normalizedName = trimmed.replace(/[\s\-'.]+/g, "_");
+
+  // Look up by full name
+  return COUNTRY_NAME_TO_CODE[normalizedName] || trimmed.slice(0, 2);
+};
 
 const mapZonesResponse = (zones) =>
   (Array.isArray(zones) ? zones : []).map((zone) => ({

@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { PiFileImageLight, PiGiftDuotone, PiGiftFill } from "react-icons/pi";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import Footer from "../../components/footer";
 import Advertisement from "../../components/advertisement";
@@ -63,7 +63,7 @@ export default function EventPageContent(props) {
                   }`}
                 >
                   <div className="flex items-center justify-center px-4">
-                    <Image
+                    <ImageWithFallback
                       src={p.image}
                       alt={p.title}
                       width={150}

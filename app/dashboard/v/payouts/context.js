@@ -14,9 +14,9 @@ const VendorPayoutsContext = createContext();
 const createInitialState = () => ({
   vendor: null,
   commissionRate: null,
-  payouts: [],
+  payoutPeriods: [],
   paymentInfo: null,
-  transactions: [],
+  recentLineItems: [],
 });
 
 export const VendorPayoutsProvider = ({ children }) => {
@@ -58,46 +58,51 @@ export const VendorPayoutsProvider = ({ children }) => {
       }
 
       const [
-        { data: payoutsData, error: payoutsError },
+        { data: periodsData, error: periodsError },
         { data: paymentInfoData, error: paymentInfoError },
-        { data: transactionsData, error: transactionsError },
       ] = await Promise.all([
         supabase
-          .from("vendor_payouts")
+          .from("payout_periods")
           .select(
-            "id, status, total_net_amount, total_gross_amount, total_commission_amount, total_orders, from_date, to_date, created_at",
+            "id, vendor_id, week_start, status, total_gross, total_commission, total_vendor_net, total_items, total_orders, payment_method, payment_reference, notes, approved_at, paid_at, created_at",
           )
           .eq("vendor_id", vendorRecord.id)
-          .order("created_at", { ascending: false }),
+          .order("week_start", { ascending: false })
+          .limit(50),
         supabase
           .from("payment_info")
           .select(
-            "id, vendor_id, bank_name, bank_account, bank_branch, momo_number, momo_network, account_name, account_type, routing_number",
+            "id, vendor_id, bank_name, bank_account, bank_account_masked, bank_branch, momo_number, momo_network, account_name, account_type, routing_number",
           )
           .eq("vendor_id", vendorRecord.id)
           .order("created_at", { ascending: false })
           .limit(1)
           .maybeSingle(),
-        supabase
-          .from("order_items")
-          .select(
-            "id, order_id, product_id, quantity, price, vendor_status, fulfillment_status, created_at, vendor_payout_id, products ( name ), vendor_payouts ( id, status )",
-          )
-          .eq("vendor_id", vendorRecord.id)
-          .order("created_at", { ascending: false })
-          .limit(10),
       ]);
 
-      if (payoutsError || paymentInfoError || transactionsError) {
-        throw payoutsError || paymentInfoError || transactionsError;
+      if (periodsError) throw periodsError;
+      if (paymentInfoError) throw paymentInfoError;
+
+      let lineItemsData = [];
+      const periodIds = (periodsData || []).map((p) => p.id);
+      if (periodIds.length > 0) {
+        const { data: liData, error: liError } = await supabase
+          .from("payout_line_items")
+          .select(
+            "id, payout_period_id, order_item_id, gross_amount, commission_amount, vendor_net, created_at, order_items ( id, order_id, product_id, quantity, price, products ( name ) )",
+          )
+          .in("payout_period_id", periodIds)
+          .order("created_at", { ascending: false })
+          .limit(20);
+        if (!liError) lineItemsData = liData || [];
       }
 
       setData({
         vendor: vendorRecord,
         commissionRate: vendorRecord?.commission_rate ?? null,
-        payouts: payoutsData || [],
+        payoutPeriods: periodsData || [],
         paymentInfo: paymentInfoData || null,
-        transactions: transactionsData || [],
+        recentLineItems: lineItemsData,
       });
     } catch (err) {
       console.error("Vendor payouts fetch error", err);
@@ -116,9 +121,9 @@ export const VendorPayoutsProvider = ({ children }) => {
     () => ({
       vendor: data.vendor,
       commissionRate: data.commissionRate,
-      payouts: data.payouts,
+      payoutPeriods: data.payoutPeriods,
       paymentInfo: data.paymentInfo,
-      transactions: data.transactions,
+      recentLineItems: data.recentLineItems,
       loading,
       error,
       refreshData: fetchPayoutsData,

@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import { Search, Grid3X3, ChevronRight, ShoppingBag, X } from "lucide-react";
 import { createClient as createSupabaseClient } from "../utils/supabase/client";
@@ -156,10 +156,12 @@ export default function CategoriesContent() {
                   >
                     <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-800 overflow-hidden">
                       {parent.sample_image ? (
-                        <Image
+                        <ImageWithFallback
                           src={parent.sample_image}
                           alt={parent.name}
                           fill
+                          priority
+                          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                           className="object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       ) : (
@@ -188,10 +190,12 @@ export default function CategoriesContent() {
                     >
                       <div className="relative aspect-[4/3] bg-gray-100 dark:bg-gray-800 overflow-hidden">
                         {child.sample_image ? (
-                          <Image
+                          <ImageWithFallback
                             src={child.sample_image}
                             alt={child.name}
                             fill
+                            priority
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                         ) : (

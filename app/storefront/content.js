@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import Footer from "../components/footer";
 import Pagination from "../components/Pagination";
@@ -161,12 +161,13 @@ export default function StorefrontDirectoryContent() {
                 {/* Card Header — logo + name */}
                 <div className="flex items-center gap-4 p-5 pb-3">
                   <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0 flex items-center justify-center">
-                    <Image
+                    <ImageWithFallback
                       src={v.logo_src}
                       alt={v.business_name}
                       width={64}
                       height={64}
                       className="object-cover w-full h-full"
+                      priority
                     />
                   </div>
                   <div className="flex-1 min-w-0">

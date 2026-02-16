@@ -91,15 +91,15 @@ export async function processShopCheckout(prevState, formData) {
     const productIds = cartItems.map((item) => item.product_id).filter(Boolean);
     const { data: products } = await adminClient
       .from("products")
-      .select("id, name, stock_qty, vendor_id, status, active, category_id, weight_kg, product_type, is_shippable")
+      .select("id, name, price, service_charge, stock_qty, vendor_id, status, active, category_id, weight_kg, product_type, is_shippable")
       .in("id", productIds);
 
     const productMap = new Map((products || []).map((p) => [p.id, p]));
 
-    // Fetch vendors to check verification status
+    // Fetch vendors to check verification status and commission rates for payout snapshots
     const vendorIds = Array.from(new Set((products || []).map((p) => p.vendor_id).filter(Boolean)));
     const { data: vendorRows } = vendorIds.length
-      ? await adminClient.from("vendors").select("id, verified").in("id", vendorIds)
+      ? await adminClient.from("vendors").select("id, verified, commission_rate").in("id", vendorIds)
       : { data: [] };
     const vendorMap = new Map((vendorRows || []).map((v) => [v.id, v]));
 
@@ -189,14 +189,21 @@ export async function processShopCheckout(prevState, formData) {
         productType: product.product_type || "physical",
       });
 
+      const shopServiceCharge = Number(product.service_charge || 0);
+      const shopUnitPrice = Number(item.price || 0);
+      const shopOriginalPrice = Math.max(0, shopUnitPrice - shopServiceCharge);
+      const shopVendor = vendorMap.get(product.vendor_id);
       orderItemsPayload.push({
         order_id: null,
         product_id: item.product_id,
         vendor_id: product.vendor_id,
         registry_item_id: item.registry_item_id ?? null,
         quantity: item.quantity,
-        price: Number(item.price || 0),
+        price: shopUnitPrice,
         total_price: itemTotal,
+        original_price: shopOriginalPrice,
+        service_charge_snapshot: shopServiceCharge,
+        commission_rate_snapshot: shopVendor?.commission_rate ?? null,
         variation: item.variation ?? null,
         wrapping: item.wrapping ?? !!item.gift_wrap_option_id,
         gift_wrap_option_id: item.gift_wrap_option_id ?? null,

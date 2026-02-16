@@ -1,6 +1,6 @@
 "use client";
 import React, { useActionState, useEffect, useRef } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import {
   Dialog,
@@ -106,12 +106,13 @@ export default function ProductDetailModal({
           {/* Product Image */}
           <div className="w-full md:w-1/2 bg-gray-50 p-8 flex items-center justify-center">
             <div className="relative w-full aspect-square max-w-[300px]">
-              <Image
-                src={image || "/host/toaster.png"}
+              <ImageWithFallback
+                src={image}
                 alt={name}
                 fill
                 className="object-contain"
                 sizes="300px"
+                priority
               />
               {isOutOfStock && (
                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center rounded-lg">

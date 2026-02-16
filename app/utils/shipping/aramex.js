@@ -4,13 +4,45 @@ const DEFAULT_WEIGHT_UNIT = "KG";
 const DEFAULT_REPORT_ID = "9729";
 const DEFAULT_REPORT_TYPE = "URL";
 const DEFAULT_RATE_SOAP_ACTION =
-  "http://ws.dev.aramex.net/ShippingAPI/v1/Service_1_0/CalculateRate";
+  "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/CalculateRate";
 const DEFAULT_LOCATION_URL =
   "https://ws.aramex.net/ShippingAPI.V2/Location/Service_1_0.svc";
+const DEFAULT_RATE_URL =
+  "https://ws.aramex.net/ShippingAPI.V2/RateCalculator/Service_1_0.svc";
 const DEFAULT_STATES_SOAP_ACTION =
   "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/FetchStates";
-const DEFAULT_TRACK_SOAP_ACTION =
-  "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/TrackShipments";
+const DEFAULT_CITIES_SOAP_ACTION =
+  "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/FetchCities";
+
+import { normalizeCityName } from "./ghana-cities";
+
+const normalizeCountryCode = (value) => {
+  const trimmed = String(value || "").trim().toUpperCase();
+  if (!trimmed) return "GH"; // Default to Ghana
+  // If already a 2-letter code, return as-is
+  if (trimmed.length === 2 && /^[A-Z]{2}$/.test(trimmed)) {
+    return trimmed;
+  }
+  // Map common country names to ISO codes
+  const nameMap = {
+    GHANA: "GH",
+    NIGERIA: "NG",
+    KENYA: "KE",
+    "SOUTH AFRICA": "ZA",
+    EGYPT: "EG",
+    UAE: "AE",
+    DUBAI: "AE",
+    "UNITED STATES": "US",
+    USA: "US",
+    "UNITED KINGDOM": "GB",
+    UK: "GB",
+    CANADA: "CA",
+    AUSTRALIA: "AU",
+    INDIA: "IN",
+  };
+  const normalizedName = trimmed.replace(/[\s\-'.]+/g, " ");
+  return nameMap[normalizedName] || trimmed.slice(0, 2);
+};
 
 const getRequiredEnv = (key) => {
   const value = process.env[key];
@@ -53,16 +85,23 @@ const getNotificationMessages = (xml) => {
     .filter(Boolean);
 };
 
-const extractStatesFromXml = (xml) => {
-  const statesContainer = getXmlValue(xml, "States");
-  const source = statesContainer || xml;
-  const stateBlocks = getXmlValues(source, "State");
-  return stateBlocks
-    .map((stateBlock) => ({
-      code: getXmlValue(stateBlock, "Code"),
-      name: getXmlValue(stateBlock, "Name"),
-    }))
-    .filter((state) => state.name);
+const extractCitiesFromXml = (xml) => {
+  // Aramex returns cities as <a:string> elements inside <Cities>
+  // Example: <Cities xmlns:a="..."><a:string>Accra</a:string>...</Cities>
+  const citiesMatch = xml.match(/<Cities[^>]*>([\s\S]*?)<\/Cities>/i);
+  if (!citiesMatch) return [];
+  
+  const citiesContent = citiesMatch[1];
+  // Extract all <a:string> or <string> values
+  const stringMatches = citiesContent.matchAll(/<(?:a:)?string>([^<]*)<\/(?:a:)?string>/gi);
+  const cities = [];
+  for (const match of stringMatches) {
+    const name = match[1]?.trim();
+    if (name) {
+      cities.push({ name, code: "" });
+    }
+  }
+  return cities;
 };
 
 const buildPartyXml = (party) => {
@@ -280,6 +319,10 @@ export const fetchAramexStates = async ({ countryCode }) => {
       ${getClientInfoXml()}
       <Transaction>
         <Reference1>${escapeXml(safeCountryCode)}</Reference1>
+        <Reference2></Reference2>
+        <Reference3></Reference3>
+        <Reference4></Reference4>
+        <Reference5></Reference5>
       </Transaction>
       <CountryCode>${escapeXml(safeCountryCode)}</CountryCode>
     </StatesFetchingRequest>
@@ -304,6 +347,47 @@ export const fetchAramexStates = async ({ countryCode }) => {
   };
 };
 
+export const fetchAramexCities = async ({ countryCode, stateCode }) => {
+  const locationUrl = process.env.ARAMEX_LOCATION_URL || DEFAULT_LOCATION_URL;
+  const soapAction =
+    process.env.ARAMEX_CITIES_SOAP_ACTION || DEFAULT_CITIES_SOAP_ACTION;
+  const safeCountryCode = countryCode || "GH";
+  const safeStateCode = stateCode || "";
+
+  const body = `
+    <CitiesFetchingRequest xmlns="http://ws.aramex.net/ShippingAPI/v1/">
+      ${getClientInfoXml()}
+      <Transaction>
+        <Reference1>${escapeXml(safeCountryCode)}</Reference1>
+        <Reference2></Reference2>
+        <Reference3></Reference3>
+        <Reference4></Reference4>
+        <Reference5></Reference5>
+      </Transaction>
+      <CountryCode>${escapeXml(safeCountryCode)}</CountryCode>
+      <State>${escapeXml(safeStateCode)}</State>
+    </CitiesFetchingRequest>
+  `;
+
+  const xml = await requestAramex({
+    url: locationUrl,
+    action: soapAction,
+    body: buildSoapEnvelope(body),
+  });
+
+  const hasErrors = /<HasErrors>true<\/HasErrors>/i.test(xml);
+  const message = getXmlValue(xml, "Message");
+  const notifications = getNotificationMessages(xml);
+  const cities = extractCitiesFromXml(xml);
+
+  return {
+    raw: xml,
+    hasErrors,
+    message: message || notifications.join(" ").trim(),
+    cities,
+  };
+};
+
 export const calculateAramexRate = async ({
   origin,
   destination,
@@ -311,7 +395,7 @@ export const calculateAramexRate = async ({
   reference,
 }) => {
   const rateUrl =
-    process.env.ARAMEX_RATE_URL || getRequiredEnv("ARAMEX_SHIPPING_URL");
+    process.env.ARAMEX_RATE_URL || DEFAULT_RATE_URL;
   const soapAction =
     process.env.ARAMEX_RATE_SOAP_ACTION || DEFAULT_RATE_SOAP_ACTION;
   const productGroup = shipment?.productGroup || process.env.ARAMEX_PRODUCT_GROUP || "EXP";
@@ -322,6 +406,27 @@ export const calculateAramexRate = async ({
   const weightValue = Number.isFinite(Number(shipment?.weight))
     ? Number(shipment.weight)
     : 1;
+
+  // Normalize country codes for origin and destination
+  const normalizedOrigin = {
+    ...origin,
+    countryCode: normalizeCountryCode(origin?.countryCode),
+    city: normalizeCityName(origin?.city),
+  };
+  const normalizedDestination = {
+    ...destination,
+    countryCode: normalizeCountryCode(destination?.countryCode),
+    city: normalizeCityName(destination?.city),
+  };
+
+  // Log request for debugging
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Aramex rate request:", {
+      origin: normalizedOrigin,
+      destination: normalizedDestination,
+      weight: weightValue,
+    });
+  }
 
   const detailsXml = `
     <ShipmentDetails>
@@ -347,9 +452,10 @@ export const calculateAramexRate = async ({
       <ProductGroup>${escapeXml(productGroup)}</ProductGroup>
       <ProductType>${escapeXml(productType)}</ProductType>
       <PaymentType>${escapeXml(paymentType)}</PaymentType>
+      <PaymentOptions>${escapeXml(paymentType)}</PaymentOptions>
       <CustomsValueAmount>
-        <Value>${escapeXml(shipment?.goodsValue || shipment?.declaredValue || 0)}</Value>
         <CurrencyCode>${escapeXml(currency)}</CurrencyCode>
+        <Value>${escapeXml(shipment?.goodsValue || shipment?.declaredValue || 0)}</Value>
       </CustomsValueAmount>
     </ShipmentDetails>
   `;
@@ -359,12 +465,16 @@ export const calculateAramexRate = async ({
       ${getClientInfoXml()}
       <Transaction>
         <Reference1>${escapeXml(reference || "")}</Reference1>
+        <Reference2></Reference2>
+        <Reference3></Reference3>
+        <Reference4></Reference4>
+        <Reference5></Reference5>
       </Transaction>
       <OriginAddress>
-        ${buildAddressXml(origin)}
+        ${buildAddressXml(normalizedOrigin)}
       </OriginAddress>
       <DestinationAddress>
-        ${buildAddressXml(destination)}
+        ${buildAddressXml(normalizedDestination)}
       </DestinationAddress>
       ${detailsXml}
     </RateCalculatorRequest>
@@ -379,11 +489,23 @@ export const calculateAramexRate = async ({
   const hasErrors = /<HasErrors>true<\/HasErrors>/i.test(xml);
   const notifications = getXmlValues(xml, "Notification");
   const message = getXmlValue(xml, "Message");
-  const totalAmountXml = getXmlValue(xml, "TotalAmount");
-  const totalValue = totalAmountXml ? getXmlValue(totalAmountXml, "Value") : "";
+  
+  // Try multiple possible locations for rate amount in Aramex response
+  const totalAmountXml = getXmlValue(xml, "TotalAmount") || getXmlValue(xml, "Rate");
+  const totalValue = totalAmountXml ? getXmlValue(totalAmountXml, "Value") : getXmlValue(xml, "Value");
   const totalCurrency = totalAmountXml
     ? getXmlValue(totalAmountXml, "CurrencyCode")
-    : "";
+    : getXmlValue(xml, "CurrencyCode");
+
+  // Log for debugging
+  if (process.env.NODE_ENV !== "production") {
+    console.log("Aramex rate response:", {
+      hasErrors,
+      message: message || notifications.join(" ").trim(),
+      totalValue,
+      totalCurrency,
+    });
+  }
 
   return {
     raw: xml,

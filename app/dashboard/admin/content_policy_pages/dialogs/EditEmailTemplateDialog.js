@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
-import { X, FileText, Code, Send } from "lucide-react";
+import { X, FileText, Code, Send, Loader2 } from "lucide-react";
 import { Switch } from "@/app/components/Switch";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import {
@@ -59,9 +59,12 @@ const RECIPIENT_TYPE_OPTIONS = [
 
 const VARIABLE_MAP = {
   host: "{{host_name}} {{registry_title}} {{dashboard_url}} {{amount}} {{order_reference}} {{status}} {{event_title}} {{days_until}} {{pending_count}} {{gifts_count}} {{views_count}} {{total_value}} {{buyer_name}}",
-  vendor: "{{vendor_name}} {{dashboard_url}} {{order_reference}} {{amount}} {{status}} {{payout_status}} {{product_name}} {{reviewer_name}} {{rating}} {{reason}}",
-  admin: "{{vendor_name}} {{application_id}} {{dashboard_url}} {{order_reference}} {{amount}} {{reason}}",
-  guest: "{{guest_name}} {{order_reference}} {{amount}} {{registry_title}} {{tracking_url}} {{status}}",
+  vendor:
+    "{{vendor_name}} {{dashboard_url}} {{order_reference}} {{amount}} {{status}} {{payout_status}} {{product_name}} {{reviewer_name}} {{rating}} {{reason}}",
+  admin:
+    "{{vendor_name}} {{application_id}} {{dashboard_url}} {{order_reference}} {{amount}} {{reason}}",
+  guest:
+    "{{guest_name}} {{order_reference}} {{amount}} {{registry_title}} {{tracking_url}} {{status}}",
 };
 
 function VariableHints({ category, recipientType }) {
@@ -72,7 +75,9 @@ function VariableHints({ category, recipientType }) {
     else if (key.includes("vendor")) vars = VARIABLE_MAP.vendor;
     else if (key.includes("admin")) vars = VARIABLE_MAP.admin;
     else if (key.includes("guest")) vars = VARIABLE_MAP.guest;
-    else vars = "{{site_url}} — Set a category or recipient type to see role-specific variables.";
+    else
+      vars =
+        "{{site_url}} — Set a category or recipient type to see role-specific variables.";
   }
   return (
     <p className="text-[11px] text-[#717182] font-mono bg-[#F9FAFB] rounded-xl px-3 py-2 break-all leading-relaxed">
@@ -94,7 +99,11 @@ const EDIT_TABS = [
   { key: "test", label: "Send Test", icon: Send },
 ];
 
-export default function EditEmailTemplateDialog({ open, onOpenChange, template }) {
+export default function EditEmailTemplateDialog({
+  open,
+  onOpenChange,
+  template,
+}) {
   const [tab, setTab] = useState("details");
   const [state, formAction, pending] = useActionState(
     saveEmailTemplate,
@@ -141,7 +150,10 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
       state?.errors &&
       Object.keys(state.errors).some((key) => (state.errors[key] || []).length);
     const hasData = state?.data && Object.keys(state.data).length > 0;
-    if (hasErrors) { toast.error(state.message); return; }
+    if (hasErrors) {
+      toast.error(state.message);
+      return;
+    }
     if (hasData) {
       toast.success(state.message);
       refresh?.();
@@ -162,7 +174,10 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
         (key) => (testState.errors[key] || []).length,
       );
     const hasData = testState?.data && Object.keys(testState.data).length > 0;
-    if (hasErrors) { toast.error(testState.message); return; }
+    if (hasErrors) {
+      toast.error(testState.message);
+      return;
+    }
     if (hasData) toast.success(testState.message);
     else toast.error(testState.message);
   }, [testState]);
@@ -230,12 +245,19 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
           {/* ── Details tab ── */}
           {tab === "details" && (
             <form action={formAction} className="space-y-4">
-              <input type="hidden" name="templateId" value={template?.id || ""} />
+              <input
+                type="hidden"
+                name="templateId"
+                value={template?.id || ""}
+              />
               <input type="hidden" name="status" value={statusValue} />
               <input type="hidden" name="body" value={body} />
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-[#0A0A0A]" htmlFor="template-name">
+                <label
+                  className="text-xs font-medium text-[#0A0A0A]"
+                  htmlFor="template-name"
+                >
                   Template Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -256,13 +278,18 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
                 />
                 {hasFieldError(state, "name") && (
                   <ul className="mt-1 list-disc pl-5 text-[11px] text-red-600">
-                    {errorFor(state, "name").map((err, i) => <li key={i}>{err}</li>)}
+                    {errorFor(state, "name").map((err, i) => (
+                      <li key={i}>{err}</li>
+                    ))}
                   </ul>
                 )}
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-[#0A0A0A]" htmlFor="subject-line">
+                <label
+                  className="text-xs font-medium text-[#0A0A0A]"
+                  htmlFor="subject-line"
+                >
                   Subject Line <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -284,7 +311,10 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
               </div>
 
               <div className="space-y-1">
-                <label className="text-xs font-medium text-[#0A0A0A]" htmlFor="sender-name">
+                <label
+                  className="text-xs font-medium text-[#0A0A0A]"
+                  htmlFor="sender-name"
+                >
                   Sender Name
                 </label>
                 <input
@@ -306,7 +336,9 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-[#0A0A0A]">Category</label>
+                  <label className="text-xs font-medium text-[#0A0A0A]">
+                    Category
+                  </label>
                   <input type="hidden" name="category" value={category} />
                   <Select
                     value={category}
@@ -326,14 +358,22 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-xs font-medium text-[#0A0A0A]">Recipient Type</label>
-                  <input type="hidden" name="recipientType" value={recipientType} />
+                  <label className="text-xs font-medium text-[#0A0A0A]">
+                    Recipient Type
+                  </label>
+                  <input
+                    type="hidden"
+                    name="recipientType"
+                    value={recipientType}
+                  />
                   <Select
                     value={recipientType}
                     onValueChange={(v) => setRecipientType(v)}
                     disabled={pending}
                   >
-                    <SelectTrigger hasError={hasFieldError(state, "recipientType")}>
+                    <SelectTrigger
+                      hasError={hasFieldError(state, "recipientType")}
+                    >
                       <SelectValue placeholder="Select recipient type" />
                     </SelectTrigger>
                     <SelectContent>
@@ -354,13 +394,15 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
                     onCheckedChange={(checked) => setIsActive(!!checked)}
                     disabled={pending}
                   />
-                  <span className="text-xs text-[#0A0A0A]">Template Active</span>
+                  <span className="text-xs text-[#0A0A0A]">
+                    Template Active
+                  </span>
                 </div>
                 <div className="flex items-center gap-3">
                   <DialogClose asChild>
                     <button
                       type="button"
-                      className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                      className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                       disabled={pending}
                     >
                       Cancel
@@ -369,9 +411,13 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
                   <button
                     type="submit"
                     disabled={pending}
-                    className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
+                    className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {primaryLabel}
+                    {pending ? (
+                      <Loader2 className="animate-spin h-4 w-4" />
+                    ) : (
+                      primaryLabel
+                    )}
                   </button>
                 </div>
               </div>
@@ -396,7 +442,10 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
                 <p className="text-[11px] font-medium text-[#0A0A0A]">
                   Available Variables
                 </p>
-                <VariableHints category={category} recipientType={recipientType} />
+                <VariableHints
+                  category={category}
+                  recipientType={recipientType}
+                />
               </div>
 
               {body ? (
@@ -420,11 +469,19 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
           {tab === "test" && isEdit && (
             <form action={testAction} className="space-y-4">
               <p className="text-[11px] text-[#717182]">
-                Send this template to a single email address for testing. This does not trigger any automated workflows.
+                Send this template to a single email address for testing. This
+                does not trigger any automated workflows.
               </p>
-              <input type="hidden" name="templateId" value={template?.id || ""} />
+              <input
+                type="hidden"
+                name="templateId"
+                value={template?.id || ""}
+              />
               <div className="space-y-1">
-                <label className="text-xs font-medium text-[#0A0A0A]" htmlFor="test-email">
+                <label
+                  className="text-xs font-medium text-[#0A0A0A]"
+                  htmlFor="test-email"
+                >
                   Test Email Address
                 </label>
                 <input
@@ -438,7 +495,9 @@ export default function EditEmailTemplateDialog({ open, onOpenChange, template }
                     "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                     "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                     focusInput,
-                    (testState?.errors?.testEmail || []).length ? hasErrorInput : "",
+                    (testState?.errors?.testEmail || []).length
+                      ? hasErrorInput
+                      : "",
                   )}
                   disabled={testPending}
                 />

@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -42,7 +42,14 @@ export default function ProductListItem({ product }) {
         className="relative w-32 md:w-48 shrink-0 bg-gray-50 dark:bg-gray-800 cursor-pointer"
         onClick={() => openProductDetail(p)}
       >
-        <Image src={p.image} alt={p.name} fill className="object-cover" />
+        <ImageWithFallback
+          src={p.image}
+          alt={p.name}
+          fill
+          className="object-cover"
+          priority
+          sizes="(max-width: 768px) 128px, 192px"
+        />
         {p.stock <= 0 && (
           <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
             <span className="bg-red-600 text-white text-xs font-medium px-2 py-1 rounded-full">
@@ -78,7 +85,9 @@ export default function ProductListItem({ product }) {
         <div className="flex items-center gap-2 mb-3">
           <p className="text-xl font-bold text-[#A5914B]">{p.price}</p>
           {p.isOnSale && p.originalPrice && (
-            <p className="text-sm text-gray-400 line-through">{p.originalPrice}</p>
+            <p className="text-sm text-gray-400 line-through">
+              {p.originalPrice}
+            </p>
           )}
         </div>
         {p.stock > 0 && (

@@ -91,8 +91,8 @@ const approveVendorSchema = z.object({
     .min(1, { message: "Commission rate is required" })
     .refine((value) => {
       const num = Number(value.replace(/,/g, ""));
-      return Number.isFinite(num) && num >= 0 && num <= 100;
-    }, "Enter a valid commission rate (0–100)"),
+      return Number.isFinite(num) && num >= 1 && num <= 100;
+    }, "Enter a valid commission rate (1–100)"),
 });
 
 export async function approveVendorRequest(prevState, formData) {
@@ -1777,8 +1777,8 @@ const updateCommissionRateSchema = z.object({
     .min(1, { message: "Commission rate is required" })
     .refine((value) => {
       const num = Number(value.replace(/,/g, ""));
-      return Number.isFinite(num) && num >= 0 && num <= 100;
-    }, "Enter a valid commission rate (0–100)"),
+      return Number.isFinite(num) && num >= 1 && num <= 100;
+    }, "Enter a valid commission rate (1–100)"),
 });
 
 export async function updateVendorCommissionRate(prevState, formData) {

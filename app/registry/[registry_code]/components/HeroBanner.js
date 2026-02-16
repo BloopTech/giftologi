@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 
 export default function HeroBanner({
   registry,
@@ -30,12 +30,13 @@ export default function HeroBanner({
   return (
     <div className="relative w-full bg-[#B1D1FC] border border-[#D4D4D4] rounded-2xl overflow-hidden min-h-[280px]">
       {coverPhoto ? (
-        <Image
+        <ImageWithFallback
           src={coverPhoto}
           alt={registry?.title || "Registry cover"}
           fill
           className="object-cover"
           priority
+          sizes="100vw"
         />
       ) : (
         <div className="absolute inset-0 flex">
@@ -66,13 +67,14 @@ export default function HeroBanner({
           <div className="relative w-1/2 flex items-center justify-center">
             {/* Hot air balloon */}
             <div className="absolute top-4 left-1/4">
-              <Image
+              <ImageWithFallback
                 src="/host/hotairballoon.svg"
                 alt=""
                 width={80}
                 height={120}
                 className="object-contain"
                 aria-hidden="true"
+                priority
               />
             </div>
 
@@ -96,13 +98,14 @@ export default function HeroBanner({
 
             {/* Balloons */}
             <div className="absolute top-0 right-4">
-              <Image
+              <ImageWithFallback
                 src="/host/balloons.svg"
                 alt=""
                 width={120}
                 height={180}
                 className="object-contain"
                 aria-hidden="true"
+                priority
               />
             </div>
           </div>

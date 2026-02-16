@@ -73,7 +73,7 @@ export default function ViewStaticPageDialog({ open, onOpenChange, page }) {
                   key={tab.id}
                   type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium transition-colors border-b-2 -mb-[1px] ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-2 text-[11px] font-medium transition-colors border-b-2 -mb-px ${
                     isActive
                       ? "border-primary text-primary"
                       : "border-transparent text-[#717182] hover:text-[#0A0A0A]"
@@ -128,7 +128,7 @@ export default function ViewStaticPageDialog({ open, onOpenChange, page }) {
               >
                 {page.content ? (
                   <div
-                    className="prose prose-sm max-w-none"
+                    className="prose prose-sm max-w-none prose-a:text-[#A5914B] prose-a:no-underline hover:prose-a:underline prose-a:font-medium"
                     dangerouslySetInnerHTML={{ __html: page.content }}
                   />
                 ) : (

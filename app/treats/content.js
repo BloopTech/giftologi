@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import {
   PiSparkle,
   PiMagnifyingGlass,
@@ -59,12 +59,13 @@ function TreatCard({ product }) {
     <div className="bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden hover:border-[#A5914B]/40 hover:shadow-sm transition-all group">
       <div className="aspect-square relative bg-[#F3F4F6]">
         {images[0] ? (
-          <Image
+          <ImageWithFallback
             src={images[0]}
             alt={product.name}
             fill
             className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
             sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+            priority
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

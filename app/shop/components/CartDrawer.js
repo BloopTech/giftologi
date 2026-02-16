@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import {
   X,
@@ -104,12 +104,13 @@ export default function CartDrawer({ open, onClose }) {
                   {/* Vendor header */}
                   <div className="flex items-center gap-2 mb-3">
                     {group.vendor.logo ? (
-                      <Image
+                      <ImageWithFallback
                         src={group.vendor.logo}
                         alt={group.vendor.name}
                         width={20}
                         height={20}
                         className="rounded-full object-cover"
+                        priority
                       />
                     ) : (
                       <Store className="size-4 text-gray-400" />
@@ -130,11 +131,13 @@ export default function CartDrawer({ open, onClose }) {
                         >
                           <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
                             {item.image ? (
-                              <Image
+                              <ImageWithFallback
                                 src={item.image}
                                 alt={item.name}
                                 fill
                                 className="object-cover"
+                                priority
+                                sizes="64px"
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center">

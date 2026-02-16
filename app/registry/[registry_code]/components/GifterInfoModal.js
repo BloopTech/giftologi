@@ -1,6 +1,6 @@
 "use client";
 import React, { useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../../components/Dialog";
 import { X, Check } from "lucide-react";
 
@@ -73,15 +73,17 @@ export default function GifterInfoModal({
                     width={40}
                     height={40}
                     className="object-contain"
+                    priority
                   />
                 </div>
                 <div className="relative w-24 h-24">
-                  <Image
-                    src={product.image || "/host/toaster.png"}
+                  <ImageWithFallback
+                    src={product.image}
                     alt={product.title}
                     fill
                     className="object-contain"
                     sizes="96px"
+                    priority
                   />
                 </div>
               </div>

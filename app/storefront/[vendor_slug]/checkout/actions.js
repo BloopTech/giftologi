@@ -242,12 +242,23 @@ export async function processStorefrontCheckout(prevState, formData) {
       const { data: products } = await adminClient
         .from("products")
         .select(
-          "id, name, stock_qty, variations, vendor_id, status, active, category_id, weight_kg, is_shippable, product_type"
+          "id, name, price, service_charge, stock_qty, variations, vendor_id, status, active, category_id, weight_kg, sale_price, sale_starts_at, sale_ends_at, is_shippable, product_type"
         )
         .in("id", productIds);
 
       const productMap = new Map((products || []).map((item) => [item.id, item]));
       const weightItems = [];
+
+      // Fetch vendor commission rates for payout snapshots
+      const cartVendorIds = Array.from(new Set((products || []).map((p) => p.vendor_id).filter(Boolean)));
+      const vendorCommissionMap = new Map();
+      if (cartVendorIds.length) {
+        const { data: cartVendors } = await adminClient
+          .from("vendors")
+          .select("id, commission_rate")
+          .in("id", cartVendorIds);
+        (cartVendors || []).forEach((v) => vendorCommissionMap.set(v.id, v.commission_rate));
+      }
 
       const { data: productCategories } = await adminClient
         .from("product_categories")
@@ -335,14 +346,21 @@ export async function processStorefrontCheckout(prevState, formData) {
           isShippable: product.is_shippable !== false,
           productType: product.product_type || "physical",
         });
+        const cartServiceCharge = Number(product.service_charge || 0);
+        const cartUnitPrice = Number(item.price || 0);
+        const cartOriginalPrice = Math.max(0, cartUnitPrice - cartServiceCharge);
+        const cartItemVendorId = product.vendor_id || vendorId;
         orderItemsPayload.push({
           order_id: null,
           product_id: item.product_id,
-          vendor_id: product.vendor_id || vendorId,
+          vendor_id: cartItemVendorId,
           registry_item_id: item.registry_item_id ?? null,
           quantity: item.quantity,
-          price: Number(item.price || 0),
+          price: cartUnitPrice,
           total_price: itemTotal,
+          original_price: cartOriginalPrice,
+          service_charge_snapshot: cartServiceCharge,
+          commission_rate_snapshot: vendorCommissionMap.get(cartItemVendorId) ?? null,
           variation: item.variation ?? null,
           wrapping: item.wrapping ?? !!item.gift_wrap_option_id,
           gift_wrap_option_id: item.gift_wrap_option_id ?? null,
@@ -462,6 +480,13 @@ export async function processStorefrontCheckout(prevState, formData) {
           productType: product.product_type || "physical",
         },
       ];
+      // Fetch vendor commission rate for payout snapshot
+      const { data: directVendor } = await adminClient
+        .from("vendors")
+        .select("id, commission_rate")
+        .eq("id", vendorId)
+        .single();
+      const directOriginalPrice = Math.max(0, unitPrice - serviceCharge);
       orderItemsPayload = [
         {
           order_id: null,
@@ -470,6 +495,9 @@ export async function processStorefrontCheckout(prevState, formData) {
           quantity,
           price: unitPrice,
           total_price: Number.isFinite(computedSubtotal) ? computedSubtotal : subtotal,
+          original_price: directOriginalPrice,
+          service_charge_snapshot: serviceCharge,
+          commission_rate_snapshot: directVendor?.commission_rate ?? null,
           variation: selectedVariation,
           wrapping: !!giftWrapOptionId,
           gift_wrap_option_id: giftWrapOptionId || null,

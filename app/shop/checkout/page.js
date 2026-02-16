@@ -1,6 +1,7 @@
 "use server";
 import React from "react";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "../../utils/supabase/server";
 import ShopCheckoutContent from "./content";
 import { createMetadata } from "../../utils/seo";
@@ -30,5 +31,18 @@ export default async function ShopCheckoutPage() {
     userProfile = profile;
   }
 
-  return <ShopCheckoutContent userProfile={userProfile} />;
+  return (
+    <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#shop-checkout-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to checkout form
+      </Link>
+      <main id="shop-checkout-content" role="main" aria-label="Shop checkout">
+        <ShopCheckoutContent userProfile={userProfile} />
+      </main>
+    </>
+  );
 }

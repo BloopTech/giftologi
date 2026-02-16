@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import wedding from "../../../../public/host/wedding.png";
 import birthday from "../../../../public/host/birthday.png";
 import babyshower from "../../../../public/host/babyshower.png";
@@ -43,11 +43,12 @@ export default function RegistryType(props) {
       {customStyles.map((style) => (
         <div key={style.id} className="flex flex-col space-y-4">
           <div className="w-[200px] h-[200px] bg-[#E9E9ED] border border-[#DCDCDE] rounded-md relative overflow-hidden">
-            <Image
+            <ImageWithFallback
               src={style.image}
               alt="gift box"
               fill
               priority
+              sizes="200px"
               className="object-cover"
             />
           </div>

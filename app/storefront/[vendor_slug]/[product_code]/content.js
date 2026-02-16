@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useCallback, useEffect, useMemo } from "react";
 import { useProductDetail } from "./context";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
@@ -448,12 +448,13 @@ export default function ProductCodeDetailContent() {
           {/* Product Images */}
           <div className="lg:w-1/2 flex flex-col gap-4">
             <div className="relative aspect-square rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-sm">
-              <Image
-                src={product.images[selectedImage] || "/host/toaster.png"}
+              <ImageWithFallback
+                src={product.images[selectedImage]}
                 alt={product.name}
                 fill
                 className="object-cover cursor-pointer"
                 priority
+                sizes="(max-width: 1024px) 100vw, 50vw"
                 onClick={() => openGallery(selectedImage)}
               />
               {isOutOfStock && (
@@ -478,7 +479,7 @@ export default function ProductCodeDetailContent() {
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                   >
-                    <Image
+                    <ImageWithFallback
                       src={img}
                       alt={`${product.name} view ${idx + 1}`}
                       width={80}
@@ -500,7 +501,7 @@ export default function ProductCodeDetailContent() {
               className="flex items-center gap-2 mb-4 group"
             >
               <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200">
-                <Image
+                <ImageWithFallback
                   src={logoSrc}
                   alt={vendor.business_name}
                   width={40}
@@ -968,7 +969,7 @@ export default function ProductCodeDetailContent() {
                       <div className="flex items-start gap-3">
                         <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
                           {review.reviewer?.image ? (
-                            <Image
+                            <ImageWithFallback
                               src={review.reviewer.image}
                               alt=""
                               width={40}
@@ -1035,11 +1036,12 @@ export default function ProductCodeDetailContent() {
                   className="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
                 >
                   <div className="aspect-square relative bg-gray-50">
-                    <Image
+                    <ImageWithFallback
                       src={p.image}
                       alt={p.name}
                       fill
                       priority
+                      sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 20vw"
                       className="object-cover group-hover:scale-105 transition-transform"
                     />
                   </div>
@@ -1098,12 +1100,13 @@ export default function ProductCodeDetailContent() {
 
           {/* Image */}
           <div className="relative max-w-4xl max-h-[80vh] w-full h-full flex items-center justify-center">
-            <Image
-              src={product.images[galleryIndex] || "/host/toaster.png"}
+            <ImageWithFallback
+              src={product.images[galleryIndex]}
               alt={`${product.name} - Image ${galleryIndex + 1}`}
               fill
               className="object-contain"
               priority
+              sizes="90vw"
             />
           </div>
 

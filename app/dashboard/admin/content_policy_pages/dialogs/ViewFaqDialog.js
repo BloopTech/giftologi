@@ -87,9 +87,12 @@ export default function ViewFaqDialog({ open, onOpenChange, faq }) {
 
           <div className="space-y-1">
             <p className="font-medium">Answer</p>
-            <div className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[11px] text-[#374151] whitespace-pre-wrap max-h-80 overflow-auto">
-              {faq.answer || "No answer provided."}
-            </div>
+            <div
+              className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[11px] text-[#374151] max-h-80 overflow-auto prose prose-sm max-w-none prose-a:text-[#A5914B] prose-a:no-underline hover:prose-a:underline prose-a:font-medium"
+              dangerouslySetInnerHTML={{
+                __html: faq.answer || "<p class='text-[#717182] italic'>No answer provided.</p>",
+              }}
+            />
           </div>
         </div>
       </DialogContent>

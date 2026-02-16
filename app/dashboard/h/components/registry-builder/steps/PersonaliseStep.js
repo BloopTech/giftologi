@@ -1,7 +1,7 @@
 "use client";
 import { useCallback } from "react";
 import { Upload, X } from "lucide-react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 
 function PhotoUploadCard({ label, inputId, preview, onRemove, disabled }) {
   const handleRemove = useCallback(
@@ -28,11 +28,13 @@ function PhotoUploadCard({ label, inputId, preview, onRemove, disabled }) {
 
       {preview ? (
         <div className="relative w-full h-32">
-          <Image
+          <ImageWithFallback
             src={preview}
             alt={label}
             fill
             className="object-contain rounded-lg"
+            priority
+            sizes="(max-width: 768px) 50vw, 200px"
           />
           <button
             type="button"

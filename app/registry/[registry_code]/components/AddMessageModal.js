@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../../components/Dialog";
 import { X } from "lucide-react";
 
@@ -68,12 +68,13 @@ export default function AddMessageModal({
           {product && (
             <div className="hidden md:flex w-1/3 bg-gray-50 rounded-l-2xl p-4 items-center justify-center">
               <div className="relative w-32 h-32">
-                <Image
-                  src={product.image || "/host/toaster.png"}
+                <ImageWithFallback
+                  src={product.image}
                   alt={product.title}
                   fill
                   className="object-contain"
                   sizes="128px"
+                  priority
                 />
               </div>
             </div>

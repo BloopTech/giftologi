@@ -33,7 +33,7 @@ export default function RichTextEditor({ value, onChange, className, placeholder
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none focus:outline-none text-xs text-[#0A0A0A] dark:text-gray-300 min-h-[140px]",
+          "prose prose-sm max-w-none focus:outline-none text-xs text-[#0A0A0A] dark:text-gray-300 min-h-[140px] prose-a:text-[#A5914B] prose-a:no-underline hover:prose-a:underline prose-a:font-medium",
       },
     },
     onUpdate: ({ editor }) => {

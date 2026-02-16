@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useActionState, useMemo } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import {
   PiFileImageLight,
   PiGiftDuotone,
@@ -925,12 +925,13 @@ export default function HostDashboardRegistryContent(props) {
                     )}
 
                     <div className="relative aspect-square overflow-hidden w-full">
-                      <Image
+                      <ImageWithFallback
                         src={p.image}
                         alt={p.title}
                         fill
                         className="object-cover"
                         priority
+                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                       />
                     </div>
                     <div className="flex flex-col space-y-2 w-full pb-3">

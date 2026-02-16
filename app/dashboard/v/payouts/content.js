@@ -11,14 +11,18 @@ import {
   PiCaretDown,
   PiExport,
   PiEye,
+  PiEyeSlash,
   PiInfo,
   PiCheckCircle,
+  PiWarning,
 } from "react-icons/pi";
 import { useVendorPayoutsContext } from "./context";
 import {
   formatCurrency,
   formatDate,
+  formatWeekPeriod,
   buildMaskedEnding,
+  maskFullValue,
   getPayoutDisplayId,
   getStatusConfig,
   getTransactionDisplayId,
@@ -27,173 +31,108 @@ import {
 } from "./utils";
 
 export default function VendorPayoutsContent() {
-  const [dateFilter, setDateFilter] = useState("last_30_days");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [showPaymentDetails, setShowPaymentDetails] = useState(false);
   const {
-    payouts,
+    payoutPeriods,
     paymentInfo,
-    transactions,
+    recentLineItems,
     commissionRate: vendorCommissionRate,
     loading,
     error,
   } = useVendorPayoutsContext();
 
-  const computed = useMemo(() => {
-    const now = new Date();
-    let startDate = new Date(now);
+  const commissionRate = useMemo(() => {
+    const r = Number(vendorCommissionRate || 0);
+    return Number.isFinite(r) ? r : 0;
+  }, [vendorCommissionRate]);
 
-    if (dateFilter === "last_60_days") {
-      startDate.setDate(now.getDate() - 60);
-    } else if (dateFilter === "last_90_days") {
-      startDate.setDate(now.getDate() - 90);
-    } else if (dateFilter === "this_year") {
-      startDate = new Date(now.getFullYear(), 0, 1);
-    } else {
-      startDate.setDate(now.getDate() - 30);
-    }
+  const hasPaymentInfo = !!(
+    paymentInfo?.bank_account ||
+    paymentInfo?.momo_number
+  );
 
-    const isWithinRange = (dateValue) => {
-      if (!dateValue) return false;
-      const date = new Date(dateValue);
-      return Number.isFinite(date.getTime()) && date >= startDate;
-    };
+  const paymentMethodLabel = useMemo(() => {
+    if (paymentInfo?.bank_name || paymentInfo?.bank_account) return "Bank Transfer";
+    if (paymentInfo?.momo_number)
+      return `MoMo${paymentInfo?.momo_network ? ` (${paymentInfo.momo_network})` : ""}`;
+    return "Not set";
+  }, [paymentInfo]);
 
-    const filteredPayouts = payouts.filter((payout) =>
-      isWithinRange(payout.created_at || payout.to_date || payout.from_date),
-    );
-    const filteredTransactions = transactions.filter((txn) =>
-      isWithinRange(txn.created_at),
-    );
+  const filteredPeriods = useMemo(() => {
+    if (!payoutPeriods?.length) return [];
+    if (statusFilter === "all") return payoutPeriods;
+    return payoutPeriods.filter((p) => p.status === statusFilter);
+  }, [payoutPeriods, statusFilter]);
 
-    const commissionRate = Number(vendorCommissionRate || 0);
-    const commissionFactor = Number.isFinite(commissionRate)
-      ? commissionRate / 100
-      : 0;
+  const payoutRows = useMemo(() => {
+    return filteredPeriods.map((p) => ({
+      id: p.id,
+      displayId: getPayoutDisplayId(p.id),
+      period: formatWeekPeriod(p.week_start),
+      weekStart: p.week_start,
+      totalGross: Number(p.total_gross || 0),
+      totalCommission: Number(p.total_commission || 0),
+      totalVendorNet: Number(p.total_vendor_net || 0),
+      totalItems: p.total_items ?? 0,
+      totalOrders: p.total_orders ?? 0,
+      paymentMethod: p.payment_method || paymentMethodLabel,
+      paymentRef: p.payment_reference || "",
+      status: p.status || "draft",
+      paidAt: formatDate(p.paid_at),
+      approvedAt: formatDate(p.approved_at),
+    }));
+  }, [filteredPeriods, paymentMethodLabel]);
 
-    const payoutRows = filteredPayouts.map((payout) => {
-      const fromDate = formatDate(payout.from_date);
-      const toDate = formatDate(payout.to_date);
-      const period =
-        payout.from_date || payout.to_date
-          ? `${fromDate} - ${toDate}`
-          : formatDate(payout.created_at);
+  const lineItemRows = useMemo(() => {
+    if (!recentLineItems?.length) return [];
+    return recentLineItems.map((li) => ({
+      id: li.id,
+      displayId: getTransactionDisplayId(li.id),
+      orderId: li.order_items?.order_id,
+      product: li.order_items?.products?.name || "—",
+      gross: Number(li.gross_amount || 0),
+      commission: Number(li.commission_amount || 0),
+      vendorNet: Number(li.vendor_net || 0),
+      date: formatDate(li.created_at),
+    }));
+  }, [recentLineItems]);
 
-      return {
-        id: payout.id,
-        displayId: getPayoutDisplayId(payout.id),
-        period,
-        orders: payout.total_orders ?? 0,
-        amount: Number(payout.total_net_amount || 0),
-        scheduledDate: formatDate(payout.created_at),
-        status: payout.status || "pending",
-      };
-    });
-
-    const transactionRows = filteredTransactions.map((txn) => {
-      const quantity = Number(txn.quantity || 0);
-      const price = Number(txn.price || 0);
-      const saleAmount =
-        Number.isFinite(quantity) && Number.isFinite(price)
-          ? quantity * price
-          : 0;
-      const commission = saleAmount * commissionFactor;
-      const netAmount = saleAmount - commission;
-      const status =
-        txn.vendor_payouts?.status ||
-        txn.vendor_status ||
-        txn.fulfillment_status;
-
-      return {
-        id: txn.id,
-        displayId: getTransactionDisplayId(txn.id),
-        orderId: txn.order_id,
-        product: txn.products?.name || "—",
-        saleAmount,
-        commission,
-        netAmount,
-        date: formatDate(txn.created_at),
-        status: status || "pending",
-      };
-    });
-
-    const totalEarnings = payoutRows.reduce((sum, row) => sum + row.amount, 0);
-    const pendingPayouts = payoutRows
-      .filter((row) =>
-        ["pending", "processing"].includes(
-          String(row.status || "").toLowerCase(),
-        ),
-      )
-      .reduce((sum, row) => sum + row.amount, 0);
-
-    const nextPending = payoutRows
-      .filter((row) => String(row.status || "").toLowerCase() === "pending")
-      .sort((a, b) => new Date(a.scheduledDate) - new Date(b.scheduledDate))[0];
-
-    const totalSales = transactionRows.reduce(
-      (sum, row) => sum + row.saleAmount,
-      0,
-    );
-    const totalCommission = transactionRows.reduce(
-      (sum, row) => sum + row.commission,
-      0,
-    );
-    const netEarnings = transactionRows.reduce(
-      (sum, row) => sum + row.netAmount,
-      0,
-    );
-
-    const paymentMethod =
-      paymentInfo?.bank_name || paymentInfo?.bank_account
-        ? "Bank Transfer"
-        : paymentInfo?.momo_number
-          ? `MoMo${paymentInfo?.momo_network ? ` (${paymentInfo.momo_network})` : ""}`
-          : "Not set";
+  const metrics = useMemo(() => {
+    const totalCompleted = payoutPeriods
+      .filter((p) => p.status === "completed")
+      .reduce((s, p) => s + Number(p.total_vendor_net || 0), 0);
+    const totalPending = payoutPeriods
+      .filter((p) => ["draft", "approved"].includes(p.status))
+      .reduce((s, p) => s + Number(p.total_vendor_net || 0), 0);
+    const nextApproved = payoutPeriods
+      .filter((p) => p.status === "approved")
+      .sort((a, b) => new Date(a.week_start) - new Date(b.week_start))[0];
 
     return {
-      commissionRate: Number.isFinite(commissionRate) ? commissionRate : 0,
-      paymentMethod,
-      payoutRows,
-      transactionRows,
-      totalEarnings,
-      pendingPayouts,
-      nextPayoutDate: nextPending?.scheduledDate || "—",
-      totalSales,
-      totalCommission,
-      netEarnings,
+      totalCompleted,
+      totalPending,
+      nextPayoutDate: nextApproved ? formatWeekPeriod(nextApproved.week_start) : "—",
     };
-  }, [dateFilter, payouts, paymentInfo, transactions, vendorCommissionRate]);
+  }, [payoutPeriods]);
 
-  const {
-    commissionRate,
-    paymentMethod,
-    payoutRows,
-    transactionRows,
-    totalEarnings,
-    pendingPayouts,
-    nextPayoutDate,
-    totalSales,
-    totalCommission,
-    netEarnings,
-  } = computed;
+  const totalLineGross = lineItemRows.reduce((s, r) => s + r.gross, 0);
+  const totalLineCommission = lineItemRows.reduce((s, r) => s + r.commission, 0);
+  const totalLineNet = lineItemRows.reduce((s, r) => s + r.vendorNet, 0);
 
   const handleExport = () => {
     const csvContent = [
-      [
-        "Payout ID",
-        "Period",
-        "Orders",
-        "Amount",
-        "Scheduled Date",
-        "Payment Method",
-        "Status",
-      ],
-      ...payoutRows.map((payout) => [
-        payout.displayId,
-        payout.period,
-        payout.orders,
-        payout.amount,
-        payout.scheduledDate,
-        paymentMethod,
-        payout.status,
+      ["Payout ID", "Period", "Gross (GHS)", "Commission (GHS)", "Vendor Net (GHS)", "Items", "Orders", "Payment Method", "Status"],
+      ...payoutRows.map((row) => [
+        row.displayId,
+        row.period,
+        row.totalGross.toFixed(2),
+        row.totalCommission.toFixed(2),
+        row.totalVendorNet.toFixed(2),
+        row.totalItems,
+        row.totalOrders,
+        row.paymentMethod,
+        row.status,
       ]),
     ]
       .map((row) => row.map((cell) => `"${cell}"`).join(","))
@@ -237,25 +176,25 @@ export default function VendorPayoutsContent() {
         <StatCard
           icon={PiCurrencyCircleDollar}
           iconColor="text-[#10B981]"
-          title="Total Earnings"
-          value={formatCurrency(totalEarnings)}
-          subtitle="Last 30 days"
+          title="Total Paid"
+          value={formatCurrency(metrics.totalCompleted)}
+          subtitle="Completed payouts"
         />
 
         <StatCard
           icon={PiClock}
           iconColor="text-[#F59E0B]"
           title="Pending Payouts"
-          value={formatCurrency(pendingPayouts)}
-          subtitle="Awaiting transfer"
+          value={formatCurrency(metrics.totalPending)}
+          subtitle="Draft & approved"
         />
 
         <StatCard
           icon={PiCalendar}
           iconColor="text-[#3B82F6]"
           title="Next Payout"
-          value={nextPayoutDate}
-          subtitle="Scheduled date"
+          value={metrics.nextPayoutDate}
+          subtitle="Approved period"
         />
 
         <StatCard
@@ -269,47 +208,76 @@ export default function VendorPayoutsContent() {
 
       {/* Payment Information Card */}
       <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-        <h2 className="text-[#111827] text-base font-semibold font-brasley-medium mb-1">
-          Payment Information
-        </h2>
+        <div className="flex items-center justify-between mb-1">
+          <h2 className="text-[#111827] text-base font-semibold font-brasley-medium">
+            Payment Information
+          </h2>
+          {hasPaymentInfo && (
+            <button
+              type="button"
+              onClick={() => setShowPaymentDetails((v) => !v)}
+              className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+              aria-label={showPaymentDetails ? "Hide payment details" : "Show payment details"}
+            >
+              {showPaymentDetails ? (
+                <><PiEyeSlash className="w-4 h-4" /> Hide</>
+              ) : (
+                <><PiEye className="w-4 h-4" /> Show</>
+              )}
+            </button>
+          )}
+        </div>
         <p className="text-[#6B7280] text-sm mb-4">
           Your registered payment method
         </p>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-[#F3F4F6] rounded-lg">
-              <PiBank className="w-5 h-5 text-[#374151]" />
-            </div>
+        {!hasPaymentInfo ? (
+          <div className="flex items-center gap-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] px-4 py-3">
+            <PiWarning className="w-5 h-5 text-[#DC2626]" />
             <div>
-              <p className="text-[#111827] text-sm font-medium">
-                {paymentMethod}
-              </p>
-              <p className="text-[#6B7280] text-xs">
-                Account ending in ***
-                {buildMaskedEnding(
-                  paymentInfo?.bank_account || paymentInfo?.momo_number,
-                )}
-              </p>
-              <p className="text-[#6B7280] text-xs">
-                {paymentInfo?.bank_name ||
-                  paymentInfo?.momo_network ||
-                  "Not set"}
-                {paymentInfo?.routing_number
-                  ? ` • Routing ***${buildMaskedEnding(paymentInfo.routing_number)}`
-                  : ""}
-              </p>
+              <p className="text-sm font-medium text-[#991B1B]">No payment details registered</p>
+              <p className="text-xs text-[#991B1B]">You must register bank or MoMo details to be eligible for payouts.</p>
             </div>
+            <Link
+              href="/dashboard/v/profile"
+              className="ml-auto px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Add Now
+            </Link>
           </div>
-          <div>
+        ) : (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-[#F3F4F6] rounded-lg">
+                <PiBank className="w-5 h-5 text-[#374151]" />
+              </div>
+              <div>
+                <p className="text-[#111827] text-sm font-medium">
+                  {paymentMethodLabel}
+                </p>
+                <p className="text-[#6B7280] text-xs">
+                  {showPaymentDetails
+                    ? (paymentInfo?.bank_account || paymentInfo?.momo_number || "—")
+                    : `Account ending in ••••${buildMaskedEnding(paymentInfo?.bank_account || paymentInfo?.momo_number)}`}
+                </p>
+                <p className="text-[#6B7280] text-xs">
+                  {paymentInfo?.bank_name || paymentInfo?.momo_network || "Not set"}
+                  {paymentInfo?.routing_number
+                    ? showPaymentDetails
+                      ? ` • Routing: ${paymentInfo.routing_number}`
+                      : ` • Routing: ••••${buildMaskedEnding(paymentInfo.routing_number)}`
+                    : ""}
+                </p>
+              </div>
+            </div>
             <Link
               href="/dashboard/v/profile"
               className="px-4 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition-colors"
             >
-              Update Payment Method
+              Update
             </Link>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Payout History Section */}
@@ -321,20 +289,21 @@ export default function VendorPayoutsContent() {
               Payout History
             </h2>
             <p className="text-[#6B7280] text-sm font-brasley-medium">
-              Track your scheduled and completed payouts.
+              Track your weekly payout periods.
             </p>
           </div>
           <div className="flex items-center gap-3">
             <div className="relative">
               <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
                 className="appearance-none pl-3 pr-8 py-2 border border-[#D1D5DB] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
-                <option value="last_30_days">Last 30 days</option>
-                <option value="last_60_days">Last 60 days</option>
-                <option value="last_90_days">Last 90 days</option>
-                <option value="this_year">This year</option>
+                <option value="all">All Statuses</option>
+                <option value="draft">Draft</option>
+                <option value="approved">Approved</option>
+                <option value="completed">Completed</option>
+                <option value="failed">Failed</option>
               </select>
               <PiCaretDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280] pointer-events-none" />
             </div>
@@ -354,28 +323,25 @@ export default function VendorPayoutsContent() {
             <thead className="bg-[#F9FAFB]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Payout ID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Period
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                  Gross
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                  Commission
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                  Your Net
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium text-[#6B7280] uppercase tracking-wider">
+                  Items
                 </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Orders
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Scheduled Date
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Payment Method
-                </th>
                 <th className="px-4 py-3 text-center text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Status
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Actions
                 </th>
               </tr>
             </thead>
@@ -383,7 +349,7 @@ export default function VendorPayoutsContent() {
               {payoutRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={7}
                     className="px-4 py-6 text-center text-sm text-[#6B7280]"
                   >
                     No payouts recorded yet.
@@ -394,47 +360,36 @@ export default function VendorPayoutsContent() {
                   <tr key={payout.id} className="hover:bg-[#F9FAFB]">
                     <td className="px-4 py-3">
                       <span className="text-[#111827] text-sm font-medium">
-                        {payout.displayId}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[#6B7280] text-sm">
                         {payout.period}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">
+                    <td className="px-4 py-3 text-right">
                       <span className="text-[#111827] text-sm">
-                        {payout.orders}
+                        {formatCurrency(payout.totalGross)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="text-[#DC2626] text-sm">
+                        -{formatCurrency(Math.abs(payout.totalCommission))}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-[#10B981] text-sm font-semibold">
-                        {formatCurrency(payout.amount)}
+                        {formatCurrency(payout.totalVendorNet)}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className="text-[#6B7280] text-sm">
-                        {payout.scheduledDate}
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-[#111827] text-sm">
+                        {payout.totalItems}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <PiBank className="w-4 h-4 text-[#6B7280]" />
-                        <span className="text-[#6B7280] text-sm">
-                          {paymentMethod}
-                        </span>
-                      </div>
+                    <td className="px-4 py-3 text-center">
+                      <span className="text-[#111827] text-sm">
+                        {payout.totalOrders}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <StatusBadge status={payout.status} />
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        className="p-1.5 rounded-lg hover:bg-[#F3F4F6] transition-colors"
-                        title="View Details"
-                      >
-                        <PiEye className="w-5 h-5 text-[#6B7280]" />
-                      </button>
                     </td>
                   </tr>
                 ))
@@ -444,110 +399,91 @@ export default function VendorPayoutsContent() {
         </div>
       </div>
 
-      {/* Recent Transactions Section */}
+      {/* Recent Line Items Section */}
       <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
         {/* Header */}
         <div className="p-4 border-b border-[#E5E7EB] flex items-center justify-between">
           <div>
             <h2 className="text-[#111827] text-lg font-semibold font-brasley-medium">
-              Recent Transactions
+              Recent Payout Line Items
             </h2>
             <p className="text-[#6B7280] text-sm font-brasley-medium">
-              Detailed breakdown of your sales
+              Detailed breakdown of items in your payouts
             </p>
           </div>
           <Link
             href="/dashboard/v/orders"
             className="text-primary text-sm font-medium hover:underline flex items-center gap-1"
           >
-            View All →
+            View All Orders →
           </Link>
         </div>
 
-        {/* Transactions Table */}
+        {/* Line Items Table */}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-[#F9FAFB]">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Transaction ID
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Order Code
+                  Item ID
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Product
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Sale Amount
+                  Gross
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Commission
                 </th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Net Amount
+                  Your Net
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-[#6B7280] uppercase tracking-wider">
                   Date
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-[#6B7280] uppercase tracking-wider">
-                  Status
-                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
-              {transactionRows.length === 0 ? (
+              {lineItemRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={6}
                     className="px-4 py-6 text-center text-sm text-[#6B7280]"
                   >
-                    No recent transactions yet.
+                    No payout line items yet.
                   </td>
                 </tr>
               ) : (
-                transactionRows.map((txn) => (
-                  <tr key={txn.id} className="hover:bg-[#F9FAFB]">
+                lineItemRows.map((li) => (
+                  <tr key={li.id} className="hover:bg-[#F9FAFB]">
                     <td className="px-4 py-3">
                       <span className="text-[#111827] text-sm font-medium">
-                        {txn.displayId}
+                        {li.displayId}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/dashboard/v/orders?id=${txn.orderId}`}
-                        className="text-primary text-sm hover:underline"
-                      >
-                        {txn.orderId
-                          ? `ORD-${String(txn.orderId).slice(-4)}`
-                          : "—"}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
                       <span className="text-[#111827] text-sm">
-                        {txn.product}
+                        {li.product}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-[#111827] text-sm">
-                        {formatCurrency(txn.saleAmount)}
+                        {formatCurrency(li.gross)}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-[#DC2626] text-sm">
-                        -{formatCurrency(Math.abs(txn.commission))}
+                        -{formatCurrency(Math.abs(li.commission))}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
                       <span className="text-[#10B981] text-sm font-medium">
-                        {formatCurrency(txn.netAmount)}
+                        {formatCurrency(li.vendorNet)}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-[#6B7280] text-sm">{txn.date}</span>
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      <StatusBadge status={txn.status} />
+                      <span className="text-[#6B7280] text-sm">{li.date}</span>
                     </td>
                   </tr>
                 ))
@@ -556,25 +492,25 @@ export default function VendorPayoutsContent() {
           </table>
         </div>
 
-        {/* Transactions Summary Footer */}
+        {/* Line Items Summary Footer */}
         <div className="p-4 border-t border-[#E5E7EB] bg-[#F9FAFB]">
           <div className="flex flex-wrap items-center justify-between">
             <div>
-              <span className="text-[#6B7280] text-sm">Total Sales</span>
+              <span className="text-[#6B7280] text-sm">Total Gross</span>
               <p className="text-[#111827] text-lg font-semibold">
-                {formatCurrency(totalSales)}
+                {formatCurrency(totalLineGross)}
               </p>
             </div>
             <div>
               <span className="text-[#6B7280] text-sm">Total Commission</span>
               <p className="text-[#DC2626] text-lg font-semibold">
-                -{formatCurrency(Math.abs(totalCommission))}
+                -{formatCurrency(Math.abs(totalLineCommission))}
               </p>
             </div>
             <div>
               <span className="text-[#6B7280] text-sm">Net Earnings</span>
               <p className="text-[#10B981] text-lg font-semibold">
-                {formatCurrency(netEarnings)}
+                {formatCurrency(totalLineNet)}
               </p>
             </div>
           </div>
@@ -589,25 +525,33 @@ export default function VendorPayoutsContent() {
           </div>
           <div>
             <h3 className="text-[#111827] text-base font-semibold mb-2">
-              Payout Schedule
+              Payout Rules
             </h3>
             <p className="text-[#6B7280] text-sm mb-3">
-              Payouts are processed bi-monthly on the 15th and last day of each
-              month. Orders must be delivered and confirmed before being
-              included in a payout batch.
+              Payouts are calculated weekly. Orders must be delivered for at
+              least 5 days before they are eligible. Amounts are auto-calculated
+              by the system — no manual entry.
             </p>
             <ul className="space-y-1.5 text-[#6B7280] text-sm">
               <li className="flex items-center gap-2">
                 <PiCheckCircle className="w-4 h-4 text-[#10B981]" />
-                Minimum payout amount: GHS50
+                Minimum payout: GHS 100
               </li>
               <li className="flex items-center gap-2">
                 <PiCheckCircle className="w-4 h-4 text-[#10B981]" />
-                Processing time: 3-5 business days
+                5-day hold after delivery confirmation
               </li>
               <li className="flex items-center gap-2">
                 <PiCheckCircle className="w-4 h-4 text-[#10B981]" />
-                Platform commission: 15% per transaction
+                Commission on product base price (excl. service charge)
+              </li>
+              <li className="flex items-center gap-2">
+                <PiCheckCircle className="w-4 h-4 text-[#10B981]" />
+                Service charges are retained by Giftologi
+              </li>
+              <li className="flex items-center gap-2">
+                <PiCheckCircle className="w-4 h-4 text-[#10B981]" />
+                Payment details (bank or MoMo) required for eligibility
               </li>
             </ul>
           </div>

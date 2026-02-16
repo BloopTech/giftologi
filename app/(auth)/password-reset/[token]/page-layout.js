@@ -43,54 +43,68 @@ export default function PasswordResetPageLayout(props) {
   }, [state?.message, state?.errors, state?.status_code]);
 
   return (
-    <main
-      id="main-content"
-      role="main"
-      aria-label="Reset password page"
-      className="flex w-full items-center justify-center flex-col space-y-16 py-8 bg-[#16150FB2] min-h-screen"
-      style={{
-        backgroundImage: "url('/auth_layer.png')",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <div className="px-5 lg:px-8 w-full flex max-w-md items-center justify-center flex-col space-y-12 py-8 bg-[#fffcef] rounded-2xl">
-        {passwordSuccess ? (
-          <ResetPasswordSuccess />
-        ) : (
-          <>
-            <header className="flex items-center justify-between w-full">
-              <div className="flex flex-col space-y-1">
-                <h1 className="text-primary font-bold text-xl">
-                  Reset Password
-                </h1>
-                <p className="text-sm text-primary">Reset your password</p>
-                <p className="text-xs text-primary/70">
-                  Resetting password for <span className="font-semibold">{email}</span>
-                </p>
-              </div>
-              <Link href="/" aria-label="Go to homepage">
-                <Image
-                  src={Logo}
-                  alt="Giftologi logo"
-                  width={50}
-                  height={50}
-                  priority
+    <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to main content
+      </Link>
+
+      <main
+        id="main-content"
+        role="main"
+        aria-label="Reset password page"
+        className="flex w-full items-center justify-center flex-col space-y-16 py-8 bg-[#16150FB2] min-h-screen px-4 sm:px-6"
+        style={{
+          backgroundImage: "url('/auth_layer.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          backgroundRepeat: "no-repeat",
+        }}
+      >
+        <div className="w-full max-w-md flex flex-col space-y-12 py-8 px-5 sm:px-8 bg-[#fffcef] rounded-2xl shadow-xl">
+          {passwordSuccess ? (
+            <ResetPasswordSuccess />
+          ) : (
+            <>
+              <header className="flex items-center gap-3 w-full">
+                <Link 
+                  href="/" 
+                  aria-label="Go to homepage"
+                  className="focus:outline-none focus:ring-2 focus:ring-[#A5914B] focus:ring-offset-2 rounded"
+                >
+                  <Image 
+                    src={Logo} 
+                    alt="Giftologi" 
+                    width={50} 
+                    height={50} 
+                    priority 
+                    className="w-10 h-10 sm:w-12 sm:h-12"
+                  />
+                </Link>
+                <div className="flex flex-col">
+                  <h1 className="text-[#A5914B] font-medium text-xl sm:text-2xl">
+                    Reset password
+                  </h1>
+                  <p className="text-xs text-gray-500">
+                    For <span className="font-medium">{email}</span>
+                  </p>
+                </div>
+              </header>
+              <div className="w-full">
+                <FormInput
+                  state={state}
+                  formAction={formAction}
+                  isPending={isPending}
+                  email={email}
                 />
-              </Link>
-            </header>
-            <div className="w-full">
-              <FormInput
-                state={state}
-                formAction={formAction}
-                isPending={isPending}
-                email={email}
-              />
-            </div>
-          </>
-        )}
-      </div>
-    </main>
+              </div>
+            </>
+          )}
+        </div>
+      </main>
+    </>
   );
 }

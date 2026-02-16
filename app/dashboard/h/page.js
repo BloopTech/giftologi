@@ -1,17 +1,8 @@
 "use server";
 import React from "react";
 import { createClient } from "../../utils/supabase/server";
-import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
-import Image from "next/image";
-import Link from "next/link";
-import Footer from "../../components/footer";
-import Advertisement from "../../components/advertisement";
-import CarouselHero from "./components/CarouselHero";
-import wedding from "../../../public/host/wedding.png";
-import birthday from "../../../public/host/birthday.png";
-import babyshower from "../../../public/host/babyshower.png";
-import fundraiser from "../../../public/host/fundraiser.png";
 import HostDashboardContent from "./content";
+import Link from "next/link";
 
 const customStyles = [
   "Wedding",
@@ -19,29 +10,6 @@ const customStyles = [
   "Birthday",
   "Fundraiser",
   "Custom",
-];
-
-const carouselItems = [
-  {
-    image: wedding,
-    title: "Wedding",
-  },
-  {
-    image: babyshower,
-    title: "Baby Shower",
-  },
-  {
-    image: birthday,
-    title: "Birthday",
-  },
-  {
-    image: fundraiser,
-    title: "Fundraiser",
-  },
-  {
-    image: wedding,
-    title: "Custom",
-  },
 ];
 
 export default async function HostDashboard() {
@@ -58,6 +26,13 @@ export default async function HostDashboard() {
 
   return (
     <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#host-dashboard-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to main content
+      </Link>
       <HostDashboardContent registry={registry} />
     </>
   );

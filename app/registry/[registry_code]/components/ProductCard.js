@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import { ShoppingCart, Check, Loader2, X, Star, Heart, Palette, Ruler, StickyNote } from "lucide-react";
 
 export default function ProductCard({
@@ -90,12 +90,13 @@ export default function ProductCard({
       {/* Product Image */}
       <div className="flex items-center justify-center overflow-hidden bg-gray-50 rounded-t-xl">
         <div className="relative w-full aspect-square">
-          <Image
-            src={image || "/host/toaster.png"}
+          <ImageWithFallback
+            src={image}
             alt={title}
             fill
             className="object-cover"
-            sizes="150px"
+            priority
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           />
         </div>
       </div>

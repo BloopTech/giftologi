@@ -78,6 +78,7 @@ export function ProfileHeader({
                   width={64}
                   height={64}
                   className="object-cover w-full h-full"
+                  priority
                 />
               ) : (
                 <PiBuilding className="w-8 h-8 text-[#9CA3AF]" />

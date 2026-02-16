@@ -1,5 +1,6 @@
 "use server";
 import React from "react";
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "../../../utils/supabase/server";
 import CheckoutContent from "./content";
@@ -130,112 +131,129 @@ export default async function CheckoutPage({ params, searchParams }) {
     redirect(`/storefront/${vendor_slug}`);
   }
 
-  if (isCartCheckout) {
-    return <CheckoutContent vendor={vendor} cartMode registryId={registryId || null} userProfile={userProfile} />;
-  }
+  const checkoutContent = isCartCheckout ? (
+    <CheckoutContent vendor={vendor} cartMode registryId={registryId || null} userProfile={userProfile} />
+  ) : (
+    // Fetch product
+    async () => {
+      const { data: product, error: productError } = await supabase
+        .from("products")
+        .select(`
+          id,
+          name,
+          price,
+          weight_kg,
+          service_charge,
+          variations,
+          images,
+          description,
+          stock_qty,
+          status,
+          product_code,
+          sale_price,
+          sale_starts_at,
+          sale_ends_at
+        `)
+        .eq("id", productId)
+        .eq("vendor_id", vendor.id)
+        .eq("status", "approved")
+        .eq("active", true)
+        .single();
 
-  // Fetch product
-  const { data: product, error: productError } = await supabase
-    .from("products")
-    .select(`
-      id,
-      name,
-      price,
-      weight_kg,
-      service_charge,
-      variations,
-      images,
-      description,
-      stock_qty,
-      status,
-      product_code,
-      sale_price,
-      sale_starts_at,
-      sale_ends_at
-    `)
-    .eq("id", productId)
-    .eq("vendor_id", vendor.id)
-    .eq("status", "approved")
-    .eq("active", true)
-    .single();
+      if (productError || !product) {
+        return notFound();
+      }
 
-  if (productError || !product) {
-    return notFound();
-  }
+      // Check general stock
+      if (product.stock_qty <= 0) {
+        redirect(`/storefront/${vendor_slug}/${product.product_code}`);
+      }
 
-  // Check general stock
-  if (product.stock_qty <= 0) {
-    redirect(`/storefront/${vendor_slug}/${product.product_code}`);
-  }
+      const images = Array.isArray(product.images) ? product.images : [];
+      const variations = normalizeVariations(product.variations);
+      const variationOptions = buildVariationOptions(variations);
+      const selectedVariation = variantKey
+        ? variationOptions.find((option) => option.key === variantKey) || null
+        : null;
 
-  const images = Array.isArray(product.images) ? product.images : [];
-  const variations = normalizeVariations(product.variations);
-  const variationOptions = buildVariationOptions(variations);
-  const selectedVariation = variantKey
-    ? variationOptions.find((option) => option.key === variantKey) || null
-    : null;
+      if (variations.length > 0 && !selectedVariation) {
+        redirect(`/storefront/${vendor_slug}/${product.product_code}`);
+      }
 
-  if (variations.length > 0 && !selectedVariation) {
-    redirect(`/storefront/${vendor_slug}/${product.product_code}`);
-  }
+      // Determine effective stock: variation stock_qty if selected, else general
+      const effectiveStock =
+        selectedVariation && selectedVariation.stock_qty != null
+          ? Number(selectedVariation.stock_qty)
+          : product.stock_qty;
 
-  // Determine effective stock: variation stock_qty if selected, else general
-  const effectiveStock =
-    selectedVariation && selectedVariation.stock_qty != null
-      ? Number(selectedVariation.stock_qty)
-      : product.stock_qty;
+      // If the selected variation is out of stock, redirect back
+      if (effectiveStock <= 0) {
+        redirect(`/storefront/${vendor_slug}/${product.product_code}`);
+      }
 
-  // If the selected variation is out of stock, redirect back
-  if (effectiveStock <= 0) {
-    redirect(`/storefront/${vendor_slug}/${product.product_code}`);
-  }
+      const actualQuantity = Math.min(quantity, effectiveStock);
+      const basePrice = Number(product.price);
+      const serviceCharge = Number(product.service_charge || 0);
+      const baseWithCharge = Number.isFinite(basePrice)
+        ? basePrice + serviceCharge
+        : serviceCharge;
 
-  const actualQuantity = Math.min(quantity, effectiveStock);
-  const basePrice = Number(product.price);
-  const serviceCharge = Number(product.service_charge || 0);
-  const baseWithCharge = Number.isFinite(basePrice)
-    ? basePrice + serviceCharge
-    : serviceCharge;
+      // Compute effective price accounting for active sale
+      let effectiveBaseWithCharge = baseWithCharge;
+      let isOnSale = false;
+      const rawSalePrice = Number(product.sale_price);
+      if (Number.isFinite(rawSalePrice) && rawSalePrice > 0) {
+        const now = Date.now();
+        const sStarts = product.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
+        const sEnds = product.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
+        const saleActive =
+          (!sStarts || (!Number.isNaN(sStarts) && now >= sStarts)) &&
+          (!sEnds || (!Number.isNaN(sEnds) && now <= sEnds));
+        if (saleActive) {
+          effectiveBaseWithCharge = rawSalePrice + serviceCharge;
+          isOnSale = true;
+        }
+      }
 
-  // Compute effective price accounting for active sale
-  let effectiveBaseWithCharge = baseWithCharge;
-  let isOnSale = false;
-  const rawSalePrice = Number(product.sale_price);
-  if (Number.isFinite(rawSalePrice) && rawSalePrice > 0) {
-    const now = Date.now();
-    const sStarts = product.sale_starts_at ? new Date(product.sale_starts_at).getTime() : null;
-    const sEnds = product.sale_ends_at ? new Date(product.sale_ends_at).getTime() : null;
-    const saleActive =
-      (!sStarts || (!Number.isNaN(sStarts) && now >= sStarts)) &&
-      (!sEnds || (!Number.isNaN(sEnds) && now <= sEnds));
-    if (saleActive) {
-      effectiveBaseWithCharge = rawSalePrice + serviceCharge;
-      isOnSale = true;
+      const formattedProduct = {
+        id: product.id,
+        name: product.name || "Product",
+        image: images[0] || "/host/toaster.png",
+        price: formatPrice(effectiveBaseWithCharge),
+        rawPrice: Number.isFinite(effectiveBaseWithCharge) ? effectiveBaseWithCharge : product.price,
+        basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
+        originalPrice: isOnSale ? formatPrice(baseWithCharge) : null,
+        isOnSale,
+        serviceCharge,
+        weightKg: product.weight_kg ?? null,
+        description: product.description || "",
+        stock: product.stock_qty ?? 0,
+      };
+
+      return (
+        <CheckoutContent
+          vendor={vendor}
+          product={formattedProduct}
+          initialQuantity={actualQuantity}
+          selectedVariation={selectedVariation}
+          userProfile={userProfile}
+        />
+      );
     }
-  }
-
-  const formattedProduct = {
-    id: product.id,
-    name: product.name || "Product",
-    image: images[0] || "/host/toaster.png",
-    price: formatPrice(effectiveBaseWithCharge),
-    rawPrice: Number.isFinite(effectiveBaseWithCharge) ? effectiveBaseWithCharge : product.price,
-    basePrice: Number.isFinite(baseWithCharge) ? baseWithCharge : null,
-    originalPrice: isOnSale ? formatPrice(baseWithCharge) : null,
-    isOnSale,
-    serviceCharge,
-    weightKg: product.weight_kg ?? null,
-    description: product.description || "",
-    stock: product.stock_qty ?? 0,
-  };
+  )();
 
   return (
-    <CheckoutContent
-      vendor={vendor}
-      product={formattedProduct}
-      initialQuantity={actualQuantity}
-      selectedVariation={selectedVariation}
-      userProfile={userProfile}
-    />
+    <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#storefront-checkout-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to checkout form
+      </Link>
+      <main id="storefront-checkout-content" role="main" aria-label={`Checkout - ${vendor?.business_name || "Shop"}`}>
+        {checkoutContent}
+      </main>
+    </>
   );
 }

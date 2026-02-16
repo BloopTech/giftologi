@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import { Search, CalendarDays, Users } from "lucide-react";
 import { useRegistryDiscover } from "./context";
@@ -48,10 +48,11 @@ function RegistryCard({ registry }) {
       className="group flex flex-col overflow-hidden rounded-3xl border border-gray-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-lg"
     >
       <div className="relative aspect-[4/3] w-full overflow-hidden bg-gray-100">
-        <Image
+        <ImageWithFallback
           src={coverPhoto}
           alt={registryTitle}
           fill
+          priority
           sizes="(max-width: 768px) 100vw, 33vw"
           className="object-cover transition duration-300 group-hover:scale-105"
         />
@@ -76,12 +77,13 @@ function RegistryCard({ registry }) {
         <div className="flex items-center gap-3 text-sm text-gray-600">
           <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gray-100">
             {registry?.host?.image ? (
-              <Image
+              <ImageWithFallback
                 src={registry.host.image}
                 alt={hostName}
                 width={36}
                 height={36}
                 className="h-full w-full object-cover"
+                priority
               />
             ) : (
               <Users className="size-4 text-gray-400" />

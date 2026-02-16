@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import {
   Dialog,
   DialogClose,
@@ -34,7 +34,7 @@ export default function ProductDetailsDialog({ open, onOpenChange, product }) {
                       key={url || index}
                       className="relative h-16 w-16 rounded-md overflow-hidden bg-gray-100 border border-gray-200"
                     >
-                      <Image
+                      <ImageWithFallback
                         src={url}
                         alt={
                           index === 0

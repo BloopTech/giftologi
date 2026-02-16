@@ -252,6 +252,19 @@ export async function POST(request) {
       created_at: new Date().toISOString(),
     });
 
+    // Fetch vendor commission rate for payout snapshot
+    const regVendorId = registryItem?.product?.vendor_id || null;
+    let regCommissionRate = null;
+    if (regVendorId) {
+      const { data: regVendor } = await supabaseAdmin
+        .from("vendors")
+        .select("id, commission_rate")
+        .eq("id", regVendorId)
+        .single();
+      regCommissionRate = regVendor?.commission_rate ?? null;
+    }
+    const regOriginalPrice = Math.max(0, Number.isFinite(basePrice) ? basePrice : 0);
+
     // Create order item
     const adjustedUnitPrice = Number(quantity || 1)
       ? computedSubtotal / Number(quantity || 1)
@@ -262,9 +275,13 @@ export async function POST(request) {
       order_id: order.id,
       registry_item_id: registryItemId,
       product_id: productId,
+      vendor_id: regVendorId,
       quantity,
       price: roundCurrency(adjustedUnitPrice),
       total_price: roundCurrency(computedSubtotal),
+      original_price: regOriginalPrice,
+      service_charge_snapshot: serviceCharge,
+      commission_rate_snapshot: regCommissionRate,
       gift_message: message || null,
       created_at: new Date().toISOString(),
     });

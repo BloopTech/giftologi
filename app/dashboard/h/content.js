@@ -1,7 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { PiFileImageLight, PiGiftDuotone, PiShareBold } from "react-icons/pi";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import Footer from "../../components/footer";
 import Advertisement from "../../components/advertisement";
@@ -90,11 +90,12 @@ export default function HostDashboardContent(props) {
                   >
                     <div className="bg-[#FFFCF3] p-4 w-full flex items-center justify-center relative h-[200px] overflow-hidden">
                       <div className="w-full h-full">
-                        <Image
-                          src={cover_photo ? cover_photo : giftbox}
+                        <ImageWithFallback
+                          src={cover_photo}
                           alt="gift box"
                           fill
                           priority
+                          sizes="230px"
                           className="object-cover"
                         />
                       </div>
@@ -121,11 +122,12 @@ export default function HostDashboardContent(props) {
                   <Plus className="size-8" />
                   <span className="w-full flex items-center justify-center relative h-[100px] -my-[1rem]">
                     <span className="w-full h-full">
-                      <Image
+                      <ImageWithFallback
                         src={giftbox}
                         alt="gift box"
                         fill
                         priority
+                        sizes="100px"
                         className="object-contain"
                       />
                     </span>
@@ -143,7 +145,7 @@ export default function HostDashboardContent(props) {
           ) : (
             <div className="flex items-center justify-center mx-auto max-w-md w-full rounded-4xl border border-[#A9C4FC] px-4 py-8 bg-white flex-col space-y-4">
               <div className="inline-block">
-                <Image
+                <ImageWithFallback
                   src="/host/giftologi-gift-box.svg"
                   alt="open gift"
                   width={100}

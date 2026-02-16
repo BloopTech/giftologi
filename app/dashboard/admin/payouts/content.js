@@ -76,10 +76,10 @@ export default function PayoutsContent() {
       );
     }
 
-    if (type === "pending") {
+    if (type === "draft") {
       return (
         <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
-          {formatCount(metrics?.pendingPayouts)}
+          {formatCount(metrics?.draftPayouts)}
         </p>
       );
     }
@@ -88,6 +88,14 @@ export default function PayoutsContent() {
       return (
         <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
           {formatCount(metrics?.approvedPayouts)}
+        </p>
+      );
+    }
+
+    if (type === "completed") {
+      return (
+        <p className="text-[#0A0A0A] font-medium font-brasley-medium text-sm">
+          {formatCount(metrics?.completedPayouts)}
         </p>
       );
     }
@@ -113,7 +121,7 @@ export default function PayoutsContent() {
             Vendor Payout Management
           </h1>
           <span className="text-[#717182] text-xs/4 font-brasley-medium">
-            Review and approve vendor payouts based on completed orders.
+            Auto-calculated weekly payouts. Review, approve, and mark as paid.
           </span>
         </div>
         <div>
@@ -132,12 +140,12 @@ export default function PayoutsContent() {
         <PiInfo className="mt-0.5 size-4 text-[#3979D2]" />
         <div className="flex flex-col">
           <p className="text-xs font-medium text-[#427ED3]">
-            Dual Approval Required
+            Auto-Calculated Payouts
           </p>
           <p className="text-[11px] text-[#427ED3]">
-            Every payout must be approved by both Finance and Super Admin. Only
-            delivered orders are eligible, and payout amounts reflect the
-            vendor share after commission.
+            All amounts are automatically computed from delivered order items.
+            5-day hold after delivery. GHS 100 minimum threshold.
+            Service charges kept by Giftologi. Vendor payment details are masked for security.
           </p>
         </div>
       </div>
@@ -145,10 +153,10 @@ export default function PayoutsContent() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full bg-white rounded-xl p-4 border border-[#D6D6D6]">
         <div className="flex flex-col space-y-2 w-full">
           <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
-            Pending Payouts
+            Draft Payouts
           </h2>
           <div className="flex justify-between items-center">
-            {renderMetricValue("pending")}
+            {renderMetricValue("draft")}
             <PiShoppingBagOpen className="size-4 text-[#427ED3]" />
           </div>
           <div className="border-t-[2px] border-[#7DADF2]" />
@@ -156,7 +164,7 @@ export default function PayoutsContent() {
 
         <div className="flex flex-col space-y-2 w-full">
           <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
-            Approved Payouts
+            Approved (Awaiting Payment)
           </h2>
           <div className="flex justify-between items-center">
             {renderMetricValue("approved")}
@@ -167,7 +175,7 @@ export default function PayoutsContent() {
 
         <div className="flex flex-col space-y-2 w-full">
           <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
-            Total Pending Amount
+            Pending Amount
           </h2>
           <div className="flex justify-between items-center">
             {renderMetricValue("pendingAmount")}
@@ -178,10 +186,10 @@ export default function PayoutsContent() {
 
         <div className="flex flex-col space-y-2 w-full">
           <h2 className="text-[#717182] text-xs/4 font-brasley-medium">
-            Total Payout
+            Completed Payouts
           </h2>
           <div className="flex justify-between items-center">
-            {renderMetricValue("total")}
+            {renderMetricValue("completed")}
             <PiCardholder className="size-4 text-[#286AD4]" />
           </div>
           <div className="border-t-[2px] border-[#5797FF]" />
@@ -196,7 +204,8 @@ export default function PayoutsContent() {
               type="text"
               value={search}
               onChange={(event) => setSearch(event.target.value)}
-              placeholder={"Search by vendor name or payout ID"}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder={"Search by vendor name or payment reference"}
               className="w-full bg-transparent outline-none text-xs text-[#0A0A0A] placeholder:text-[#B0B7C3]"
             />
           </div>
@@ -214,13 +223,11 @@ export default function PayoutsContent() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="awaiting_finance">Awaiting Finance</SelectItem>
-              <SelectItem value="awaiting_super_admin">
-                Awaiting Super Admin
-              </SelectItem>
-              <SelectItem value="in_review">In Review</SelectItem>
+              <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="approved">Approved</SelectItem>
+              <SelectItem value="processing">Processing</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="failed">Failed</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -259,51 +266,41 @@ export default function PayoutsContent() {
               <p className="font-semibold mb-1">Eligibility Criteria</p>
               <ul className="list-disc pl-4 space-y-1 text-[#4B5563]">
                 <li>
-                  Only <span className="font-semibold">Delivered</span> orders
-                  {" "}
-                  count toward payout eligibility.
+                  Only <span className="font-semibold">Delivered</span> and{" "}
+                  <span className="font-semibold">Paid</span> orders count.
                 </li>
-                <li>
-                  Service fee (5%) deducted from total sales before payout.
-                </li>
-                <li>Minimum payout threshold: GHS 100.</li>
+                <li>5-day hold after delivery before payout eligibility.</li>
+                <li>Minimum payout threshold: <span className="font-semibold">GHS 100</span>.</li>
+                <li>Vendor must have registered payment details (bank or MoMo).</li>
               </ul>
             </div>
 
             <div>
-              <p className="font-semibold mb-1">Processing Schedule</p>
+              <p className="font-semibold mb-1">Calculation</p>
               <ul className="list-disc pl-4 space-y-1 text-[#4B5563]">
-                <li>
-                  Payouts processed weekly or monthly (configurable in admin
-                  settings).
-                </li>
+                <li>All amounts auto-calculated — no manual entry.</li>
+                <li>Commission: deducted from product base price (excl. service charge).</li>
+                <li>Service charges: kept entirely by Giftologi.</li>
+                <li>Admin promo codes: Giftologi bears the discount cost.</li>
+                <li>Vendor promo codes: vendor bears the discount cost.</li>
               </ul>
             </div>
 
             <div>
-              <p className="font-semibold mb-1">Payout Methods Supported</p>
-              <div className="flex flex-wrap gap-2 mt-1">
-                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
-                  Bank Transfer
-                </span>
-                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
-                  MTN MoMo
-                </span>
-                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
-                  Telecel Cash
-                </span>
-                <span className="inline-flex items-center rounded-full border border-[#D6D6D6] bg-[#F9FAFB] px-3 py-1 text-[11px] text-[#111827]">
-                  AirtelTigo Money
-                </span>
-              </div>
+              <p className="font-semibold mb-1">Processing</p>
+              <ul className="list-disc pl-4 space-y-1 text-[#4B5563]">
+                <li>Weekly ISO week periods (Mon–Sun).</li>
+                <li>Draft → Approved → Completed (with payment reference).</li>
+                <li>Bulk payouts available for all eligible vendors per week.</li>
+              </ul>
             </div>
 
             <div>
-              <p className="font-semibold mb-1">CSV Export</p>
+              <p className="font-semibold mb-1">Security</p>
               <ul className="list-disc pl-4 space-y-1 text-[#4B5563]">
-                <li>
-                  Payout summary downloadable as CSV for accounting records.
-                </li>
+                <li>Vendor payment details are masked (admin sees ****1234 only).</li>
+                <li>All actions logged in the admin activity log.</li>
+                <li>CSV export available for accounting.</li>
               </ul>
             </div>
           </div>

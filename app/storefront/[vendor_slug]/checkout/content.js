@@ -7,7 +7,7 @@ import React, {
   useMemo,
   useRef,
 } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -102,6 +102,8 @@ export default function CheckoutContent({
     digitalAddress: userProfile?.digital_address || "",
     notes: "",
   });
+  const [availableCities, setAvailableCities] = useState([]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
   const [registryShipping, setRegistryShipping] = useState(null);
   const [registryLoading, setRegistryLoading] = useState(false);
   const [giftMessage, setGiftMessage] = useState("");
@@ -217,9 +219,11 @@ export default function CheckoutContent({
   const handleRegionChange = useCallback(
     (e) => {
       const region = shippingRegions.find((r) => r.id === e.target.value);
-      if (region) setSelectedRegion(region);
+      if (region) {
+        setSelectedRegion(region);
+      }
     },
-    [shippingRegions],
+    [shippingRegions]
   );
 
   useEffect(() => {
@@ -273,6 +277,52 @@ export default function CheckoutContent({
       active = false;
     };
   }, [resolveSelectedRegion, vendor?.address_country, userProfile?.address_state]);
+
+  // Load cities when selected region changes
+  useEffect(() => {
+    console.log("Cities effect triggered:", { selectedRegion, hasName: selectedRegion?.name, hasId: selectedRegion?.id });
+    if (!selectedRegion?.name) {
+      console.log("No region selected, clearing cities");
+      setAvailableCities([]);
+      return;
+    }
+    let cancelled = false;
+    const loadCities = async () => {
+      setCitiesLoading(true);
+      try {
+        // Pass both region code and name to try both
+        const regionCode = selectedRegion.code || selectedRegion.name || "";
+        console.log("Fetching cities for region:", regionCode);
+        const response = await fetch(
+          `/api/shipping/cities?region=${encodeURIComponent(regionCode)}&country=GH`
+        );
+        const data = await response.json();
+        console.log("Cities API response:", data);
+        if (!cancelled) {
+          if (data.success && data.cities && data.cities.length > 0) {
+            setAvailableCities(data.cities);
+            // Auto-select city if current city is not in the list
+            if (!data.cities.includes(formData.city)) {
+              setFormData((prev) => ({ ...prev, city: data.cities[0] }));
+            }
+          } else {
+            // Fallback: allow manual text input if no cities returned
+            console.log("No cities returned, falling back to text input");
+            setAvailableCities([]);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load cities:", error);
+        if (!cancelled) setAvailableCities([]);
+      } finally {
+        if (!cancelled) setCitiesLoading(false);
+      }
+    };
+    loadCities();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRegion?.id, selectedRegion?.code, selectedRegion?.name]);
 
   useEffect(() => {
     if (!cartMode) return;
@@ -594,6 +644,25 @@ export default function CheckoutContent({
   const cartHasItems = cartItems.length > 0;
   const cartLoading = cartMode && cartState.loading;
   const cartUpdating = cartMode && cartActionState.loading;
+
+  // Form validation - check if all required fields are filled
+  const isFormValid = useMemo(() => {
+    // Personal info always required
+    const personalInfoValid = 
+      formData.firstName.trim() &&
+      formData.lastName.trim() &&
+      formData.email.trim() &&
+      formData.phone.trim();
+
+    // Shipping info required only if there are shippable items
+    const shippingInfoValid = !hasShippableItems || (
+      selectedRegion?.id &&
+      formData.city &&
+      formData.address.trim()
+    );
+
+    return personalInfoValid && shippingInfoValid;
+  }, [formData, selectedRegion, hasShippableItems]);
   const applyPromoCode = useCallback(
     async (overrideCode) => {
       const code = (overrideCode ?? promoCode).trim();
@@ -1036,17 +1105,32 @@ export default function CheckoutContent({
                       >
                         City/Town *
                       </label>
-                      <input
-                        type="text"
-                        id="city"
-                        name="city"
-                        required
-                        readOnly={isRegistryCart}
-                        value={formData.city}
-                        onChange={handleInputChange}
-                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B]"}`}
-                        placeholder="Accra"
-                      />
+                      {citiesLoading ? (
+                        <div className="w-full px-4 py-2.5 border border-gray-300 rounded-xl bg-gray-50 text-gray-600">
+                          Loading cities...
+                        </div>
+                      ) : (
+                        <select
+                          id="city"
+                          name="city"
+                          required
+                          value={formData.city}
+                          onChange={handleInputChange}
+                          disabled={isRegistryCart || availableCities.length === 0}
+                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart || availableCities.length === 0 ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"}`}
+                        >
+                          <option value="">
+                            {availableCities.length === 0 
+                              ? "Select a region first" 
+                              : "Select your city"}
+                          </option>
+                          {availableCities.map((city) => (
+                            <option key={city} value={city}>
+                              {city}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                     <div>
                       <label
@@ -1144,12 +1228,13 @@ export default function CheckoutContent({
                 ) : (
                   <>
                     <div className="w-10 h-10 rounded-full overflow-hidden border border-gray-200">
-                      <Image
+                      <ImageWithFallback
                         src={logoSrc}
                         alt={vendor.business_name}
                         width={40}
                         height={40}
                         className="object-cover w-full h-full"
+                        priority
                       />
                     </div>
                     <span className="text-sm font-medium text-gray-700">
@@ -1182,12 +1267,13 @@ export default function CheckoutContent({
                         return (
                           <div key={item.id} className="flex gap-4">
                             <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
-                              <Image
+                              <ImageWithFallback
                                 src={itemImage}
                                 alt={itemName}
                                 width={64}
                                 height={64}
                                 className="object-contain w-full h-full p-1"
+                                priority
                               />
                             </div>
                             <div className="flex-1 min-w-0 space-y-2">
@@ -1305,12 +1391,13 @@ export default function CheckoutContent({
                   <>
                     <div className="flex gap-4">
                       <div className="w-20 h-20 rounded-lg overflow-hidden bg-gray-50 border border-gray-200 shrink-0">
-                        <Image
+                        <ImageWithFallback
                           src={product.image}
                           alt={product.name}
                           width={80}
                           height={80}
                           className="object-contain w-full h-full p-1"
+                          priority
                         />
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1561,6 +1648,7 @@ export default function CheckoutContent({
                 type="submit"
                 disabled={
                   isPending ||
+                  !isFormValid ||
                   (cartMode && (!cartHasItems || cartLoading || cartUpdating))
                 }
                 className="cursor-pointer w-full mt-4 bg-primary border border-primary text-white font-semibold py-3 px-6 rounded-xl hover:bg-white hover:text-primary transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"

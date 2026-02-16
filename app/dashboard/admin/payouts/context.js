@@ -29,15 +29,20 @@ function usePayoutsProviderValue() {
   const [errorPayouts, setErrorPayouts] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Vendors list for bulk payout / calendar view
+  const [vendors, setVendors] = useState([]);
+  const [loadingVendors, setLoadingVendors] = useState(false);
+
   const refreshPayouts = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
   }, [setRefreshKey]);
 
   const [metrics, setMetrics] = useState({
-    pendingPayouts: null,
-    approvedPayouts: null,
-    totalPendingAmount: null,
-    totalPayouts: null,
+    draftPayouts: 0,
+    approvedPayouts: 0,
+    completedPayouts: 0,
+    totalPendingAmount: 0,
+    totalPayouts: 0,
   });
   const [loadingMetrics, setLoadingMetrics] = useState(true);
   const [metricsError, setMetricsError] = useState(null);
@@ -104,6 +109,7 @@ function usePayoutsProviderValue() {
     [setFocusIdParam],
   );
 
+  // Fetch payout periods from the new table
   useEffect(() => {
     let ignore = false;
 
@@ -116,369 +122,182 @@ function usePayoutsProviderValue() {
       try {
         const supabase = createSupabaseClient();
 
-        const { data: orderItemsData, error: orderItemsError } = await supabase
-          .from("order_items")
-          .select(
-            "id, order_id, vendor_id, quantity, price, fulfillment_status, finance_payout_approved, super_admin_payout_approved",
-          );
+        // Fetch payout periods with vendor info
+        const { data: periodsData, error: periodsError } = await supabase
+          .from("payout_periods")
+          .select("*")
+          .order("created_at", { ascending: false });
 
-        if (orderItemsError) {
+        if (periodsError) {
           if (!ignore) {
-            setErrorPayouts(orderItemsError.message);
+            setErrorPayouts(periodsError.message);
             setPayouts([]);
             setPayoutsTotal(0);
-            setMetrics({
-              pendingPayouts: null,
-              approvedPayouts: null,
-              totalPendingAmount: null,
-              totalPayouts: null,
-            });
           }
           return;
         }
 
-        const deliveredItems = Array.isArray(orderItemsData)
-          ? orderItemsData.filter((item) => {
-              const status = item?.fulfillment_status
-                ? String(item.fulfillment_status).toLowerCase()
-                : "";
-              return status === "delivered";
-            })
-          : [];
+        const periods = Array.isArray(periodsData) ? periodsData : [];
 
-        if (!deliveredItems.length) {
-          if (!ignore) {
-            setPayouts([]);
-            setPayoutsTotal(0);
-            setMetrics({
-              pendingPayouts: 0,
-              approvedPayouts: 0,
-              totalPendingAmount: 0,
-              totalPayouts: 0,
-            });
-          }
-          return;
-        }
-
-        const orderIds = Array.from(
-          new Set(
-            deliveredItems
-              .map((row) => row.order_id)
-              .filter((value) => !!value),
-          ),
-        );
+        // Get unique vendor IDs
         const vendorIds = Array.from(
-          new Set(
-            deliveredItems
-              .map((row) => row.vendor_id)
-              .filter((value) => !!value),
-          ),
+          new Set(periods.map((p) => p.vendor_id).filter(Boolean)),
         );
 
-        const ordersPromise = orderIds.length
-          ? supabase
-              .from("orders")
-              .select("id, created_at, payment_method")
-              .in("id", orderIds)
-          : Promise.resolve({ data: [], error: null });
-
-        const vendorsPromise = vendorIds.length
-          ? supabase
-              .from("vendors")
-              .select("id, business_name, commission_rate")
-              .in("id", vendorIds)
-          : Promise.resolve({ data: [], error: null });
-
-        const paymentInfoPromise = vendorIds.length
-          ? supabase
-              .from("payment_info")
-              .select(
-                "id, vendor_id, bank_name, bank_account, bank_branch, momo_number, momo_network",
-              )
-              .in("vendor_id", vendorIds)
-          : Promise.resolve({ data: [], error: null });
-
+        // Fetch vendor details and masked payment info in parallel
         const [
-          { data: ordersData, error: ordersError },
-          { data: vendorsData, error: vendorsError },
-          { data: paymentInfoData, error: paymentInfoError },
+          { data: vendorsData },
+          { data: paymentData },
         ] = await Promise.all([
-          ordersPromise,
-          vendorsPromise,
-          paymentInfoPromise,
+          vendorIds.length
+            ? supabase
+                .from("vendors")
+                .select("id, business_name, commission_rate")
+                .in("id", vendorIds)
+            : Promise.resolve({ data: [] }),
+          vendorIds.length
+            ? supabase
+                .from("payment_info_masked")
+                .select(
+                  "vendor_id, bank_name, bank_branch, account_name, momo_network, bank_account_display, momo_number_display, has_bank_account, has_momo_number",
+                )
+                .in("vendor_id", vendorIds)
+            : Promise.resolve({ data: [] }),
         ]);
-
-        if (ordersError || vendorsError || paymentInfoError) {
-          const message =
-            ordersError?.message ||
-            vendorsError?.message ||
-            paymentInfoError?.message ||
-            "Failed to load payout data";
-          if (!ignore) {
-            setErrorPayouts(message);
-            setPayouts([]);
-            setPayoutsTotal(0);
-          }
-        }
 
         if (ignore) return;
 
-        const ordersById = new Map();
-        if (Array.isArray(ordersData)) {
-          for (const order of ordersData) {
-            if (order?.id) ordersById.set(order.id, order);
-          }
-        }
-
         const vendorsById = new Map();
-        if (Array.isArray(vendorsData)) {
-          for (const vendor of vendorsData) {
-            if (vendor?.id) vendorsById.set(vendor.id, vendor);
-          }
-        }
+        (vendorsData || []).forEach((v) => vendorsById.set(v.id, v));
 
-        const paymentInfoByVendorId = new Map();
-        if (Array.isArray(paymentInfoData)) {
-          for (const row of paymentInfoData) {
-            if (row?.vendor_id) paymentInfoByVendorId.set(row.vendor_id, row);
-          }
-        }
+        const paymentByVendor = new Map();
+        (paymentData || []).forEach((p) => paymentByVendor.set(p.vendor_id, p));
 
-        const aggregatedByVendor = new Map();
-
-        for (const item of deliveredItems) {
-          if (!item?.vendor_id) continue;
-          const vendorId = item.vendor_id;
-          const order = item.order_id ? ordersById.get(item.order_id) : null;
-
-          const quantity = Number(item.quantity || 1);
-          const price = Number(item.price || 0);
-          const lineAmount = Number.isFinite(quantity * price)
-            ? quantity * price
-            : 0;
-
-          let aggregated = aggregatedByVendor.get(vendorId);
-          if (!aggregated) {
-            const vendor = vendorsById.get(vendorId);
-            const paymentInfo = paymentInfoByVendorId.get(vendorId);
-
-            let payoutMethodLabel = "Not set";
-            if (paymentInfo) {
-              if (paymentInfo.bank_name || paymentInfo.bank_account) {
-                payoutMethodLabel = "Bank Transfer";
-              } else if (paymentInfo.momo_network || paymentInfo.momo_number) {
-                payoutMethodLabel = "MoMo";
-              }
-            }
-
-            let commissionRate = 0;
-            if (
-              vendor &&
-              typeof vendor.commission_rate !== "undefined" &&
-              vendor.commission_rate !== null
-            ) {
-              const rateNum = Number(vendor.commission_rate);
-              if (Number.isFinite(rateNum) && rateNum >= 0) {
-                commissionRate = rateNum;
-              }
-            }
-            if (commissionRate > 1) {
-              commissionRate = commissionRate / 100;
-            }
-
-            aggregated = {
-              vendorId,
-              vendorName: vendor?.business_name || "Unknown vendor",
-              payoutCode: `PAY-${String(vendorId).slice(0, 4).toUpperCase()}`,
-              commissionRate,
-              totalSales: 0,
-              totalNetAmount: 0,
-              totalCommissionAmount: 0,
-              pendingPayoutAmount: 0,
-              totalOrdersSet: new Set(),
-              firstOrderAt: null,
-              lastOrderAt: null,
-              payoutMethodLabel,
-              totalItems: 0,
-              noApprovalCount: 0,
-              financeOnlyCount: 0,
-              superOnlyCount: 0,
-              bothApprovedCount: 0,
-            };
-          }
-
-          aggregated.totalItems += 1;
-          aggregated.totalSales += lineAmount;
-
-          if (order?.id) {
-            aggregated.totalOrdersSet.add(order.id);
-            if (
-              !aggregated.firstOrderAt ||
-              order.created_at < aggregated.firstOrderAt
-            ) {
-              aggregated.firstOrderAt = order.created_at;
-            }
-            if (
-              !aggregated.lastOrderAt ||
-              order.created_at > aggregated.lastOrderAt
-            ) {
-              aggregated.lastOrderAt = order.created_at;
-            }
-          }
-
-          const financeApproved = !!item.finance_payout_approved;
-          const superApproved = !!item.super_admin_payout_approved;
-
-          const rateForRow =
-            typeof aggregated.commissionRate === "number" &&
-            Number.isFinite(aggregated.commissionRate)
-              ? aggregated.commissionRate
-              : 0;
-          const feeAmount = lineAmount * rateForRow;
-          const vendorShare = lineAmount - feeAmount;
-
-          aggregated.totalNetAmount += vendorShare;
-          aggregated.totalCommissionAmount += feeAmount;
-
-          if (financeApproved && superApproved) {
-            aggregated.bothApprovedCount += 1;
-          } else if (financeApproved && !superApproved) {
-            aggregated.financeOnlyCount += 1;
-            aggregated.pendingPayoutAmount += vendorShare;
-          } else if (!financeApproved && superApproved) {
-            aggregated.superOnlyCount += 1;
-            aggregated.pendingPayoutAmount += vendorShare;
-          } else {
-            aggregated.noApprovalCount += 1;
-            aggregated.pendingPayoutAmount += vendorShare;
-          }
-
-          aggregatedByVendor.set(vendorId, aggregated);
-        }
-
-        const allRows = Array.from(aggregatedByVendor.values()).map((row) => {
-          const orderCount = row.totalOrdersSet.size;
-          let normalizedStatus = "pending";
-
-          if (row.totalItems > 0 && row.bothApprovedCount === row.totalItems) {
-            normalizedStatus = "approved";
-          } else if (row.financeOnlyCount > 0 && row.superOnlyCount === 0) {
-            normalizedStatus = "awaiting_super_admin";
-          } else if (row.superOnlyCount > 0 && row.financeOnlyCount === 0) {
-            normalizedStatus = "awaiting_finance";
-          } else if (
-            row.bothApprovedCount > 0 &&
-            (row.financeOnlyCount > 0 || row.superOnlyCount > 0)
-          ) {
-            normalizedStatus = "in_review";
-          }
-
-          const statusLabelMap = {
-            pending: "Pending",
-            awaiting_super_admin: "Awaiting Super Admin",
-            awaiting_finance: "Awaiting Finance",
-            in_review: "In Review",
-            approved: "Approved",
-          };
-
-          const totalSalesLabel = Number(row.totalSales || 0).toLocaleString(
-            "en-GH",
-            {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            },
-          );
-
-          const pendingPayoutLabel = Number(
-            row.pendingPayoutAmount || 0,
-          ).toLocaleString("en-GH", {
+        const formatCurrency = (val) =>
+          Number(val || 0).toLocaleString("en-GH", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           });
 
-          const formatDate = (value) => {
-            if (!value) return null;
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) return null;
-            return date.toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            });
-          };
+        const formatDate = (value) => {
+          if (!value) return null;
+          const date = new Date(value);
+          if (Number.isNaN(date.getTime())) return null;
+          return date.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+          });
+        };
 
-          const firstLabel = formatDate(row.firstOrderAt);
-          const lastLabel = formatDate(row.lastOrderAt);
-          let periodLabel = "—";
-          if (firstLabel && lastLabel) {
-            periodLabel =
-              firstLabel === lastLabel
-                ? firstLabel
-                : `${firstLabel} - ${lastLabel}`;
-          } else if (firstLabel || lastLabel) {
-            periodLabel = firstLabel || lastLabel;
+        const statusLabelMap = {
+          draft: "Draft",
+          approved: "Approved",
+          processing: "Processing",
+          completed: "Completed",
+          failed: "Failed",
+        };
+
+        const allRows = periods.map((pp) => {
+          const vendor = vendorsById.get(pp.vendor_id);
+          const payment = paymentByVendor.get(pp.vendor_id);
+
+          let payoutMethodLabel = "Not set";
+          let hasPaymentInfo = false;
+          if (payment) {
+            hasPaymentInfo = !!payment.has_bank_account || !!payment.has_momo_number;
+            if (payment.has_bank_account) {
+              payoutMethodLabel = `Bank (${payment.bank_account_display || "****"})`;
+            } else if (payment.has_momo_number) {
+              payoutMethodLabel = `MoMo (${payment.momo_number_display || "****"})`;
+            }
           }
 
+          const wsFormatted = formatDate(pp.week_start);
+          const weFormatted = formatDate(pp.week_end);
+          const periodLabel =
+            wsFormatted && weFormatted
+              ? `${wsFormatted} – ${weFormatted}`
+              : wsFormatted || "—";
+
           return {
-            vendorId: row.vendorId,
-            vendorName: row.vendorName,
-            payoutCode: row.payoutCode,
-            totalSales: row.totalSales,
-            totalSalesLabel,
-            pendingPayoutAmount: row.pendingPayoutAmount,
-            pendingPayoutLabel,
-            payoutMethodLabel: row.payoutMethodLabel,
-            orderCount,
-            orderIds: Array.from(row.totalOrdersSet || []),
-            normalizedStatus,
-            statusLabel: statusLabelMap[normalizedStatus] || "Pending",
-            firstOrderAt: row.firstOrderAt,
-            lastOrderAt: row.lastOrderAt,
+            id: pp.id,
+            vendorId: pp.vendor_id,
+            vendorName: vendor?.business_name || "Unknown vendor",
+            commissionRate: vendor?.commission_rate || 0,
+            weekStart: pp.week_start,
+            weekEnd: pp.week_end,
             periodLabel,
-            totalItems: row.totalItems,
-            financeOnlyCount: row.financeOnlyCount,
-            superOnlyCount: row.superOnlyCount,
-            bothApprovedCount: row.bothApprovedCount,
-            noApprovalCount: row.noApprovalCount,
+            status: pp.status,
+            statusLabel: statusLabelMap[pp.status] || pp.status,
+            totalGross: Number(pp.total_gross || 0),
+            totalCommission: Number(pp.total_commission || 0),
+            totalVendorNet: Number(pp.total_vendor_net || 0),
+            totalServiceCharges: Number(pp.total_service_charges || 0),
+            totalPromoAdminCost: Number(pp.total_promo_admin_cost || 0),
+            totalPromoVendorCost: Number(pp.total_promo_vendor_cost || 0),
+            totalItems: pp.total_items || 0,
+            totalOrders: pp.total_orders || 0,
+            paymentMethod: pp.payment_method,
+            paymentReference: pp.payment_reference,
+            approvedAt: pp.approved_at,
+            paidAt: pp.paid_at,
+            notes: pp.notes,
+            batchId: pp.batch_id,
+            createdAt: pp.created_at,
+            payoutMethodLabel,
+            hasPaymentInfo,
+            bankName: payment?.bank_name || null,
+            accountName: payment?.account_name || null,
+            momoNetwork: payment?.momo_network || null,
+            bankAccountDisplay: payment?.bank_account_display || null,
+            momoNumberDisplay: payment?.momo_number_display || null,
+            vendorNetLabel: formatCurrency(pp.total_vendor_net),
+            grossLabel: formatCurrency(pp.total_gross),
+            commissionLabel: formatCurrency(pp.total_commission),
           };
         });
 
+        // Compute metrics
         const metricsValues = allRows.reduce(
           (acc, row) => {
-            if (row.normalizedStatus === "pending") {
-              acc.pendingPayouts += 1;
-            } else if (row.normalizedStatus === "approved") {
-              acc.approvedPayouts += 1;
+            if (row.status === "draft") acc.draftPayouts += 1;
+            else if (row.status === "approved") acc.approvedPayouts += 1;
+            else if (row.status === "completed") acc.completedPayouts += 1;
+
+            if (row.status === "draft" || row.status === "approved") {
+              acc.totalPendingAmount += row.totalVendorNet;
             }
             acc.totalPayouts += 1;
-            acc.totalPendingAmount += Number(row.pendingPayoutAmount || 0);
             return acc;
           },
           {
-            pendingPayouts: 0,
+            draftPayouts: 0,
             approvedPayouts: 0,
+            completedPayouts: 0,
             totalPendingAmount: 0,
             totalPayouts: 0,
           },
         );
 
+        // Search and filter
         const trimmedSearch = searchTerm ? searchTerm.trim().toLowerCase() : "";
         let filtered = allRows;
 
         if (trimmedSearch) {
           filtered = filtered.filter((row) => {
             const vendorName = row.vendorName?.toLowerCase() || "";
-            const payoutCode = row.payoutCode?.toLowerCase() || "";
+            const ref = row.paymentReference?.toLowerCase() || "";
             return (
               vendorName.includes(trimmedSearch) ||
-              payoutCode.includes(trimmedSearch)
+              ref.includes(trimmedSearch) ||
+              row.id?.toLowerCase().includes(trimmedSearch)
             );
           });
         }
 
         if (statusFilter && statusFilter !== "all") {
-          const desired = statusFilter.toLowerCase();
-          filtered = filtered.filter((row) => row.normalizedStatus === desired);
+          filtered = filtered.filter((row) => row.status === statusFilter);
         }
 
         let resolvedPageIndex = payoutsPage ?? 0;
@@ -486,9 +305,7 @@ function usePayoutsProviderValue() {
 
         if (safeFocusId && lastAppliedFocusIdRef.current !== safeFocusId) {
           const focusIndex = filtered.findIndex(
-            (row) =>
-              String(row.vendorId) === safeFocusId ||
-              String(row.payoutCode) === safeFocusId,
+            (row) => String(row.id) === safeFocusId || String(row.vendorId) === safeFocusId,
           );
 
           if (focusIndex >= 0) {
@@ -517,10 +334,11 @@ function usePayoutsProviderValue() {
           setPayouts([]);
           setPayoutsTotal(0);
           setMetrics({
-            pendingPayouts: null,
-            approvedPayouts: null,
-            totalPendingAmount: null,
-            totalPayouts: null,
+            draftPayouts: 0,
+            approvedPayouts: 0,
+            completedPayouts: 0,
+            totalPendingAmount: 0,
+            totalPayouts: 0,
           });
         }
       } finally {
@@ -546,6 +364,29 @@ function usePayoutsProviderValue() {
     setPageParam,
   ]);
 
+  // Fetch vendors list (for generating new payouts)
+  useEffect(() => {
+    let ignore = false;
+    const fetchVendors = async () => {
+      setLoadingVendors(true);
+      try {
+        const supabase = createSupabaseClient();
+        const { data } = await supabase
+          .from("vendors")
+          .select("id, business_name, commission_rate, verified")
+          .eq("verified", true)
+          .order("business_name");
+        if (!ignore) setVendors(data || []);
+      } catch {
+        if (!ignore) setVendors([]);
+      } finally {
+        if (!ignore) setLoadingVendors(false);
+      }
+    };
+    fetchVendors();
+    return () => { ignore = true; };
+  }, [refreshKey]);
+
   return useMemo(
     () => ({
       payouts,
@@ -565,6 +406,8 @@ function usePayoutsProviderValue() {
       setStatusFilter,
       focusId,
       setFocusId,
+      vendors,
+      loadingVendors,
     }),
     [
       payouts,
@@ -583,6 +426,8 @@ function usePayoutsProviderValue() {
       focusId,
       setFocusId,
       setPayoutsPage,
+      vendors,
+      loadingVendors,
     ],
   );
 }

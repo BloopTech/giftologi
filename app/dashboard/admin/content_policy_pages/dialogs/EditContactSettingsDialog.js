@@ -9,7 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/Dialog";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { saveContactSettings } from "../action";
 import { useContentsPolicyContext } from "../context";
@@ -34,7 +34,7 @@ const hasError = (state, key) => (errorFor(state, key)?.length ?? 0) > 0;
 export default function EditContactSettingsDialog({ open, onOpenChange }) {
   const [state, formAction, pending] = useActionState(
     saveContactSettings,
-    initialState
+    initialState,
   );
   const { refresh, contactSettings } = useContentsPolicyContext() || {};
 
@@ -47,15 +47,21 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
   useEffect(() => {
     if (!open) return;
     const values = state?.values || {};
-    setSupportEmail(values.supportEmail ?? contactSettings?.support_email ?? "");
-    setSupportPhone(values.supportPhone ?? contactSettings?.support_phone ?? "");
+    setSupportEmail(
+      values.supportEmail ?? contactSettings?.support_email ?? "",
+    );
+    setSupportPhone(
+      values.supportPhone ?? contactSettings?.support_phone ?? "",
+    );
     setOfficeAddress(
-      values.officeAddress ?? contactSettings?.office_address ?? ""
+      values.officeAddress ?? contactSettings?.office_address ?? "",
     );
     setBusinessHours(
-      values.businessHours ?? contactSettings?.business_hours ?? ""
+      values.businessHours ?? contactSettings?.business_hours ?? "",
     );
-    setWhatsappLink(values.whatsappLink ?? contactSettings?.whatsapp_link ?? "");
+    setWhatsappLink(
+      values.whatsappLink ?? contactSettings?.whatsapp_link ?? "",
+    );
   }, [open, contactSettings, state?.values]);
 
   useEffect(() => {
@@ -126,7 +132,7 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
                   "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                   focusInput,
-                  hasError(state, "supportEmail") ? hasErrorInput : ""
+                  hasError(state, "supportEmail") ? hasErrorInput : "",
                 )}
                 disabled={pending}
               />
@@ -149,7 +155,7 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
                   "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                   "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                   focusInput,
-                  hasError(state, "supportPhone") ? hasErrorInput : ""
+                  hasError(state, "supportPhone") ? hasErrorInput : "",
                 )}
                 disabled={pending}
               />
@@ -174,7 +180,7 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
                 "w-full rounded-2xl border px-4 py-3 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
-                hasError(state, "officeAddress") ? hasErrorInput : ""
+                hasError(state, "officeAddress") ? hasErrorInput : "",
               )}
               disabled={pending}
             />
@@ -198,7 +204,7 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
                 "w-full rounded-2xl border px-4 py-3 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
-                hasError(state, "businessHours") ? hasErrorInput : ""
+                hasError(state, "businessHours") ? hasErrorInput : "",
               )}
               disabled={pending}
             />
@@ -222,7 +228,7 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
                 "w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white",
                 "border-[#D6D6D6] text-[#0A0A0A] placeholder:text-[#B0B7C3]",
                 focusInput,
-                hasError(state, "whatsappLink") ? hasErrorInput : ""
+                hasError(state, "whatsappLink") ? hasErrorInput : "",
               )}
               disabled={pending}
             />
@@ -232,7 +238,7 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
             <DialogClose asChild>
               <button
                 type="button"
-                className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={pending}
               >
                 Cancel
@@ -241,9 +247,13 @@ export default function EditContactSettingsDialog({ open, onOpenChange }) {
             <button
               type="submit"
               disabled={pending}
-              className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer"
+              className="inline-flex items-center justify-center rounded-full border border-primary bg-primary px-6 py-2 text-xs font-medium text-white hover:bg-white hover:text-primary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Save Changes
+              {pending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                "Save Changes"
+              )}
             </button>
           </div>
         </form>

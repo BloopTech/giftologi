@@ -268,7 +268,7 @@ export default function EditStaticPageDialog({ open, onOpenChange, page }) {
             <DialogClose asChild>
               <button
                 type="button"
-                className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer"
+                className="rounded-full border border-gray-300 bg-white px-5 py-2 text-xs text-[#0A0A0A] hover:bg-gray-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={pending}
               >
                 Cancel

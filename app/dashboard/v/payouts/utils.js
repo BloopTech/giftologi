@@ -19,10 +19,28 @@ export const formatDate = (dateString) => {
   return date.toISOString().split("T")[0];
 };
 
+export const formatWeekPeriod = (weekStart) => {
+  if (!weekStart) return "—";
+  const start = new Date(weekStart);
+  if (Number.isNaN(start.getTime())) return "—";
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d) =>
+    d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return `${fmt(start)} – ${fmt(end)}`;
+};
+
 export const buildMaskedEnding = (value) => {
   if (!value) return "";
   const safe = String(value);
   return safe.slice(-4);
+};
+
+export const maskFullValue = (value) => {
+  if (!value) return "";
+  const safe = String(value);
+  if (safe.length <= 4) return "••••";
+  return "••••" + safe.slice(-4);
 };
 
 export const getPayoutDisplayId = (id) => {
@@ -40,8 +58,13 @@ export const getTransactionDisplayId = (id) => {
 export const getStatusConfig = (status) => {
   const s = (status || "").toLowerCase();
   const configs = {
-    pending: {
-      label: "Pending",
+    draft: {
+      label: "Draft",
+      className: "bg-[#F3F4F6] text-[#6B7280]",
+      dotColor: "bg-[#9CA3AF]",
+    },
+    approved: {
+      label: "Approved",
       className: "bg-[#FEF3C7] text-[#D97706]",
       dotColor: "bg-[#F59E0B]",
     },

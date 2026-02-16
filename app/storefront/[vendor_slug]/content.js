@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import Footer from "../../components/footer";
 import Pagination from "../../components/Pagination";
@@ -118,7 +118,7 @@ export default function StorefrontContent() {
             {/* Logo */}
             <div className="shrink-0">
               <div className="w-28 h-28 md:w-32 md:h-32 rounded-2xl overflow-hidden border-2 border-white bg-white shadow-lg flex items-center justify-center">
-                <Image
+                <ImageWithFallback
                   src={logoSrc}
                   alt={vendor?.business_name || "Vendor logo"}
                   width={128}
@@ -379,10 +379,12 @@ export default function StorefrontContent() {
                         }`}
                       >
                         <div className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden">
-                          <Image
+                          <ImageWithFallback
                             src={p.image}
                             alt={p.name}
                             fill
+                            priority
+                            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
                             className="object-cover group-hover:scale-105 transition-transform duration-300"
                           />
                           {p.stock <= 0 && (
@@ -436,11 +438,13 @@ export default function StorefrontContent() {
                         }`}
                       >
                         <div className="relative w-32 md:w-48 shrink-0 bg-gray-50 dark:bg-gray-800">
-                          <Image
+                          <ImageWithFallback
                             src={p.image}
                             alt={p.name}
                             fill
                             className="object-cover"
+                            priority
+                            sizes="(max-width: 768px) 128px, 192px"
                           />
                           {p.stock <= 0 && (
                             <div className="absolute inset-0 bg-black/40 flex items-center justify-center">

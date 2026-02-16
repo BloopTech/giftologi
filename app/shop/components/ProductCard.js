@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import {
   BadgeCheck,
   ShoppingCart,
@@ -40,10 +40,12 @@ export default function ProductCard({ product }) {
         className="relative aspect-square bg-gray-50 dark:bg-gray-800 overflow-hidden cursor-pointer"
         onClick={() => openProductDetail(p)}
       >
-        <Image
+        <ImageWithFallback
           src={p.image}
           alt={p.name}
           fill
+          priority
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           className="object-cover group-hover:scale-105 transition-transform duration-300"
         />
         {p.stock <= 0 && (

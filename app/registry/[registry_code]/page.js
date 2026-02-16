@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import PublicRegistryContent from "./content";
 import { GuestRegistryCodeProvider } from "./context";
@@ -216,18 +217,29 @@ export default async function PublicRegistry({ params, searchParams }) {
   }
 
   return (
-    <GuestRegistryCodeProvider
-      registryCode={registry_code}
-      registryPrivacy={eventPrivacy}
-      tokenValid={tokenValid}
-      initialRegistry={prefetchedData?.registry || null}
-      initialEvent={prefetchedData?.event || null}
-      initialHost={prefetchedData?.host || null}
-      initialProducts={prefetchedData?.products || []}
-      initialShippingAddress={prefetchedData?.shippingAddress || null}
-      initialCategories={prefetchedData?.categories || []}
-    >
-      <PublicRegistryContent />
-    </GuestRegistryCodeProvider>
+    <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#public-registry-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to registry content
+      </Link>
+      <main id="public-registry-content" role="main" aria-label={`Registry ${registry_code}`}>
+        <GuestRegistryCodeProvider
+          registryCode={registry_code}
+          registryPrivacy={eventPrivacy}
+          tokenValid={tokenValid}
+          initialRegistry={prefetchedData?.registry || null}
+          initialEvent={prefetchedData?.event || null}
+          initialHost={prefetchedData?.host || null}
+          initialProducts={prefetchedData?.products || []}
+          initialShippingAddress={prefetchedData?.shippingAddress || null}
+          initialCategories={prefetchedData?.categories || []}
+        >
+          <PublicRegistryContent />
+        </GuestRegistryCodeProvider>
+      </main>
+    </>
   );
 }

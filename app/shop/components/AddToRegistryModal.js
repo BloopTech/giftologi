@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useActionState, useEffect, useMemo, useRef } from "react";
-import Image from "next/image";
+import ImageWithFallback from "@/app/components/ImageWithFallback";
 import {
   Dialog,
   DialogClose,
@@ -282,11 +282,13 @@ export default function AddToRegistryModal({
           {/* Product Preview */}
           <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl mb-6">
             <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-white shrink-0">
-              <Image
+              <ImageWithFallback
                 src={product.image || "/host/toaster.png"}
                 alt={product.name}
                 fill
                 className="object-cover"
+                priority
+                sizes="64px"
               />
             </div>
             <div className="flex-1 min-w-0">
