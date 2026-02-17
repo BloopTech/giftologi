@@ -8,7 +8,6 @@ import {
   PiCalendar,
   PiPercent,
   PiBank,
-  PiCaretDown,
   PiExport,
   PiEye,
   PiEyeSlash,
@@ -16,6 +15,13 @@ import {
   PiCheckCircle,
   PiWarning,
 } from "react-icons/pi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/Select";
 import { useVendorPayoutsContext } from "./context";
 import {
   formatCurrency,
@@ -293,20 +299,18 @@ export default function VendorPayoutsContent() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 border border-[#D1D5DB] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="all">All Statuses</option>
-                <option value="draft">Draft</option>
-                <option value="approved">Approved</option>
-                <option value="completed">Completed</option>
-                <option value="failed">Failed</option>
-              </select>
-              <PiCaretDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280] pointer-events-none" />
-            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="min-w-[180px] rounded-lg text-sm">
+                <SelectValue placeholder="All Statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="approved">Approved</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="failed">Failed</SelectItem>
+              </SelectContent>
+            </Select>
             <button
               onClick={handleExport}
               className="inline-flex items-center gap-2 px-4 py-2 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"

@@ -2,6 +2,13 @@
 import React, { useEffect, useRef } from "react";
 import { PiFileText, PiDownloadSimple } from "react-icons/pi";
 import { useGenerateReportsContext } from "./context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/Select";
 
 export default function GenerateReportsContent() {
   const {
@@ -187,45 +194,57 @@ export default function GenerateReportsContent() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-2">
             <div className="flex flex-col gap-1">
               <label className="text-[11px] text-[#717182]">Date Range</label>
-              <select
-                className="rounded-full border border-[#D6D6D6] bg-white px-3 py-2 text-xs text-[#0A0A0A] outline-none"
+              <Select
                 value={dateRange || "last_30_days"}
-                onChange={(event) => setDateRange?.(event.target.value)}
+                onValueChange={(value) => setDateRange?.(value)}
               >
-                <option value="last_7_days">Last 7 days</option>
-                <option value="last_30_days">Last 30 days</option>
-                <option value="this_month">This month</option>
-                <option value="this_year">This year</option>
-                <option value="all_time">All time</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="last_7_days">Last 7 days</SelectItem>
+                  <SelectItem value="last_30_days">Last 30 days</SelectItem>
+                  <SelectItem value="this_month">This month</SelectItem>
+                  <SelectItem value="this_year">This year</SelectItem>
+                  <SelectItem value="all_time">All time</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[11px] text-[#717182]">
                 Status Filter
               </label>
-              <select
-                className="rounded-full border border-[#D6D6D6] bg-white px-3 py-2 text-xs text-[#0A0A0A] outline-none"
+              <Select
                 value={statusFilter || "all"}
-                onChange={(event) => setStatusFilter?.(event.target.value)}
+                onValueChange={(value) => setStatusFilter?.(value)}
               >
-                <option value="all">All statuses</option>
-                <option value="active">Active / Open</option>
-                <option value="expired">Expired / Closed</option>
-                <option value="completed">Completed</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="active">Active / Open</SelectItem>
+                  <SelectItem value="expired">Expired / Closed</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-1">
               <label className="text-[11px] text-[#717182]">
                 Export Format
               </label>
-              <select
-                className="rounded-full border border-[#D6D6D6] bg-white px-3 py-2 text-xs text-[#0A0A0A] outline-none"
+              <Select
                 value={exportFormat || "pdf"}
-                onChange={(event) => setExportFormat?.(event.target.value)}
+                onValueChange={(value) => setExportFormat?.(value)}
               >
-                <option value="pdf">PDF</option>
-                <option value="csv">CSV</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                  <SelectItem value="csv">CSV</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

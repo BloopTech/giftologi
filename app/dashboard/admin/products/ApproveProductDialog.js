@@ -12,6 +12,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/app/components/Dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import { cx, focusInput, hasErrorInput } from "@/app/components/utils";
 import { approveProduct } from "./action";
 
@@ -100,31 +107,27 @@ export default function ApproveProductDialog({
             </div>
             <div className="space-y-1">
               <label
-                htmlFor="approve-product-type"
                 className="text-xs font-medium text-[#0A0A0A]"
               >
                 Product Type <span className="text-red-500">*</span>
               </label>
-              <select
-                id="approve-product-type"
-                name="productType"
+              <input type="hidden" name="productType" value={productType} />
+              <Select
                 value={productType}
-                onChange={(event) => setProductType(event.target.value)}
-                className={cx(
-                  "w-full rounded-md border px-3 py-2 text-xs shadow-sm outline-none bg-white",
-                  "border-[#D6D6D6] text-[#0A0A0A]",
-                  focusInput,
-                  state.errors?.productType?.length ? hasErrorInput : "",
-                )}
+                onValueChange={(value) => setProductType(value)}
                 disabled={pending}
-                required
               >
-                <option value="" disabled>
-                  Select product type
-                </option>
-                <option value="physical">Physical Product</option>
-                <option value="treat">Treat (Intangible Service)</option>
-              </select>
+                <SelectTrigger
+                  className={cx("w-full rounded-md text-xs", focusInput)}
+                  hasError={Boolean(state.errors?.productType?.length)}
+                >
+                  <SelectValue placeholder="Select product type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="physical">Physical Product</SelectItem>
+                  <SelectItem value="treat">Treat (Intangible Service)</SelectItem>
+                </SelectContent>
+              </Select>
               {state.errors?.productType?.length ? (
                 <div className="flex items-center gap-2 text-[11px] text-red-600">
                   <AlertCircle className="h-3.5 w-3.5" />

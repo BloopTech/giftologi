@@ -2,6 +2,13 @@
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { LoaderCircle, Search, X } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import CascadingCategoryPicker from "../../../components/CascadingCategoryPicker";
 
 const COLOR_OPTIONS = [
@@ -619,16 +626,19 @@ export default function CreateAllVendorProducts(props) {
                       >
                         Product Type
                       </label>
-                      <select
-                        id="product-type"
+                      <Select
                         name="productType"
                         defaultValue={createState?.values?.productType || "physical"}
-                        className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
                         disabled={createPending}
                       >
-                        <option value="physical">Physical Product</option>
-                        <option value="treat">Treat (Intangible)</option>
-                      </select>
+                        <SelectTrigger className="w-full" id="product-type">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="physical">Physical Product</SelectItem>
+                          <SelectItem value="treat">Treat (Intangible)</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
 
                     <div className="space-y-1">
@@ -823,30 +833,31 @@ export default function CreateAllVendorProducts(props) {
                                         <label className="text-[11px] font-medium text-[#374151]">
                                           Add option
                                         </label>
-                                        <select
+                                        <Select
                                           value={activeField}
-                                          onChange={(e) =>
+                                          onValueChange={(value) =>
                                             setActiveVariationFieldById(
                                               (prev) => ({
                                                 ...prev,
-                                                [draft.id]: e.target.value,
+                                                [draft.id]: value,
                                               }),
                                             )
                                           }
-                                          className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                           disabled={createPending}
                                         >
-                                          <option value="">
-                                            Select attribute…
-                                          </option>
-                                          <option value="color">Color</option>
-                                          <option value="size">Size</option>
-                                          <option value="sku">SKU</option>
-                                          <option value="price">
-                                            Price override
-                                          </option>
-                                          <option value="label">Label</option>
-                                        </select>
+                                          <SelectTrigger className="w-full">
+                                            <SelectValue placeholder="Select attribute…" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="color">Color</SelectItem>
+                                            <SelectItem value="size">Size</SelectItem>
+                                            <SelectItem value="sku">SKU</SelectItem>
+                                            <SelectItem value="price">
+                                              Price override
+                                            </SelectItem>
+                                            <SelectItem value="label">Label</SelectItem>
+                                          </SelectContent>
+                                        </Select>
                                       </div>
 
                                       <div
@@ -1257,23 +1268,24 @@ export default function CreateAllVendorProducts(props) {
                             used.
                           </p>
                         ) : (
-                          <select
+                          <Select
                             value={featuredIndex}
-                            onChange={(e) => setFeaturedIndex(e.target.value)}
-                            className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                            onValueChange={(value) => setFeaturedIndex(value)}
                             disabled={createPending}
                           >
-                            <option value="">
-                              Use first image as featured
-                            </option>
-                            {Array.from({
-                              length: Math.min(imageCount, 3),
-                            }).map((_, idx) => (
-                              <option key={idx} value={String(idx)}>
-                                {`Image ${idx + 1}`}
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger className="w-full">
+                              <SelectValue placeholder="Use first image as featured" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Array.from({
+                                length: Math.min(imageCount, 3),
+                              }).map((_, idx) => (
+                                <SelectItem key={idx} value={String(idx)}>
+                                  {`Image ${idx + 1}`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         )}
                         {(createState?.errors?.featuredImageIndex || [])
                           .length ? (
@@ -1376,24 +1388,27 @@ export default function CreateAllVendorProducts(props) {
                               Product Name Column{" "}
                               <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.name}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  name: e.target.value,
+                                  name: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Select column</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="space-y-1">
@@ -1401,24 +1416,27 @@ export default function CreateAllVendorProducts(props) {
                               Weight Column (kg){" "}
                               <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.weightKg}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  weightKg: e.target.value,
+                                  weightKg: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Select column</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="space-y-1">
@@ -1426,24 +1444,27 @@ export default function CreateAllVendorProducts(props) {
                               Price Column{" "}
                               <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.price}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  price: e.target.value,
+                                  price: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Select column</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="space-y-1">
@@ -1451,120 +1472,135 @@ export default function CreateAllVendorProducts(props) {
                               Service Charge Column{" "}
                               <span className="text-red-500">*</span>
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.serviceCharge}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  serviceCharge: e.target.value,
+                                  serviceCharge: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Select column</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Select column" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-[#0A0A0A]">
                               Description Column
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.description}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  description: e.target.value,
+                                  description: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Optional</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Optional" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-[#0A0A0A]">
                               Stock Quantity Column
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.stockQty}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  stockQty: e.target.value,
+                                  stockQty: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Optional</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Optional" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="space-y-1">
                             <label className="text-xs font-medium text-[#0A0A0A]">
                               Image URL Column
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.imageUrl}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  imageUrl: e.target.value,
+                                  imageUrl: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Optional</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Optional" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           </div>
 
                           <div className="space-y-1 md:col-span-2">
                             <label className="text-xs font-medium text-[#0A0A0A]">
                               Variations Column (JSON)
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.variations || ""}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  variations: e.target.value,
+                                  variations: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Optional</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Optional" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <p className="text-[11px] text-[#717182]">
                               JSON array, e.g. [&#123;&quot;color&quot;:&quot;Red&quot;,&quot;stock_qty&quot;:5&#125;,&#123;&quot;color&quot;:&quot;Blue&quot;,&quot;stock_qty&quot;:3&#125;]
                             </p>
@@ -1574,24 +1610,27 @@ export default function CreateAllVendorProducts(props) {
                             <label className="text-xs font-medium text-[#0A0A0A]">
                               Product Type Column
                             </label>
-                            <select
+                            <Select
                               value={bulkMapping.productType || ""}
-                              onChange={(e) =>
+                              onValueChange={(value) =>
                                 setBulkMapping((prev) => ({
                                   ...prev,
-                                  productType: e.target.value,
+                                  productType: value,
                                 }))
                               }
-                              className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
                               disabled={createPending}
                             >
-                              <option value="">Optional (defaults to Physical)</option>
-                              {bulkColumns.map((col) => (
-                                <option key={col} value={col}>
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Optional (defaults to Physical)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {bulkColumns.map((col) => (
+                                  <SelectItem key={col} value={col}>
+                                    {col}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                             <p className="text-[11px] text-[#717182]">
                               Values: &quot;physical&quot; or &quot;treat&quot;
                             </p>

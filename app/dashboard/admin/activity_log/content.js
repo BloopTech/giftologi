@@ -6,6 +6,13 @@ import { tv } from "tailwind-variants";
 
 import { Badge } from "@/app/components/Badge";
 import { cx } from "@/app/components/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import { useActivityLogContext } from "./context";
 import ActivityLogTable from "./activitytable";
 
@@ -42,14 +49,6 @@ export default function ActivityLogContent() {
 
   const handleSearchChange = (event) => {
     setSearch?.(event.target.value || "");
-  };
-
-  const handleActionChange = (event) => {
-    setActionFilter?.(event.target.value || "all");
-  };
-
-  const handleUserChange = (event) => {
-    setUserFilter?.(event.target.value || "all");
   };
 
   const handlePreviousPage = () => {
@@ -104,45 +103,49 @@ export default function ActivityLogContent() {
           <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
             <div className="flex-1 min-w-[160px]">
               <label
-                htmlFor="activity-log-action-filter"
                 className="mb-1 block text-[11px] text-[#717182]"
               >
                 Action
               </label>
-              <select
-                id="activity-log-action-filter"
-                value={actionFilter}
-                onChange={handleActionChange}
-                className="w-full rounded-full border border-[#D6D6D6] bg-white px-3 py-2 text-xs text-[#0A0A0A] outline-none"
+              <Select
+                value={actionFilter || "all"}
+                onValueChange={(value) => setActionFilter?.(value || "all")}
               >
-                <option value="all">All Actions</option>
-                {availableActions.map((action) => (
-                  <option key={action.value} value={action.value}>
-                    {action.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full text-xs">
+                  <SelectValue placeholder="All Actions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Actions</SelectItem>
+                  {availableActions.map((action) => (
+                    <SelectItem key={action.value} value={action.value}>
+                      {action.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex-1 min-w-[160px]">
               <label
-                htmlFor="activity-log-user-filter"
                 className="mb-1 block text-[11px] text-[#717182]"
               >
                 Admin User
               </label>
-              <select
-                id="activity-log-user-filter"
-                value={userFilter}
-                onChange={handleUserChange}
-                className="w-full rounded-full border border-[#D6D6D6] bg-white px-3 py-2 text-xs text-[#0A0A0A] outline-none"
+              <Select
+                value={userFilter || "all"}
+                onValueChange={(value) => setUserFilter?.(value || "all")}
               >
-                <option value="all">All Users</option>
-                {availableUsers.map((user) => (
-                  <option key={user.value} value={user.value}>
-                    {user.label}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger className="w-full text-xs">
+                  <SelectValue placeholder="All Users" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Users</SelectItem>
+                  {availableUsers.map((user) => (
+                    <SelectItem key={user.value} value={user.value}>
+                      {user.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

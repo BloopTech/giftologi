@@ -32,6 +32,13 @@ import {
   DOCUMENT_ACCEPT_TYPES,
   MAX_VENDOR_DOC_FILE_SIZE_MB,
 } from "../documentTypes";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 
 export function ProfileHeader({
   vendorSummary,
@@ -726,30 +733,34 @@ export function DocumentsSection({
                 <label className="text-[#374151] text-sm font-medium">
                   Document Type
                 </label>
-                <select
-                  name={`document_type_${idx}`}
+                <input type="hidden" name={`document_type_${idx}`} value={row.type} />
+                <Select
                   value={row.type}
-                  onChange={(e) =>
-                    onDocumentRowChange(row.id, "type", e.target.value)
+                  onValueChange={(value) =>
+                    onDocumentRowChange(row.id, "type", value)
                   }
                   disabled={documentPending || isApplicationApproved}
-                  className="w-full rounded-lg border border-[#D1D5DB] bg-white px-3 py-2 text-sm text-[#111827] focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:bg-[#F9FAFB] disabled:text-[#9CA3AF]"
                 >
-                  {DOCUMENT_UPLOAD_OPTIONS.map((option) => {
-                    const isSelectedElsewhere =
-                      selectedDocumentTypes?.includes(option.value) &&
-                      option.value !== row.type;
-                    return (
-                      <option
-                        key={option.value}
-                        value={option.value}
-                        disabled={isSelectedElsewhere}
-                      >
-                        {option.label}
-                      </option>
-                    );
-                  })}
-                </select>
+                  <SelectTrigger className="w-full rounded-lg text-sm">
+                    <SelectValue placeholder="Select document type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {DOCUMENT_UPLOAD_OPTIONS.map((option) => {
+                      const isSelectedElsewhere =
+                        selectedDocumentTypes?.includes(option.value) &&
+                        option.value !== row.type;
+                      return (
+                        <SelectItem
+                          key={option.value}
+                          value={option.value}
+                          disabled={isSelectedElsewhere}
+                        >
+                          {option.label}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="flex flex-col gap-1.5">

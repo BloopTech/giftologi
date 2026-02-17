@@ -15,7 +15,6 @@ import {
   PiWarningCircle,
   PiXCircle,
   PiMagnifyingGlass,
-  PiCaretDown,
   PiDotsThreeVertical,
   PiPencilSimple,
   PiTrash,
@@ -51,6 +50,13 @@ import {
   DropdownMenuTrigger,
 } from "../../../components/Dropdown";
 import CascadingCategoryPicker from "../../../components/CascadingCategoryPicker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/Select";
 
 const COLOR_OPTIONS = [
   "Black",
@@ -633,36 +639,32 @@ export default function VendorProductsContent() {
           </div>
 
           <div className="flex gap-3">
-            <div className="relative">
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 border border-[#D1D5DB] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="all">All Categories</option>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="min-w-[180px] rounded-lg text-sm">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
                 {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
+                  <SelectItem key={cat.id} value={String(cat.id)}>
                     {cat.name}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-              <PiCaretDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280] pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
 
-            <div className="relative">
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="appearance-none pl-3 pr-8 py-2 border border-[#D1D5DB] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              >
-                <option value="all">All Status</option>
-                <option value="approved">Active</option>
-                <option value="pending">Pending</option>
-                <option value="inactive">Inactive</option>
-                <option value="rejected">Rejected</option>
-              </select>
-              <PiCaretDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280] pointer-events-none" />
-            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="min-w-[150px] rounded-lg text-sm">
+                <SelectValue placeholder="All Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="approved">Active</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 
@@ -1003,14 +1005,18 @@ export default function VendorProductsContent() {
                   <label className="text-[#374151] text-sm font-medium">
                     Status <span className="text-red-500">*</span>
                   </label>
-                  <select
+                  <Select
                     name="status"
                     defaultValue={selectedProduct?.status || "pending"}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
                   >
-                    <option value="pending">Pending</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {hasEditError("status") ? (
                     <span className="text-red-500 text-xs">
                       {toErrorList(editErrorFor("status"))[0]}
@@ -1309,24 +1315,27 @@ export default function VendorProductsContent() {
                                 <label className="text-[11px] font-medium text-[#374151]">
                                   Add option
                                 </label>
-                                <select
+                                <Select
                                   value={activeField}
-                                  onChange={(e) =>
+                                  onValueChange={(value) =>
                                     setEditActiveVariationFieldById((prev) => ({
                                       ...prev,
-                                      [draft.id]: e.target.value,
+                                      [draft.id]: value,
                                     }))
                                   }
-                                  className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                   disabled={editPending}
                                 >
-                                  <option value="">Select option…</option>
-                                  <option value="color">Color</option>
-                                  <option value="size">Size</option>
-                                  <option value="sku">SKU</option>
-                                  <option value="price">Price override</option>
-                                  <option value="label">Label</option>
-                                </select>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select option…" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="color">Color</SelectItem>
+                                    <SelectItem value="size">Size</SelectItem>
+                                    <SelectItem value="sku">SKU</SelectItem>
+                                    <SelectItem value="price">Price override</SelectItem>
+                                    <SelectItem value="label">Label</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
 
                               <div
@@ -1690,21 +1699,24 @@ export default function VendorProductsContent() {
                     image, the first uploaded image will be used.
                   </p>
                 ) : (
-                  <select
-                    value={editFeaturedIndex}
-                    onChange={(e) => setEditFeaturedIndex(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                  <Select
+                    value={editFeaturedIndex || ""}
+                    onValueChange={(value) => setEditFeaturedIndex(value)}
                     disabled={editPending}
                   >
-                    <option value="">Use first image as featured</option>
-                    {Array.from({ length: Math.min(editFeaturedCount, 3) }).map(
-                      (_, idx) => (
-                        <option key={idx} value={String(idx)}>
-                          {`Image ${idx + 1}`}
-                        </option>
-                      ),
-                    )}
-                  </select>
+                    <SelectTrigger className="w-full rounded-lg text-sm">
+                      <SelectValue placeholder="Use first image as featured" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: Math.min(editFeaturedCount, 3) }).map(
+                        (_, idx) => (
+                          <SelectItem key={idx} value={String(idx)}>
+                            {`Image ${idx + 1}`}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             </div>

@@ -6,6 +6,13 @@ import Footer from "../components/footer";
 import Pagination from "../components/Pagination";
 import { useStorefrontDirectory } from "./context";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/Select";
+import {
   Search,
   Store,
   MapPin,
@@ -82,38 +89,38 @@ export default function StorefrontDirectoryContent() {
             </div>
 
             {/* Category dropdown */}
-            <div className="relative">
-              <select
-                value={categoryFilter || ""}
-                onChange={(e) => setCategoryFilter(e.target.value || null)}
-                className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium cursor-pointer focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-              >
-                <option value="">All Categories</option>
+            <Select
+              value={categoryFilter || ""}
+              onValueChange={(value) => setCategoryFilter(value || null)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Categories" />
+              </SelectTrigger>
+              <SelectContent>
                 {allCategories.map((cat) => (
-                  <option key={cat} value={cat}>
+                  <SelectItem key={cat} value={cat}>
                     {cat}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
 
             {/* Location dropdown */}
-            <div className="relative">
-              <select
-                value={locationFilter || ""}
-                onChange={(e) => setLocationFilter(e.target.value || null)}
-                className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium cursor-pointer focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-              >
-                <option value="">All Locations</option>
+            <Select
+              value={locationFilter || ""}
+              onValueChange={(value) => setLocationFilter(value || null)}
+            >
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="All Locations" />
+              </SelectTrigger>
+              <SelectContent>
                 {allLocations.map((loc) => (
-                  <option key={loc} value={loc}>
+                  <SelectItem key={loc} value={loc}>
                     {loc}
-                  </option>
+                  </SelectItem>
                 ))}
-              </select>
-              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-            </div>
+              </SelectContent>
+            </Select>
 
             {/* Mobile filter toggle */}
             <button

@@ -7,7 +7,6 @@ import {
   PiReceipt,
   PiTrendUp,
   PiTrendDown,
-  PiCaretDown,
   PiUsers,
   PiUserPlus,
   PiArrowsClockwise,
@@ -16,6 +15,13 @@ import {
   PiEye,
   PiChartLine,
 } from "react-icons/pi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import { useVendorAnalyticsContext } from "./context";
 import { RevenueLineChart, OrdersViewsBarChart, SalesPieChart } from "./charts";
 import {
@@ -321,19 +327,17 @@ export default function VendorAnalyticsContent() {
             Track your store performance and sales metrics
           </p>
         </div>
-        <div className="relative">
-          <select
-            value={dateFilter}
-            onChange={(e) => setDateFilter(e.target.value)}
-            className="appearance-none pl-3 pr-8 py-2 border border-[#D1D5DB] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            <option value="last_30_days">Last 30 days</option>
-            <option value="last_60_days">Last 60 days</option>
-            <option value="last_90_days">Last 90 days</option>
-            <option value="this_year">This year</option>
-          </select>
-          <PiCaretDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280] pointer-events-none" />
-        </div>
+        <Select value={dateFilter} onValueChange={setDateFilter}>
+          <SelectTrigger className="min-w-[170px] rounded-lg text-sm">
+            <SelectValue placeholder="Select period" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="last_30_days">Last 30 days</SelectItem>
+            <SelectItem value="last_60_days">Last 60 days</SelectItem>
+            <SelectItem value="last_90_days">Last 90 days</SelectItem>
+            <SelectItem value="this_year">This year</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {error && (

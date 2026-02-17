@@ -13,6 +13,13 @@ import {
   DialogFooter,
 } from "../../../components/Dialog";
 import CascadingCategoryPicker from "../../../components/CascadingCategoryPicker";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/Select";
 
 const ACTION_VARIANTS = {
   vendor_dashboard: {
@@ -170,6 +177,7 @@ export function AddProductDialog({
   const [selectedCategoryIds, setSelectedCategoryIds] = useState([]);
   const [variationDrafts, setVariationDrafts] = useState([]);
   const [activeVariationFieldById, setActiveVariationFieldById] = useState({});
+  const [status, setStatus] = useState("pending");
   const [currentStep, setCurrentStep] = useState(0);
   const stepLabels = ["Basics", "Categories", "Variations", "Images"];
 
@@ -319,6 +327,11 @@ export function AddProductDialog({
 
   useEffect(() => {
     if (!open) return;
+    setStatus(state.values?.status || "pending");
+  }, [open, state.values?.status]);
+
+  useEffect(() => {
+    if (!open) return;
     const value = normalizeCategoryIds(state.values?.categoryIds);
     if (!value.length) return;
     if (selectedCategoryIds.length) return;
@@ -363,6 +376,7 @@ export function AddProductDialog({
       setFeaturedIndex("");
       setSelectedCategoryIds([]);
       setVariationDrafts([]);
+      setStatus("pending");
       setCurrentStep(0);
       formRef.current?.reset();
     }
@@ -549,14 +563,16 @@ export function AddProductDialog({
                 <label className="text-[#374151] text-sm font-medium">
                   Status <span className="text-red-500">*</span>
                 </label>
-                <select
-                  name="status"
-                  defaultValue={state.values?.status || "pending"}
-                  className="w-full h-[38px] px-3 py-2 border border-[#D1D5DB] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="inactive">Inactive</option>
-                </select>
+                <input type="hidden" name="status" value={status} />
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger className="w-full h-[38px] rounded-lg text-sm">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 
@@ -862,24 +878,27 @@ export function AddProductDialog({
                                 <label className="text-[11px] font-medium text-[#374151]">
                                   Add option
                                 </label>
-                                <select
+                                <Select
                                   value={activeField}
-                                  onChange={(e) =>
+                                  onValueChange={(value) =>
                                     setActiveVariationFieldById((prev) => ({
                                       ...prev,
-                                      [draft.id]: e.target.value,
+                                      [draft.id]: value,
                                     }))
                                   }
-                                  className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                   disabled={isPending}
                                 >
-                                  <option value="">Select attribute…</option>
-                                  <option value="color">Color</option>
-                                  <option value="size">Size</option>
-                                  <option value="sku">SKU</option>
-                                  <option value="price">Price override</option>
-                                  <option value="label">Label</option>
-                                </select>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select attribute…" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="color">Color</SelectItem>
+                                    <SelectItem value="size">Size</SelectItem>
+                                    <SelectItem value="sku">SKU</SelectItem>
+                                    <SelectItem value="price">Price override</SelectItem>
+                                    <SelectItem value="label">Label</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
 
                               <div
@@ -1259,18 +1278,21 @@ export function AddProductDialog({
                   <label className="text-xs text-[#6B7280]">
                     Featured Image
                   </label>
-                  <select
+                  <Select
                     value={featuredIndex || ""}
-                    onChange={(e) => setFeaturedIndex(e.target.value)}
-                    className="w-full px-3 py-2 border border-[#D1D5DB] rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-white"
+                    onValueChange={(value) => setFeaturedIndex(value)}
                   >
-                    <option value="">Use first image</option>
-                    {Array.from({ length: imageCount }).map((_, idx) => (
-                      <option key={idx} value={String(idx)}>
-                        {`Image ${idx + 1}`}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Use first image" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: imageCount }).map((_, idx) => (
+                        <SelectItem key={idx} value={String(idx)}>
+                          {`Image ${idx + 1}`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>

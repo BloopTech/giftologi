@@ -131,7 +131,7 @@ const mapZonesResponse = (zones) =>
     id: zone.id,
     name: zone.name,
     fee: Number(zone.fee) || 0,
-    aramex_code: zone.aramex_code || null,
+    aramex_code: zone.aramex_code || zone.name || null,
     country_code: zone.country_code,
   }));
 
@@ -154,7 +154,17 @@ export async function GET(request) {
       console.error("Failed to load cached shipping zones:", cacheError);
     }
 
-    if (!forceRefresh && Array.isArray(cachedZones) && cachedZones.length > 0) {
+    const cacheHasAramexCodes =
+      Array.isArray(cachedZones) &&
+      cachedZones.length > 0 &&
+      cachedZones.every((zone) => Boolean(zone?.aramex_code));
+
+    if (
+      !forceRefresh &&
+      Array.isArray(cachedZones) &&
+      cachedZones.length > 0 &&
+      cacheHasAramexCodes
+    ) {
       return NextResponse.json({
         success: true,
         source: "cache",
@@ -191,7 +201,7 @@ export async function GET(request) {
       .map((state) => ({
         country_code: countryCode,
         name: state.name,
-        aramex_code: state.code || null,
+        aramex_code: (state.code || state.name || "").trim() || null,
         active: true,
         updated_at: now,
       }));

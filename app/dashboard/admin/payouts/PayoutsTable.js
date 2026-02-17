@@ -34,6 +34,13 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from "@/app/components/Tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import { usePayoutsContext } from "./context";
 import { useDashboardContext } from "../context";
 import { approvePayout, markPayoutPaid, deleteDraftPayout, requestVendorPaymentInfo } from "./action";
@@ -786,19 +793,23 @@ export default function PayoutsTable() {
                 </div>
               </div>
               <div className="space-y-1">
-                <label htmlFor="payment-method" className="text-xs font-medium text-[#0A0A0A]">
+                <label className="text-xs font-medium text-[#0A0A0A]">
                   Payment Method <span className="text-red-500">*</span>
                 </label>
-                <select
-                  id="payment-method"
-                  name="paymentMethod"
+                <input type="hidden" name="paymentMethod" value={paymentMethod} />
+                <Select
                   value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                  className="w-full rounded-xl border px-3 py-2 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  onValueChange={(value) => setPaymentMethod(value)}
+                  disabled={markPaidPending}
                 >
-                  <option value="bank_transfer">Bank Transfer</option>
-                  <option value="momo">Mobile Money</option>
-                </select>
+                  <SelectTrigger className="w-full rounded-xl text-xs">
+                    <SelectValue placeholder="Select payment method" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="momo">Mobile Money</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-1">
                 <label htmlFor="payment-ref" className="text-xs font-medium text-[#0A0A0A]">

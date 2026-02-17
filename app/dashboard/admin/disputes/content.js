@@ -393,18 +393,22 @@ function DisputeDetailPanel({ dispute, notes, loadingNotes, onRefresh, onClose }
         <form action={statusAction} className="space-y-2 border-t border-[#E5E7EB] pt-3">
           <p className="text-[10px] uppercase tracking-wider text-[#9CA3AF]">Update Status</p>
           <input type="hidden" name="disputeId" value={dispute.id} />
-          <select
+          <Select
             name="status"
             value={newStatus}
-            onChange={(e) => setNewStatus(e.target.value)}
+            onValueChange={(value) => setNewStatus(value)}
             disabled={statusPending}
-            className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-xs outline-none"
           >
-            <option value="open">Open</option>
-            <option value="investigating">Investigating</option>
-            <option value="resolved">Resolved</option>
-            <option value="closed">Closed</option>
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="investigating">Investigating</SelectItem>
+              <SelectItem value="resolved">Resolved</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
           {(newStatus === "resolved" || newStatus === "closed") && (
             <textarea
               name="resolution"
@@ -533,34 +537,42 @@ function CreateDisputeDialog({ open, onOpenChange, returnRequest, onSuccess }) {
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="text-[11px] font-medium text-[#374151]">Type</label>
-              <select
+              <Select
                 name="disputeType"
                 defaultValue={defaultType}
                 disabled={isPending}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-xs outline-none"
               >
-                <option value="return">Return</option>
-                <option value="exchange">Exchange</option>
-                <option value="refund">Refund</option>
-                <option value="damaged">Damaged</option>
-                <option value="missing">Missing</option>
-                <option value="wrong_item">Wrong Item</option>
-                <option value="other">Other</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="return">Return</SelectItem>
+                  <SelectItem value="exchange">Exchange</SelectItem>
+                  <SelectItem value="refund">Refund</SelectItem>
+                  <SelectItem value="damaged">Damaged</SelectItem>
+                  <SelectItem value="missing">Missing</SelectItem>
+                  <SelectItem value="wrong_item">Wrong Item</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <label className="text-[11px] font-medium text-[#374151]">Priority</label>
-              <select
+              <Select
                 name="priority"
                 defaultValue="normal"
                 disabled={isPending}
-                className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-xs outline-none"
               >
-                <option value="low">Low</option>
-                <option value="normal">Normal</option>
-                <option value="high">High</option>
-                <option value="urgent">Urgent</option>
-              </select>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

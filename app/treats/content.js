@@ -9,8 +9,14 @@ import {
   PiStarFill,
   PiStorefront,
   PiShoppingCart,
-  PiSortAscending,
 } from "react-icons/pi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import Footer from "../components/footer";
 
 const SORT_OPTIONS = [
@@ -225,20 +231,24 @@ export default function TreatsContent() {
                 className="w-full pl-9 pr-3 py-2.5 text-sm border border-[#D1D5DB] rounded-xl outline-none focus:border-[#A5914B] transition bg-white"
               />
             </div>
-            <select
+            <Select
               value={sortBy}
-              onChange={(e) => {
-                setSortBy(e.target.value);
+              onValueChange={(value) => {
+                setSortBy(value);
                 setPage(1);
               }}
-              className="py-2.5 px-3 text-sm border border-[#D1D5DB] rounded-xl outline-none focus:border-[#A5914B] bg-white transition min-w-[160px]"
             >
-              {SORT_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="min-w-[180px] rounded-xl text-sm">
+                <SelectValue placeholder="Sort by" />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.id} value={opt.id}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Results count */}

@@ -22,6 +22,13 @@ import {
 import { useVendorOrdersContext } from "./context";
 import { manageOrders } from "./action";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/Select";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -489,22 +496,25 @@ export default function VendorOrdersContent() {
           </div>
 
           <div className="relative">
-            <select
+            <Select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="appearance-none pl-3 pr-8 py-2 border border-[#D1D5DB] rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+              onValueChange={(value) => setStatusFilter(value)}
             >
-              <option value="all">All Status ({orders.length})</option>
-              <option value="pending">Pending ({stats.pending})</option>
-              <option value="confirmed">Confirmed ({stats.confirmed})</option>
-              <option value="processing">
-                Processing ({stats.processing})
-              </option>
-              <option value="shipped">Shipped ({stats.shipped})</option>
-              <option value="delivered">Delivered ({stats.delivered})</option>
-              <option value="cancelled">Cancelled ({stats.cancelled})</option>
-            </select>
-            <PiCaretDown className="absolute right-2 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280] pointer-events-none" />
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status ({orders.length})</SelectItem>
+                <SelectItem value="pending">Pending ({stats.pending})</SelectItem>
+                <SelectItem value="confirmed">Confirmed ({stats.confirmed})</SelectItem>
+                <SelectItem value="processing">
+                  Processing ({stats.processing})
+                </SelectItem>
+                <SelectItem value="shipped">Shipped ({stats.shipped})</SelectItem>
+                <SelectItem value="delivered">Delivered ({stats.delivered})</SelectItem>
+                <SelectItem value="cancelled">Cancelled ({stats.cancelled})</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
 

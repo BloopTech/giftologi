@@ -1,6 +1,7 @@
 "use server";
 
 import React from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "../../../utils/supabase/server";
 import { createMetadata, getSeoDefaults } from "../../../utils/seo";
@@ -87,8 +88,19 @@ export default async function ProductCodeDetailPage({ params }) {
   }
 
   return (
-    <ProductDetailProvider vendorSlug={vendor_slug} productCode={product_code}>
-      <ProductCodeDetailContent />
-    </ProductDetailProvider>
+    <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#product-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to product details
+      </Link>
+      <main id="product-content" role="main" aria-label={`Product ${product_code}`}>
+        <ProductDetailProvider vendorSlug={vendor_slug} productCode={product_code}>
+          <ProductCodeDetailContent />
+        </ProductDetailProvider>
+      </main>
+    </>
   );
 }

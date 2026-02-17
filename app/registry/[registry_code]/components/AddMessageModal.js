@@ -2,6 +2,13 @@
 import React, { useEffect, useState } from "react";
 import ImageWithFallback from "@/app/components/ImageWithFallback";
 import { Dialog, DialogClose, DialogContent, DialogTitle } from "../../../components/Dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import { X } from "lucide-react";
 
 export default function AddMessageModal({
@@ -17,7 +24,11 @@ export default function AddMessageModal({
   const [message, setMessage] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const fallbackRegionId =
-    defaultShippingRegionId || shippingRegions[0]?.id || "";
+    defaultShippingRegionId != null
+      ? String(defaultShippingRegionId)
+      : shippingRegions[0]?.id != null
+        ? String(shippingRegions[0].id)
+        : "";
   const [selectedRegionId, setSelectedRegionId] = useState(fallbackRegionId);
 
   useEffect(() => {
@@ -28,7 +39,7 @@ export default function AddMessageModal({
   }, [fallbackRegionId, open]);
 
   const selectedRegion = shippingRegions.find(
-    (region) => region.id === selectedRegionId
+    (region) => String(region.id) === String(selectedRegionId)
   );
 
   const formatPrice = (value) => {
@@ -102,17 +113,18 @@ export default function AddMessageModal({
                     <label className="block text-sm font-medium text-gray-700">
                       Delivery region
                     </label>
-                    <select
-                      value={selectedRegionId}
-                      disabled
-                      className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-gray-50 text-gray-600 cursor-not-allowed"
-                    >
-                      {shippingRegions.map((region) => (
-                        <option key={region.id} value={region.id}>
-                          {region.name} - {formatPrice(region.fee)}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={selectedRegionId || ""} onValueChange={setSelectedRegionId} disabled>
+                      <SelectTrigger className="w-full rounded-lg py-2.5 text-sm">
+                        <SelectValue placeholder="Delivery region" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {shippingRegions.map((region) => (
+                          <SelectItem key={region.id} value={String(region.id)}>
+                            {region.name} - {formatPrice(region.fee)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                     <p className="text-xs text-gray-500">
                       Shipping fee: {formatPrice(selectedRegion?.fee)}
                     </p>

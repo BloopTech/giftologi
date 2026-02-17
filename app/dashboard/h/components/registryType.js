@@ -6,6 +6,7 @@ import birthday from "../../../../public/host/birthday.png";
 import babyshower from "../../../../public/host/babyshower.png";
 import fundraiser from "../../../../public/host/fundraiser.png";
 import giftbox from "../../../../public/host/lists-gift-box.png";
+import Image from "next/image";
 
 const customStyles = [
   {
@@ -43,7 +44,7 @@ export default function RegistryType(props) {
       {customStyles.map((style) => (
         <div key={style.id} className="flex flex-col space-y-4">
           <div className="w-[200px] h-[200px] bg-[#E9E9ED] border border-[#DCDCDE] rounded-md relative overflow-hidden">
-            <ImageWithFallback
+            <Image
               src={style.image}
               alt="gift box"
               fill

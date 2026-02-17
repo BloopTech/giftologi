@@ -6,7 +6,6 @@ import {
   Search,
   Grid3X3,
   LayoutList,
-  ChevronDown,
   ChevronRight,
   X,
   ShoppingBag,
@@ -22,6 +21,13 @@ import ProductCard from "../../shop/components/ProductCard";
 import ProductListItem from "../../shop/components/ProductListItem";
 import CartDrawer from "../../shop/components/CartDrawer";
 import Pagination from "../../components/Pagination";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/Select";
 
 const SORT_OPTIONS = [
   { id: "featured", label: "Featured" },
@@ -211,20 +217,18 @@ export default function CategoryShopContent() {
             </button>
             {/* Sort & View (desktop) */}
             <div className="hidden lg:flex items-center gap-2">
-              <div className="relative">
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="appearance-none pl-4 pr-10 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 text-sm font-medium cursor-pointer focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none"
-                >
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="min-w-[220px] rounded-xl py-2.5 text-sm font-medium">
+                  <SelectValue placeholder="Sort by" />
+                </SelectTrigger>
+                <SelectContent>
                   {SORT_OPTIONS.map((opt) => (
-                    <option key={opt.id} value={opt.id}>
+                    <SelectItem key={opt.id} value={opt.id}>
                       {opt.label}
-                    </option>
+                    </SelectItem>
                   ))}
-                </select>
-                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-gray-400 pointer-events-none" />
-              </div>
+                </SelectContent>
+              </Select>
               <div className="flex items-center border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden">
                 <button
                   type="button"

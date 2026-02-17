@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "../../utils/supabase/server";
 import { createMetadata, getSeoDefaults } from "../../utils/seo";
@@ -106,14 +107,25 @@ export default async function CategoryShopPage({ params, searchParams }) {
   }
 
   return (
-    <CategoryShopProvider
-      category={category}
-      subcategories={subcategories || []}
-      activeRegistry={activeRegistry}
-      hostProfile={hostProfile}
-      initialSearchParams={search}
-    >
-      <CategoryShopContent />
-    </CategoryShopProvider>
+    <>
+      {/* Skip to main content link for accessibility */}
+      <Link
+        href="#category-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:bg-white focus:text-[#A5914B] focus:px-4 focus:py-2 focus:rounded-md focus:font-medium"
+      >
+        Skip to category content
+      </Link>
+      <main id="category-content" role="main" aria-label={`${category.name} category`}>
+        <CategoryShopProvider
+          category={category}
+          subcategories={subcategories || []}
+          activeRegistry={activeRegistry}
+          hostProfile={hostProfile}
+          initialSearchParams={search}
+        >
+          <CategoryShopContent />
+        </CategoryShopProvider>
+      </main>
+    </>
   );
 }

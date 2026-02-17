@@ -158,7 +158,7 @@ const SelectContent = forwardRef(
         <SelectScrollUpButton />
         <SelectPrimitives.Viewport
           className={cx(
-            "p-1",
+            "p-1 max-h-[300px] overflow-y-auto",
             position === "popper" &&
               "h-[var(--radix-select-trigger-height)] w-full min-w-[calc(var(--radix-select-trigger-width))]"
           )}

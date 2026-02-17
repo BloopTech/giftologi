@@ -14,6 +14,13 @@ import {
 import { toast } from "sonner";
 import { useSupportContext } from "./context";
 import Footer from "../components/footer";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/Select";
 
 const categoryOptions = [
   { value: "order", label: "Order Issue" },
@@ -144,17 +151,21 @@ function NewTicketDialog({ open, onClose, onCreated }) {
             <label className="block text-sm font-medium text-[#374151] mb-1">
               Category
             </label>
-            <select
+            <Select
               value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#A5914B] transition"
+              onValueChange={(value) => setCategory(value)}
             >
-              {categoryOptions.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <label className="block text-sm font-medium text-[#374151] mb-1">

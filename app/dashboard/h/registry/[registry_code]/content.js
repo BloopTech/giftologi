@@ -50,6 +50,13 @@ import {
   DialogTitle,
 } from "../../../../components/Dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../../components/Select";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -1281,37 +1288,44 @@ export default function HostDashboardRegistryContent(props) {
             <input type="hidden" name="event_id" value={event?.id || ""} readOnly />
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-900">Purchase</label>
-              <select
-                name="order_id"
-                value={selectedOrderId}
-                onChange={(e) => setSelectedOrderId(e.target.value)}
-                className="w-full rounded-full border border-gray-300 px-4 py-3 text-sm text-gray-900 shadow-sm outline-none transition hover:border-gray-400"
-                disabled={isThankYouPending}
+              <input type="hidden" name="order_id" value={selectedOrderId} />
+              <Select
+                value={selectedOrderId || ""}
+                onValueChange={(value) => setSelectedOrderId(value)}
+                disabled={isThankYouPending || eligibleOrders.length === 0}
               >
-                <option value="" disabled>
-                  Select a purchase
-                </option>
-                {eligibleOrders.length ? (
-                  eligibleOrders.map((order) => {
-                    const nameLabel =
-                      order.gifterName ||
-                      order.buyerName ||
-                      (order.gifterAnonymous ? "Anonymous Gifter" : "Guest");
-                    const dateLabel = order.createdAt
-                      ? format(new Date(order.createdAt), "MMM d, yyyy")
-                      : "";
-                    return (
-                      <option key={order.id} value={order.id}>
-                        {`Order ${order.id.slice(0, 6)} · ${nameLabel} ${dateLabel ? `· ${dateLabel}` : ""}`}
-                      </option>
-                    );
-                  })
-                ) : (
-                  <option value="" disabled>
-                    No successful purchases yet
-                  </option>
-                )}
-              </select>
+                <SelectTrigger className="w-full rounded-full py-3 text-sm">
+                  <SelectValue
+                    placeholder={
+                      eligibleOrders.length
+                        ? "Select a purchase"
+                        : "No successful purchases yet"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {eligibleOrders.length === 0 ? (
+                    <div className="px-3 py-2 text-xs text-gray-500">
+                      No successful purchases yet
+                    </div>
+                  ) : (
+                    eligibleOrders.map((order) => {
+                      const nameLabel =
+                        order.gifterName ||
+                        order.buyerName ||
+                        (order.gifterAnonymous ? "Anonymous Gifter" : "Guest");
+                      const dateLabel = order.createdAt
+                        ? format(new Date(order.createdAt), "MMM d, yyyy")
+                        : "";
+                      return (
+                        <SelectItem key={order.id} value={order.id}>
+                          {`Order ${order.id.slice(0, 6)} · ${nameLabel} ${dateLabel ? `· ${dateLabel}` : ""}`}
+                        </SelectItem>
+                      );
+                    })
+                  )}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2 relative">

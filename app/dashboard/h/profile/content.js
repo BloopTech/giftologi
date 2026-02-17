@@ -29,6 +29,13 @@ import {
   NotificationRow,
 } from "../../v/profile/components/formControls";
 import AccountDataSection from "../../../components/AccountDataSection";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 
 const defaultNotificationSettings = {
   registryUpdates: true,
@@ -151,10 +158,132 @@ export default function HostProfileContent() {
   const [photoPreview, setPhotoPreview] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [isPhotoSaved, setIsPhotoSaved] = useState(false);
+  const [shippingRegions, setShippingRegions] = useState([]);
+  const [zonesState, setZonesState] = useState({ loading: false, error: null });
+  const [selectedRegion, setSelectedRegion] = useState(null);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [citiesError, setCitiesError] = useState(null);
+  const [addressValues, setAddressValues] = useState({ city: "", state: "" });
 
   useEffect(() => {
     setNotifications(mapNotificationSettings(notificationPreferences));
   }, [notificationPreferences]);
+
+  useEffect(() => {
+    setAddressValues({
+      city: profile?.address_city || "",
+      state: profile?.address_state || "",
+    });
+  }, [profile?.address_city, profile?.address_state]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadZones = async () => {
+      setZonesState({ loading: true, error: null });
+      try {
+        const response = await fetch("/api/shipping/aramex/zones?country=GH");
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(
+            payload?.details || payload?.error || "Failed to load regions.",
+          );
+        }
+        if (cancelled) return;
+        setShippingRegions(Array.isArray(payload?.zones) ? payload.zones : []);
+        setZonesState({ loading: false, error: null });
+      } catch (error) {
+        if (cancelled) return;
+        setShippingRegions([]);
+        setZonesState({
+          loading: false,
+          error: error?.message || "Failed to load regions.",
+        });
+      }
+    };
+
+    loadZones();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shippingRegions.length) {
+      setSelectedRegion(null);
+      return;
+    }
+
+    const stateValue = String(addressValues.state || "").trim().toLowerCase();
+    if (!stateValue) {
+      setSelectedRegion(null);
+      setAvailableCities([]);
+      return;
+    }
+
+    const match = shippingRegions.find((region) => {
+      const regionName = String(region?.name || "").trim().toLowerCase();
+      const regionCode = String(region?.aramex_code || "").trim().toLowerCase();
+      return stateValue === regionName || stateValue === regionCode;
+    });
+
+    if (!match) {
+      setSelectedRegion(null);
+      setAvailableCities([]);
+      return;
+    }
+
+    setSelectedRegion(match);
+    setAddressValues((prev) =>
+      prev.state === match.name ? prev : { ...prev, state: match.name },
+    );
+  }, [shippingRegions, addressValues.state]);
+
+  useEffect(() => {
+    if (!selectedRegion?.name) {
+      setAvailableCities([]);
+      setCitiesError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const loadCities = async () => {
+      setCitiesLoading(true);
+      setCitiesError(null);
+      try {
+        const stateCode = selectedRegion.aramex_code || selectedRegion.name || "";
+        const response = await fetch(
+          `/api/shipping/cities?country=GH&stateCode=${encodeURIComponent(stateCode)}`,
+        );
+        const payload = await response.json().catch(() => ({}));
+        if (cancelled) return;
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(
+            payload?.details || payload?.error || "Failed to load cities.",
+          );
+        }
+
+        const cities = Array.isArray(payload?.cities) ? payload.cities : [];
+        setAvailableCities(cities);
+        setAddressValues((prev) =>
+          prev.city && !cities.includes(prev.city) ? { ...prev, city: "" } : prev,
+        );
+      } catch (error) {
+        if (cancelled) return;
+        setAvailableCities([]);
+        setCitiesError(error?.message || "Failed to load cities.");
+        setAddressValues((prev) => (prev.city ? { ...prev, city: "" } : prev));
+      } finally {
+        if (!cancelled) setCitiesLoading(false);
+      }
+    };
+
+    loadCities();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRegion?.id, selectedRegion?.aramex_code, selectedRegion?.name]);
 
   useEffect(() => {
     if (state?.success) {
@@ -429,18 +558,101 @@ export default function HostProfileContent() {
                 error={errors.address_street}
                 className="md:col-span-2"
               />
-              <FormField
-                label="City"
-                name="address_city"
-                value={profile?.address_city}
-                error={errors.address_city}
-              />
-              <FormField
-                label="Region / State"
-                name="address_state"
-                value={profile?.address_state}
-                error={errors.address_state}
-              />
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">Region / State</label>
+                <Select
+                  value={selectedRegion?.name || ""}
+                  onValueChange={(value) => {
+                    const region = shippingRegions.find((item) => item.name === value);
+                    setSelectedRegion(region || null);
+                    setAddressValues((prev) => ({
+                      ...prev,
+                      state: region?.name || "",
+                      city: "",
+                    }));
+                    setAvailableCities([]);
+                    setCitiesError(null);
+                  }}
+                  disabled={zonesState.loading || shippingRegions.length === 0}
+                >
+                  <SelectTrigger
+                    className="w-full"
+                    hasError={Boolean(errors.address_state)}
+                  >
+                    <SelectValue
+                      placeholder={
+                        zonesState.loading
+                          ? "Loading regions..."
+                          : shippingRegions.length === 0
+                            ? "No regions available"
+                            : "Select region"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shippingRegions.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-gray-500">No regions available</div>
+                    ) : (
+                      shippingRegions.map((region) => (
+                        <SelectItem key={region.name} value={region.name}>
+                          {region.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {zonesState.error && !errors.address_state && (
+                  <p className="text-xs text-red-600">{zonesState.error}</p>
+                )}
+                {errors.address_state && (
+                  <p className="text-xs text-red-600">{errors.address_state}</p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[#374151] text-sm font-medium">City</label>
+                <Select
+                  value={addressValues.city}
+                  onValueChange={(value) => {
+                    setAddressValues((prev) => ({ ...prev, city: value }));
+                  }}
+                  disabled={
+                    !selectedRegion || citiesLoading || availableCities.length === 0
+                  }
+                >
+                  <SelectTrigger className="w-full" hasError={Boolean(errors.address_city)}>
+                    <SelectValue
+                      placeholder={
+                        citiesLoading
+                          ? "Loading cities..."
+                          : !selectedRegion
+                            ? "Select region first"
+                            : availableCities.length === 0
+                              ? "No cities available"
+                              : "Select city"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCities.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-gray-500">No cities available</div>
+                    ) : (
+                      availableCities.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {citiesError && !errors.address_city && (
+                  <p className="text-xs text-red-600">{citiesError}</p>
+                )}
+                {errors.address_city && (
+                  <p className="text-xs text-red-600">{errors.address_city}</p>
+                )}
+              </div>
+              <input type="hidden" name="address_state" value={addressValues.state} />
+              <input type="hidden" name="address_city" value={addressValues.city} />
               <FormField
                 label="Digital Address (Ghana Post GPS)"
                 name="digital_address"

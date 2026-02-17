@@ -3,6 +3,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import ImageWithFallback from "@/app/components/ImageWithFallback";
 import { PiGift, PiMagnifyingGlass, PiFunnel } from "react-icons/pi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import Footer from "../components/footer";
 
 const buildLabelMap = (arr) => {
@@ -155,18 +162,19 @@ export default function GiftGuidesContent() {
                 className="w-full pl-9 pr-3 py-2.5 text-sm border border-[#D1D5DB] rounded-xl outline-none focus:border-[#A5914B] transition bg-white"
               />
             </div>
-            <select
-              value={occasionFilter}
-              onChange={(e) => setOccasionFilter(e.target.value)}
-              className="py-2.5 px-3 text-sm border border-[#D1D5DB] rounded-xl outline-none focus:border-[#A5914B] bg-white transition min-w-[160px]"
-            >
-              <option value="all">All Occasions</option>
-              {availableOccasions.map((occ) => (
-                <option key={occ} value={occ}>
-                  {occasionLabels[occ] || occ}
-                </option>
-              ))}
-            </select>
+            <Select value={occasionFilter} onValueChange={setOccasionFilter}>
+              <SelectTrigger className="min-w-[180px] rounded-xl text-sm">
+                <SelectValue placeholder="All Occasions" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Occasions</SelectItem>
+                {availableOccasions.map((occ) => (
+                  <SelectItem key={occ} value={occ}>
+                    {occasionLabels[occ] || occ}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Content */}

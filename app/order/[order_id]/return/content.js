@@ -3,6 +3,13 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { PiArrowLeft, PiCheckCircle, PiWarning } from "react-icons/pi";
 import { RotateCcw, ArrowLeftRight, Loader2 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 
 export default function ReturnRequestContent({
   orderCode,
@@ -12,7 +19,7 @@ export default function ReturnRequestContent({
   const [step, setStep] = useState("form"); // form | success | error
   const [email] = useState(verifiedEmail);
   const [name, setName] = useState("");
-  const [selectedItemId, setSelectedItemId] = useState("");
+  const [selectedItemId, setSelectedItemId] = useState("all_items");
   const [requestType, setRequestType] = useState("return");
   const [reason, setReason] = useState("");
   const [details, setDetails] = useState("");
@@ -38,7 +45,10 @@ export default function ReturnRequestContent({
           order_code: orderCode,
           guest_email: email.trim(),
           guest_name: name.trim() || null,
-          order_item_id: selectedItemId || null,
+          order_item_id:
+            selectedItemId && selectedItemId !== "all_items"
+              ? selectedItemId
+              : null,
           request_type: requestType,
           reason: reason.trim(),
           details: details.trim() || null,
@@ -159,19 +169,23 @@ export default function ReturnRequestContent({
                   <label className="text-sm font-medium text-gray-700">
                     Which item?
                   </label>
-                  <select
+                  <Select
                     value={selectedItemId}
-                    onChange={(e) => setSelectedItemId(e.target.value)}
+                    onValueChange={(value) => setSelectedItemId(value)}
                     disabled={submitting}
-                    className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none hover:border-gray-400 transition disabled:opacity-50"
                   >
-                    <option value="">All items / entire order</option>
-                    {orderItems.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.product?.name || "Product"} (x{item.quantity ?? 1})
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="w-full rounded-xl py-2.5 text-sm">
+                      <SelectValue placeholder="All items / entire order" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all_items">All items / entire order</SelectItem>
+                      {orderItems.map((item) => (
+                        <SelectItem key={item.id} value={String(item.id)}>
+                          {item.product?.name || "Product"} (x{item.quantity ?? 1})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
             </div>
@@ -214,19 +228,18 @@ export default function ReturnRequestContent({
               <label className="text-sm font-medium text-gray-700">
                 Reason <span className="text-red-500">*</span>
               </label>
-              <select
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                disabled={submitting}
-                className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none hover:border-gray-400 transition disabled:opacity-50"
-              >
-                <option value="">Select a reason</option>
-                {reasonOptions.map((opt) => (
-                  <option key={opt} value={opt}>
-                    {opt}
-                  </option>
-                ))}
-              </select>
+              <Select value={reason || ""} onValueChange={setReason} disabled={submitting}>
+                <SelectTrigger className="w-full rounded-xl py-2.5 text-sm">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reasonOptions.map((opt) => (
+                    <SelectItem key={opt} value={opt}>
+                      {opt}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-1.5">

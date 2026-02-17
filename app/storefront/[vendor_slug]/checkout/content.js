@@ -30,6 +30,13 @@ import { getAramexRateQuote, processStorefrontCheckout } from "./actions";
 import { getGuestIdentifier } from "../../../utils/guest";
 import { getDeviceFingerprint } from "../../../utils/fingerprint";
 import { computeShipmentWeight } from "../../../utils/shipping/weights";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../components/Select";
 
 
 const formatPrice = (value) => {
@@ -280,40 +287,37 @@ export default function CheckoutContent({
 
   // Load cities when selected region changes
   useEffect(() => {
-    console.log("Cities effect triggered:", { selectedRegion, hasName: selectedRegion?.name, hasId: selectedRegion?.id });
     if (!selectedRegion?.name) {
-      console.log("No region selected, clearing cities");
       setAvailableCities([]);
+      setFormData((prev) => ({ ...prev, city: "" }));
       return;
     }
     let cancelled = false;
     const loadCities = async () => {
       setCitiesLoading(true);
       try {
-        // Pass both region code and name to try both
-        const regionCode = selectedRegion.code || selectedRegion.name || "";
-        console.log("Fetching cities for region:", regionCode);
+        const stateCode = selectedRegion.aramex_code || selectedRegion.name || "";
         const response = await fetch(
-          `/api/shipping/cities?region=${encodeURIComponent(regionCode)}&country=GH`
+          `/api/shipping/cities?country=GH&stateCode=${encodeURIComponent(stateCode)}`,
         );
         const data = await response.json();
-        console.log("Cities API response:", data);
         if (!cancelled) {
           if (data.success && data.cities && data.cities.length > 0) {
             setAvailableCities(data.cities);
-            // Auto-select city if current city is not in the list
-            if (!data.cities.includes(formData.city)) {
-              setFormData((prev) => ({ ...prev, city: data.cities[0] }));
-            }
+            setFormData((prev) =>
+              data.cities.includes(prev.city) ? prev : { ...prev, city: "" },
+            );
           } else {
-            // Fallback: allow manual text input if no cities returned
-            console.log("No cities returned, falling back to text input");
             setAvailableCities([]);
+            setFormData((prev) => ({ ...prev, city: "" }));
           }
         }
       } catch (error) {
         console.error("Failed to load cities:", error);
-        if (!cancelled) setAvailableCities([]);
+        if (!cancelled) {
+          setAvailableCities([]);
+          setFormData((prev) => ({ ...prev, city: "" }));
+        }
       } finally {
         if (!cancelled) setCitiesLoading(false);
       }
@@ -322,7 +326,7 @@ export default function CheckoutContent({
     return () => {
       cancelled = true;
     };
-  }, [selectedRegion?.id, selectedRegion?.code, selectedRegion?.name]);
+  }, [selectedRegion?.id, selectedRegion?.aramex_code, selectedRegion?.name]);
 
   useEffect(() => {
     if (!cartMode) return;
@@ -772,7 +776,7 @@ export default function CheckoutContent({
       line1: formData.address || "",
       line2: formData.digitalAddress || "",
       city: formData.city || "",
-      state: selectedRegion?.name || formData.region || "",
+      state: selectedRegion?.aramex_code || selectedRegion?.name || formData.region || "",
       postalCode: "",
       countryCode: vendor?.address_country || "GH",
     }),
@@ -780,6 +784,7 @@ export default function CheckoutContent({
       formData.address,
       formData.city,
       formData.digitalAddress,
+      selectedRegion?.aramex_code,
       formData.region,
       selectedRegion?.name,
       vendor?.address_country,
@@ -1063,27 +1068,53 @@ export default function CheckoutContent({
                       >
                         Region *
                       </label>
-                      <select
-                        id="region"
-                        name="region"
-                        required
+                      <Select
                         value={selectedRegion?.id || ""}
-                        onChange={handleRegionChange}
-                        disabled={isRegistryCart || zonesState.loading}
-                        className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart || zonesState.loading ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"}`}
+                        onValueChange={(value) => {
+                          const region = shippingRegions.find((r) => r.id === value);
+                          if (region) {
+                            setSelectedRegion(region);
+                          }
+                        }}
+                        disabled={
+                          isRegistryCart ||
+                          zonesState.loading ||
+                          shippingRegions.length === 0
+                        }
                       >
-                        {zonesState.loading ? (
-                          <option value="">Loading zones...</option>
-                        ) : shippingRegions.length === 0 ? (
-                          <option value="">No delivery zones available</option>
-                        ) : (
-                          shippingRegions.map((region) => (
-                            <option key={region.id} value={region.id}>
-                              {region.name}
-                            </option>
-                          ))
-                        )}
-                      </select>
+                        <SelectTrigger 
+                          className={`w-full ${
+                            isRegistryCart ||
+                            zonesState.loading ||
+                            shippingRegions.length === 0
+                              ? "bg-gray-50 text-gray-600 cursor-not-allowed"
+                              : "bg-white"
+                          }`}
+                        >
+                          <SelectValue
+                            placeholder={
+                              zonesState.loading
+                                ? "Loading zones..."
+                                : shippingRegions.length === 0
+                                  ? "No delivery zones available"
+                                  : "Select region"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {shippingRegions.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-gray-500">
+                              No delivery zones available
+                            </div>
+                          ) : (
+                            shippingRegions.map((region) => (
+                              <SelectItem key={region.id} value={region.id}>
+                                {region.name}
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                       <p className="text-xs text-gray-500 mt-2">
                         {zonesState.loading
                           ? "Loading delivery zones from Aramex..."
@@ -1110,26 +1141,26 @@ export default function CheckoutContent({
                           Loading cities...
                         </div>
                       ) : (
-                        <select
-                          id="city"
-                          name="city"
-                          required
+                        <Select
                           value={formData.city}
-                          onChange={handleInputChange}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({ ...prev, city: value }))
+                          }
                           disabled={isRegistryCart || availableCities.length === 0}
-                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${isRegistryCart || availableCities.length === 0 ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"}`}
                         >
-                          <option value="">
-                            {availableCities.length === 0 
-                              ? "Select a region first" 
-                              : "Select your city"}
-                          </option>
-                          {availableCities.map((city) => (
-                            <option key={city} value={city}>
-                              {city}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger 
+                            className={`w-full ${isRegistryCart || availableCities.length === 0 ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"}`}
+                          >
+                            <SelectValue placeholder={availableCities.length === 0 ? "Select a region first" : "Select your city"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableCities.map((city) => (
+                              <SelectItem key={city} value={city}>
+                                {city}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
                     </div>
                     <div>
@@ -1292,27 +1323,29 @@ export default function CheckoutContent({
                                   <label className="text-xs text-gray-500">
                                     Gift wrap
                                   </label>
-                                  <select
+                                  <Select
                                     value={item?.gift_wrap_option_id || ""}
-                                    onChange={(e) =>
+                                    onValueChange={(value) =>
                                       updateCartItemGiftWrap(
                                         item.id,
-                                        e.target.value,
+                                        value,
                                       )
                                     }
                                     disabled={
                                       isUpdating || giftWrapState.loading
                                     }
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 shadow-sm outline-none transition hover:border-gray-300 disabled:opacity-50"
                                   >
-                                    <option value="">No gift wrap</option>
-                                    {giftWrapOptions.map((option) => (
-                                      <option key={option.id} value={option.id}>
-                                        {option.name} (+
-                                        {formatPrice(option.fee)})
-                                      </option>
-                                    ))}
-                                  </select>
+                                    <SelectTrigger className="w-full">
+                                      <SelectValue placeholder="No gift wrap" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {giftWrapOptions.map((option) => (
+                                        <SelectItem key={option.id} value={option.id}>
+                                          {option.name} (+{formatPrice(option.fee)})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 </div>
                               ) : giftWrapState.loading ? (
                                 <p className="text-xs text-gray-400">
@@ -1454,21 +1487,24 @@ export default function CheckoutContent({
                         <label className="text-sm text-gray-600">
                           Gift wrap
                         </label>
-                        <select
+                        <Select
                           value={selectedGiftWrapOptionId}
-                          onChange={(e) =>
-                            setSelectedGiftWrapOptionId(e.target.value)
+                          onValueChange={(value) =>
+                            setSelectedGiftWrapOptionId(value)
                           }
                           disabled={giftWrapState.loading}
-                          className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-700 shadow-sm outline-none transition hover:border-gray-400 disabled:opacity-50"
                         >
-                          <option value="">No gift wrap</option>
-                          {giftWrapOptions.map((option) => (
-                            <option key={option.id} value={option.id}>
-                              {option.name} (+{formatPrice(option.fee)})
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="No gift wrap" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {giftWrapOptions.map((option) => (
+                              <SelectItem key={option.id} value={option.id}>
+                                {option.name} (+{formatPrice(option.fee)})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
                     ) : giftWrapState.loading ? (
                       <p className="mt-3 text-xs text-gray-500">

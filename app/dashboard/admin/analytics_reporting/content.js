@@ -1,6 +1,13 @@
 "use client";
 import React from "react";
 import { PiDownloadSimple } from "react-icons/pi";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 import { useAnalyticsReportingContext } from "./context";
 import AnalyticsReportOverview from "./tabs/overview";
 import AnalyticsReportFinancial from "./tabs/finance";
@@ -236,17 +243,21 @@ export default function AnalyticsReportingContent() {
           </span>
         </div>
         <div className="flex flex-col md:flex-row md:items-center gap-2">
-          <select
+          <Select
             value={currentDateRange}
-            onChange={(event) => setDateRange?.(event.target.value)}
-            className="rounded-full border border-[#D6D6D6] bg-white px-3 py-2 text-xs text-[#0A0A0A] outline-none"
+            onValueChange={(value) => setDateRange?.(value)}
           >
-            <option value="last_7_days">Last 7 days</option>
-            <option value="last_30_days">Last 30 days</option>
-            <option value="this_month">This month</option>
-            <option value="this_year">This year</option>
-            <option value="all_time">All time</option>
-          </select>
+            <SelectTrigger className="min-w-[180px] text-xs">
+              <SelectValue placeholder="Select date range" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="last_7_days">Last 7 days</SelectItem>
+              <SelectItem value="last_30_days">Last 30 days</SelectItem>
+              <SelectItem value="this_month">This month</SelectItem>
+              <SelectItem value="this_year">This year</SelectItem>
+              <SelectItem value="all_time">All time</SelectItem>
+            </SelectContent>
+          </Select>
           <button
             type="button"
             onClick={handleExport}

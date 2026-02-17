@@ -3,6 +3,13 @@
 import React from "react";
 import { cx } from "@/app/components/utils";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
+import {
   Dialog,
   DialogClose,
   DialogContent,
@@ -251,15 +258,19 @@ export default function EditProductDialog({
                 <label className="text-xs font-medium text-[#0A0A0A]">
                   Product Type
                 </label>
-                <select
+                <Select
                   name="productType"
                   defaultValue={product.product_type || "physical"}
-                  className="w-full rounded-full border px-4 py-2.5 text-xs shadow-sm outline-none bg-white border-[#D6D6D6] text-[#0A0A0A]"
                   disabled={editPending}
                 >
-                  <option value="physical">Physical Product</option>
-                  <option value="treat">Treat (Intangible Service)</option>
-                </select>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="physical">Physical Product</SelectItem>
+                    <SelectItem value="treat">Treat (Intangible Service)</SelectItem>
+                  </SelectContent>
+                </Select>
                 <p className="text-[11px] text-[#717182]">
                   Treats are intangible services like spa visits, cinema tickets, etc.
                 </p>
@@ -549,26 +560,29 @@ export default function EditProductDialog({
                                 <label className="text-[11px] font-medium text-[#374151]">
                                   Add option
                                 </label>
-                                <select
+                                <Select
                                   value={activeField}
-                                  onChange={(e) =>
+                                  onValueChange={(value) =>
                                     setEditActiveVariationFieldById?.(
                                       (prev) => ({
                                         ...prev,
-                                        [draft.id]: e.target.value,
+                                        [draft.id]: value,
                                       }),
                                     )
                                   }
-                                  className="w-full rounded-lg border border-[#D6D6D6] px-3 py-2 text-[11px] bg-white focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                                   disabled={editPending}
                                 >
-                                  <option value="">Select attribute…</option>
-                                  <option value="color">Color</option>
-                                  <option value="size">Size</option>
-                                  <option value="sku">SKU</option>
-                                  <option value="price">Price override</option>
-                                  <option value="label">Label</option>
-                                </select>
+                                  <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Select attribute…" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="color">Color</SelectItem>
+                                    <SelectItem value="size">Size</SelectItem>
+                                    <SelectItem value="sku">SKU</SelectItem>
+                                    <SelectItem value="price">Price override</SelectItem>
+                                    <SelectItem value="label">Label</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
 
                               <div
@@ -992,21 +1006,24 @@ export default function EditProductDialog({
                     image, the first image will be used.
                   </p>
                 ) : (
-                  <select
-                    value={editFeaturedIndex}
-                    onChange={(e) => setEditFeaturedIndex(e.target.value)}
-                    className="w-full rounded-full border px-3 py-2 text-xs bg-white border-[#D6D6D6] text-[#0A0A0A]"
+                  <Select
+                    value={editFeaturedIndex || ""}
+                    onValueChange={(value) => setEditFeaturedIndex(value)}
                     disabled={editPending}
                   >
-                    <option value="">Use first image as featured</option>
-                    {Array.from({ length: Math.min(editFeaturedCount, 3) }).map(
-                      (_, idx) => (
-                        <option key={idx} value={String(idx)}>
-                          {`Image ${idx + 1}`}
-                        </option>
-                      ),
-                    )}
-                  </select>
+                    <SelectTrigger className="w-full rounded-full text-xs">
+                      <SelectValue placeholder="Use first image as featured" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.from({ length: Math.min(editFeaturedCount, 3) }).map(
+                        (_, idx) => (
+                          <SelectItem key={idx} value={String(idx)}>
+                            {`Image ${idx + 1}`}
+                          </SelectItem>
+                        ),
+                      )}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             </div>

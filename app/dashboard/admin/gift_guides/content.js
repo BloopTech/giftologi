@@ -391,19 +391,22 @@ function UnassignedProductsPanel() {
                 </div>
                 <form action={addAction} className="flex items-center gap-1">
                   <input type="hidden" name="productId" value={p.id} />
-                  <select
-                    name="guideId"
-                    value={selectedGuideId}
-                    onChange={(e) => setSelectedGuideId(e.target.value)}
-                    className="text-[10px] border border-[#D1D5DB] rounded px-1 py-1 outline-none max-w-[120px]"
+                  <input type="hidden" name="guideId" value={selectedGuideId} />
+                  <Select
+                    value={selectedGuideId || ""}
+                    onValueChange={(value) => setSelectedGuideId(value)}
                   >
-                    <option value="">Select guide</option>
-                    {allGuides.map((g) => (
-                      <option key={g.id} value={g.id}>
-                        {g.title}
-                      </option>
-                    ))}
-                  </select>
+                    <SelectTrigger className="h-7 max-w-[140px] rounded px-2 py-1 text-[10px]">
+                      <SelectValue placeholder="Select guide" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allGuides.map((g) => (
+                        <SelectItem key={g.id} value={g.id}>
+                          {g.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <button
                     type="submit"
                     disabled={addPending || !selectedGuideId}

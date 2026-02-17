@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import ImageWithFallback from "@/app/components/ImageWithFallback";
+import Image from "next/image";
 
 export default function CarouselHero({ items = [], openCreateRegistry }) {
   const [index, setIndex] = useState(0);
@@ -70,7 +71,7 @@ export default function CarouselHero({ items = [], openCreateRegistry }) {
               {/* Right: Image */}
               <div className="relative h-[300px] w-[50%]">
                 <div className="h-full w-full bg-[#E9E9ED] rounded-xl">
-                  <ImageWithFallback
+                  <Image
                     src={item.image}
                     alt={item.title}
                     fill

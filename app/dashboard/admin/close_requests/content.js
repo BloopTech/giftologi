@@ -3,6 +3,13 @@
 import React from "react";
 import CloseRequestsTable from "./CloseRequestsTable";
 import { useCloseRequestsContext } from "./context";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/components/Select";
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
@@ -34,17 +41,21 @@ export default function CloseRequestsContent() {
           <label className="text-xs text-[#717182] font-brasley-medium">
             Status filter
           </label>
-          <select
-            className="rounded-full border border-gray-200 bg-white px-3 py-2 text-xs text-[#0A0A0A]"
+          <Select
             value={statusFilter || "all"}
-            onChange={(event) => setStatusFilter?.(event.target.value)}
+            onValueChange={(value) => setStatusFilter?.(value)}
           >
-            {STATUS_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="min-w-[160px] text-xs">
+              <SelectValue placeholder="Status filter" />
+            </SelectTrigger>
+            <SelectContent>
+              {STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

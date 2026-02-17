@@ -7,6 +7,13 @@ import {
   DialogContent,
   DialogTitle,
 } from "../../../../components/Dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../../../components/Select";
 import { updateRegistryItem } from "./action";
 import { toast } from "sonner";
 
@@ -74,16 +81,20 @@ export default function EditRegistryItemDialog({
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-700">Priority</label>
-            <select
-              name="priority"
+            <input type="hidden" name="priority" value={priority} />
+            <Select
               value={priority}
-              onChange={(e) => setPriority(e.target.value)}
+              onValueChange={(value) => setPriority(value)}
               disabled={isPending}
-              className="w-full rounded-xl border border-gray-300 px-3 py-2.5 text-sm text-gray-900 outline-none hover:border-gray-400 transition"
             >
-              <option value="must-have">Must-have</option>
-              <option value="nice-to-have">Nice-to-have</option>
-            </select>
+              <SelectTrigger className="w-full rounded-xl py-2.5 text-sm">
+                <SelectValue placeholder="Select priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="must-have">Must-have</SelectItem>
+                <SelectItem value="nice-to-have">Nice-to-have</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

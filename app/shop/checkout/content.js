@@ -28,9 +28,16 @@ import {
   Gift,
 } from "lucide-react";
 import { processShopCheckout, getShopAramexRateQuote } from "./actions";
-import { getOrCreateGuestBrowserId } from "../../utils/guest";
+import { getGuestIdentifier } from "../../utils/guest";
 import { getDeviceFingerprint } from "../../utils/fingerprint";
 import { computeShipmentWeight } from "../../utils/shipping/weights";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/Select";
 
 const formatPrice = (value) => {
   if (value === null || value === undefined) return "GHS 0.00";
@@ -319,27 +326,35 @@ export default function ShopCheckoutContent({ userProfile = null }) {
   useEffect(() => {
     if (!selectedRegion?.name) {
       setAvailableCities([]);
+      setFormData((prev) => ({ ...prev, city: "" }));
       return;
     }
     let cancelled = false;
     const loadCities = async () => {
       setCitiesLoading(true);
       try {
-        const regionCode = selectedRegion.code || selectedRegion.name || "";
+        const stateCode = selectedRegion.aramex_code || selectedRegion.name || "";
         const response = await fetch(
-          `/api/shipping/cities?region=${encodeURIComponent(regionCode)}&country=GH`
+          `/api/shipping/cities?country=GH&stateCode=${encodeURIComponent(stateCode)}`
         );
         const data = await response.json();
         if (!cancelled) {
           if (data.success && data.cities && data.cities.length > 0) {
             setAvailableCities(data.cities);
+            setFormData((prev) =>
+              data.cities.includes(prev.city) ? prev : { ...prev, city: "" },
+            );
           } else {
             setAvailableCities([]);
+            setFormData((prev) => ({ ...prev, city: "" }));
           }
         }
       } catch (error) {
         console.error("Failed to load cities:", error);
-        if (!cancelled) setAvailableCities([]);
+        if (!cancelled) {
+          setAvailableCities([]);
+          setFormData((prev) => ({ ...prev, city: "" }));
+        }
       } finally {
         if (!cancelled) setCitiesLoading(false);
       }
@@ -348,7 +363,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
     return () => {
       cancelled = true;
     };
-  }, [selectedRegion?.name]);
+  }, [selectedRegion?.id, selectedRegion?.aramex_code, selectedRegion?.name]);
 
   // Aramex rate quote
   const destinationAddress = useMemo(
@@ -356,7 +371,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
       line1: formData.address || "",
       line2: formData.digitalAddress || "",
       city: formData.city || "",
-      state: selectedRegion?.name || "",
+      state: selectedRegion?.aramex_code || selectedRegion?.name || "",
       postalCode: "",
       countryCode: "GH",
     }),
@@ -364,6 +379,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
       formData.address,
       formData.city,
       formData.digitalAddress,
+      selectedRegion?.aramex_code,
       selectedRegion?.name,
     ],
   );
@@ -636,20 +652,47 @@ export default function ShopCheckoutContent({ userProfile = null }) {
                       >
                         Region *
                       </label>
-                      <select
-                        id="region"
-                        name="region"
-                        required
+                      <Select
                         value={selectedRegion?.id || ""}
-                        onChange={handleRegionChange}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] outline-none transition-colors bg-white"
+                        onValueChange={(value) => {
+                          const region = shippingRegions.find((r) => r.id === value);
+                          if (region) {
+                            setSelectedRegion(region);
+                          }
+                        }}
+                        disabled={zonesState.loading || shippingRegions.length === 0}
                       >
-                        {shippingRegions.map((region) => (
-                          <option key={region.id} value={region.id}>
-                            {region.name} - {formatPrice(region.fee)} shipping
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger
+                          className={`w-full ${
+                            zonesState.loading || shippingRegions.length === 0
+                              ? "bg-gray-50 text-gray-600 cursor-not-allowed"
+                              : "bg-white"
+                          }`}
+                        >
+                          <SelectValue
+                            placeholder={
+                              zonesState.loading
+                                ? "Loading zones..."
+                                : shippingRegions.length === 0
+                                  ? "No delivery zones available"
+                                  : "Select region"
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {shippingRegions.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-gray-500">
+                              No delivery zones available
+                            </div>
+                          ) : (
+                            shippingRegions.map((region) => (
+                              <SelectItem key={region.id} value={region.id}>
+                                {region.name} - {formatPrice(region.fee)} shipping
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
                       <p className="text-xs text-gray-500 mt-2">
                         {zonesState.loading
                           ? "Loading delivery zones..."
@@ -676,26 +719,24 @@ export default function ShopCheckoutContent({ userProfile = null }) {
                           Loading cities...
                         </div>
                       ) : (
-                        <select
-                          id="city"
-                          name="city"
-                          required
+                        <Select
                           value={formData.city}
-                          onChange={handleInputChange}
+                          onValueChange={(value) =>
+                            setFormData((prev) => ({ ...prev, city: value }))
+                          }
                           disabled={availableCities.length === 0}
-                          className={`w-full px-4 py-2.5 border border-gray-300 rounded-xl outline-none transition-colors ${availableCities.length === 0 ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "focus:ring-2 focus:ring-[#A5914B]/20 focus:border-[#A5914B] bg-white"}`}
                         >
-                          <option value="">
-                            {availableCities.length === 0 
-                              ? "Select a region first" 
-                              : "Select your city"}
-                          </option>
-                          {availableCities.map((city) => (
-                            <option key={city} value={city}>
-                              {city}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className={`w-full ${availableCities.length === 0 ? "bg-gray-50 text-gray-600 cursor-not-allowed" : "bg-white"}`}>
+                            <SelectValue placeholder={availableCities.length === 0 ? "Select a region first" : "Select your city"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableCities.map((city) => (
+                              <SelectItem key={city} value={city}>
+                                {city}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       )}
                     </div>
                     <div>

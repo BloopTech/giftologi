@@ -14,8 +14,6 @@ const DEFAULT_STATES_SOAP_ACTION =
 const DEFAULT_CITIES_SOAP_ACTION =
   "http://ws.aramex.net/ShippingAPI/v1/Service_1_0/FetchCities";
 
-import { normalizeCityName } from "./ghana-cities";
-
 const normalizeCountryCode = (value) => {
   const trimmed = String(value || "").trim().toUpperCase();
   if (!trimmed) return "GH"; // Default to Ghana
@@ -75,6 +73,13 @@ const getXmlValues = (xml, tag) => {
   return values;
 };
 
+const getNamespacedXmlValue = (xml, tag) => {
+  const match = xml.match(
+    new RegExp(`<(?:\\w+:)?${tag}[^>]*>([\\s\\S]*?)</(?:\\w+:)?${tag}>`, "i"),
+  );
+  return match ? match[1].trim() : "";
+};
+
 const normalizeMessage = (value) => String(value ?? "").trim();
 
 const getNotificationMessages = (xml) => {
@@ -102,6 +107,57 @@ const extractCitiesFromXml = (xml) => {
     }
   }
   return cities;
+};
+
+const extractStatesFromXml = (xml) => {
+  const statesMatch = xml.match(/<States[^>]*>([\s\S]*?)<\/States>/i);
+  if (!statesMatch) return [];
+
+  const statesContent = statesMatch[1];
+  const stateEntries = [
+    ...statesContent.matchAll(/<(?:\w+:)?State[^>]*>([\s\S]*?)<\/(?:\w+:)?State>/gi),
+    ...statesContent.matchAll(
+      /<(?:\w+:)?LocationData[^>]*>([\s\S]*?)<\/(?:\w+:)?LocationData>/gi,
+    ),
+  ];
+
+  const seen = new Set();
+  const states = [];
+
+  for (const entry of stateEntries) {
+    const fragment = entry[1] || "";
+    const name =
+      getNamespacedXmlValue(fragment, "Name") ||
+      getNamespacedXmlValue(fragment, "StateName");
+    const code =
+      getNamespacedXmlValue(fragment, "Code") ||
+      getNamespacedXmlValue(fragment, "StateCode") ||
+      getNamespacedXmlValue(fragment, "StateOrProvinceCode") ||
+      getNamespacedXmlValue(fragment, "ProvinceCode");
+
+    if (!name) continue;
+    const key = `${name}::${code}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    states.push({ name, code: code || "" });
+  }
+
+  // Some Aramex responses return states as plain string array values.
+  if (states.length === 0) {
+    const stringMatches = statesContent.matchAll(
+      /<(?:a:)?string>([^<]*)<\/(?:a:)?string>/gi,
+    );
+    for (const match of stringMatches) {
+      const name = match[1]?.trim();
+      if (!name) continue;
+      const key = `${name}::${name}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      states.push({ name, code: name });
+    }
+  }
+
+  return states;
 };
 
 const buildPartyXml = (party) => {
@@ -398,8 +454,29 @@ export const calculateAramexRate = async ({
     process.env.ARAMEX_RATE_URL || DEFAULT_RATE_URL;
   const soapAction =
     process.env.ARAMEX_RATE_SOAP_ACTION || DEFAULT_RATE_SOAP_ACTION;
-  const productGroup = shipment?.productGroup || process.env.ARAMEX_PRODUCT_GROUP || "EXP";
-  const productType = shipment?.productType || process.env.ARAMEX_PRODUCT_TYPE || "PPX";
+
+  // Normalize country codes for origin and destination
+  const normalizedOrigin = {
+    ...origin,
+    countryCode: normalizeCountryCode(origin?.countryCode),
+    city: String(origin?.city || "").trim(),
+  };
+  const normalizedDestination = {
+    ...destination,
+    countryCode: normalizeCountryCode(destination?.countryCode),
+    city: String(destination?.city || "").trim(),
+  };
+
+  // Detect if this is domestic shipping (same country)
+  const isDomestic = normalizedOrigin.countryCode === normalizedDestination.countryCode;
+
+  // Use DOM product group for domestic, EXP for international
+  const productGroup = shipment?.productGroup || 
+    process.env.ARAMEX_PRODUCT_GROUP || 
+    (isDomestic ? "DOM" : "EXP");
+  const productType = shipment?.productType || 
+    process.env.ARAMEX_PRODUCT_TYPE || 
+    (isDomestic ? "OND" : "PPX");
   const paymentType = shipment?.paymentType || process.env.ARAMEX_PAYMENT_TYPE || "P";
   const currency = shipment?.currency || process.env.ARAMEX_CURRENCY || DEFAULT_CURRENCY;
   const weightUnit = shipment?.weightUnit || DEFAULT_WEIGHT_UNIT;
@@ -407,21 +484,12 @@ export const calculateAramexRate = async ({
     ? Number(shipment.weight)
     : 1;
 
-  // Normalize country codes for origin and destination
-  const normalizedOrigin = {
-    ...origin,
-    countryCode: normalizeCountryCode(origin?.countryCode),
-    city: normalizeCityName(origin?.city),
-  };
-  const normalizedDestination = {
-    ...destination,
-    countryCode: normalizeCountryCode(destination?.countryCode),
-    city: normalizeCityName(destination?.city),
-  };
-
   // Log request for debugging
   if (process.env.NODE_ENV !== "production") {
     console.log("Aramex rate request:", {
+      isDomestic,
+      productGroup,
+      productType,
       origin: normalizedOrigin,
       destination: normalizedDestination,
       weight: weightValue,
@@ -489,7 +557,8 @@ export const calculateAramexRate = async ({
   const hasErrors = /<HasErrors>true<\/HasErrors>/i.test(xml);
   const notifications = getXmlValues(xml, "Notification");
   const message = getXmlValue(xml, "Message");
-  
+  const notificationsDetails = getXmlValues(xml, "Details");
+
   // Try multiple possible locations for rate amount in Aramex response
   const totalAmountXml = getXmlValue(xml, "TotalAmount") || getXmlValue(xml, "Rate");
   const totalValue = totalAmountXml ? getXmlValue(totalAmountXml, "Value") : getXmlValue(xml, "Value");
@@ -502,6 +571,8 @@ export const calculateAramexRate = async ({
     console.log("Aramex rate response:", {
       hasErrors,
       message: message || notifications.join(" ").trim(),
+      notifications,
+      notificationsDetails,
       totalValue,
       totalCurrency,
     });
@@ -511,6 +582,8 @@ export const calculateAramexRate = async ({
     raw: xml,
     hasErrors,
     message: message || notifications.join(" ").trim(),
+    notifications,
+    notificationsDetails,
     totalAmount: totalValue ? Number(totalValue) : null,
     currency: totalCurrency || currency,
   };
