@@ -410,7 +410,7 @@ export default function ProductCodeDetailContent() {
     selectedPrice != null && Number.isFinite(basePrice) && basePrice !== selectedPrice;
 
   return (
-    <div className="dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-brasley-medium">
+    <div className="w-full pt-24 dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-brasley-medium">
       {product?.id && <ProductPageViewTracker productId={product.id} />}
       <div className="mx-auto max-w-6xl w-full py-6 px-4">
         {/* Breadcrumb */}

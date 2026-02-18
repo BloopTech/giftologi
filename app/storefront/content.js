@@ -46,7 +46,7 @@ export default function StorefrontDirectoryContent() {
   const [showFilters, setShowFilters] = useState(false);
 
   return (
-    <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-brasley-medium">
+    <div className="w-full pt-24 dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-brasley-medium">
       {/* Hero */}
       <div className="relative bg-linear-to-r from-[#A5914B]/10 via-[#A5914B]/5 to-transparent">
         <div className="mx-auto max-w-6xl w-full px-4 py-10 md:py-16">

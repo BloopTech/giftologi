@@ -10,8 +10,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "./Avatar";
 const NAV_LINKS = [
   { href: "/shop", label: "Shop" },
   { href: "/categories", label: "Categories" },
-  { href: "/find-registry", label: "Registry" },
-  { href: "/storefront", label: "Stores" },
   { href: "/treats", label: "Treats" },
   { href: "/gift-guides", label: "Gift Guides" },
 ];
