@@ -3,6 +3,7 @@ import React from "react";
 import Link from "next/link";
 import { FileUploadArea } from "./utils";
 import { DOCUMENT_UPLOAD_OPTIONS } from "../../dashboard/v/profile/documentTypes";
+import { useStaticPageLinks } from "../../utils/content/useStaticPageLinks";
 
 
 
@@ -17,9 +18,28 @@ export function DocumentsStep({
   documentErrors,
   disabled,
 }) {
+  const { getStaticPageHref } = useStaticPageLinks();
+
   const handleCheckboxChange = (field) => {
     setFormData((prev) => ({ ...prev, [field]: !prev[field] }));
   };
+
+  const vendorTermsHref = getStaticPageHref({
+    slugHints: ["vendor-terms", "vendor-terms-and-conditions", "terms"],
+    keywords: [
+      "vendor terms",
+      "vendor terms and conditions",
+      "terms and conditions",
+      "terms",
+    ],
+    fallbackHref: "/terms",
+  });
+
+  const privacyHref = getStaticPageHref({
+    slugHints: ["privacy", "privacy-policy", "privacy-statement"],
+    keywords: ["privacy", "privacy policy", "privacy statement"],
+    fallbackHref: "/privacy",
+  });
 
   return (
     <div className="p-6">
@@ -91,12 +111,12 @@ export function DocumentsStep({
               />
               <span className="text-sm text-gray-600">
                 I agree to the{" "}
-                <Link href="/terms" className="text-[#3B82F6] hover:underline">
+                <Link href={vendorTermsHref} className="text-[#3B82F6] hover:underline">
                   Vendor Terms & Conditions
                 </Link>{" "}
                 and{" "}
                 <Link
-                  href="/privacy"
+                  href={privacyHref}
                   className="text-[#3B82F6] hover:underline"
                 >
                   Privacy Policy

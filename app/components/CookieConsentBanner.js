@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { Cookie, Shield, ChevronDown, ChevronUp, X } from "lucide-react";
 import { createClient as createSupabaseClient } from "../utils/supabase/client";
 import Link from "next/link";
+import { useStaticPageLinks } from "../utils/content/useStaticPageLinks";
 
 const CONSENT_STORAGE_KEY = "giftologi_cookie_consent";
 const CONSENT_VERSION = "1.0";
@@ -59,6 +60,19 @@ export default function CookieConsentBanner() {
     cookies_marketing: false,
   });
   const [syncing, setSyncing] = useState(false);
+  const { getStaticPageHref } = useStaticPageLinks();
+
+  const privacyHref = getStaticPageHref({
+    slugHints: ["privacy", "privacy-policy", "privacy-statement"],
+    keywords: ["privacy", "privacy policy", "privacy statement"],
+    fallbackHref: "/privacy-policy",
+  });
+
+  const termsHref = getStaticPageHref({
+    slugHints: ["terms", "terms-of-service", "terms-and-conditions"],
+    keywords: ["terms", "terms of service", "terms and conditions"],
+    fallbackHref: "/terms",
+  });
 
   const supabase = useMemo(() => createSupabaseClient(), []);
 
@@ -259,14 +273,14 @@ export default function CookieConsentBanner() {
             <span>
               Read our{" "}
               <Link
-                href="/privacy-policy"
+                href={privacyHref}
                 className="underline hover:text-[#A5914B] transition-colors"
               >
                 Privacy Policy
               </Link>{" "}
               and{" "}
               <Link
-                href="/terms"
+                href={termsHref}
                 className="underline hover:text-[#A5914B] transition-colors"
               >
                 Terms of Service

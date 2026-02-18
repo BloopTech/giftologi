@@ -2,18 +2,18 @@
 import React from "react";
 import { Mail } from "lucide-react";
 import Image from "next/image";
-import Logo from "../public/giftologi-logo.png";
+import Logo from "../../public/giftologi-logo.png";
 import Link from "next/link";
-import Footer from "./components/footer";
-import PublicNavbar from "./components/PublicNavbar";
-import HeroV3 from "./components/HeroV3";
-import RegistryTypesV3 from "./components/RegistryTypesV3";
-import Features from "./components/Features";
-import VendorCTA from "./components/VendorCTA";
-import CallToAction from "./components/CallToAction";
-import BrandLogos from "./components/BrandLogos";
+import Footer from "../components/footer";
+import PublicNavbar from "../components/PublicNavbar";
+import HeroV3 from "../components/HeroV3";
+import RegistryTypesV3 from "../components/RegistryTypesV3";
+import Features from "../components/Features";
+import VendorCTA from "../components/VendorCTA";
+import CallToAction from "../components/CallToAction";
+import BrandLogos from "../components/BrandLogos";
 
-const LANDING_PAGE = false;
+const LANDING_PAGE = true;
 
 export default function Home() {
   return (

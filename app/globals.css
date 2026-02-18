@@ -23,6 +23,23 @@
   --color-muted: #f1f5f9;
   --color-border: #e2e8f0;
 }
+@utility editorial-underline {
+  @apply relative inline-block;
+
+  &::after {
+    content: '';
+    @apply absolute bottom-2 left-0 w-full h-[0.15em] bg-current opacity-30 -z-10;
+  }
+}
+
+@utility editorial-underline-gold {
+  @apply relative inline-block;
+
+  &::after {
+    content: '';
+    @apply absolute bottom-2 left-0 w-full h-[0.15em] bg-[#FDD17D] opacity-50 -z-10;
+  }
+}
 
 @media (prefers-color-scheme: dark) {
   :root {
@@ -38,12 +55,12 @@ body {
 }
 
 h1,
-h2 {
+h2,
+h3,
+h4 {
   font-family: var(--font-didot-bold), serif;
 }
 
-h3,
-h4,
 h5,
 h6 {
   font-family: var(--font-brasley-semibold), serif;

@@ -4,6 +4,7 @@ import { Eye, EyeOff, LoaderCircle, OctagonAlert } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { createClient as createSupabaseClient } from "../../utils/supabase/client";
+import { useStaticPageLinks } from "../../utils/content/useStaticPageLinks";
 
 export default function FormInput(props) {
   const [showPassword, setShowPassword] = useState(false);
@@ -13,6 +14,19 @@ export default function FormInput(props) {
   const [isResendLoading, setIsResendLoading] = useState(false);
   const [resendStatus, setResendStatus] = useState(null);
   const emailRef = useRef(null);
+  const { getStaticPageHref } = useStaticPageLinks();
+
+  const termsHref = getStaticPageHref({
+    slugHints: ["terms", "terms-and-conditions", "terms-of-service"],
+    keywords: ["terms", "terms and conditions", "terms of service"],
+    fallbackHref: "/terms",
+  });
+
+  const privacyHref = getStaticPageHref({
+    slugHints: ["privacy", "privacy-policy", "privacy-statement"],
+    keywords: ["privacy", "privacy policy", "privacy statement"],
+    fallbackHref: "/privacy",
+  });
 
   const handleGoogleSignIn = async () => {
     try {
@@ -297,11 +311,11 @@ export default function FormInput(props) {
         <div className="w-full text-center">
           <p className="text-xs text-gray-500 leading-relaxed">
             By signing in, you agree to our{" "}
-            <Link href="/terms" className="text-[#A5914B] hover:text-[#8a7a3d] underline underline-offset-1 transition-colors focus:outline-none focus:ring-1 focus:ring-[#A5914B] rounded px-0.5">
+            <Link href={termsHref} className="text-[#A5914B] hover:text-[#8a7a3d] underline underline-offset-1 transition-colors focus:outline-none focus:ring-1 focus:ring-[#A5914B] rounded px-0.5">
               Terms of Service
             </Link>{" "}
             and{" "}
-            <Link href="/privacy" className="text-[#A5914B] hover:text-[#8a7a3d] underline underline-offset-1 transition-colors focus:outline-none focus:ring-1 focus:ring-[#A5914B] rounded px-0.5">
+            <Link href={privacyHref} className="text-[#A5914B] hover:text-[#8a7a3d] underline underline-offset-1 transition-colors focus:outline-none focus:ring-1 focus:ring-[#A5914B] rounded px-0.5">
               Privacy Policy
             </Link>
           </p>

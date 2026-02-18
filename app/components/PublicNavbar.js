@@ -2,20 +2,18 @@
 import React, { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Menu, X, Search, LogIn } from "lucide-react";
 import { createClient as createSupabaseClient } from "../utils/supabase/client";
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from "./Avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "./Avatar";
 
 const NAV_LINKS = [
   { href: "/shop", label: "Shop" },
   { href: "/categories", label: "Categories" },
   { href: "/registry", label: "Registry" },
   { href: "/storefront", label: "Stores" },
+  { href: "/treats", label: "Treats" },
+  { href: "/gift-guides", label: "Gift Guides" },
 ];
 
 function getInitials(profile) {
@@ -44,6 +42,7 @@ function getDashboardHref(profile) {
 export default function PublicNavbar() {
   const pathname = usePathname();
   const supabase = useMemo(() => createSupabaseClient(), []);
+  const router = useRouter();
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
@@ -94,29 +93,27 @@ export default function PublicNavbar() {
     setMobileOpen(false);
   }, [pathname]);
 
-  const isActive = (href) => pathname === href || pathname?.startsWith(href + "/");
+  const isActive = (href) =>
+    pathname === href || pathname?.startsWith(href + "/");
 
   return (
     <header
-      className={`sticky top-0 z-50 w-full transition-all duration-200 ${
+      className={`fixed top-0 z-50 w-full transition-all duration-200 ${
         scrolled
-          ? "bg-white/95 dark:bg-gray-950/95 backdrop-blur-md shadow-sm border-b border-gray-200/60 dark:border-gray-800/60"
-          : "bg-white dark:bg-gray-950 border-b border-gray-100 dark:border-gray-900"
+          ? "bg-white/95 dark:bg-gray-950/95 backdrop-blur-md shadow-sm border-b border-gray-200/60 dark:border-gray-800/60 py-3"
+          : "bg-transparent dark:bg-gray-950 py-6"
       }`}
     >
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image
-            src="/giftologi-logo.png"
+            src="/logo.jpg"
             alt="Giftologi"
-            width={36}
-            height={36}
+            width={56}
+            height={56}
             priority
           />
-          <span className="text-lg font-semibold text-[#85753C] hidden sm:inline">
-            Giftologi
-          </span>
         </Link>
 
         {/* Desktop nav links */}
@@ -140,7 +137,7 @@ export default function PublicNavbar() {
         <div className="flex items-center gap-2">
           <Link
             href="/search"
-            className="flex items-center justify-center h-9 w-9 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className={`flex items-center justify-center h-9 w-9 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors`}
             aria-label="Search"
           >
             <Search className="size-[18px]" />
@@ -156,11 +153,17 @@ export default function PublicNavbar() {
                 Log in
               </Link>
               <Link
-                href="/signup"
-                className="hidden sm:inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-[#A5914B] rounded-lg hover:bg-[#8B7A3F] transition-colors"
+                href="/registry"
+                className="bg-[#FDD17D] text-gray-900 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap"
               >
-                Sign up
+                Find Registry
               </Link>
+              <button
+                onClick={() => router.push("/login")}
+                className="cursor-pointer bg-[#FDD17D] text-gray-900 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap"
+              >
+                Create Registry
+              </button>
             </>
           )}
 
@@ -177,7 +180,9 @@ export default function PublicNavbar() {
                 initials={getInitials(profile)}
               >
                 {!profile.image && (
-                  <AvatarFallback className={`bg-[${profile.color}] text-white text-xs font-medium`}>
+                  <AvatarFallback
+                    className={`bg-[${profile.color}] text-white text-xs font-medium`}
+                  >
                     {getInitials(profile)}
                   </AvatarFallback>
                 )}
@@ -195,7 +200,11 @@ export default function PublicNavbar() {
             className="md:hidden flex items-center justify-center h-9 w-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
             aria-label="Toggle navigation"
           >
-            {mobileOpen ? <X className="size-5" /> : <Menu className="size-5" />}
+            {mobileOpen ? (
+              <X className="size-5" />
+            ) : (
+              <Menu className="size-5" />
+            )}
           </button>
         </div>
       </div>

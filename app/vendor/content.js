@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import logo from "../../public/giftologi-logo.png";
 import ApplicationModal from "./components/ApplicationModal";
+import { useStaticPageLinks } from "../utils/content/useStaticPageLinks";
 
 // Header Component
 function VendorHeader() {
@@ -300,51 +301,122 @@ function CTASection({ onOpenModal }) {
 
 // Footer Component
 function VendorFooter() {
-  const companyInfo = [
-    { title: "About Us", href: "/about" },
-    { title: "Wedding Guides", href: "/wedding-guides" },
-    { title: "Baby Guides", href: "/baby-guides" },
-    {
-      title: "What is a Universal Gift List?",
-      href: "/what-is-a-universal-gift-list",
-    },
-    { title: "Contact Us", href: "/contact" },
-    { title: "News and Press Releases", href: "/news" },
-    { title: "Terms and Conditions", href: "/terms-and-conditions" },
-    { title: "Privacy Statement", href: "/privacy-statement" },
-    { title: "Careers", href: "/careers" },
-    {
-      title: "Search Engine",
-      href: "/search",
-    },
-    {
-      title: "Registries",
-      href: "/registry",
-    },
-    {
-      title: "Shop",
-      href: "/shop",
-    },
-    {
-      title: "Vendors' Storefront",
-      href: "/storefront",
-    },
-  ];
+  const { getStaticPageHref } = useStaticPageLinks();
 
-  const members = [
-    { title: "About Us", href: "/about" },
-    { title: "Wedding Guides", href: "/wedding-guides" },
-    { title: "Baby Guides", href: "/baby-guides" },
-    {
-      title: "What is a Universal Gift List?",
-      href: "/what-is-a-universal-gift-list",
-    },
-    { title: "Contact Us", href: "/contact" },
-    { title: "News and Press Releases", href: "/news" },
-    { title: "Terms and Conditions", href: "/terms-and-conditions" },
-    { title: "Privacy Statement", href: "/privacy-statement" },
-    { title: "Careers", href: "/careers" },
-  ];
+  const companyInfo = useMemo(
+    () => [
+      {
+        title: "About Us",
+        href: getStaticPageHref({
+          slugHints: ["about", "about-us"],
+          keywords: ["about", "about us"],
+          fallbackHref: "/about",
+        }),
+      },
+      {
+        title: "Wedding Guides",
+        href: getStaticPageHref({
+          slugHints: ["wedding-guides"],
+          keywords: ["wedding guides"],
+          fallbackHref: "/wedding-guides",
+        }),
+      },
+      {
+        title: "Baby Guides",
+        href: getStaticPageHref({
+          slugHints: ["baby-guides"],
+          keywords: ["baby guides"],
+          fallbackHref: "/baby-guides",
+        }),
+      },
+      {
+        title: "What is a Universal Gift List?",
+        href: getStaticPageHref({
+          slugHints: ["what-is-a-universal-gift-list"],
+          keywords: ["what is a universal gift list"],
+          fallbackHref: "/what-is-a-universal-gift-list",
+        }),
+      },
+      {
+        title: "Contact Us",
+        href: getStaticPageHref({
+          slugHints: ["contact", "contact-us"],
+          keywords: ["contact", "contact us"],
+          fallbackHref: "/contact",
+        }),
+      },
+      {
+        title: "News and Press Releases",
+        href: getStaticPageHref({
+          slugHints: ["news", "press"],
+          keywords: ["news", "press releases"],
+          fallbackHref: "/news",
+        }),
+      },
+      {
+        title: "Terms and Conditions",
+        href: getStaticPageHref({
+          slugHints: ["terms", "terms-and-conditions", "terms-of-service"],
+          keywords: ["terms", "terms and conditions", "terms of service"],
+          fallbackHref: "/terms-and-conditions",
+        }),
+      },
+      {
+        title: "Privacy Statement",
+        href: getStaticPageHref({
+          slugHints: ["privacy", "privacy-policy", "privacy-statement"],
+          keywords: ["privacy", "privacy policy", "privacy statement"],
+          fallbackHref: "/privacy-statement",
+        }),
+      },
+      {
+        title: "Careers",
+        href: getStaticPageHref({
+          slugHints: ["careers"],
+          keywords: ["careers"],
+          fallbackHref: "/careers",
+        }),
+      },
+      {
+        title: "Search Engine",
+        href: "/search",
+      },
+      {
+        title: "Registries",
+        href: "/registry",
+      },
+      {
+        title: "Shop",
+        href: "/shop",
+      },
+      {
+        title: "Vendors' Storefront",
+        href: "/storefront",
+      },
+    ],
+    [getStaticPageHref],
+  );
+
+  const members = useMemo(
+    () => [
+      { title: "About Us", href: companyInfo[0]?.href || "/about" },
+      { title: "Wedding Guides", href: companyInfo[1]?.href || "/wedding-guides" },
+      { title: "Baby Guides", href: companyInfo[2]?.href || "/baby-guides" },
+      {
+        title: "What is a Universal Gift List?",
+        href: companyInfo[3]?.href || "/what-is-a-universal-gift-list",
+      },
+      { title: "Contact Us", href: companyInfo[4]?.href || "/contact" },
+      { title: "News and Press Releases", href: companyInfo[5]?.href || "/news" },
+      {
+        title: "Terms and Conditions",
+        href: companyInfo[6]?.href || "/terms-and-conditions",
+      },
+      { title: "Privacy Statement", href: companyInfo[7]?.href || "/privacy-statement" },
+      { title: "Careers", href: companyInfo[8]?.href || "/careers" },
+    ],
+    [companyInfo],
+  );
 
   const partners = [
     { title: "Partner Login", href: "/partner/login" },
