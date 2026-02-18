@@ -36,9 +36,9 @@ export default function ShareRegistryDialog(props) {
     if (typeof window !== "undefined") {
       const baseUrl = window.location.origin;
       if (registryCode) {
-        setUrl(`${baseUrl}/registry/${registryCode}`);
+        setUrl(`${baseUrl}/find-registry/${registryCode}`);
       } else {
-        setUrl(`${baseUrl}/registry`);
+        setUrl(`${baseUrl}/find-registry`);
       }
     }
   }, [registryCode]);

@@ -436,7 +436,7 @@ export default function GlobalSearchContent() {
                       key={`registry-${registry.id}`}
                       href={
                         registry.registryCode
-                          ? `/registry/${registry.registryCode}`
+                          ? `/find-registry/${registry.registryCode}`
                           : "#"
                       }
                       className="group flex flex-col overflow-hidden rounded-3xl border border-[#EFE3CC] bg-white transition hover:-translate-y-1 hover:shadow-lg"
@@ -620,7 +620,7 @@ export default function GlobalSearchContent() {
                         key={`registry-${registry.id}`}
                         href={
                           registry.registryCode
-                            ? `/registry/${registry.registryCode}`
+                            ? `/find-registry/${registry.registryCode}`
                             : "#"
                         }
                         className="group flex flex-col overflow-hidden rounded-3xl border border-[#EFE3CC] bg-white transition hover:-translate-y-1 hover:shadow-lg"

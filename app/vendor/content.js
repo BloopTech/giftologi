@@ -383,7 +383,7 @@ function VendorFooter() {
       },
       {
         title: "Registries",
-        href: "/registry",
+        href: "/find-registry",
       },
       {
         title: "Shop",

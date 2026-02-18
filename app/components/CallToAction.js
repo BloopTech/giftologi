@@ -39,7 +39,7 @@ export default function CallToAction() {
                 Create Your Registry
               </button>
               <Link
-                href="/registry"
+                href="/find-registry"
                 className="cursor-poiner text-[10px] font-bold tracking-[0.2em] text-gray-900 uppercase border-b-2 border-gray-200 hover:border-gray-900 transition-all duration-300"
               >
                 View Examples

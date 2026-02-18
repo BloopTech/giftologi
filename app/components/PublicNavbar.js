@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./Avatar";
 const NAV_LINKS = [
   { href: "/shop", label: "Shop" },
   { href: "/categories", label: "Categories" },
-  { href: "/registry", label: "Registry" },
+  { href: "/find-registry", label: "Registry" },
   { href: "/storefront", label: "Stores" },
   { href: "/treats", label: "Treats" },
   { href: "/gift-guides", label: "Gift Guides" },
@@ -153,7 +153,7 @@ export default function PublicNavbar() {
                 Log in
               </Link>
               <Link
-                href="/registry"
+                href="/find-registry"
                 className="bg-[#FDD17D] text-gray-900 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap"
               >
                 Find Registry

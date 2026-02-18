@@ -46,10 +46,17 @@ export default async function StaticPage({ params }) {
   if (error || !page) return notFound();
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-950 flex flex-col">
+    <div className="min-h-screen bg-[#FDFCF8] flex flex-col relative overflow-hidden">
       <PublicNavbar />
+      <div
+        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        style={{
+          backgroundImage: 'url("/pattern.png")',
+          backgroundSize: "400px",
+        }}
+      ></div>
 
-      <main className="flex-1">
+      <main className="flex-1 pt-44 pb-32 relative z-10 px-6 sm:px-12 lg:px-24">
         {/* Breadcrumb */}
         <div className="border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50">
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-3">
@@ -71,13 +78,18 @@ export default async function StaticPage({ params }) {
         </div>
 
         {/* Content */}
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="mb-8 sm:mb-10">
-            <h1 className="text-3xl sm:text-4xl font-bold text-[#0A0A0A] dark:text-white tracking-tight">
+          <div className="mb-20 space-y-6">
+            <div className="flex items-center space-x-4">
+              <span className="w-12 h-px bg-[#FDD17D]"></span>
+              <h4 className="text-[13px] font-sans font-semibold tracking-[0.4em] text-gray-400 uppercase">
+                Legal Documentation
+              </h4>
+            </div>
+            <h1 className="text-5xl md:text-7xl font-didot-bold font-bold text-gray-900 leading-tight">
               {page.title}
             </h1>
-
             {page.updated_at && (
               <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
                 Last updated:{" "}
@@ -90,7 +102,6 @@ export default async function StaticPage({ params }) {
                 </time>
               </p>
             )}
-
             {page.meta_description && (
               <p className="mt-4 text-base sm:text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
                 {page.meta_description}

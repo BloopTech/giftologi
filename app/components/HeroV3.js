@@ -56,7 +56,7 @@ export default function HeroV3() {
               Create Registry
             </button>
             <Link
-              href="/registry"
+              href="/find-registry"
               className="cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-gray-900 rounded-full px-12 py-5 font-brasley-medium text-sm uppercase tracking-[0.2em] font-bold border border-gray-200 hover:border-[#FDD17D] transition-all duration-500"
             >
               The Collection

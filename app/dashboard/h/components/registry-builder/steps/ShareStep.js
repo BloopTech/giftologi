@@ -28,8 +28,8 @@ export default function ShareStep({
   const baseUrl =
     typeof window !== "undefined" ? window.location.origin : "https://mygiftologi.com";
   const registryLink = registryCode
-    ? `${baseUrl}/registry/${registryCode}`
-    : `${baseUrl}/registry`;
+    ? `${baseUrl}/find-registry/${registryCode}`
+    : `${baseUrl}/find-registry`;
 
   const handleCopyLink = async () => {
     try {

@@ -481,7 +481,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
   // Payment success redirect
   if (state.success && state.checkoutUrl) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4">
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 pt-24">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
           <CheckCircle className="size-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -491,12 +491,12 @@ export default function ShopCheckoutContent({ userProfile = null }) {
             Your order has been created. You will be redirected to complete
             payment.
           </p>
-          <a
+          <Link
             href={state.checkoutUrl}
             className="inline-block w-full bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors"
           >
             Proceed to Payment
-          </a>
+          </Link>
           <p className="text-xs text-gray-500 mt-4">
             Order Reference: {state.orderCode}
           </p>

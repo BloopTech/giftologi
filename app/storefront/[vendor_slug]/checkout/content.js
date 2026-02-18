@@ -884,7 +884,7 @@ export default function CheckoutContent({
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950 font-brasley-medium">
+    <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950 font-brasley-medium pt-24 w-full">
       <div className="mx-auto max-w-6xl w-full py-6 px-4">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">

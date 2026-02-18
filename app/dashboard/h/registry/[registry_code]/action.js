@@ -9,8 +9,8 @@ import crypto from "crypto";
 import z from "zod";
 import nodemailer from "nodemailer";
 import { render, pretty } from "@react-email/render";
-import RegistryInviteEmail from "@/app/registry/emails/RegistryInviteEmail";
-import RegistryThankYouEmail from "@/app/registry/emails/RegistryThankYouEmail";
+import RegistryInviteEmail from "@/app/find-registry/emails/RegistryInviteEmail";
+import RegistryThankYouEmail from "@/app/find-registry/emails/RegistryThankYouEmail";
 import {
   createClient,
   createAdminClient,
@@ -639,7 +639,7 @@ export async function sendRegistryInvites(prev, queryData) {
 
   const hostName = getHostName(profile);
   const baseUrl = registryData?.registry_code
-    ? `${getSiteUrl()}/registry/${registryData.registry_code}`
+    ? `${getSiteUrl()}/find-registry/${registryData.registry_code}`
     : getSiteUrl();
 
   await Promise.allSettled(

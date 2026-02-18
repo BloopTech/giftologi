@@ -91,7 +91,7 @@ export default function RegistryDetailsContent({ registryRow }) {
   const registryUpdated = registry?.updated_at;
   const eventLocation = event?.location || "—";
   const registryUrl = registryCode
-    ? `mygiftologi.com/registry/${registryCode}`
+    ? `mygiftologi.com/find-registry/${registryCode}`
     : "—";
 
   const {

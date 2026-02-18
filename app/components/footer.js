@@ -6,7 +6,7 @@ import Image from "next/image";
 
 const companyInfoStatic = [
   // { title: "Search Engine", href: "/search" },
-  // { title: "Registries", href: "/registry" },
+  // { title: "Registries", href: "/find-registry" },
   // { title: "Shop", href: "/shop" },
   // { title: "Vendors' Storefront", href: "/storefront" },
   // { title: "Gift Guides", href: "/gift-guides" },
@@ -16,7 +16,7 @@ const companyInfoStatic = [
 const membersStatic = [
   { title: "Track Order", href: "/order/lookup" },
   { title: "Search Engine", href: "/search" },
-  { title: "Registries", href: "/registry" },
+  { title: "Registries", href: "/find-registry" },
   { title: "Shop", href: "/shop" },
   { title: "Gift Guides", href: "/gift-guides" },
   { title: "Support", href: "/support" },

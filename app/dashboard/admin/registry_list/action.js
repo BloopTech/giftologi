@@ -305,7 +305,7 @@ export async function setFeaturedRegistry(prevState, formData) {
 
   revalidatePath("/dashboard/admin/registry_list");
   revalidatePath("/dashboard/admin");
-  revalidatePath("/registry");
+  //revalidatePath("/registry");
 
   return {
     message: featured ? "Registry featured" : "Registry unfeatured",
@@ -414,7 +414,7 @@ export async function setFeaturedRegistrySortOrder(prevState, formData) {
   });
 
   revalidatePath("/dashboard/admin/registry_list");
-  revalidatePath("/registry");
+  //revalidatePath("/registry");
 
   return {
     message: "Featured order updated",

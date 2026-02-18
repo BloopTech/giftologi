@@ -51,7 +51,7 @@ export async function GET(request) {
 
     if (order.status === "paid") {
       const registryCode = order.registry?.registry_code;
-      const baseUrl = registryCode ? `/registry/${registryCode}` : "/";
+      const baseUrl = registryCode ? `/find-/registry/${registryCode}` : "/";
       return NextResponse.redirect(
         new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)
       );
@@ -137,7 +137,7 @@ export async function GET(request) {
     // Redirect based on status
     const registryCode = order.registry?.registry_code;
     const baseUrl = registryCode
-      ? `/registry/${registryCode}`
+      ? `/find-/registry/${registryCode}`
       : "/";
 
     if (newStatus === "paid") {

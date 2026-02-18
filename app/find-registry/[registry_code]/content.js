@@ -104,7 +104,7 @@ function RegistryContentInner() {
               Log in
             </Link>
             <Link
-              href="/registry"
+              href="/find-registry"
               className="inline-flex items-center px-6 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-full hover:bg-gray-50 transition-colors"
             >
               Find a public registry
