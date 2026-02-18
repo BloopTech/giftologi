@@ -119,8 +119,8 @@ export default async function HostDashboardRegistry() {
 
         <Advertisement />
 
-        <Footer />
       </main>
+      <Footer />
     </div>
   );
 }

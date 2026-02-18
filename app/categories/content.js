@@ -35,7 +35,8 @@ export default function CategoriesContent() {
     const childMap = {};
     categories.forEach((c) => {
       if (c.parent_category_id) {
-        if (!childMap[c.parent_category_id]) childMap[c.parent_category_id] = [];
+        if (!childMap[c.parent_category_id])
+          childMap[c.parent_category_id] = [];
         childMap[c.parent_category_id].push(c);
       }
     });
@@ -46,7 +47,7 @@ export default function CategoriesContent() {
         Number(p.product_count) +
         (childMap[p.id] || []).reduce(
           (sum, child) => sum + Number(child.product_count),
-          0
+          0,
         ),
     }));
   }, [categories]);
@@ -57,7 +58,7 @@ export default function CategoriesContent() {
     return categoryTree.filter(
       (parent) =>
         parent.name.toLowerCase().includes(q) ||
-        parent.children.some((c) => c.name.toLowerCase().includes(q))
+        parent.children.some((c) => c.name.toLowerCase().includes(q)),
     );
   }, [categoryTree, search]);
 
@@ -220,11 +221,10 @@ export default function CategoriesContent() {
             ))}
           </div>
         )}
-
-        <div className="mt-12">
-          <Footer />
-        </div>
       </main>
+      <div className="mt-12">
+        <Footer />
+      </div>
     </div>
   );
 }

@@ -25,7 +25,7 @@ import {
   Shield,
   RotateCcw,
   Check,
-  X
+  X,
 } from "lucide-react";
 
 const formatDate = (dateString) => {
@@ -158,7 +158,9 @@ export default function ProductCodeDetailContent() {
     const filtered = selectedSize
       ? variationOptions.filter((opt) => opt.size === selectedSize)
       : variationOptions;
-    return Array.from(new Set(filtered.map((opt) => opt.color).filter(Boolean)));
+    return Array.from(
+      new Set(filtered.map((opt) => opt.color).filter(Boolean)),
+    );
   }, [hasColor, selectedSize, variationOptions]);
 
   const sizeOptions = useMemo(() => {
@@ -180,13 +182,26 @@ export default function ProductCodeDetailContent() {
 
   const selectedVariation = useMemo(() => {
     if (selectedVariantKey) {
-      return variationOptions.find((option) => option.key === selectedVariantKey) || null;
+      return (
+        variationOptions.find((option) => option.key === selectedVariantKey) ||
+        null
+      );
     }
     if (matchingOptions.length === 1) return matchingOptions[0];
-    if (!hasSize && selectedColor && matchingOptions.length) return matchingOptions[0];
-    if (!hasColor && selectedSize && matchingOptions.length) return matchingOptions[0];
+    if (!hasSize && selectedColor && matchingOptions.length)
+      return matchingOptions[0];
+    if (!hasColor && selectedSize && matchingOptions.length)
+      return matchingOptions[0];
     return null;
-  }, [hasColor, hasSize, matchingOptions, selectedColor, selectedSize, selectedVariantKey, variationOptions]);
+  }, [
+    hasColor,
+    hasSize,
+    matchingOptions,
+    selectedColor,
+    selectedSize,
+    selectedVariantKey,
+    variationOptions,
+  ]);
 
   const selectionRequired = variationOptions.length > 0;
   const selectionComplete = !selectionRequired || !!selectedVariation;
@@ -234,7 +249,9 @@ export default function ProductCodeDetailContent() {
 
   useEffect(() => {
     if (!selectedVariantKey) return;
-    const option = variationOptions.find((opt) => opt.key === selectedVariantKey);
+    const option = variationOptions.find(
+      (opt) => opt.key === selectedVariantKey,
+    );
     if (!option) return;
     if (option.color && option.color !== selectedColor) {
       setSelectedColor(option.color);
@@ -254,7 +271,15 @@ export default function ProductCodeDetailContent() {
       params.set("variant", selectedVariation.key);
     }
     router.push(`/storefront/${vendor?.slug}/checkout?${params.toString()}`);
-  }, [canPurchase, router, vendor?.slug, product?.id, quantity, selectedVariation?.key, selectionComplete]);
+  }, [
+    canPurchase,
+    router,
+    vendor?.slug,
+    product?.id,
+    quantity,
+    selectedVariation?.key,
+    selectionComplete,
+  ]);
 
   const handleAddToCart = useCallback(async () => {
     if (!canPurchase || !selectionComplete) return;
@@ -280,7 +305,8 @@ export default function ProductCodeDetailContent() {
       }
       setCartFeedback({
         type: "success",
-        message: "Added to cart. You can continue shopping or checkout anytime.",
+        message:
+          "Added to cart. You can continue shopping or checkout anytime.",
       });
     } catch (error) {
       setCartFeedback({
@@ -290,7 +316,15 @@ export default function ProductCodeDetailContent() {
     } finally {
       setIsAddingToCart(false);
     }
-  }, [canPurchase, selectionComplete, vendor?.slug, product?.id, quantity, selectedVariation?.key, selectedVariation?.raw]);
+  }, [
+    canPurchase,
+    selectionComplete,
+    vendor?.slug,
+    product?.id,
+    quantity,
+    selectedVariation?.key,
+    selectedVariation?.raw,
+  ]);
 
   const handleShare = useCallback(async () => {
     const url = window.location.href;
@@ -339,7 +373,16 @@ export default function ProductCodeDetailContent() {
 
       setReviewSubmitting(false);
     },
-    [isAuthed, reviewComment, reviewRating, submitReview, router, vendor?.slug, product?.product_code, product?.id]
+    [
+      isAuthed,
+      reviewComment,
+      reviewRating,
+      submitReview,
+      router,
+      vendor?.slug,
+      product?.product_code,
+      product?.id,
+    ],
   );
 
   const openGallery = useCallback((index) => {
@@ -352,7 +395,9 @@ export default function ProductCodeDetailContent() {
   }, []);
 
   const prevImage = useCallback(() => {
-    setGalleryIndex((prev) => (prev - 1 + product?.images.length) % product?.images.length);
+    setGalleryIndex(
+      (prev) => (prev - 1 + product?.images.length) % product?.images.length,
+    );
   }, [product?.images]);
 
   const nextImage = useCallback(() => {
@@ -366,7 +411,7 @@ export default function ProductCodeDetailContent() {
       if (e.key === "ArrowLeft") prevImage();
       if (e.key === "ArrowRight") nextImage();
     },
-    [showGallery, closeGallery, prevImage, nextImage]
+    [showGallery, closeGallery, prevImage, nextImage],
   );
 
   useEffect(() => {
@@ -396,18 +441,22 @@ export default function ProductCodeDetailContent() {
       : null;
   const basePrice = product?.basePrice ?? product?.rawPrice ?? null;
 
-  const effectiveSalePrice = product?.isOnSale && product?.salePrice != null ? product.salePrice : null;
-  const priceLabel = selectedPrice != null
-    ? formatPrice(selectedPrice)
-    : effectiveSalePrice != null
-    ? formatPrice(effectiveSalePrice)
-    : product?.variationPriceRange
-    ? `${formatPrice(product.variationPriceRange.min)} - ${formatPrice(product.variationPriceRange.max)}`
-    : product.price;
+  const effectiveSalePrice =
+    product?.isOnSale && product?.salePrice != null ? product.salePrice : null;
+  const priceLabel =
+    selectedPrice != null
+      ? formatPrice(selectedPrice)
+      : effectiveSalePrice != null
+        ? formatPrice(effectiveSalePrice)
+        : product?.variationPriceRange
+          ? `${formatPrice(product.variationPriceRange.min)} - ${formatPrice(product.variationPriceRange.max)}`
+          : product.price;
   const showStrikethrough =
     product?.isOnSale && !selectedVariation && product?.originalPriceFormatted;
   const showBasePrice =
-    selectedPrice != null && Number.isFinite(basePrice) && basePrice !== selectedPrice;
+    selectedPrice != null &&
+    Number.isFinite(basePrice) &&
+    basePrice !== selectedPrice;
 
   return (
     <div className="w-full pt-24 dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-brasley-medium">
@@ -517,19 +566,20 @@ export default function ProductCodeDetailContent() {
                     <BadgeCheck className="size-4 text-blue-500" />
                   )}
                 </span>
-                {Array.isArray(vendor?.category_chips) && vendor.category_chips.length > 0 && (
-                  <div className="flex flex-wrap gap-1">
-                    {vendor.category_chips.map((chip) => (
-                      <span
-                        key={chip}
-                        className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#A5914B]/10 text-[#A5914B] rounded-full text-xs font-medium"
-                      >
-                        <Store className="size-3" />
-                        {chip}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                {Array.isArray(vendor?.category_chips) &&
+                  vendor.category_chips.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {vendor.category_chips.map((chip) => (
+                        <span
+                          key={chip}
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-[#A5914B]/10 text-[#A5914B] rounded-full text-xs font-medium"
+                        >
+                          <Store className="size-3" />
+                          {chip}
+                        </span>
+                      ))}
+                    </div>
+                  )}
               </div>
             </Link>
 
@@ -561,19 +611,29 @@ export default function ProductCodeDetailContent() {
 
             <div className="mb-6">
               <div className="flex items-center gap-3">
-                <div className="text-3xl font-bold text-[#A5914B]">{priceLabel}</div>
+                <div className="text-3xl font-bold text-[#A5914B]">
+                  {priceLabel}
+                </div>
                 {showStrikethrough && (
-                  <div className="text-xl text-gray-400 line-through">{product.originalPriceFormatted}</div>
+                  <div className="text-xl text-gray-400 line-through">
+                    {product.originalPriceFormatted}
+                  </div>
                 )}
-                {product?.isOnSale && product?.discountPercent > 0 && !selectedVariation && (
-                  <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
-                    {product.discountPercent}% OFF
-                  </span>
-                )}
+                {product?.isOnSale &&
+                  product?.discountPercent > 0 &&
+                  !selectedVariation && (
+                    <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded">
+                      {product.discountPercent}% OFF
+                    </span>
+                  )}
               </div>
-              {product?.variationPriceRange && !selectedVariation && !product?.isOnSale && (
-                <p className="text-xs text-gray-500 mt-1">Price varies by option.</p>
-              )}
+              {product?.variationPriceRange &&
+                !selectedVariation &&
+                !product?.isOnSale && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Price varies by option.
+                  </p>
+                )}
               {showBasePrice && (
                 <p className="text-xs text-gray-500 mt-1">
                   Base price {formatPrice(basePrice)}
@@ -619,7 +679,9 @@ export default function ProductCodeDetailContent() {
                 </>
               ) : (
                 <span className="text-sm text-red-600 font-medium">
-                  {selectedVariation ? `Out of Stock (${selectedVariation.label})` : "Out of Stock"}
+                  {selectedVariation
+                    ? `Out of Stock (${selectedVariation.label})`
+                    : "Out of Stock"}
                 </span>
               )}
             </div>
@@ -627,7 +689,9 @@ export default function ProductCodeDetailContent() {
             {variationOptions.length > 0 && (
               <div className="mb-6 space-y-4">
                 <div className="space-y-3">
-                  <h2 className="text-sm font-semibold text-gray-900">Choose a variation</h2>
+                  <h2 className="text-sm font-semibold text-gray-900">
+                    Choose a variation
+                  </h2>
 
                   {!hasColor && !hasSize ? (
                     <div className="flex flex-wrap gap-2">
@@ -638,7 +702,9 @@ export default function ProductCodeDetailContent() {
                             key={option.key}
                             type="button"
                             onClick={() =>
-                              setSelectedVariantKey(isSelected ? "" : option.key)
+                              setSelectedVariantKey(
+                                isSelected ? "" : option.key,
+                              )
                             }
                             className={`cursor-pointer rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                               isSelected
@@ -658,51 +724,66 @@ export default function ProductCodeDetailContent() {
                     <div className="space-y-4">
                       {hasColor && (
                         <div className="space-y-2">
-                          <span className="text-xs font-medium text-gray-600">Color</span>
+                          <span className="text-xs font-medium text-gray-600">
+                            Color
+                          </span>
                           <div className="flex flex-wrap gap-2">
-                            {(colorOptions.length ? colorOptions : COLOR_OPTIONS).map(
-                              (color) => {
-                                const isSelected = selectedColor === color;
-                                return (
-                                  <button
-                                    key={color}
-                                    type="button"
-                                    onClick={() => {
-                                      const next = isSelected ? "" : color;
-                                      setSelectedColor(next);
-                                      setSelectedVariantKey("");
-                                      if (next && selectedSize && !sizeOptions.includes(selectedSize)) {
-                                        setSelectedSize("");
-                                      }
+                            {(colorOptions.length
+                              ? colorOptions
+                              : COLOR_OPTIONS
+                            ).map((color) => {
+                              const isSelected = selectedColor === color;
+                              return (
+                                <button
+                                  key={color}
+                                  type="button"
+                                  onClick={() => {
+                                    const next = isSelected ? "" : color;
+                                    setSelectedColor(next);
+                                    setSelectedVariantKey("");
+                                    if (
+                                      next &&
+                                      selectedSize &&
+                                      !sizeOptions.includes(selectedSize)
+                                    ) {
+                                      setSelectedSize("");
+                                    }
+                                  }}
+                                  className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                                    isSelected
+                                      ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
+                                      : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
+                                  }`}
+                                >
+                                  <span
+                                    className="h-3 w-3 rounded-full border"
+                                    style={{
+                                      background:
+                                        COLOR_SWATCHES[color] || "#E5E7EB",
+                                      borderColor:
+                                        color === "White"
+                                          ? "#E5E7EB"
+                                          : "transparent",
                                     }}
-                                    className={`cursor-pointer inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                                      isSelected
-                                        ? "border-[#A5914B] bg-[#A5914B]/10 text-[#8B7A3F]"
-                                        : "border-gray-200 text-gray-600 hover:border-[#A5914B]/50"
-                                    }`}
-                                  >
-                                    <span
-                                      className="h-3 w-3 rounded-full border"
-                                      style={{
-                                        background: COLOR_SWATCHES[color] || "#E5E7EB",
-                                        borderColor:
-                                          color === "White" ? "#E5E7EB" : "transparent",
-                                      }}
-                                    />
-                                    {color}
-                                  </button>
-                                );
-                              },
-                            )}
+                                  />
+                                  {color}
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
                       )}
 
                       {hasSize && (
                         <div className="space-y-2">
-                          <span className="text-xs font-medium text-gray-600">Size</span>
+                          <span className="text-xs font-medium text-gray-600">
+                            Size
+                          </span>
                           <div className="flex flex-wrap gap-2">
-                            {(sizeOptions.length ? sizeOptions : SIZE_OPTIONS).map((size) => {
+                            {(sizeOptions.length
+                              ? sizeOptions
+                              : SIZE_OPTIONS
+                            ).map((size) => {
                               const isSelected = selectedSize === size;
                               return (
                                 <button
@@ -737,13 +818,16 @@ export default function ProductCodeDetailContent() {
                       {selectedVariation.price != null && (
                         <span className="font-semibold text-[#A5914B]">
                           {formatPrice(
-                            Number(selectedVariation.price || 0) + serviceCharge
+                            Number(selectedVariation.price || 0) +
+                              serviceCharge,
                           )}
                         </span>
                       )}
                     </div>
                   ) : (
-                    <p className="text-xs text-red-500">Select a variation to continue.</p>
+                    <p className="text-xs text-red-500">
+                      Select a variation to continue.
+                    </p>
                   )}
                 </div>
               </div>
@@ -845,7 +929,9 @@ export default function ProductCodeDetailContent() {
                 {cartFeedback.type === "success" && vendor?.slug && (
                   <button
                     type="button"
-                    onClick={() => router.push(`/storefront/${vendor.slug}/checkout?cart=1`)}
+                    onClick={() =>
+                      router.push(`/storefront/${vendor.slug}/checkout?cart=1`)
+                    }
                     className="text-xs font-semibold text-[#8B7A3F] hover:text-[#6F6136]"
                   >
                     Checkout cart
@@ -1058,12 +1144,10 @@ export default function ProductCodeDetailContent() {
             </div>
           </section>
         )}
-
-        <div className="mt-12">
-          <Footer />
-        </div>
       </div>
-
+      <div className="mt-12">
+        <Footer />
+      </div>
       {/* Gallery Modal */}
       {showGallery && product?.images && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">

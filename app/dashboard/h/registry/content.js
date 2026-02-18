@@ -303,8 +303,8 @@ export default function HostDashboardRegistryListsContent(props) {
 
         <Advertisement />
 
-        <Footer />
       </main>
+      <Footer />
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="w-full max-w-2xl rounded-2xl shadow-xl p-6">

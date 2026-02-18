@@ -1129,8 +1129,8 @@ export default function HostDashboardRegistryContent(props) {
 
         <Advertisement />
 
-        <Footer />
       </main>
+      <Footer />
 
       <EditRegistryItemDialog
         open={editItemOpen}

@@ -91,7 +91,7 @@ export default function StorefrontContent() {
       setSearchQuery(localSearch);
       applyFilters();
     },
-    [localSearch, setSearchQuery, applyFilters]
+    [localSearch, setSearchQuery, applyFilters],
   );
 
   const hasProducts = products.length > 0;
@@ -155,19 +155,20 @@ export default function StorefrontContent() {
               </div>
 
               {/* Category Pill */}
-              {Array.isArray(vendor?.category_chips) && vendor.category_chips.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {vendor.category_chips.map((chip) => (
-                    <span
-                      key={chip}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#A5914B]/10 text-[#A5914B] rounded-full text-sm font-medium"
-                    >
-                      <Store className="size-3.5" />
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              )}
+              {Array.isArray(vendor?.category_chips) &&
+                vendor.category_chips.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {vendor.category_chips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#A5914B]/10 text-[#A5914B] rounded-full text-sm font-medium"
+                      >
+                        <Store className="size-3.5" />
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                )}
 
               {vendor?.description && (
                 <p className="text-gray-600 dark:text-gray-400 text-sm md:text-base leading-relaxed line-clamp-2 mb-3">
@@ -509,14 +510,16 @@ export default function StorefrontContent() {
               <div className="py-16 text-center">
                 <ShoppingBag className="size-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {hasActiveFilters ? "No products found" : "No products available"}
+                  {hasActiveFilters
+                    ? "No products found"
+                    : "No products available"}
                 </h3>
                 <p className="text-gray-500 mb-4">
                   {hasActiveFilters
                     ? "Try adjusting your filters or search terms."
                     : isClosed
-                    ? "This shop has no products to display."
-                    : "Check back later for new products."}
+                      ? "This shop has no products to display."
+                      : "Check back later for new products."}
                 </p>
                 {hasActiveFilters && (
                   <button
@@ -530,11 +533,10 @@ export default function StorefrontContent() {
             )}
           </div>
         </div>
-
-        <div className="mt-12">
-          <Footer />
-        </div>
       </main>
+      <div className="mt-12">
+        <Footer />
+      </div>
     </div>
   );
 }

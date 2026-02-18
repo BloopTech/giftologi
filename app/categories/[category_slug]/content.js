@@ -97,7 +97,7 @@ export default function CategoryShopContent() {
       setSearchQuery(localSearch);
       applyFilters();
     },
-    [localSearch, setSearchQuery, applyFilters]
+    [localSearch, setSearchQuery, applyFilters],
   );
 
   const hasProducts = products.length > 0;
@@ -118,11 +118,17 @@ export default function CategoryShopContent() {
             <div>
               {/* Breadcrumb */}
               <nav className="flex items-center gap-1.5 text-xs text-gray-500 mb-3">
-                <Link href="/shop" className="hover:text-[#A5914B] transition-colors">
+                <Link
+                  href="/shop"
+                  className="hover:text-[#A5914B] transition-colors"
+                >
                   Shop
                 </Link>
                 <ChevronRight className="size-3" />
-                <Link href="/categories" className="hover:text-[#A5914B] transition-colors">
+                <Link
+                  href="/categories"
+                  className="hover:text-[#A5914B] transition-colors"
+                >
                   Categories
                 </Link>
                 <ChevronRight className="size-3" />
@@ -333,12 +339,11 @@ export default function CategoryShopContent() {
             )}
           </div>
         </div>
-
-        <div className="mt-12">
-          <Footer />
-        </div>
       </main>
 
+      <div className="mt-12">
+        <Footer />
+      </div>
       {/* Floating Cart Widget */}
       {cartCount > 0 && (
         <button
@@ -357,7 +362,10 @@ export default function CategoryShopContent() {
       )}
 
       {/* Cart Drawer */}
-      <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
+      <CartDrawer
+        open={cartDrawerOpen}
+        onClose={() => setCartDrawerOpen(false)}
+      />
 
       {/* Product Detail Modal */}
       <ProductDetailModal

@@ -354,9 +354,8 @@ function RegistryContentInner() {
         )}
 
         <Advertisement />
-
-        <Footer />
       </main>
+      <Footer />
 
       {/* Modals */}
       <WelcomeNoteModal

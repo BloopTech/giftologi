@@ -160,76 +160,76 @@ export default function StorefrontDirectoryContent() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {vendors.map((v) => (
-              <Link
-                key={v.id}
-                href={`/storefront/${v.slug}`}
-                className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
-              >
-                {/* Card Header — logo + name */}
-                <div className="flex items-center gap-4 p-5 pb-3">
-                  <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0 flex items-center justify-center">
-                    <ImageWithFallback
-                      src={v.logo_src}
-                      alt={v.business_name}
-                      width={64}
-                      height={64}
-                      className="object-cover w-full h-full"
-                      priority
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-base font-semibold text-gray-900 dark:text-white truncate group-hover:text-[#A5914B] transition-colors">
-                        {v.business_name}
-                      </h2>
-                      {v.verified && (
-                        <BadgeCheck className="size-4 text-blue-500 shrink-0" />
+                <Link
+                  key={v.id}
+                  href={`/storefront/${v.slug}`}
+                  className="group bg-white dark:bg-gray-900 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:border-[#A5914B]/30 transition-all duration-300"
+                >
+                  {/* Card Header — logo + name */}
+                  <div className="flex items-center gap-4 p-5 pb-3">
+                    <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 bg-white shrink-0 flex items-center justify-center">
+                      <ImageWithFallback
+                        src={v.logo_src}
+                        alt={v.business_name}
+                        width={64}
+                        height={64}
+                        className="object-cover w-full h-full"
+                        priority
+                      />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h2 className="text-base font-semibold text-gray-900 dark:text-white truncate group-hover:text-[#A5914B] transition-colors">
+                          {v.business_name}
+                        </h2>
+                        {v.verified && (
+                          <BadgeCheck className="size-4 text-blue-500 shrink-0" />
+                        )}
+                      </div>
+                      {v.location && (
+                        <span className="flex items-center gap-1 text-xs text-gray-500">
+                          <MapPin className="size-3" />
+                          {v.location}
+                        </span>
                       )}
                     </div>
-                    {v.location && (
-                      <span className="flex items-center gap-1 text-xs text-gray-500">
-                        <MapPin className="size-3" />
-                        {v.location}
-                      </span>
-                    )}
                   </div>
-                </div>
 
-                {/* Description */}
-                {v.description && (
-                  <p className="px-5 text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">
-                    {v.description}
-                  </p>
-                )}
+                  {/* Description */}
+                  {v.description && (
+                    <p className="px-5 text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-3">
+                      {v.description}
+                    </p>
+                  )}
 
-                {/* Category chips */}
-                {v.category_chips.length > 0 && (
-                  <div className="px-5 pb-4 flex flex-wrap gap-1.5">
-                    {v.category_chips.slice(0, 3).map((chip) => (
-                      <span
-                        key={chip}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#A5914B]/10 text-[#A5914B] rounded-full text-xs font-medium"
-                      >
-                        <Store className="size-3" />
-                        {chip}
-                      </span>
-                    ))}
-                    {v.category_chips.length > 3 && (
-                      <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-full text-xs">
-                        +{v.category_chips.length - 3}
-                      </span>
-                    )}
+                  {/* Category chips */}
+                  {v.category_chips.length > 0 && (
+                    <div className="px-5 pb-4 flex flex-wrap gap-1.5">
+                      {v.category_chips.slice(0, 3).map((chip) => (
+                        <span
+                          key={chip}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#A5914B]/10 text-[#A5914B] rounded-full text-xs font-medium"
+                        >
+                          <Store className="size-3" />
+                          {chip}
+                        </span>
+                      ))}
+                      {v.category_chips.length > 3 && (
+                        <span className="inline-flex items-center px-2.5 py-1 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-full text-xs">
+                          +{v.category_chips.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Footer */}
+                  <div className="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex items-center justify-between">
+                    <span className="text-xs font-medium text-[#A5914B] group-hover:underline">
+                      Visit Store →
+                    </span>
                   </div>
-                )}
-
-                {/* Footer */}
-                <div className="border-t border-gray-100 dark:border-gray-800 px-5 py-3 flex items-center justify-between">
-                  <span className="text-xs font-medium text-[#A5914B] group-hover:underline">
-                    Visit Store →
-                  </span>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))}
             </div>
 
             <Pagination
@@ -244,9 +244,7 @@ export default function StorefrontDirectoryContent() {
           <div className="py-20 text-center">
             <ShoppingBag className="size-16 text-gray-300 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-              {hasActiveFilters
-                ? "No stores found"
-                : "No stores available yet"}
+              {hasActiveFilters ? "No stores found" : "No stores available yet"}
             </h3>
             <p className="text-gray-500 mb-4">
               {hasActiveFilters
@@ -263,11 +261,10 @@ export default function StorefrontDirectoryContent() {
             )}
           </div>
         )}
-
-        <div className="mt-12">
-          <Footer />
-        </div>
       </main>
+      <div className="mt-12">
+        <Footer />
+      </div>
     </div>
   );
 }

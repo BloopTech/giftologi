@@ -42,7 +42,7 @@ export default function Home() {
             aria-label="Coming soon announcement"
             className="flex flex-col items-center justify-center w-full"
           >
-            <article className="rounded-2xl relative overflow-hidden max-w-6xl mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-brasley-medium shadow-xl">
+            <article className="rounded-2xl relative overflow-hidden max-w-7xl mx-auto bg-[#FFFCEF] fade-in-up delay-3 border border-transparent font-brasley-medium shadow-xl">
               <div
                 aria-hidden="true"
                 className="pointer-events-none absolute top-[55px] -right-2 w-[100%] h-[10px] bg-[#D2BF7C] origin-top-right rotate-40 z-1"

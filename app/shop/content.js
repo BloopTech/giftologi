@@ -104,9 +104,8 @@ export default function ShopContent() {
       setSearchQuery(localSearch);
       applyFilters();
     },
-    [localSearch, setSearchQuery, applyFilters]
+    [localSearch, setSearchQuery, applyFilters],
   );
-
 
   const hasProducts = products.length > 0;
 
@@ -315,7 +314,9 @@ export default function ShopContent() {
               <div className="py-16 text-center">
                 <ShoppingBag className="size-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                  {hasActiveFilters ? "No products found" : "No products available"}
+                  {hasActiveFilters
+                    ? "No products found"
+                    : "No products available"}
                 </h3>
                 <p className="text-gray-500 mb-4">
                   {hasActiveFilters
@@ -335,12 +336,10 @@ export default function ShopContent() {
             )}
           </div>
         </div>
-
-        <div className="mt-12">
-          <Footer />
-        </div>
       </main>
-
+      <div className="mt-12">
+        <Footer />
+      </div>
       {/* Floating Cart Widget */}
       {cartCount > 0 && (
         <button
@@ -359,7 +358,10 @@ export default function ShopContent() {
       )}
 
       {/* Cart Drawer */}
-      <CartDrawer open={cartDrawerOpen} onClose={() => setCartDrawerOpen(false)} />
+      <CartDrawer
+        open={cartDrawerOpen}
+        onClose={() => setCartDrawerOpen(false)}
+      />
 
       {/* Product Detail Modal */}
       <ProductDetailModal

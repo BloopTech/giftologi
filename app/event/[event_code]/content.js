@@ -102,8 +102,8 @@ export default function EventPageContent(props) {
 
         <Advertisement />
 
-        <Footer />
       </main>
+      <Footer />
     </div>
   );
 }

@@ -55,17 +55,17 @@ export default function Footer() {
     <footer
       role="contentinfo"
       aria-label="Site footer"
-      className="flex flex-col space-y-4 w-full bg-white pt-32 pb-16 px-6 sm:px-12 lg:px-24 border-t border-gray-50 relative overflow-hidden"
+      className="flex flex-col space-y-4 w-full bg-white pt-32 pb-16 px-6 sm:px-12 lg:px-22 border-t border-gray-50 relative overflow-hidden"
     >
-      <div
+      {/* <div
         className="absolute inset-0 opacity-[0.005]"
         style={{
           backgroundImage: "url('/pattern.png')",
           backgroundRepeat: "repeat",
           backgroundSize: "200px",
         }}
-      />
-      <div className="w-full rounded-md p-8 max-w-7xl mx-auto mb-28">
+      /> */}
+      <div className="w-full rounded-md max-w-7xl mx-auto mb-28">
         <div className="grid lg:grid-cols-12 gap-16">
           <div className="lg:col-span-4 space-y-8">
             <div className="flex items-center space-x-4">
