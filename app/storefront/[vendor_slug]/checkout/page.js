@@ -67,6 +67,10 @@ export default async function CheckoutPage({ params, searchParams }) {
   const { product: productId, qty, variant, cart, registry_id: registryId } = await searchParams;
   const isCartCheckout = cart === "1" || cart === "true";
 
+  if (isCartCheckout && !registryId) {
+    redirect("/shop/checkout");
+  }
+
   if (!vendor_slug || (!isCartCheckout && !productId)) {
     return notFound();
   }

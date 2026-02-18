@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useContext } from "react";
 import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import {
@@ -10,13 +10,28 @@ import {
   Loader2,
   ShoppingBag,
 } from "lucide-react";
-import { useShop } from "../context";
+import { ShopContext } from "../context";
 import { getOrCreateGuestBrowserId } from "@/app/utils/guest";
 
-export default function CartDrawer({ open, onClose }) {
-  const { cartCount, removeFromCart, removingFromCartId } = useShop();
+export default function CartDrawer({
+  open,
+  onClose,
+  cartCount: cartCountProp,
+  removingFromCartId: removingFromCartIdProp,
+  onCartChanged,
+}) {
+  const shopContext = useContext(ShopContext);
+  const cartCount =
+    typeof cartCountProp === "number"
+      ? cartCountProp
+      : Number(shopContext?.cartCount || 0);
+  const removingFromCartId =
+    removingFromCartIdProp ?? shopContext?.removingFromCartId ?? null;
+  const removeFromCartFromContext = shopContext?.removeFromCart;
+
   const [vendorGroups, setVendorGroups] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [localRemovingProductId, setLocalRemovingProductId] = useState(null);
 
   const fetchCartDetails = useCallback(async () => {
     setLoading(true);
@@ -24,7 +39,8 @@ export default function CartDrawer({ open, onClose }) {
       const guestBrowserId = getOrCreateGuestBrowserId();
       const url = new URL("/api/shop/cart-details", window.location.origin);
       if (guestBrowserId) url.searchParams.set("guestBrowserId", guestBrowserId);
-      const res = await fetch(url.toString());
+      url.searchParams.set("_ts", String(Date.now()));
+      const res = await fetch(url.toString(), { cache: "no-store" });
       if (!res.ok) return;
       const body = await res.json();
       setVendorGroups(body.vendors || []);
@@ -39,8 +55,24 @@ export default function CartDrawer({ open, onClose }) {
     if (open) fetchCartDetails();
   }, [open, fetchCartDetails, cartCount]);
 
-  const handleRemove = async (productId) => {
-    await removeFromCart(productId);
+  const handleRemove = async (productId, cartItemId) => {
+    if (removeFromCartFromContext) {
+      await removeFromCartFromContext(productId);
+    } else if (cartItemId) {
+      setLocalRemovingProductId(productId);
+      try {
+        await fetch("/api/storefront/cart", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cartItemId }),
+        });
+      } catch {
+        // ignore
+      } finally {
+        setLocalRemovingProductId(null);
+      }
+    }
+    onCartChanged?.();
     // Re-fetch after removal
     setTimeout(fetchCartDetails, 300);
   };
@@ -123,7 +155,9 @@ export default function CartDrawer({ open, onClose }) {
                   {/* Items */}
                   <div className="space-y-3">
                     {group.items.map((item) => {
-                      const isRemoving = removingFromCartId === item.productId;
+                      const isRemoving =
+                        removingFromCartId === item.productId ||
+                        localRemovingProductId === item.productId;
                       return (
                         <div
                           key={item.cartItemId}
@@ -169,7 +203,9 @@ export default function CartDrawer({ open, onClose }) {
                                 )}
                               </div>
                               <button
-                                onClick={() => handleRemove(item.productId)}
+                                onClick={() =>
+                                  handleRemove(item.productId, item.cartItemId)
+                                }
                                 disabled={isRemoving}
                                 className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer disabled:cursor-not-allowed"
                                 aria-label={`Remove ${item.name} from cart`}

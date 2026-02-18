@@ -5,9 +5,10 @@ import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
-import { getGuestIdentifier } from "../../../utils/guest";
+import { getGuestIdentifier, getOrCreateGuestBrowserId } from "../../../utils/guest";
 import Footer from "../../../components/footer";
 import ProductPageViewTracker from "../../../components/ProductPageViewTracker";
+import CartDrawer from "../../../shop/components/CartDrawer";
 import {
   Store,
   MapPin,
@@ -26,6 +27,7 @@ import {
   RotateCcw,
   Check,
   X,
+  ChevronRight
 } from "lucide-react";
 
 const formatDate = (dateString) => {
@@ -98,6 +100,9 @@ export default function ProductCodeDetailContent() {
   const [reviewError, setReviewError] = useState(null);
   const [reviewSuccess, setReviewSuccess] = useState(null);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
+  const [cartItems, setCartItems] = useState([]);
 
   const router = useRouter();
 
@@ -205,6 +210,12 @@ export default function ProductCodeDetailContent() {
 
   const selectionRequired = variationOptions.length > 0;
   const selectionComplete = !selectionRequired || !!selectedVariation;
+  const productImages = useMemo(() => {
+    if (Array.isArray(product?.images) && product.images.length > 0) {
+      return product.images;
+    }
+    return ["/host/toaster.png"];
+  }, [product?.images]);
 
   const effectiveStock = useMemo(() => {
     if (selectedVariation && selectedVariation.stock_qty != null) {
@@ -215,6 +226,72 @@ export default function ProductCodeDetailContent() {
 
   const isOutOfStock = product && effectiveStock <= 0;
   const canPurchase = !isClosed && !isOutOfStock;
+
+  const currentProductCartItems = useMemo(() => {
+    if (!product?.id) return [];
+    return cartItems.filter((item) => item?.productId === product.id);
+  }, [cartItems, product?.id]);
+
+  const isCurrentProductInCart = currentProductCartItems.length > 0;
+
+  const selectedVariationInCart = useMemo(() => {
+    if (!isCurrentProductInCart) return false;
+    const selectedKey = selectedVariation?.key || null;
+    return currentProductCartItems.some(
+      (item) => (item?.variation?.key || null) === selectedKey,
+    );
+  }, [currentProductCartItems, isCurrentProductInCart, selectedVariation?.key]);
+
+  useEffect(() => {
+    if (selectedImage >= productImages.length) {
+      setSelectedImage(0);
+    }
+    if (galleryIndex >= productImages.length) {
+      setGalleryIndex(0);
+    }
+  }, [productImages, selectedImage, galleryIndex]);
+
+  const fetchCartCount = useCallback(async () => {
+    try {
+      const guestBrowserId = getOrCreateGuestBrowserId();
+      const url = new URL("/api/shop/cart-details", window.location.origin);
+      if (guestBrowserId) url.searchParams.set("guestBrowserId", guestBrowserId);
+      url.searchParams.set("_ts", String(Date.now()));
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      if (!res.ok) return;
+      const body = await res.json().catch(() => ({}));
+      const vendors = Array.isArray(body?.vendors) ? body.vendors : [];
+      const items = vendors.flatMap((group) =>
+        Array.isArray(group?.items) ? group.items : [],
+      );
+      setCartItems(items);
+      setCartCount(items.length);
+    } catch {
+      // ignore cart count fetch errors
+      setCartItems([]);
+      setCartCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCartCount();
+  }, [fetchCartCount]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchCartCount();
+    };
+    const handleVisibility = () => {
+      if (!document.hidden) fetchCartCount();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchCartCount]);
 
   const handleQuantityChange = useCallback(
     (delta) => {
@@ -308,6 +385,7 @@ export default function ProductCodeDetailContent() {
         message:
           "Added to cart. You can continue shopping or checkout anytime.",
       });
+      fetchCartCount();
     } catch (error) {
       setCartFeedback({
         type: "error",
@@ -324,6 +402,7 @@ export default function ProductCodeDetailContent() {
     quantity,
     selectedVariation?.key,
     selectedVariation?.raw,
+    fetchCartCount,
   ]);
 
   const handleShare = useCallback(async () => {
@@ -385,24 +464,33 @@ export default function ProductCodeDetailContent() {
     ],
   );
 
-  const openGallery = useCallback((index) => {
-    setGalleryIndex(index);
-    setShowGallery(true);
-  }, []);
+  const openGallery = useCallback(
+    (index) => {
+      const safeIndex =
+        productImages.length > 0
+          ? Math.max(0, Math.min(index, productImages.length - 1))
+          : 0;
+      setGalleryIndex(safeIndex);
+      setShowGallery(true);
+    },
+    [productImages]
+  );
 
   const closeGallery = useCallback(() => {
     setShowGallery(false);
   }, []);
 
   const prevImage = useCallback(() => {
+    if (productImages.length === 0) return;
     setGalleryIndex(
-      (prev) => (prev - 1 + product?.images.length) % product?.images.length,
+      (prev) => (prev - 1 + productImages.length) % productImages.length,
     );
-  }, [product?.images]);
+  }, [productImages]);
 
   const nextImage = useCallback(() => {
-    setGalleryIndex((prev) => (prev + 1) % product?.images.length);
-  }, [product?.images]);
+    if (productImages.length === 0) return;
+    setGalleryIndex((prev) => (prev + 1) % productImages.length);
+  }, [productImages]);
 
   const handleKeyDown = useCallback(
     (e) => {
@@ -498,7 +586,7 @@ export default function ProductCodeDetailContent() {
           <div className="lg:w-1/2 flex flex-col gap-4">
             <div className="relative aspect-square rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-sm">
               <ImageWithFallback
-                src={product.images[selectedImage]}
+                src={productImages[selectedImage]}
                 alt={product.name}
                 fill
                 className="object-cover cursor-pointer"
@@ -516,9 +604,9 @@ export default function ProductCodeDetailContent() {
             </div>
 
             {/* Thumbnail Gallery */}
-            {product?.images?.length > 1 && (
+            {productImages.length > 1 && (
               <div className="flex gap-3 overflow-x-auto pb-2">
-                {product?.images.map((img, idx) => (
+                {productImages.map((img, idx) => (
                   <button
                     key={idx}
                     onClick={() => setSelectedImage(idx)}
@@ -873,7 +961,13 @@ export default function ProductCodeDetailContent() {
                     className="flex-1 border border-[#A5914B] text-[#8B7A3F] font-semibold py-3 px-6 rounded-xl hover:bg-[#A5914B]/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ShoppingCart className="size-5" />
-                    {isAddingToCart ? "Adding..." : "Add to Cart"}
+                    {isAddingToCart
+                      ? "Adding..."
+                      : selectedVariationInCart
+                      ? "Add More"
+                      : isCurrentProductInCart
+                      ? "Add Variation"
+                      : "Add to Cart"}
                   </button>
                   <button
                     onClick={handleBuyNow}
@@ -917,6 +1011,20 @@ export default function ProductCodeDetailContent() {
               )}
             </div>
 
+            {isCurrentProductInCart && (
+              <div className="mb-4 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+                <div className="flex items-start gap-2">
+                  <Check className="mt-0.5 size-4 shrink-0" />
+                  <p>
+                    This product is already in your cart.
+                    {selectionRequired
+                      ? " You can change the variation and add it again."
+                      : ""}
+                  </p>
+                </div>
+              </div>
+            )}
+
             {cartFeedback && (
               <div
                 className={`mb-6 rounded-xl border px-4 py-3 text-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 ${
@@ -929,9 +1037,7 @@ export default function ProductCodeDetailContent() {
                 {cartFeedback.type === "success" && vendor?.slug && (
                   <button
                     type="button"
-                    onClick={() =>
-                      router.push(`/storefront/${vendor.slug}/checkout?cart=1`)
-                    }
+                    onClick={() => router.push("/shop/checkout")}
                     className="text-xs font-semibold text-[#8B7A3F] hover:text-[#6F6136]"
                   >
                     Checkout cart
@@ -1148,8 +1254,34 @@ export default function ProductCodeDetailContent() {
       <div className="mt-12">
         <Footer />
       </div>
+
+      {/* Floating Cart Widget */}
+      {cartCount > 0 && (
+        <button
+          onClick={() => setCartDrawerOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-[#A5914B] text-white pl-4 pr-5 py-3 rounded-full shadow-lg hover:bg-[#8B7A3F] hover:shadow-xl transition-all cursor-pointer"
+          aria-label={`View cart with ${cartCount} items`}
+        >
+          <span className="relative">
+            <ShoppingCart className="size-5" />
+            <span className="absolute -top-2 -right-2.5 bg-white text-[#A5914B] text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
+              {cartCount}
+            </span>
+          </span>
+          <span className="text-sm font-semibold ml-1">View Cart</span>
+        </button>
+      )}
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        open={cartDrawerOpen}
+        onClose={() => setCartDrawerOpen(false)}
+        cartCount={cartCount}
+        onCartChanged={fetchCartCount}
+      />
+
       {/* Gallery Modal */}
-      {showGallery && product?.images && (
+      {showGallery && productImages.length > 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4">
           {/* Close Button */}
           <button
@@ -1161,7 +1293,7 @@ export default function ProductCodeDetailContent() {
           </button>
 
           {/* Left Arrow */}
-          {product.images.length > 1 && (
+          {productImages.length > 1 && (
             <button
               onClick={prevImage}
               className="absolute left-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -1172,7 +1304,7 @@ export default function ProductCodeDetailContent() {
           )}
 
           {/* Right Arrow */}
-          {product.images.length > 1 && (
+          {productImages.length > 1 && (
             <button
               onClick={nextImage}
               className="absolute right-4 z-10 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
@@ -1185,7 +1317,7 @@ export default function ProductCodeDetailContent() {
           {/* Image */}
           <div className="relative max-w-4xl max-h-[80vh] w-full h-full flex items-center justify-center">
             <ImageWithFallback
-              src={product.images[galleryIndex]}
+              src={productImages[galleryIndex]}
               alt={`${product.name} - Image ${galleryIndex + 1}`}
               fill
               className="object-contain"
@@ -1195,9 +1327,9 @@ export default function ProductCodeDetailContent() {
           </div>
 
           {/* Image Counter */}
-          {product.images.length > 1 && (
+          {productImages.length > 1 && (
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 text-white text-sm bg-black/50 px-3 py-1 rounded-full">
-              {galleryIndex + 1} / {product.images.length}
+              {galleryIndex + 1} / {productImages.length}
             </div>
           )}
         </div>

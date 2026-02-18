@@ -59,8 +59,36 @@ const isSaleActive = (product) => {
   return true;
 };
 
+const getImageUrl = (entry) => {
+  if (typeof entry === "string") return entry;
+  if (!entry || typeof entry !== "object") return "";
+
+  if (typeof entry.url === "string") return entry.url;
+  if (typeof entry.src === "string") return entry.src;
+  if (typeof entry.image === "string") return entry.image;
+
+  return "";
+};
+
+const normalizeImages = (rawImages) => {
+  if (!Array.isArray(rawImages)) return [];
+
+  const seen = new Set();
+  const unique = [];
+
+  for (const entry of rawImages) {
+    const value = getImageUrl(entry).trim();
+    const dedupeKey = value.toLowerCase();
+    if (!value || seen.has(dedupeKey)) continue;
+    seen.add(dedupeKey);
+    unique.push(value);
+  }
+
+  return unique;
+};
+
 const mapProduct = (product) => {
-  const images = Array.isArray(product?.images) ? product.images : [];
+  const images = normalizeImages(product?.images);
   const serviceCharge = Number(product?.service_charge || 0);
   const variations = normalizeVariations(product?.variations);
   const variationStats = getVariationPriceStats(variations, serviceCharge);

@@ -1652,6 +1652,7 @@ export default function CheckoutContent({
                 name="shippingRegion"
                 value={selectedRegionName}
               />
+              <input type="hidden" name="city" value={formData.city || ""} />
               <input
                 type="hidden"
                 name="hasShippableItems"

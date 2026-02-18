@@ -15,11 +15,14 @@ import {
   LayoutList,
   X,
   ShoppingBag,
+  ShoppingCart,
   Globe,
   Phone,
   Filter,
 } from "lucide-react";
 import { useStorefront } from "./context";
+import CartDrawer from "../../shop/components/CartDrawer";
+import { getOrCreateGuestBrowserId } from "../../utils/guest";
 import {
   Select,
   SelectContent,
@@ -68,6 +71,8 @@ export default function StorefrontContent() {
   const [viewMode, setViewMode] = useState("grid");
   const [showFilters, setShowFilters] = useState(false);
   const [localSearch, setLocalSearch] = useState(searchQuery);
+  const [cartDrawerOpen, setCartDrawerOpen] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const globalSearchHref = localSearch.trim()
     ? `/search?q=${encodeURIComponent(localSearch.trim())}`
     : "/search";
@@ -95,6 +100,42 @@ export default function StorefrontContent() {
   );
 
   const hasProducts = products.length > 0;
+
+  const fetchCartCount = useCallback(async () => {
+    try {
+      const guestBrowserId = getOrCreateGuestBrowserId();
+      const url = new URL("/api/shop/cart-product-ids", window.location.origin);
+      if (guestBrowserId) url.searchParams.set("guestBrowserId", guestBrowserId);
+      url.searchParams.set("_ts", String(Date.now()));
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      if (!res.ok) return;
+      const body = await res.json().catch(() => ({}));
+      const count = Array.isArray(body?.items) ? body.items.length : 0;
+      setCartCount(count);
+    } catch {
+      // ignore cart count fetch errors
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchCartCount();
+  }, [fetchCartCount]);
+
+  useEffect(() => {
+    const handleFocus = () => {
+      fetchCartCount();
+    };
+    const handleVisibility = () => {
+      if (!document.hidden) fetchCartCount();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [fetchCartCount]);
 
   if (vendorLoading) {
     return (
@@ -537,6 +578,31 @@ export default function StorefrontContent() {
       <div className="mt-12">
         <Footer />
       </div>
+
+      {/* Floating Cart Widget */}
+      {cartCount > 0 && (
+        <button
+          onClick={() => setCartDrawerOpen(true)}
+          className="fixed bottom-6 right-6 z-40 flex items-center gap-2 bg-[#A5914B] text-white pl-4 pr-5 py-3 rounded-full shadow-lg hover:bg-[#8B7A3F] hover:shadow-xl transition-all cursor-pointer"
+          aria-label={`View cart with ${cartCount} items`}
+        >
+          <span className="relative">
+            <ShoppingCart className="size-5" />
+            <span className="absolute -top-2 -right-2.5 bg-white text-[#A5914B] text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
+              {cartCount}
+            </span>
+          </span>
+          <span className="text-sm font-semibold ml-1">View Cart</span>
+        </button>
+      )}
+
+      {/* Cart Drawer */}
+      <CartDrawer
+        open={cartDrawerOpen}
+        onClose={() => setCartDrawerOpen(false)}
+        cartCount={cartCount}
+        onCartChanged={fetchCartCount}
+      />
     </div>
   );
 }

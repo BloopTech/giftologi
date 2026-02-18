@@ -65,7 +65,7 @@ export default function Footer() {
           backgroundSize: "200px",
         }}
       /> */}
-      <div className="w-full rounded-md max-w-7xl mx-auto mb-28">
+      <div className="w-full rounded-md max-w-6xl mx-auto mb-28">
         <div className="grid lg:grid-cols-12 gap-16">
           <div className="lg:col-span-4 space-y-8">
             <div className="flex items-center space-x-4">

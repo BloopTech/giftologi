@@ -227,7 +227,8 @@ export function CategoryShopProvider({
         const guestBrowserId = getOrCreateGuestBrowserId();
         const url = new URL("/api/shop/cart-product-ids", window.location.origin);
         if (guestBrowserId) url.searchParams.set("guestBrowserId", guestBrowserId);
-        const res = await fetch(url.toString());
+        url.searchParams.set("_ts", String(Date.now()));
+        const res = await fetch(url.toString(), { cache: "no-store" });
         if (!res.ok) return;
         const body = await res.json();
         const map = new Map();
@@ -617,7 +618,7 @@ export function CategoryShopProvider({
           toast.error(body?.message || "Failed to process purchase");
           return;
         }
-        router.push(`/storefront/${product.vendor.slug}/checkout?cart=1`);
+        router.push("/shop/checkout");
       } catch {
         toast.error("Failed to process purchase");
       } finally {
@@ -673,10 +674,7 @@ export function CategoryShopProvider({
   const cartCount = cartItemMap.size;
   const cartCheckoutUrl = useMemo(() => {
     if (cartItemMap.size === 0) return null;
-    for (const entry of cartItemMap.values()) {
-      if (entry.vendorSlug) return `/storefront/${entry.vendorSlug}/checkout?cart=1`;
-    }
-    return null;
+    return "/shop/checkout";
   }, [cartItemMap]);
 
   const isProductInRegistry = useCallback(

@@ -28,7 +28,7 @@ import {
   Gift,
 } from "lucide-react";
 import { processShopCheckout, getShopAramexRateQuote } from "./actions";
-import { getGuestIdentifier } from "../../utils/guest";
+import { getOrCreateGuestBrowserId } from "../../utils/guest";
 import { getDeviceFingerprint } from "../../utils/fingerprint";
 import { computeShipmentWeight } from "../../utils/shipping/weights";
 import {
@@ -687,7 +687,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
                           ) : (
                             shippingRegions.map((region) => (
                               <SelectItem key={region.id} value={region.id}>
-                                {region.name} - {formatPrice(region.fee)} shipping
+                                {region.name}
                               </SelectItem>
                             ))
                           )}
@@ -1060,6 +1060,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
                 name="shippingRegion"
                 value={selectedRegion?.name || ""}
               />
+              <input type="hidden" name="city" value={formData.city || ""} />
               <input type="hidden" name="total" value={total} />
               <input
                 type="hidden"

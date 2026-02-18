@@ -40,6 +40,24 @@ const buildVariationPayload = (variation, key) => {
   };
 };
 
+const isSaleActive = (product) => {
+  const salePrice = Number(product?.sale_price);
+  if (!Number.isFinite(salePrice) || salePrice <= 0) return false;
+
+  const now = Date.now();
+  const startsAt = product?.sale_starts_at
+    ? new Date(product.sale_starts_at).getTime()
+    : null;
+  const endsAt = product?.sale_ends_at
+    ? new Date(product.sale_ends_at).getTime()
+    : null;
+
+  if (startsAt && !Number.isNaN(startsAt) && now < startsAt) return false;
+  if (endsAt && !Number.isNaN(endsAt) && now > endsAt) return false;
+
+  return true;
+};
+
 const fetchCartPayload = async (adminClient, cartId) => {
   if (!cartId) return null;
   const { data: items, error } = await adminClient
@@ -314,7 +332,7 @@ export async function POST(request) {
     let productQuery = adminClient
       .from("products")
       .select(
-        "id, vendor_id, price, service_charge, stock_qty, variations, status, active"
+        "id, vendor_id, price, service_charge, stock_qty, variations, sale_price, sale_starts_at, sale_ends_at, status, active"
       )
       .eq("id", productId)
       .eq("status", "approved")
@@ -347,11 +365,18 @@ export async function POST(request) {
     const variationPrice = Number(matchedVariation?.price);
     const serviceCharge = Number(product.service_charge || 0);
     const basePrice = Number(product.price);
+    const salePrice = Number(product.sale_price);
+    const activeSalePrice =
+      isSaleActive(product) && Number.isFinite(salePrice)
+        ? salePrice + serviceCharge
+        : null;
     const baseWithCharge = Number.isFinite(basePrice)
       ? basePrice + serviceCharge
       : serviceCharge;
     const unitPrice = Number.isFinite(variationPrice)
       ? variationPrice + serviceCharge
+      : Number.isFinite(activeSalePrice)
+      ? activeSalePrice
       : Number.isFinite(baseWithCharge)
       ? baseWithCharge
       : 0;

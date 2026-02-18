@@ -102,7 +102,7 @@ export default function PublicNavbar() {
           : "bg-transparent dark:bg-gray-950 py-6"
       }`}
     >
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
           <Image

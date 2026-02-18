@@ -56,9 +56,20 @@ const getGoogleAnalyticsClientId = () => {
 };
 
 export const getGuestIdentifier = async () => {
+  const existingGuestBrowserId = getGuestBrowserId();
+  if (existingGuestBrowserId) {
+    return existingGuestBrowserId;
+  }
+
   const gaClientId = await getGoogleAnalyticsClientId();
   if (gaClientId) {
-    return `ga_${gaClientId}`;
+    const gaGuestId = `ga_${gaClientId}`;
+    try {
+      window.localStorage.setItem(GUEST_BROWSER_ID_KEY, gaGuestId);
+    } catch {
+      // ignore storage failures
+    }
+    return gaGuestId;
   }
   return getOrCreateGuestBrowserId();
 };

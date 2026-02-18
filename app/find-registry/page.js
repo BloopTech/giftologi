@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import RegistryDiscoverContent from "../registry/content";
+import RegistryDiscoverContent from "./content";
 import { RegistryDiscoverProvider } from "./context";
 import { createMetadata, getSeoDefaults } from "../utils/seo";
 

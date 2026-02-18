@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import Image from "next/image";
 
 const DEFAULT_FALLBACK_IMAGE = "/host/giftologi-gift-box.svg";
@@ -19,10 +19,16 @@ const VALID_IMAGE_EXTENSIONS = [
 
 function isValidImageUrl(url) {
   if (!url || typeof url !== "string") return false;
-  
+
   // Check for data URLs
   if (url.startsWith("data:image/")) return true;
-  
+
+  // Allow blob URLs
+  if (url.startsWith("blob:")) return true;
+
+  // Allow absolute and root-relative URLs even when extension is omitted
+  if (/^(https?:\/\/|\/)/i.test(url)) return true;
+
   // Check for valid extensions
   const lowerUrl = url.toLowerCase();
   return VALID_IMAGE_EXTENSIONS.some((ext) => lowerUrl.includes(ext));
@@ -42,6 +48,11 @@ export default function ImageWithFallback({
 }) {
   const [error, setError] = useState(false);
   const [imgSrc, setImgSrc] = useState(src);
+
+  useEffect(() => {
+    setError(false);
+    setImgSrc(src);
+  }, [src]);
 
   const handleError = useCallback(() => {
     setError(true);
