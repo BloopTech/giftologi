@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import GiftGuidesContent from "./content";
+import { GiftGuidesProvider } from "./context";
 
 export async function generateMetadata() {
   return {
@@ -22,7 +23,9 @@ export default async function GiftGuidesPage() {
         Skip to gift guides
       </Link>
       <main id="gift-guides-content" role="main" aria-label="Gift guides">
-        <GiftGuidesContent />
+        <GiftGuidesProvider>
+          <GiftGuidesContent />
+        </GiftGuidesProvider>
       </main>
     </>
   );

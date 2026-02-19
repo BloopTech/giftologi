@@ -202,7 +202,7 @@ export default function TreatsContent() {
 
   return (
     <>
-      <section className="min-h-screen bg-[#FAFAFA]">
+      <section className="pt-24 w-full min-h-screen bg-[#FAFAFA]">
         <div className="mx-auto max-w-6xl px-4 py-10">
           {/* Header */}
           <div className="text-center mb-10">

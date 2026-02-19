@@ -547,9 +547,9 @@ export default function ProductCodeDetailContent() {
     basePrice !== selectedPrice;
 
   return (
-    <div className="w-full pt-24 dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-brasley-medium">
+    <div className="w-full dark:text-white bg-[#FAFAFA] dark:bg-gray-950 min-h-screen font-brasley-medium">
       {product?.id && <ProductPageViewTracker productId={product.id} />}
-      <div className="mx-auto max-w-6xl w-full py-6 px-4">
+      <div className="mx-auto max-w-6xl w-full py-6 px-4 pt-24">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-6">
           <ol className="flex items-center gap-2 text-sm text-gray-500">

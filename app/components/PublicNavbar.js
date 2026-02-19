@@ -99,7 +99,7 @@ export default function PublicNavbar() {
       className={`fixed top-0 z-50 w-full transition-all duration-200 ${
         scrolled
           ? "bg-white/95 dark:bg-gray-950/95 backdrop-blur-md shadow-sm border-b border-gray-200/60 dark:border-gray-800/60 py-3"
-          : "bg-transparent dark:bg-gray-950 py-6"
+          : "bg-transparent! dark:bg-gray-950 py-6"
       }`}
     >
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">

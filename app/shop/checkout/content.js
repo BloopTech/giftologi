@@ -481,7 +481,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
   // Payment success redirect
   if (state.success && state.checkoutUrl) {
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 pt-24">
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
           <CheckCircle className="size-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
@@ -506,8 +506,8 @@ export default function ShopCheckoutContent({ userProfile = null }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950 font-brasley-medium w-full pt-24">
-      <div className="mx-auto max-w-6xl w-full py-6 px-4">
+    <div className="min-h-screen bg-[#FAFAFA] dark:bg-gray-950 font-brasley-medium w-full">
+      <div className="mx-auto max-w-6xl w-full py-6 px-4 pt-24">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <Link

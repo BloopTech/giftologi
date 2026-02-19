@@ -1,6 +1,7 @@
 "use server";
 import React from "react";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "../../../../utils/supabase/server";
 import CallbackContent from "./content";
 
@@ -10,6 +11,28 @@ export default async function CheckoutCallbackPage({ params, searchParams }) {
 
   if (!token && !orderCode) {
     redirect("/");
+  }
+
+  const headerStore = await headers();
+  const forwardedHost = headerStore.get("x-forwarded-host");
+  const host = forwardedHost || headerStore.get("host");
+  const protocol = headerStore.get("x-forwarded-proto") || "https";
+
+  if (host && (token || orderCode)) {
+    const webhookUrl = `${protocol}://${host}/api/storefront/checkout/webhook`;
+    const formData = new FormData();
+    if (token) formData.set("token", token);
+    if (orderCode) formData.set("order-id", orderCode);
+
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        body: formData,
+        cache: "no-store",
+      });
+    } catch (error) {
+      console.error("Failed to sync payment status from callback:", error);
+    }
   }
 
   const supabase = await createClient();

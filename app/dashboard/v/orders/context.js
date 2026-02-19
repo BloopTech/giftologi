@@ -23,6 +23,23 @@ const createInitialOrdersData = () => ({
   },
 });
 
+const toReadableError = (err) => {
+  if (!err) return "Failed to load orders data";
+  if (typeof err === "string") return err;
+  if (err?.message) return err.message;
+  if (err?.error_description) return err.error_description;
+  if (err?.details) return err.details;
+
+  try {
+    const serialized = JSON.stringify(err);
+    return serialized && serialized !== "{}"
+      ? serialized
+      : "Failed to load orders data";
+  } catch {
+    return "Failed to load orders data";
+  }
+};
+
 export const VendorOrdersProvider = ({ children }) => {
   const [ordersData, setOrdersData] = useState(createInitialOrdersData);
   const [loading, setLoading] = useState(true);
@@ -79,6 +96,11 @@ export const VendorOrdersProvider = ({ children }) => {
             registry_id,
             buyer_id,
             created_at,
+            checkout_context (
+              order_id,
+              total_weight_kg,
+              pieces
+            ),
             registries (
               id,
               title,
@@ -112,11 +134,6 @@ export const VendorOrdersProvider = ({ children }) => {
             name,
             fee,
             description
-          ),
-          checkout_context!inner (
-            order_id,
-            total_weight_kg,
-            pieces
           )
         `)
         .eq("vendor_id", vendorRecord.id)
@@ -141,7 +158,8 @@ export const VendorOrdersProvider = ({ children }) => {
         wrapping: item.wrapping ?? false,
         giftWrapOptionId: item.gift_wrap_option_id || null,
         giftWrapOption: item.gift_wrap_options || null,
-        checkoutContext: item.checkout_context,
+        checkoutContext:
+          item.orders?.checkout_context?.[0] || item.orders?.checkout_context || null,
       }));
 
       const stats = {
@@ -156,7 +174,7 @@ export const VendorOrdersProvider = ({ children }) => {
       setOrdersData({ orders, stats });
     } catch (err) {
       console.error("Orders fetch error:", err);
-      setError(err?.message || "Failed to load orders data");
+      setError(toReadableError(err));
       setOrdersData(createInitialOrdersData());
     } finally {
       setLoading(false);

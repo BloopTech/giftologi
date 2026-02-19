@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import {
   createAdminClient,
-  createClient,
 } from "../../../../utils/supabase/server";
 import { buildAramexTrackingUrl, createAramexShipment } from "../../../../utils/shipping/aramex";
 import { computeShipmentWeight } from "../../../../utils/shipping/weights";
@@ -15,50 +14,80 @@ const EXPRESSPAY_QUERY_URL =
 const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
 const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
 
+const TERMINAL_ORDER_STATUSES = new Set([
+  "paid",
+  "declined",
+  "failed",
+  "cancelled",
+]);
+
+function mapExpressPayResultToOrderStatus(resultCode, currentStatus = "pending") {
+  const normalizedResult = Number(resultCode);
+
+  if (normalizedResult === 1) return "paid";
+  if (normalizedResult === 2) return "declined";
+  if (normalizedResult === 3) return "failed";
+  if (normalizedResult === 4) return "pending";
+
+  return currentStatus;
+}
+
 export async function POST(request) {
   try {
     const body = await request.formData();
-    const token = body.get("token");
+    const tokenFromWebhook = body.get("token");
     const orderIdFromWebhook = body.get("order-id");
 
-    if (!token) {
-      return NextResponse.json({ error: "Missing token" }, { status: 400 });
+    if (!tokenFromWebhook && !orderIdFromWebhook) {
+      return NextResponse.json({ status: "ok" }, { status: 200 });
     }
 
-    const supabase = await createClient();
     const admin = createAdminClient();
 
     // Find order by token or order code
     let order = null;
-    
-    if (token) {
-      const { data } = await supabase
+
+    if (tokenFromWebhook) {
+      const { data } = await admin
         .from("orders")
-        .select("id, order_code, status")
-        .eq("payment_token", token)
-        .single();
+        .select("id, order_code, status, payment_token")
+        .eq("payment_token", tokenFromWebhook)
+        .maybeSingle();
       order = data;
     }
 
     if (!order && orderIdFromWebhook) {
-      const { data } = await supabase
+      const { data } = await admin
         .from("orders")
-        .select("id, order_code, status")
+        .select("id, order_code, status, payment_token")
         .eq("order_code", orderIdFromWebhook)
-        .single();
+        .maybeSingle();
       order = data;
     }
 
     if (!order) {
-      console.error("Order not found for token:", token);
-      return NextResponse.json({ error: "Order not found" }, { status: 404 });
+      console.error("Storefront webhook order not found:", {
+        orderId: orderIdFromWebhook,
+      });
+      return NextResponse.json({ status: "ok" }, { status: 200 });
+    }
+
+    // Skip if already in terminal state
+    if (TERMINAL_ORDER_STATUSES.has(order.status)) {
+      return NextResponse.json({ status: "ok" }, { status: 200 });
+    }
+
+    const queryToken = tokenFromWebhook || order.payment_token;
+    if (!queryToken) {
+      console.error("Storefront webhook missing query token for order:", order.id);
+      return NextResponse.json({ status: "ok" }, { status: 200 });
     }
 
     // Query ExpressPay for payment status
     const queryParams = new URLSearchParams({
       "merchant-id": EXPRESSPAY_MERCHANT_ID,
       "api-key": EXPRESSPAY_API_KEY,
-      token: token,
+      token: queryToken,
     });
 
     const queryResponse = await fetch(EXPRESSPAY_QUERY_URL, {
@@ -71,314 +100,327 @@ export async function POST(request) {
 
     const queryData = await queryResponse.json();
 
-    // Determine order status based on ExpressPay response
-    let newStatus = order.status;
-    let paymentReference = null;
+    const newStatus = mapExpressPayResultToOrderStatus(
+      queryData.result,
+      order.status
+    );
+    const paymentReference =
+      queryData["transaction-id"] || queryData.token || null;
 
-    if (queryData.result === 1) {
-      newStatus = "paid";
-      paymentReference = queryData["transaction-id"] || queryData.token;
-    } else if (queryData.result === 2) {
-      newStatus = "declined";
-    } else if (queryData.result === 3) {
-      newStatus = "failed";
+    const updatePayload = {
+      status: newStatus,
+      payment_reference: paymentReference,
+      payment_response: queryData,
+      updated_at: new Date().toISOString(),
+    };
+
+    let paidTransitioned = false;
+
+    if (newStatus === "paid") {
+      const { data: updatedOrder, error: updateError } = await admin
+        .from("orders")
+        .update(updatePayload)
+        .eq("id", order.id)
+        .neq("status", "paid")
+        .select("id")
+        .maybeSingle();
+
+      if (updateError) {
+        console.error("Failed to update order:", updateError);
+        return NextResponse.json({ status: "ok" }, { status: 200 });
+      }
+
+      paidTransitioned = Boolean(updatedOrder?.id);
+    } else {
+      const { error: updateError } = await admin
+        .from("orders")
+        .update(updatePayload)
+        .eq("id", order.id);
+
+      if (updateError) {
+        console.error("Failed to update order:", updateError);
+      }
     }
 
-    // Update order status
-    const { error: updateError } = await supabase
-      .from("orders")
-      .update({
-        status: newStatus,
-        payment_reference: paymentReference,
-        payment_response: queryData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", order.id);
-
-    if (updateError) {
-      console.error("Failed to update order:", updateError);
+    if (newStatus !== "paid" || !paidTransitioned) {
+      return NextResponse.json({ status: "ok" }, { status: 200 });
     }
 
     // If payment successful, update product stock and create payment record
-    if (newStatus === "paid") {
-      // Get order items
-      const { data: orderItems } = await supabase
-        .from("order_items")
-        .select("product_id, quantity, registry_item_id, vendor_id, variation")
-        .eq("order_id", order.id);
+    // Get order items
+    const { data: orderItems } = await admin
+      .from("order_items")
+      .select("product_id, quantity, registry_item_id, vendor_id, variation")
+      .eq("order_id", order.id);
 
-      // Update stock for each product + registry purchased quantities
-      if (orderItems) {
-        for (const item of orderItems) {
-          // Get current stock and variations, then decrement
-          const { data: product } = await supabase
-            .from("products")
-            .select("stock_qty, variations")
-            .eq("id", item.product_id)
-            .single();
-
-          if (product) {
-            const nowIso = new Date().toISOString();
-            const newStock = Math.max(0, (product.stock_qty || 0) - item.quantity);
-            const updatePayload = { stock_qty: newStock, updated_at: nowIso };
-
-            // Also decrement variation stock_qty if a variation was purchased
-            const itemVariation = item.variation;
-            if (itemVariation && typeof itemVariation === "object" && Array.isArray(product.variations)) {
-              const varKey = itemVariation.key || itemVariation.sku || itemVariation.label;
-              if (varKey) {
-                const updatedVariations = product.variations.map((v, idx) => {
-                  const vKey = String(v?.id || v?.sku || v?.label || idx);
-                  if (vKey === String(varKey) && typeof v?.stock_qty === "number") {
-                    return { ...v, stock_qty: Math.max(0, v.stock_qty - item.quantity) };
-                  }
-                  return v;
-                });
-                updatePayload.variations = updatedVariations;
-              }
-            }
-
-            await supabase
-              .from("products")
-              .update(updatePayload)
-              .eq("id", item.product_id);
-          }
-
-          if (item.registry_item_id) {
-            const { data: registryItem } = await supabase
-              .from("registry_items")
-              .select("purchased_qty")
-              .eq("id", item.registry_item_id)
-              .single();
-
-            if (registryItem) {
-              const newPurchasedQty =
-                (registryItem.purchased_qty || 0) + (item.quantity || 0);
-
-              await supabase
-                .from("registry_items")
-                .update({
-                  purchased_qty: newPurchasedQty,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq("id", item.registry_item_id);
-            }
-          }
-        }
-      }
-
-      // Notify vendors about the new order
-      try {
-        const vendorIds = Array.from(
-          new Set(orderItems?.map((item) => item?.vendor_id).filter(Boolean))
-        );
-
-        if (vendorIds.length) {
-          const { data: vendorRows } = await admin
-            .from("vendors")
-            .select("id, profiles_id, business_name, email")
-            .in("id", vendorIds);
-
-          for (const vendor of vendorRows || []) {
-            if (!vendor?.profiles_id) continue;
-
-            await dispatchNotification({
-              client: admin,
-              recipientId: vendor.profiles_id,
-              recipientRole: "vendor",
-              eventType: "new_order",
-              message: `New order received${
-                vendor.business_name ? ` for ${vendor.business_name}` : ""
-              }.`,
-              link: "/dashboard/v/orders",
-              data: {
-                order_id: order.id,
-                order_code: order.order_code || null,
-                vendor_id: vendor.id,
-              },
-              vendorId: vendor.id,
-              emailPayload: vendor.email
-                ? {
-                    templateSlug: "vendor_new_order",
-                    to: vendor.email,
-                    variables: {
-                      vendor_name: vendor.business_name || "Vendor",
-                      amount: String(queryData.amount || ""),
-                      order_reference: order.order_code || "",
-                      dashboard_url: `${process.env.NEXT_PUBLIC_SITE_URL || ""}/dashboard/v/orders`,
-                    },
-                  }
-                : undefined,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("Failed to notify vendors:", error);
-      }
-
-      // Create payment record
-      await supabase.from("order_payments").insert({
-        order_id: order.id,
-        amount: queryData.amount || 0,
-        currency: queryData.currency || "GHS",
-        payment_method: "expresspay",
-        payment_reference: paymentReference,
-        status: "completed",
-        created_at: new Date().toISOString(),
-      });
-
-      try {
-        const vendorId = orderItems?.find((item) => item?.vendor_id)?.vendor_id;
-        const { data: checkoutContext } = await admin
-          .from("checkout_context")
-          .select("total_weight_kg, pieces")
-          .eq("order_id", order.id)
+    // Update stock for each product + registry purchased quantities
+    if (orderItems) {
+      for (const item of orderItems) {
+        // Get current stock and variations, then decrement
+        const { data: product } = await admin
+          .from("products")
+          .select("stock_qty, variations")
+          .eq("id", item.product_id)
           .maybeSingle();
-        const fallbackPieces = orderItems?.reduce(
-          (sum, item) => sum + (Number(item?.quantity) || 0),
-          0
-        );
-        const totalPieces = Number.isFinite(Number(checkoutContext?.pieces))
-          ? Number(checkoutContext.pieces)
-          : fallbackPieces;
-        let totalWeight = Number(checkoutContext?.total_weight_kg);
 
-        if (!Number.isFinite(totalWeight)) {
-          const productIds = Array.from(
-            new Set(orderItems?.map((item) => item?.product_id).filter(Boolean))
-          );
-          const { data: productRows } = productIds.length
-            ? await admin
-                .from("products")
-                .select("id, weight_kg")
-                .in("id", productIds)
-            : { data: [] };
-          const productWeightMap = new Map(
-            (productRows || []).map((row) => [row.id, row.weight_kg])
-          );
-          totalWeight = computeShipmentWeight(
-            (orderItems || []).map((item) => ({
-              quantity: item?.quantity,
-              weight_kg: productWeightMap.get(item?.product_id),
-            }))
-          );
+        if (product) {
+          const nowIso = new Date().toISOString();
+          const newStock = Math.max(0, (product.stock_qty || 0) - item.quantity);
+          const updateProductPayload = { stock_qty: newStock, updated_at: nowIso };
+
+          // Also decrement variation stock_qty if a variation was purchased
+          const itemVariation = item.variation;
+          if (itemVariation && typeof itemVariation === "object" && Array.isArray(product.variations)) {
+            const varKey = itemVariation.key || itemVariation.sku || itemVariation.label;
+            if (varKey) {
+              const updatedVariations = product.variations.map((v, idx) => {
+                const vKey = String(v?.id || v?.sku || v?.label || idx);
+                if (vKey === String(varKey) && typeof v?.stock_qty === "number") {
+                  return { ...v, stock_qty: Math.max(0, v.stock_qty - item.quantity) };
+                }
+                return v;
+              });
+              updateProductPayload.variations = updatedVariations;
+            }
+          }
+
+          await admin
+            .from("products")
+            .update(updateProductPayload)
+            .eq("id", item.product_id);
         }
 
-        if (vendorId) {
-          const { data: existingShipment } = await admin
-            .from("order_shipments")
-            .select("id")
-            .eq("order_id", order.id)
-            .eq("provider", "aramex")
+        if (item.registry_item_id) {
+          const { data: registryItem } = await admin
+            .from("registry_items")
+            .select("purchased_qty")
+            .eq("id", item.registry_item_id)
             .maybeSingle();
 
-          if (!existingShipment?.id) {
-            const { data: orderDetails } = await admin
-              .from("orders")
-              .select(
-                "order_code, buyer_firstname, buyer_lastname, buyer_email, buyer_phone, shipping_address, shipping_city, shipping_region, shipping_digital_address, shipping_fee, total_amount"
-              )
-              .eq("id", order.id)
-              .single();
-            const { data: vendor } = await admin
-              .from("vendors")
-              .select(
-                "business_name, phone, email, address_street, digital_address, address_city, address_state, address_country"
-              )
-              .eq("id", vendorId)
-              .single();
+          if (registryItem) {
+            const newPurchasedQty =
+              (registryItem.purchased_qty || 0) + (item.quantity || 0);
 
-            if (orderDetails && vendor) {
-              const consigneeName = [
-                orderDetails.buyer_firstname,
-                orderDetails.buyer_lastname,
-              ]
-                .filter(Boolean)
-                .join(" ")
-                .trim();
-              const shipmentResult = await createAramexShipment({
-                shipper: {
-                  name: vendor.business_name || "Giftologi Vendor",
-                  company: vendor.business_name || "",
-                  phone: vendor.phone || "",
-                  email: vendor.email || "",
-                  address: vendor.address_street || "",
-                  address2: vendor.digital_address || "",
-                  city: vendor.address_city || "",
-                  state: vendor.address_state || "",
-                  postalCode: "",
-                  countryCode: vendor.address_country || "GH",
-                },
-                consignee: {
-                  name: consigneeName || "Recipient",
-                  company: "",
-                  phone: orderDetails.buyer_phone || "",
-                  email: orderDetails.buyer_email || "",
-                  address: orderDetails.shipping_address || "",
-                  address2: orderDetails.shipping_digital_address || "",
-                  city: orderDetails.shipping_city || "",
-                  state: orderDetails.shipping_region || "",
-                  postalCode: "",
-                  countryCode: vendor.address_country || "GH",
-                },
-                shipment: {
-                  weight: Math.max(1, totalWeight || totalPieces || 1),
-                  numberOfPieces: Math.max(1, totalPieces || 1),
-                  goodsValue: Number(orderDetails.total_amount || 0),
-                  currency: "GHS",
-                  description: `Order ${orderDetails.order_code}`,
-                  originCountryCode: vendor.address_country || "GH",
-                },
-                reference: orderDetails.order_code,
-              });
-
-              if (!shipmentResult.hasErrors && shipmentResult.shipmentNumber) {
-                const trackingUrl = buildAramexTrackingUrl(
-                  shipmentResult.shipmentNumber
-                );
-                await admin.from("order_shipments").insert({
-                  order_id: order.id,
-                  provider: "aramex",
-                  status: "created",
-                  tracking_number: shipmentResult.shipmentNumber,
-                  tracking_url: trackingUrl,
-                  label_url: shipmentResult.labelUrl || null,
-                  shipment_reference: orderDetails.order_code,
-                  cost: orderDetails.shipping_fee || null,
-                  currency: "GHS",
-                  metadata: { source: "expresspay_webhook" },
-                  last_status_at: new Date().toISOString(),
-                });
-
-                await admin
-                  .from("order_delivery_details")
-                  .update({
-                    courier_partner: "aramex",
-                    tracking_id: shipmentResult.shipmentNumber,
-                    delivery_status: "created",
-                    updated_at: new Date().toISOString(),
-                  })
-                  .eq("order_id", order.id);
-              } else if (shipmentResult.hasErrors) {
-                console.error(
-                  "Aramex shipment error:",
-                  shipmentResult.message || shipmentResult.raw
-                );
-              }
-            }
+            await admin
+              .from("registry_items")
+              .update({
+                purchased_qty: newPurchasedQty,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", item.registry_item_id);
           }
         }
-      } catch (error) {
-        console.error("Aramex auto-shipment error:", error);
       }
     }
 
-    return NextResponse.json({ success: true, status: newStatus });
+    // Notify vendors about the new order
+    try {
+      const vendorIds = Array.from(
+        new Set(orderItems?.map((item) => item?.vendor_id).filter(Boolean))
+      );
+
+      if (vendorIds.length) {
+        const { data: vendorRows } = await admin
+          .from("vendors")
+          .select("id, profiles_id, business_name, email")
+          .in("id", vendorIds);
+
+        for (const vendor of vendorRows || []) {
+          if (!vendor?.profiles_id) continue;
+
+          await dispatchNotification({
+            client: admin,
+            recipientId: vendor.profiles_id,
+            recipientRole: "vendor",
+            eventType: "new_order",
+            message: `New order received${
+              vendor.business_name ? ` for ${vendor.business_name}` : ""
+            }.`,
+            link: "/dashboard/v/orders",
+            data: {
+              order_id: order.id,
+              order_code: order.order_code || null,
+              vendor_id: vendor.id,
+            },
+            vendorId: vendor.id,
+            emailPayload: vendor.email
+              ? {
+                  templateSlug: "vendor_new_order",
+                  to: vendor.email,
+                  variables: {
+                    vendor_name: vendor.business_name || "Vendor",
+                    amount: String(queryData.amount || ""),
+                    order_reference: order.order_code || "",
+                    dashboard_url: `${process.env.NEXT_PUBLIC_SITE_URL || ""}/dashboard/v/orders`,
+                  },
+                }
+              : undefined,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Failed to notify vendors:", error);
+    }
+
+    // Create payment record
+    await admin.from("order_payments").insert({
+      order_id: order.id,
+      amount: queryData.amount || 0,
+      currency: queryData.currency || "GHS",
+      payment_method: "expresspay",
+      payment_reference: paymentReference,
+      status: "completed",
+      created_at: new Date().toISOString(),
+    });
+
+    try {
+      const vendorId = orderItems?.find((item) => item?.vendor_id)?.vendor_id;
+      const { data: checkoutContext } = await admin
+        .from("checkout_context")
+        .select("total_weight_kg, pieces")
+        .eq("order_id", order.id)
+        .maybeSingle();
+      const fallbackPieces = orderItems?.reduce(
+        (sum, item) => sum + (Number(item?.quantity) || 0),
+        0
+      );
+      const totalPieces = Number.isFinite(Number(checkoutContext?.pieces))
+        ? Number(checkoutContext.pieces)
+        : fallbackPieces;
+      let totalWeight = Number(checkoutContext?.total_weight_kg);
+
+      if (!Number.isFinite(totalWeight)) {
+        const productIds = Array.from(
+          new Set(orderItems?.map((item) => item?.product_id).filter(Boolean))
+        );
+        const { data: productRows } = productIds.length
+          ? await admin
+              .from("products")
+              .select("id, weight_kg")
+              .in("id", productIds)
+          : { data: [] };
+        const productWeightMap = new Map(
+          (productRows || []).map((row) => [row.id, row.weight_kg])
+        );
+        totalWeight = computeShipmentWeight(
+          (orderItems || []).map((item) => ({
+            quantity: item?.quantity,
+            weight_kg: productWeightMap.get(item?.product_id),
+          }))
+        );
+      }
+
+      if (vendorId) {
+        const { data: existingShipment } = await admin
+          .from("order_shipments")
+          .select("id")
+          .eq("order_id", order.id)
+          .eq("provider", "aramex")
+          .maybeSingle();
+
+        if (!existingShipment?.id) {
+          const { data: orderDetails } = await admin
+            .from("orders")
+            .select(
+              "order_code, buyer_firstname, buyer_lastname, buyer_email, buyer_phone, shipping_address, shipping_city, shipping_region, shipping_digital_address, shipping_fee, total_amount"
+            )
+            .eq("id", order.id)
+            .single();
+          const { data: vendor } = await admin
+            .from("vendors")
+            .select(
+              "business_name, phone, email, address_street, digital_address, address_city, address_state, address_country"
+            )
+            .eq("id", vendorId)
+            .single();
+
+          if (orderDetails && vendor) {
+            const consigneeName = [
+              orderDetails.buyer_firstname,
+              orderDetails.buyer_lastname,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .trim();
+            const shipmentResult = await createAramexShipment({
+              shipper: {
+                name: vendor.business_name || "Giftologi Vendor",
+                company: vendor.business_name || "",
+                phone: vendor.phone || "",
+                email: vendor.email || "",
+                address: vendor.address_street || "",
+                address2: vendor.digital_address || "",
+                city: vendor.address_city || "",
+                state: vendor.address_state || "",
+                postalCode: "",
+                countryCode: vendor.address_country || "GH",
+              },
+              consignee: {
+                name: consigneeName || "Recipient",
+                company: "",
+                phone: orderDetails.buyer_phone || "",
+                email: orderDetails.buyer_email || "",
+                address: orderDetails.shipping_address || "",
+                address2: orderDetails.shipping_digital_address || "",
+                city: orderDetails.shipping_city || "",
+                state: orderDetails.shipping_region || "",
+                postalCode: "",
+                countryCode: vendor.address_country || "GH",
+              },
+              shipment: {
+                weight: Math.max(1, totalWeight || totalPieces || 1),
+                numberOfPieces: Math.max(1, totalPieces || 1),
+                goodsValue: Number(orderDetails.total_amount || 0),
+                currency: "GHS",
+                description: `Order ${orderDetails.order_code}`,
+                originCountryCode: vendor.address_country || "GH",
+              },
+              reference: orderDetails.order_code,
+            });
+
+            if (!shipmentResult.hasErrors && shipmentResult.shipmentNumber) {
+              const trackingUrl = buildAramexTrackingUrl(
+                shipmentResult.shipmentNumber
+              );
+              await admin.from("order_shipments").insert({
+                order_id: order.id,
+                provider: "aramex",
+                status: "created",
+                tracking_number: shipmentResult.shipmentNumber,
+                tracking_url: trackingUrl,
+                label_url: shipmentResult.labelUrl || null,
+                shipment_reference: orderDetails.order_code,
+                cost: orderDetails.shipping_fee || null,
+                currency: "GHS",
+                metadata: { source: "expresspay_webhook" },
+                last_status_at: new Date().toISOString(),
+              });
+
+              await admin
+                .from("order_delivery_details")
+                .update({
+                  courier_partner: "aramex",
+                  tracking_id: shipmentResult.shipmentNumber,
+                  delivery_status: "created",
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("order_id", order.id);
+            } else if (shipmentResult.hasErrors) {
+              console.error(
+                "Aramex shipment error:",
+                shipmentResult.message || shipmentResult.raw
+              );
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Aramex auto-shipment error:", error);
+    }
+
+    return NextResponse.json({ status: "ok" }, { status: 200 });
   } catch (error) {
     console.error("Webhook error:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ status: "ok" }, { status: 200 });
   }
 }

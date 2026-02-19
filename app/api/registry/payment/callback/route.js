@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "../../../../utils/supabase/server";
+import { createAdminClient } from "../../../../utils/supabase/server";
 
 const EXPRESSPAY_QUERY_URL =
   process.env.EXPRESSPAY_ENV === "live"
@@ -9,37 +9,87 @@ const EXPRESSPAY_QUERY_URL =
 const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
 const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
 
+const TERMINAL_ORDER_STATUSES = new Set([
+  "paid",
+  "declined",
+  "failed",
+  "cancelled",
+]);
+
+function mapExpressPayResultToOrderStatus(resultCode, currentStatus = "pending") {
+  const normalizedResult = Number(resultCode);
+
+  if (normalizedResult === 1) return "paid";
+  if (normalizedResult === 2) return "declined";
+  if (normalizedResult === 3) return "failed";
+  if (normalizedResult === 4) return "pending";
+
+  return currentStatus;
+}
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const orderId = searchParams.get("order-id");
     const token = searchParams.get("token");
 
-    if (!orderId || !token) {
+    if (!orderId && !token) {
       return NextResponse.redirect(
         new URL("/payment-error?reason=missing_params", request.url)
       );
     }
 
-    const supabase = await createClient();
+    const adminClient = createAdminClient();
 
     // Find the order
-    const { data: order, error: orderError } = await supabase
-      .from("orders")
-      .select(
+    let order = null;
+    let orderError = null;
+
+    if (orderId) {
+      const { data, error } = await adminClient
+        .from("orders")
+        .select(
+          `
+          id,
+          order_code,
+          registry_id,
+          status,
+          payment_token,
+          payment_reference,
+          registry:registries(
+            registry_code
+          )
         `
-        id,
-        order_code,
-        registry_id,
-        status,
-        payment_token,
-        registry:registries(
-          registry_code
         )
-      `
-      )
-      .eq("order_code", orderId)
-      .single();
+        .eq("order_code", orderId)
+        .maybeSingle();
+
+      order = data;
+      orderError = error;
+    }
+
+    if (!order && token) {
+      const { data, error } = await adminClient
+        .from("orders")
+        .select(
+          `
+          id,
+          order_code,
+          registry_id,
+          status,
+          payment_token,
+          payment_reference,
+          registry:registries(
+            registry_code
+          )
+        `
+        )
+        .eq("payment_token", token)
+        .maybeSingle();
+
+      order = data;
+      orderError = error;
+    }
 
     if (orderError || !order) {
       return NextResponse.redirect(
@@ -48,12 +98,25 @@ export async function GET(request) {
     }
 
     const orderCode = order.order_code || order.id;
+    const registryCode = order.registry?.registry_code;
+    const baseUrl = registryCode ? `/find-/registry/${registryCode}` : "/";
 
-    if (order.status === "paid") {
-      const registryCode = order.registry?.registry_code;
-      const baseUrl = registryCode ? `/find-/registry/${registryCode}` : "/";
+    if (TERMINAL_ORDER_STATUSES.has(order.status)) {
+      if (order.status === "paid") {
+        return NextResponse.redirect(
+          new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)
+        );
+      }
+
       return NextResponse.redirect(
-        new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)
+        new URL(`${baseUrl}?payment=failed&order=${orderCode}`, request.url)
+      );
+    }
+
+    const queryToken = token || order.payment_token;
+    if (!queryToken) {
+      return NextResponse.redirect(
+        new URL(`${baseUrl}?payment=pending&order=${orderCode}`, request.url)
       );
     }
 
@@ -61,7 +124,7 @@ export async function GET(request) {
     const queryParams = new URLSearchParams({
       "merchant-id": EXPRESSPAY_MERCHANT_ID,
       "api-key": EXPRESSPAY_API_KEY,
-      token,
+      token: queryToken,
     });
 
     const queryResponse = await fetch(EXPRESSPAY_QUERY_URL, {
@@ -74,26 +137,20 @@ export async function GET(request) {
 
     const queryData = await queryResponse.json();
 
-    // result: 1 = Approved, 2 = Declined, 3 = Error, 4 = Pending
-    const resultStatus = queryData.result;
-
-    let newStatus = "pending";
-    if (resultStatus === 1) {
-      newStatus = "paid";
-    } else if (resultStatus === 2) {
-      newStatus = "declined";
-    } else if (resultStatus === 3) {
-      newStatus = "failed";
-    }
+    const newStatus = mapExpressPayResultToOrderStatus(
+      queryData.result,
+      order.status
+    );
+    const paymentReference =
+      queryData["transaction-id"] || queryData.token || null;
 
     // Update order status (idempotent)
-    const { data: updatedOrder } = await supabase
+    const { data: updatedOrder } = await adminClient
       .from("orders")
       .update({
         status: newStatus,
-        payment_transaction_id: queryData["transaction-id"] || null,
-        payment_result: queryData["result-text"] || null,
-        payment_date: queryData["date-processed"] || null,
+        payment_reference: paymentReference,
+        payment_response: queryData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id)
@@ -104,25 +161,27 @@ export async function GET(request) {
     // If payment was successful, update purchased quantity
     if (newStatus === "paid" && updatedOrder?.id) {
       // Get order items
-      const { data: orderItems } = await supabase
+      const { data: orderItems } = await adminClient
         .from("order_items")
         .select("registry_item_id, quantity")
         .eq("order_id", order.id);
 
       if (orderItems && orderItems.length > 0) {
         for (const item of orderItems) {
+          if (!item?.registry_item_id) continue;
+
           // Get current purchased qty
-          const { data: registryItem } = await supabase
+          const { data: registryItem } = await adminClient
             .from("registry_items")
             .select("purchased_qty")
             .eq("id", item.registry_item_id)
-            .single();
+            .maybeSingle();
 
           if (registryItem) {
             const newPurchasedQty =
               (registryItem.purchased_qty || 0) + item.quantity;
 
-            await supabase
+            await adminClient
               .from("registry_items")
               .update({
                 purchased_qty: newPurchasedQty,
@@ -135,11 +194,6 @@ export async function GET(request) {
     }
 
     // Redirect based on status
-    const registryCode = order.registry?.registry_code;
-    const baseUrl = registryCode
-      ? `/find-/registry/${registryCode}`
-      : "/";
-
     if (newStatus === "paid") {
       return NextResponse.redirect(
         new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)

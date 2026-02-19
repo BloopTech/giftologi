@@ -435,8 +435,10 @@ export async function middlewareClient(request) {
     ) {
       return withCookiesRedirect(new URL("/forgot-password", request.url));
     }
-    // Redirect to login for protected routes (treat as prefixes)
-    const isProtected = protectedRoutes.some((p) => url.pathname.startsWith(p));
+    // Redirect to login for protected routes (exact match or nested path only)
+    const isProtected = protectedRoutes.some(
+      (p) => url.pathname === p || url.pathname.startsWith(`${p}/`)
+    );
     if (isProtected) {
       return withCookiesRedirect(
         new URL("/login?next=" + (next || url.pathname), request.url)

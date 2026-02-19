@@ -1,8 +1,8 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import ImageWithFallback from "@/app/components/ImageWithFallback";
-import { PiGift, PiMagnifyingGlass, PiFunnel } from "react-icons/pi";
+import { PiGift, PiMagnifyingGlass } from "react-icons/pi";
 import {
   Select,
   SelectContent,
@@ -11,22 +11,64 @@ import {
   SelectValue,
 } from "@/app/components/Select";
 import Footer from "../components/footer";
-
-const buildLabelMap = (arr) => {
-  const map = {};
-  (arr || []).forEach((item) => {
-    if (item.value && item.label) map[item.value] = item.label;
-  });
-  return map;
-};
+import { useGiftGuidesContext } from "./context";
 
 function GuideCard({ guide, occasionLabels = {}, budgetLabels = {} }) {
   return (
+    // <Link
+    //   href={`/gift-guides/${guide.slug}`}
+    //   className="group block bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden hover:border-[#A5914B]/40 hover:shadow-md transition-all"
+    // >
+    //   <div className="aspect-video relative bg-[#F3F4F6]">
+    //     {guide.cover_image ? (
+    //       <ImageWithFallback
+    //         src={guide.cover_image}
+    //         alt={guide.title}
+    //         fill
+    //         priority
+    //         className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
+    //         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+    //       />
+    //     ) : (
+    //       <div className="w-full h-full flex items-center justify-center">
+    //         <PiGift className="w-12 h-12 text-[#D1D5DB]" />
+    //       </div>
+    //     )}
+
+    //     {guide.occasion && (
+    //       <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-[10px] font-medium text-[#374151] px-2.5 py-1 rounded-full">
+    //         {occasionLabels[guide.occasion] || guide.occasion}
+    //       </span>
+    //     )}
+    //   </div>
+
+    //   <div className="p-4">
+    //     <h3 className="text-sm font-semibold text-[#111827] group-hover:text-[#A5914B] transition-colors line-clamp-1">
+    //       {guide.title}
+    //     </h3>
+    //     {guide.description && (
+    //       <p className="text-xs text-[#6B7280] mt-1 line-clamp-2">
+    //         {guide.description}
+    //       </p>
+    //     )}
+    //     <div className="flex items-center gap-2 mt-3">
+    //       <span className="text-[10px] text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
+    //         {guide.productCount} {guide.productCount === 1 ? "item" : "items"}
+    //       </span>
+    //       {guide.budget_range && (
+    //         <span className="text-[10px] text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
+    //           {budgetLabels[guide.budget_range] || guide.budget_range}
+    //         </span>
+    //       )}
+    //     </div>
+    //   </div>
+    // </Link>
+
     <Link
-      href={`/gift-guides/${guide.slug}`}
-      className="group block bg-white border border-[#E5E7EB] rounded-2xl overflow-hidden hover:border-[#A5914B]/40 hover:shadow-md transition-all"
+      href={`/gift-guides/${guide?.slug}`}
+      className="group bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-xl transition-all duration-500 border border-gray-100 cursor-pointer block"
     >
-      <div className="aspect-video relative bg-[#F3F4F6]">
+      <div className="h-64 overflow-hidden relative">
         {guide.cover_image ? (
           <ImageWithFallback
             src={guide.cover_image}
@@ -41,32 +83,33 @@ function GuideCard({ guide, occasionLabels = {}, budgetLabels = {} }) {
             <PiGift className="w-12 h-12 text-[#D1D5DB]" />
           </div>
         )}
-
         {guide.occasion && (
           <span className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-[10px] font-medium text-[#374151] px-2.5 py-1 rounded-full">
             {occasionLabels[guide.occasion] || guide.occasion}
           </span>
         )}
+        <div className="absolute top-4 right-4 bg-white/90 backdrop-blur-sm px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest text-gray-900">
+          {guide.productCount}
+        </div>
       </div>
-
-      <div className="p-4">
-        <h3 className="text-sm font-semibold text-[#111827] group-hover:text-[#A5914B] transition-colors line-clamp-1">
+      <div className="p-8">
+        <h3 className="text-2xl font-serif font-bold text-gray-900 mb-2">
           {guide.title}
         </h3>
-        {guide.description && (
-          <p className="text-xs text-[#6B7280] mt-1 line-clamp-2">
-            {guide.description}
-          </p>
-        )}
         <div className="flex items-center gap-2 mt-3">
-          <span className="text-[10px] text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
-            {guide.productCount} {guide.productCount === 1 ? "item" : "items"}
-          </span>
           {guide.budget_range && (
             <span className="text-[10px] text-[#9CA3AF] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
               {budgetLabels[guide.budget_range] || guide.budget_range}
             </span>
           )}
+        </div>
+        <div className="flex items-center justify-between mt-4">
+          <span className="text-[11px] font-bold text-gray-900 tracking-[0.2em] uppercase group-hover:text-[#FDD17D] transition-colors duration-300">
+            Explore Guide
+          </span>
+          <span className="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 group-hover:bg-[#FDD17D] group-hover:text-gray-900 transition-colors">
+            →
+          </span>
         </div>
       </div>
     </Link>
@@ -74,45 +117,10 @@ function GuideCard({ guide, occasionLabels = {}, budgetLabels = {} }) {
 }
 
 export default function GiftGuidesContent() {
-  const [guides, setGuides] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const { guides, loading, error, occasionLabels, budgetLabels } =
+    useGiftGuidesContext();
   const [searchQuery, setSearchQuery] = useState("");
   const [occasionFilter, setOccasionFilter] = useState("all");
-  const [occasions, setOccasions] = useState([]);
-  const [budgetRanges, setBudgetRanges] = useState([]);
-
-  const occasionLabels = useMemo(() => buildLabelMap(occasions), [occasions]);
-  const budgetLabels = useMemo(() => buildLabelMap(budgetRanges), [budgetRanges]);
-
-  useEffect(() => {
-    let ignore = false;
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [guidesRes, lookupsRes] = await Promise.all([
-          fetch("/api/gift-guides"),
-          fetch("/api/gift-guides/lookups"),
-        ]);
-        if (!guidesRes.ok) throw new Error("Failed to load guides");
-        const guidesData = await guidesRes.json();
-        const lookupsData = lookupsRes.ok ? await lookupsRes.json() : {};
-        if (!ignore) {
-          setGuides(guidesData.guides || []);
-          setOccasions(lookupsData.occasions || []);
-          setBudgetRanges(lookupsData.budgetRanges || []);
-        }
-      } catch (err) {
-        if (!ignore) setError(err.message);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    };
-    fetchData();
-    return () => {
-      ignore = true;
-    };
-  }, []);
 
   const filteredGuides = useMemo(() => {
     let result = guides;
@@ -124,7 +132,7 @@ export default function GiftGuidesContent() {
       result = result.filter(
         (g) =>
           g.title?.toLowerCase().includes(q) ||
-          g.description?.toLowerCase().includes(q)
+          g.description?.toLowerCase().includes(q),
       );
     }
     return result;
@@ -137,17 +145,27 @@ export default function GiftGuidesContent() {
 
   return (
     <>
-      <section className="min-h-screen bg-[#FAFAFA]">
-        <div className="mx-auto max-w-6xl px-4 py-10">
+      <section className="w-full min-h-screen bg-[#F9F9F9]">
+        <div className="mx-auto max-w-6xl px-4 py-10 w-full">
           {/* Header */}
-          <div className="text-center mb-10">
-            <h1 className="text-2xl sm:text-3xl font-semibold text-[#111827] font-brasley-medium">
-              Gift Guides
-            </h1>
-            <p className="text-sm text-[#6B7280] mt-2 max-w-md mx-auto">
-              Curated collections to help you find the perfect gift for every
-              occasion.
-            </p>
+          <div className="relative pt-34 pb-20 px-6 sm:px-12 lg:px-24 overflow-hidden bg-[#F9F9F9]">
+            {/* Giftologi Background Pattern */}
+
+            <div className="max-w-6xl mx-auto relative z-10 text-center">
+              <h4 className="text-sm font-bold tracking-[0.2em] text-[#FF6581] uppercase mb-6">
+                Curated Inspiration
+              </h4>
+              <h1 className="text-5xl md:text-7xl font-bold leading-[1.1] text-gray-900 mb-8">
+                <span className="block font-didot-bold">Find the Perfect</span>
+                <span className="block italic font-light text-[#FDD17D]">
+                  Expression.
+                </span>
+              </h1>
+              <p className="text-xl text-gray-600 font-light leading-relaxed max-w-2xl mx-auto">
+                Thoughtfully curated collections for every personality,
+                occasion, and milestone. Discover gifts that tell a story.
+              </p>
+            </div>
           </div>
 
           {/* Filters */}
@@ -207,11 +225,18 @@ export default function GiftGuidesContent() {
               </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredGuides.map((guide) => (
-                <GuideCard key={guide.id} guide={guide} occasionLabels={occasionLabels} budgetLabels={budgetLabels} />
-              ))}
-            </div>
+            <section className="pb-32 bg-[#F9F9F9]">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {filteredGuides.map((guide) => (
+                  <GuideCard
+                    key={guide.id}
+                    guide={guide}
+                    occasionLabels={occasionLabels}
+                    budgetLabels={budgetLabels}
+                  />
+                ))}
+              </div>
+            </section>
           )}
         </div>
       </section>

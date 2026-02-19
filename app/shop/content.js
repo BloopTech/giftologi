@@ -110,7 +110,7 @@ export default function ShopContent() {
   const hasProducts = products.length > 0;
 
   return (
-    <div className="pt-24 dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-brasley-medium">
+    <div className="dark:text-white bg-linear-to-b from-[#FAFAFA] to-white dark:from-gray-950 dark:to-gray-900 min-h-screen font-brasley-medium">
       <Link
         href="#shop-main-content"
         className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-9999 focus:px-4 focus:py-2 focus:bg-primary focus:text-white focus:rounded-md"
@@ -119,7 +119,7 @@ export default function ShopContent() {
       </Link>
 
       {/* Hero Header */}
-      <div className="relative bg-linear-to-r from-[#A5914B]/10 via-[#A5914B]/5 to-transparent">
+      <div className="pt-24 relative bg-linear-to-r from-[#A5914B]/10 via-[#A5914B]/5 to-transparent">
         <div className="mx-auto max-w-6xl w-full px-4 py-8 md:py-12">
           <div className="flex flex-col md:flex-row gap-6 md:gap-8 items-start md:items-center justify-between">
             <div className="flex flex-col">
