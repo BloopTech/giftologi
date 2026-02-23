@@ -6,6 +6,75 @@ const MAX_LIMIT = 24;
 const GROUP_LIMIT = 6;
 const SEARCH_BUFFER = 200;
 
+const PRODUCT_SELECT = `
+  id,
+  product_code,
+  name,
+  price,
+  service_charge,
+  images,
+  sale_price,
+  sale_starts_at,
+  sale_ends_at,
+  vendor:vendors!inner(
+    id,
+    slug,
+    business_name,
+    verified,
+    shop_status
+  )
+`;
+
+const VENDOR_SELECT = `
+  id,
+  business_name,
+  description,
+  logo,
+  logo_url,
+  slug,
+  verified,
+  shop_status
+`;
+
+const REGISTRY_SELECT = `
+  id,
+  title,
+  registry_code,
+  cover_photo,
+  deadline,
+  created_at,
+  event:events!inner(
+    id,
+    host_id,
+    type,
+    title,
+    date,
+    privacy
+  )
+`;
+
+const buildProductBaseQuery = (admin) =>
+  admin
+    .from("products")
+    .select(PRODUCT_SELECT)
+    .eq("status", "approved")
+    .eq("active", true)
+    .eq("vendor.shop_status", "active")
+    .gt("stock_qty", 0);
+
+const buildVendorBaseQuery = (admin) =>
+  admin
+    .from("vendors")
+    .select(VENDOR_SELECT)
+    .eq("shop_status", "active");
+
+const buildRegistryBaseQuery = (admin, nowIso) =>
+  admin
+    .from("registries")
+    .select(REGISTRY_SELECT)
+    .eq("event.privacy", "public")
+    .gte("deadline", nowIso);
+
 const formatPrice = (value) => {
   if (value === null || typeof value === "undefined") return null;
   const num = Number(value);
@@ -97,26 +166,89 @@ const serializeRegistry = (row, host) => ({
     : null,
 });
 
-const filterRegistryRows = (rows, hostMap, term) => {
-  const normalized = term.toLowerCase();
-  return rows.filter((row) => {
-    const host = hostMap.get(row?.event?.host_id);
-    const hostName = toHostName(host).toLowerCase();
-    const hostEmail = (host?.email || "").toLowerCase();
-    const registryName = (row?.title || "").toLowerCase();
-    const registryCode = String(row?.registry_code || "").toLowerCase();
-    const eventType = (row?.event?.type || "").toLowerCase();
-    const eventTitle = (row?.event?.title || "").toLowerCase();
+const scoreSimilarity = (needle, query) => {
+  const normalizedNeedle = String(needle || "").trim().toLowerCase();
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  if (!normalizedNeedle || !normalizedQuery) return 0;
 
-    return (
-      registryName.includes(normalized) ||
-      registryCode.includes(normalized) ||
-      hostName.includes(normalized) ||
-      hostEmail.includes(normalized) ||
-      eventType.includes(normalized) ||
-      eventTitle.includes(normalized)
-    );
-  });
+  if (normalizedNeedle === normalizedQuery) return 200;
+  if (normalizedNeedle.startsWith(normalizedQuery)) return 120;
+  if (normalizedNeedle.includes(normalizedQuery)) return 90;
+
+  const queryTokens = normalizedQuery.split(/\s+/).filter(Boolean);
+  if (!queryTokens.length) return 0;
+
+  let tokenScore = 0;
+  for (const token of queryTokens) {
+    if (normalizedNeedle.includes(token)) tokenScore += 20;
+    else if (token.length > 3 && normalizedNeedle.includes(token.slice(0, 3))) {
+      tokenScore += 8;
+    }
+  }
+
+  return tokenScore;
+};
+
+const rankRowsBySimilarity = (rows, query, buildNeedle) => {
+  return (Array.isArray(rows) ? rows : [])
+    .map((row) => ({
+      row,
+      score: scoreSimilarity(buildNeedle(row), query),
+    }))
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((entry) => entry.row);
+};
+
+const mergeRowsById = (primaryRows, secondaryRows) => {
+  const seen = new Set();
+  const merged = [];
+
+  const append = (row) => {
+    const key = row?.id ? String(row.id) : "";
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    merged.push(row);
+  };
+
+  (Array.isArray(primaryRows) ? primaryRows : []).forEach(append);
+  (Array.isArray(secondaryRows) ? secondaryRows : []).forEach(append);
+
+  return merged;
+};
+
+const buildProductNeedle = (row) =>
+  [row?.name, row?.product_code, row?.vendor?.business_name]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+const buildVendorNeedle = (row) =>
+  [row?.business_name, row?.slug, row?.description]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+const buildRegistryNeedle = (row, hostMap) => {
+  const host = hostMap.get(row?.event?.host_id);
+  const hostName = toHostName(host).toLowerCase();
+  const hostEmail = (host?.email || "").toLowerCase();
+  const registryName = (row?.title || "").toLowerCase();
+  const registryCode = String(row?.registry_code || "").toLowerCase();
+  const eventTypeName = (row?.event?.type || "").toLowerCase();
+  const eventTitle = (row?.event?.title || "").toLowerCase();
+
+  return [
+    registryName,
+    registryCode,
+    hostName,
+    hostEmail,
+    eventTypeName,
+    eventTitle,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 };
 
 export async function GET(req) {
@@ -141,8 +273,15 @@ export async function GET(req) {
       MAX_LIMIT,
       Math.max(1, Number.parseInt(limitRaw || `${DEFAULT_LIMIT}`, 10) || DEFAULT_LIMIT)
     );
+    const shouldFetchAll = type === "all";
     const groupLimit = Math.min(GROUP_LIMIT, limit);
     const nowIso = new Date().toISOString();
+    const searchWindow = shouldFetchAll
+      ? Math.min(SEARCH_BUFFER, Math.max(groupLimit * 8, groupLimit))
+      : Math.min(
+          SEARCH_BUFFER,
+          Math.max(limit * page + limit, limit),
+        );
 
     const admin = createAdminClient();
 
@@ -157,147 +296,119 @@ export async function GET(req) {
       registries: 0,
     };
 
-    const shouldFetchAll = type === "all";
-
     if (type === "all" || type === "products") {
-      const from = shouldFetchAll ? 0 : (page - 1) * limit;
-      const to = shouldFetchAll ? groupLimit - 1 : from + limit - 1;
+      const [
+        { data: ftsProducts, error: productFtsError },
+        { data: similarityProducts, error: productSimilarityError },
+      ] = await Promise.all([
+        buildProductBaseQuery(admin)
+          .textSearch("search_vector", query, {
+            type: "websearch",
+            config: "simple",
+          })
+          .order("created_at", { ascending: false })
+          .range(0, searchWindow - 1),
+        buildProductBaseQuery(admin)
+          .order("created_at", { ascending: false })
+          .range(0, searchWindow - 1),
+      ]);
 
-      let productQuery = admin
-        .from("products")
-        .select(
-          `
-          id,
-          product_code,
-          name,
-          price,
-          service_charge,
-          images,
-          sale_price,
-          sale_starts_at,
-          sale_ends_at,
-          vendor:vendors!inner(
-            id,
-            slug,
-            business_name,
-            verified,
-            shop_status
-          )
-        `,
-          shouldFetchAll || type === "products" ? { count: "exact" } : undefined
-        )
-        .eq("status", "approved")
-        .eq("active", true)
-        .eq("vendor.shop_status", "active")
-        .gt("stock_qty", 0)
-        .textSearch("search_vector", query, {
-          type: "websearch",
-          config: "simple",
-        })
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      const { data: products, error: productError, count: productCount } =
-        await productQuery;
-
-      if (productError) {
+      if (productFtsError || productSimilarityError) {
         return NextResponse.json(
           { message: "Failed to search products" },
           { status: 500 }
         );
       }
 
-      const productRows = Array.isArray(products) ? products : [];
-      results.products = productRows.map(serializeProduct).filter((p) => p?.id);
-      counts.products = typeof productCount === "number" ? productCount : productRows.length;
+      const rankedSimilarityProducts = rankRowsBySimilarity(
+        similarityProducts,
+        query,
+        buildProductNeedle
+      );
+      const mergedProductRows = mergeRowsById(
+        ftsProducts,
+        rankedSimilarityProducts
+      );
+
+      const pageStart = shouldFetchAll ? 0 : (page - 1) * limit;
+      const pageLimit = shouldFetchAll ? groupLimit : limit;
+      const pageProducts = mergedProductRows.slice(
+        pageStart,
+        pageStart + pageLimit
+      );
+
+      results.products = pageProducts.map(serializeProduct).filter((p) => p?.id);
+      counts.products = mergedProductRows.length;
     }
 
     if (type === "all" || type === "vendors") {
-      const from = shouldFetchAll ? 0 : (page - 1) * limit;
-      const to = shouldFetchAll ? groupLimit - 1 : from + limit - 1;
+      const [
+        { data: ftsVendors, error: vendorFtsError },
+        { data: similarityVendors, error: vendorSimilarityError },
+      ] = await Promise.all([
+        buildVendorBaseQuery(admin)
+          .textSearch("search_vector", query, {
+            type: "websearch",
+            config: "simple",
+          })
+          .order("created_at", { ascending: false })
+          .range(0, searchWindow - 1),
+        buildVendorBaseQuery(admin)
+          .order("created_at", { ascending: false })
+          .range(0, searchWindow - 1),
+      ]);
 
-      const vendorQuery = admin
-        .from("vendors")
-        .select(
-          `
-          id,
-          business_name,
-          description,
-          logo,
-          logo_url,
-          slug,
-          verified,
-          shop_status
-        `,
-          shouldFetchAll || type === "vendors" ? { count: "exact" } : undefined
-        )
-        .eq("shop_status", "active")
-        .textSearch("search_vector", query, {
-          type: "websearch",
-          config: "simple",
-        })
-        .order("created_at", { ascending: false })
-        .range(from, to);
-
-      const { data: vendors, error: vendorError, count: vendorCount } =
-        await vendorQuery;
-
-      if (vendorError) {
+      if (vendorFtsError || vendorSimilarityError) {
         return NextResponse.json(
           { message: "Failed to search vendors" },
           { status: 500 }
         );
       }
 
-      const vendorRows = Array.isArray(vendors) ? vendors : [];
-      results.vendors = vendorRows.map(serializeVendor).filter((v) => v?.id);
-      counts.vendors = typeof vendorCount === "number" ? vendorCount : vendorRows.length;
+      const rankedSimilarityVendors = rankRowsBySimilarity(
+        similarityVendors,
+        query,
+        buildVendorNeedle
+      );
+      const mergedVendorRows = mergeRowsById(ftsVendors, rankedSimilarityVendors);
+
+      const pageStart = shouldFetchAll ? 0 : (page - 1) * limit;
+      const pageLimit = shouldFetchAll ? groupLimit : limit;
+      const pageVendors = mergedVendorRows.slice(pageStart, pageStart + pageLimit);
+
+      results.vendors = pageVendors.map(serializeVendor).filter((v) => v?.id);
+      counts.vendors = mergedVendorRows.length;
     }
 
     if (type === "all" || type === "registries") {
-      const searchLimit = shouldFetchAll
-        ? SEARCH_BUFFER
-        : Math.min(
-            SEARCH_BUFFER,
-            Math.max(limit * page + limit, limit),
-          );
+      const [
+        { data: ftsRegistries, error: registryFtsError },
+        { data: similarityRegistries, error: registrySimilarityError },
+      ] = await Promise.all([
+        buildRegistryBaseQuery(admin, nowIso)
+          .textSearch("search_vector", query, {
+            type: "websearch",
+            config: "simple",
+          })
+          .order("created_at", { ascending: false })
+          .range(0, searchWindow - 1),
+        buildRegistryBaseQuery(admin, nowIso)
+          .order("created_at", { ascending: false })
+          .range(0, searchWindow - 1),
+      ]);
 
-      const registryQuery = admin
-        .from("registries")
-        .select(
-          `
-          id,
-          title,
-          registry_code,
-          cover_photo,
-          deadline,
-          created_at,
-          event:events!inner(
-            id,
-            host_id,
-            type,
-            title,
-            date,
-            privacy
-          )
-        `
-        )
-        .eq("event.privacy", "public")
-        .gte("deadline", nowIso)
-        .order("created_at", { ascending: false })
-        .range(0, searchLimit - 1);
-
-      const { data: registries, error: registryError } = await registryQuery;
-
-      if (registryError) {
+      if (registryFtsError || registrySimilarityError) {
         return NextResponse.json(
           { message: "Failed to search registries" },
           { status: 500 }
         );
       }
 
-      const registryRows = Array.isArray(registries) ? registries : [];
-      const hostIds = registryRows
+      const registryCandidateRows = mergeRowsById(
+        ftsRegistries,
+        similarityRegistries
+      );
+      const hostIds = registryCandidateRows
         .map((row) => row?.event?.host_id)
         .filter(Boolean);
 
@@ -312,15 +423,26 @@ export async function GET(req) {
         (Array.isArray(hosts) ? hosts : []).map((host) => [host.id, host])
       );
 
-      const filtered = filterRegistryRows(registryRows, hostMap, query);
-      counts.registries = filtered.length;
+      const rankedSimilarityRegistries = rankRowsBySimilarity(
+        registryCandidateRows,
+        query,
+        (row) => buildRegistryNeedle(row, hostMap)
+      );
+      const mergedRegistryRows = mergeRowsById(
+        ftsRegistries,
+        rankedSimilarityRegistries
+      );
 
-      const registryPage = shouldFetchAll ? 1 : page;
-      const registryLimit = shouldFetchAll ? groupLimit : limit;
-      const start = (registryPage - 1) * registryLimit;
-      const pageItems = filtered.slice(start, start + registryLimit);
+      counts.registries = mergedRegistryRows.length;
 
-      results.registries = pageItems
+      const pageStart = shouldFetchAll ? 0 : (page - 1) * limit;
+      const pageLimit = shouldFetchAll ? groupLimit : limit;
+      const pageRegistries = mergedRegistryRows.slice(
+        pageStart,
+        pageStart + pageLimit
+      );
+
+      results.registries = pageRegistries
         .map((row) => serializeRegistry(row, hostMap.get(row?.event?.host_id)))
         .filter((r) => r?.id);
     }

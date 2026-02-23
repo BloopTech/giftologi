@@ -1,31 +1,13 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../../utils/supabase/server";
-
-const EXPRESSPAY_QUERY_URL =
-  process.env.EXPRESSPAY_ENV === "live"
-    ? "https://expresspaygh.com/api/query.php"
-    : "https://sandbox.expresspaygh.com/api/query.php";
-
-const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
-const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
-
-const TERMINAL_ORDER_STATUSES = new Set([
-  "paid",
-  "declined",
-  "failed",
-  "cancelled",
-]);
-
-function mapExpressPayResultToOrderStatus(resultCode, currentStatus = "pending") {
-  const normalizedResult = Number(resultCode);
-
-  if (normalizedResult === 1) return "paid";
-  if (normalizedResult === 2) return "declined";
-  if (normalizedResult === 3) return "failed";
-  if (normalizedResult === 4) return "pending";
-
-  return currentStatus;
-}
+import {
+  hasExpressPayAmountMismatch,
+  mapOrderStatusToPaymentStatus,
+  mapExpressPayResultToOrderStatus,
+  queryExpressPayTransaction,
+  resolveExpressPayMethod,
+  TERMINAL_ORDER_STATUSES,
+} from "../../../../utils/payments/expresspay";
 
 export async function GET(request) {
   try {
@@ -56,6 +38,9 @@ export async function GET(request) {
           status,
           payment_token,
           payment_reference,
+          payment_method,
+          total_amount,
+          currency,
           registry:registries(
             registry_code
           )
@@ -79,6 +64,9 @@ export async function GET(request) {
           status,
           payment_token,
           payment_reference,
+          payment_method,
+          total_amount,
+          currency,
           registry:registries(
             registry_code
           )
@@ -120,37 +108,50 @@ export async function GET(request) {
       );
     }
 
-    // Query ExpressPay for transaction status
-    const queryParams = new URLSearchParams({
-      "merchant-id": EXPRESSPAY_MERCHANT_ID,
-      "api-key": EXPRESSPAY_API_KEY,
-      token: queryToken,
-    });
-
-    const queryResponse = await fetch(EXPRESSPAY_QUERY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: queryParams.toString(),
-    });
-
-    const queryData = await queryResponse.json();
+    const queryData = await queryExpressPayTransaction(queryToken);
+    const paymentMethod =
+      resolveExpressPayMethod(queryData) || order?.payment_method || null;
 
     const newStatus = mapExpressPayResultToOrderStatus(
       queryData.result,
-      order.status
+      order.status,
+      queryData["result-text"]
     );
     const paymentReference =
-      queryData["transaction-id"] || queryData.token || null;
+      queryData["transaction-id"] || queryData.token || queryToken || null;
+    let finalizedStatus = newStatus;
+    let mismatchMeta = null;
+
+    if (newStatus === "paid") {
+      const hasAmountMismatch = hasExpressPayAmountMismatch({
+        expectedAmount: order.total_amount,
+        expectedCurrency: order.currency,
+        receivedAmount: queryData.amount,
+        receivedCurrency: queryData.currency,
+      });
+
+      if (hasAmountMismatch) {
+        finalizedStatus = "pending";
+        mismatchMeta = {
+          amount_mismatch: true,
+          expected_amount: order.total_amount,
+          expected_currency: order.currency,
+          received_amount: queryData.amount,
+          received_currency: queryData.currency,
+        };
+      }
+    }
 
     // Update order status (idempotent)
     const { data: updatedOrder } = await adminClient
       .from("orders")
       .update({
-        status: newStatus,
+        status: finalizedStatus,
+        payment_method: paymentMethod,
         payment_reference: paymentReference,
-        payment_response: queryData,
+        payment_response: mismatchMeta
+          ? { ...queryData, ...mismatchMeta }
+          : queryData,
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id)
@@ -159,7 +160,25 @@ export async function GET(request) {
       .maybeSingle();
 
     // If payment was successful, update purchased quantity
-    if (newStatus === "paid" && updatedOrder?.id) {
+    if (finalizedStatus === "paid" && updatedOrder?.id) {
+      await adminClient.from("order_payments").upsert(
+        {
+          order_id: order.id,
+          provider: "expresspay",
+          method: paymentMethod,
+          amount: queryData.amount || 0,
+          currency: queryData.currency || "GHS",
+          provider_ref: paymentReference,
+          status: mapOrderStatusToPaymentStatus(finalizedStatus),
+          meta: queryData,
+          created_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "order_id,provider,provider_ref",
+          ignoreDuplicates: true,
+        }
+      );
+
       // Get order items
       const { data: orderItems } = await adminClient
         .from("order_items")
@@ -194,11 +213,11 @@ export async function GET(request) {
     }
 
     // Redirect based on status
-    if (newStatus === "paid") {
+    if (finalizedStatus === "paid") {
       return NextResponse.redirect(
         new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)
       );
-    } else if (newStatus === "pending") {
+    } else if (finalizedStatus === "pending") {
       return NextResponse.redirect(
         new URL(`${baseUrl}?payment=pending&order=${orderCode}`, request.url)
       );

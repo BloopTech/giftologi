@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import GlobalSearchContent from "./content";
+import { GlobalSearchProvider } from "./context";
 import { createMetadata, getSeoDefaults } from "../utils/seo";
 
 export async function generateMetadata() {
@@ -27,7 +28,9 @@ export default function SearchPage() {
         Skip to search results
       </Link>
       <main id="search-content" role="main" aria-label="Search Giftologi">
-        <GlobalSearchContent />
+        <GlobalSearchProvider>
+          <GlobalSearchContent />
+        </GlobalSearchProvider>
       </main>
     </>
   );

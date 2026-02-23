@@ -179,7 +179,7 @@ export default function CategoryShopContent() {
       <main
         id="category-main-content"
         role="main"
-        tabIndex={-1}
+        //tabIndex={-1}
         aria-label={`${category.name} gifts`}
         className="mx-auto max-w-6xl w-full px-4 py-6"
       >

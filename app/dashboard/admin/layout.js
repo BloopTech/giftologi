@@ -50,7 +50,7 @@ export default function RootLayout({ children }) {
                   <main
                     id="admin-main-content"
                     role="main"
-                    tabIndex={-1}
+                    //tabIndex={-1}
                     aria-label="Admin dashboard content"
                     className="flex-grow mt-[7rem] lg:px-10 px-5"
                   >

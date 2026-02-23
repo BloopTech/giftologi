@@ -266,7 +266,7 @@ export default function StorefrontContent() {
       <main
         id="storefront-main-content"
         role="main"
-        tabIndex={-1}
+        //tabIndex={-1}
         aria-label={`${vendor?.business_name || "Vendor"} storefront`}
         className="mx-auto max-w-6xl w-full px-4 py-6"
       >

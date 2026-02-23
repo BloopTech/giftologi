@@ -14,6 +14,7 @@ import {
 import { toast } from "sonner";
 import { useSupportContext } from "./context";
 import Footer from "../components/footer";
+import { getOrCreateGuestBrowserId } from "../utils/guest";
 import {
   Select,
   SelectContent,
@@ -87,10 +88,79 @@ function TicketRow({ ticket }) {
   );
 }
 
+function GuestTicketRecoveryCard() {
+  const [email, setEmail] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleRecover = useCallback(
+    async (e) => {
+      e.preventDefault();
+      const normalized = email.trim();
+      if (!normalized) {
+        toast.error("Enter the email used for your ticket");
+        return;
+      }
+
+      setSending(true);
+      try {
+        const res = await fetch("/api/support/recovery", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: normalized }),
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data.error || "Failed to request recovery links");
+        }
+
+        toast.success(
+          "If tickets exist for that email, recovery links are on the way."
+        );
+        setEmail("");
+      } catch (error) {
+        toast.error(error.message || "Unable to process recovery request");
+      } finally {
+        setSending(false);
+      }
+    },
+    [email]
+  );
+
+  return (
+    <div className="mb-6 rounded-xl border border-[#E5E7EB] bg-white p-4">
+      <p className="text-sm font-medium text-[#111827]">Can&apos;t find your guest tickets?</p>
+      <p className="mt-1 text-xs text-[#6B7280]">
+        Enter the checkout email and we&apos;ll send direct ticket recovery links.
+      </p>
+      <form onSubmit={handleRecover} className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
+          maxLength={254}
+          className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#A5914B] transition"
+        />
+        <button
+          type="submit"
+          disabled={sending}
+          className="shrink-0 rounded-lg bg-[#111827] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#1F2937] disabled:opacity-60"
+        >
+          {sending ? "Sending..." : "Send Recovery Links"}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function NewTicketDialog({ open, onClose, onCreated }) {
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("general");
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [orderCode, setOrderCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = useCallback(
@@ -102,13 +172,21 @@ function NewTicketDialog({ open, onClose, onCreated }) {
       }
       setSubmitting(true);
       try {
+        const guestId = getOrCreateGuestBrowserId();
         const res = await fetch("/api/support", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(guestId ? { "x-guest-id": guestId } : {}),
+          },
           body: JSON.stringify({
             subject: subject.trim(),
             description: description.trim(),
             category,
+            guestName: guestName.trim(),
+            guestEmail: guestEmail.trim(),
+            orderCode: orderCode.trim(),
+            guestId,
           }),
         });
         const data = await res.json();
@@ -117,6 +195,9 @@ function NewTicketDialog({ open, onClose, onCreated }) {
         setSubject("");
         setDescription("");
         setCategory("general");
+        setGuestName("");
+        setGuestEmail("");
+        setOrderCode("");
         onCreated?.();
         onClose?.();
       } catch (err) {
@@ -125,7 +206,16 @@ function NewTicketDialog({ open, onClose, onCreated }) {
         setSubmitting(false);
       }
     },
-    [subject, description, category, onCreated, onClose]
+    [
+      subject,
+      description,
+      category,
+      guestName,
+      guestEmail,
+      orderCode,
+      onCreated,
+      onClose,
+    ]
   );
 
   if (!open) return null;
@@ -145,6 +235,7 @@ function NewTicketDialog({ open, onClose, onCreated }) {
         </h2>
         <p className="text-xs text-[#6B7280] mb-5">
           Describe your issue and we&apos;ll get back to you as soon as possible.
+          Add your checkout email so we can track guest orders.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -177,6 +268,47 @@ function NewTicketDialog({ open, onClose, onCreated }) {
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Brief summary of your issue"
               maxLength={200}
+              className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#A5914B] transition"
+            />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-[#374151] mb-1">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder="Name used at checkout"
+                maxLength={120}
+                className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#A5914B] transition"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-[#374151] mb-1">
+                Email <span className="text-[#9CA3AF]">(required for guests)</span>
+              </label>
+              <input
+                type="email"
+                value={guestEmail}
+                onChange={(e) => setGuestEmail(e.target.value)}
+                placeholder="Email used at checkout"
+                maxLength={254}
+                className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#A5914B] transition"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#374151] mb-1">
+              Order Code <span className="text-[#9CA3AF]">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={orderCode}
+              onChange={(e) => setOrderCode(e.target.value)}
+              placeholder="e.g. 4f9d2a80b15b6a7c"
+              maxLength={80}
               className="w-full rounded-lg border border-[#D1D5DB] px-3 py-2 text-sm text-[#111827] outline-none focus:border-[#A5914B] transition"
             />
           </div>
@@ -218,11 +350,19 @@ function NewTicketDialog({ open, onClose, onCreated }) {
 export default function SupportContent() {
   const { tickets, loading, error, metrics, refresh } = useSupportContext();
   const [dialogOpen, setDialogOpen] = useState(false);
+  const router = useRouter();
+
+  const isUnauthorized =
+    typeof error === "string" && /unauthorized/i.test(error);
+
+  const goToLogin = useCallback(() => {
+    router.push(`/login?next=${encodeURIComponent("/support")}`);
+  }, [router]);
 
   return (
     <>
-      <section className="min-h-screen bg-[#FAFAFA]">
-        <div className="mx-auto max-w-3xl px-4 py-10">
+      <section className="min-h-screen bg-[#FAFAFA] w-full">
+        <div className="mx-auto max-w-3xl py-10 pt-34 w-full px-5 md:px-10">
           {/* Header */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -282,6 +422,8 @@ export default function SupportContent() {
             ))}
           </div>
 
+          <GuestTicketRecoveryCard />
+
           {/* Ticket list */}
           {loading ? (
             <div className="space-y-3">
@@ -294,14 +436,29 @@ export default function SupportContent() {
             </div>
           ) : error ? (
             <div className="text-center py-16">
-              <p className="text-sm text-red-600">{error}</p>
-              <button
-                type="button"
-                onClick={refresh}
-                className="mt-3 text-sm text-[#A5914B] hover:underline cursor-pointer"
-              >
-                Retry
-              </button>
+              <p className="text-sm text-red-600">
+                {isUnauthorized
+                  ? "Sign in to view existing tickets, or create a new guest ticket below using your checkout email."
+                  : error}
+              </p>
+              <div className="mt-3 flex items-center justify-center gap-3">
+                {isUnauthorized ? (
+                  <button
+                    type="button"
+                    onClick={goToLogin}
+                    className="px-4 py-2 text-sm font-medium text-white bg-[#111827] rounded-lg hover:bg-[#1F2937] transition cursor-pointer"
+                  >
+                    Sign in
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={refresh}
+                  className="text-sm text-[#A5914B] hover:underline cursor-pointer"
+                >
+                  Retry
+                </button>
+              </div>
             </div>
           ) : tickets.length === 0 ? (
             <div className="text-center py-16">

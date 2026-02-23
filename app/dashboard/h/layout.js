@@ -28,7 +28,7 @@ export default function RootLayout({ children }) {
             <main
               id="host-main-content"
               role="main"
-              tabIndex={-1}
+              //tabIndex={-1}
               aria-label="Host dashboard content"
               className="grow lg:mt-20 mt-8 w-full"
             >

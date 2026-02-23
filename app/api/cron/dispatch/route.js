@@ -35,6 +35,10 @@ export async function POST(request) {
     // ─── Task 3: Expire stale pending orders ──────────────────────────
     results.expiredOrders = await expirePendingOrders(admin);
 
+    // ─── Task 4: Reconcile pending ExpressPay payments ────────────────
+    results.paymentReconciliation =
+      await reconcilePendingExpressPayPayments(admin);
+
     return NextResponse.json({ success: true, ...results });
   } catch (error) {
     console.error("[cron/dispatch] Fatal error:", error);
@@ -136,6 +140,81 @@ async function processEmailQueue(admin) {
   } catch (err) {
     console.error("[cron/dispatch] Email queue error:", err);
     summary.error = err?.message;
+  }
+
+  return summary;
+}
+
+async function reconcilePendingExpressPayPayments(admin) {
+  const summary = {
+    scanned: 0,
+    attempted: 0,
+    reconciled: 0,
+    failed: 0,
+  };
+
+  try {
+    const { data: pendingOrders, error: pendingError } = await admin
+      .from("orders")
+      .select("id, order_code, order_type, payment_token")
+      .eq("status", "pending")
+      .not("payment_token", "is", null)
+      .order("created_at", { ascending: true })
+      .limit(150);
+
+    if (pendingError) {
+      summary.error = pendingError.message;
+      return summary;
+    }
+
+    const orders = Array.isArray(pendingOrders) ? pendingOrders : [];
+    summary.scanned = orders.length;
+
+    if (!orders.length) return summary;
+
+    const baseUrl =
+      process.env.CRON_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+
+    if (!baseUrl) {
+      summary.error =
+        "CRON_BASE_URL or NEXT_PUBLIC_APP_URL is required for payment reconciliation.";
+      return summary;
+    }
+
+    for (const order of orders) {
+      if (!order?.payment_token) continue;
+
+      summary.attempted += 1;
+
+      const webhookPath =
+        order.order_type === "registry"
+          ? "/api/registry/payment/webhook"
+          : "/api/storefront/checkout/webhook";
+
+      const formData = new FormData();
+      formData.set("token", order.payment_token);
+      if (order.order_code) {
+        formData.set("order-id", order.order_code);
+      }
+
+      try {
+        const response = await fetch(`${baseUrl}${webhookPath}`, {
+          method: "POST",
+          body: formData,
+          cache: "no-store",
+        });
+
+        if (response.ok) {
+          summary.reconciled += 1;
+        } else {
+          summary.failed += 1;
+        }
+      } catch (error) {
+        summary.failed += 1;
+      }
+    }
+  } catch (error) {
+    summary.error = error?.message || "Unexpected reconciliation error.";
   }
 
   return summary;
@@ -254,7 +333,7 @@ async function expirePendingOrders(admin) {
     process.env.PENDING_ORDER_TIMEOUT_HOURS || "24",
     10
   );
-  const summary = { expired: 0 };
+  const summary = { expired: 0, cancelled: 0 };
 
   try {
     const cutoff = new Date();
@@ -278,10 +357,20 @@ async function expirePendingOrders(admin) {
 
     await admin
       .from("orders")
-      .update({ status: "expired", updated_at: new Date().toISOString() })
+      .update({ status: "cancelled", updated_at: new Date().toISOString() })
       .in("id", orderIds);
 
+    await admin
+      .from("order_items")
+      .update({
+        fulfillment_status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .in("order_id", orderIds)
+      .eq("fulfillment_status", "pending");
+
     summary.expired = orderIds.length;
+    summary.cancelled = orderIds.length;
   } catch (err) {
     console.error("[cron/dispatch] Expire orders error:", err);
     summary.error = err?.message;

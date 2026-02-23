@@ -16,6 +16,8 @@ export const eventPublicRoutes = [
   `/gift-guides`,
   `/gift-guides/:slug`,
   `/treats`,
+  `/faq`,
+  `/contact`,
   `/support`,
   `/pages/:slug`,
 ];

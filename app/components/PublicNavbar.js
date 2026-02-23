@@ -8,10 +8,10 @@ import { createClient as createSupabaseClient } from "../utils/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "./Avatar";
 
 const NAV_LINKS = [
-  { href: "/shop", label: "Shop" },
-  { href: "/categories", label: "Categories" },
-  { href: "/treats", label: "Treats" },
-  { href: "/gift-guides", label: "Gift Guides" },
+  { href: "/shop", label: "SHOP" },
+  { href: "/categories", label: "CATEGORIES" },
+  { href: "/treats", label: "TREATS" },
+  { href: "/gift-guides", label: "GIFT GUIDES" },
 ];
 
 function getInitials(profile) {
@@ -105,13 +105,23 @@ export default function PublicNavbar() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 shrink-0">
-          <Image
-            src="/logo.jpg"
-            alt="Giftologi"
-            width={56}
-            height={56}
-            priority
-          />
+          {scrolled ? (
+            <Image
+              src="/logo.jpg"
+              alt="Giftologi"
+              width={56}
+              height={56}
+              priority
+            />
+          ) : (
+            <Image
+              src="/giftologi_logo_transparent.png"
+              alt="Giftologi"
+              width={48}
+              height={48}
+              priority
+            />
+          )}
         </Link>
 
         {/* Desktop nav links */}
@@ -120,7 +130,7 @@ export default function PublicNavbar() {
             <Link
               key={link.href}
               href={link.href}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
                 isActive(link.href)
                   ? "bg-[#A5914B]/10 text-[#A5914B]"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -132,7 +142,7 @@ export default function PublicNavbar() {
         </nav>
 
         {/* Right side: search + auth */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <Link
             href="/search"
             className={`flex items-center justify-center h-9 w-9 rounded-lg text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors`}
@@ -145,34 +155,36 @@ export default function PublicNavbar() {
             <>
               <Link
                 href="/login"
-                className="hidden sm:inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <LogIn className="size-4" />
-                Log in
+                Log In
               </Link>
-              <Link
-                href="/find-registry"
-                className="bg-[#FDD17D] text-gray-900 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap"
-              >
-                Find Registry
-              </Link>
-              <button
-                onClick={() => router.push("/login")}
-                className="cursor-pointer bg-[#FDD17D] text-gray-900 px-6 py-3 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap"
-              >
-                Create Registry
-              </button>
+              <div className="hidden sm:flex items-center gap-2">
+                <Link
+                  href="/find-registry"
+                  className="bg-[#FDD17D] text-gray-900 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap"
+                >
+                  Find Registry
+                </Link>
+                <button
+                  onClick={() => router.push("/login")}
+                  className="cursor-pointer bg-[#FDD17D] text-gray-900 px-4 sm:px-6 py-2.5 sm:py-3 rounded-full text-[10px] font-bold tracking-[0.15em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-300 shadow-md hover:shadow-lg whitespace-nowrap"
+                >
+                  Create Registry
+                </button>
+              </div>
             </>
           )}
 
           {loaded && user && profile && (
             <Link
               href={getDashboardHref(profile)}
-              className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              className="flex items-center gap-2 px-1.5 sm:px-2 py-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               title="Go to dashboard"
             >
               <Avatar
-                className="h-8 w-8"
+                className="h-7 w-7 sm:h-8 sm:w-8"
                 color={profile.color}
                 imageUrl={profile.image}
                 initials={getInitials(profile)}
@@ -209,13 +221,13 @@ export default function PublicNavbar() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 pb-4 pt-2">
+        <div className="md:hidden border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 px-4 pb-4 pt-2 max-h-[calc(100vh-80px)] overflow-y-auto">
           <nav className="flex flex-col gap-1">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-4 py-3 rounded-lg text-base font-medium transition-colors ${
                   isActive(link.href)
                     ? "bg-[#A5914B]/10 text-[#A5914B]"
                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
@@ -226,33 +238,49 @@ export default function PublicNavbar() {
             ))}
             <Link
               href="/search"
-              className={`px-4 py-2.5 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+              className={`px-4 py-3 rounded-lg text-base font-medium transition-colors flex items-center gap-3 ${
                 isActive("/search")
                   ? "bg-[#A5914B]/10 text-[#A5914B]"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
               }`}
             >
-              <Search className="size-4" />
+              <Search className="size-5" />
               Search
             </Link>
           </nav>
 
           {loaded && !user && (
-            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
-              <Link
-                href="/login"
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              >
-                <LogIn className="size-4" />
-                Log in
-              </Link>
-              <Link
-                href="/signup"
-                className="flex-1 flex items-center justify-center px-4 py-2.5 text-sm font-medium text-white bg-[#A5914B] rounded-lg hover:bg-[#8B7A3F] transition-colors"
-              >
-                Sign up
-              </Link>
-            </div>
+            <>
+              <div className="flex flex-col gap-2 mt-4 pt-4 border-t border-gray-100 dark:border-gray-800">
+                <Link
+                  href="/find-registry"
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold tracking-widest uppercase text-gray-900 bg-[#FDD17D] rounded-lg hover:bg-[#e5bc6e] transition-colors"
+                >
+                  Find Registry
+                </Link>
+                <button
+                  onClick={() => router.push("/login")}
+                  className="flex items-center justify-center gap-2 px-4 py-3 text-sm font-bold tracking-widest uppercase text-gray-900 bg-[#FDD17D] rounded-lg hover:bg-[#e5bc6e] transition-colors"
+                >
+                  Create Registry
+                </button>
+              </div>
+              <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100 dark:border-gray-800">
+                <Link
+                  href="/login"
+                  className="flex-1 flex items-center justify-center gap-1.5 px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <LogIn className="size-4" />
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="flex-1 flex items-center justify-center px-4 py-3 text-sm font-medium text-white bg-[#A5914B] rounded-lg hover:bg-[#8B7A3F] transition-colors"
+                >
+                  Sign up
+                </Link>
+              </div>
+            </>
           )}
         </div>
       )}

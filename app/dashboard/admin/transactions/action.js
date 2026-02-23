@@ -130,12 +130,16 @@ export async function updateOrderStatus(prevState, formData) {
     };
   }
 
-  if (newStatus === "shipped" || newStatus === "delivered") {
-    await supabase
+  if (newStatus === "cancelled") {
+    await adminClient
       .from("order_items")
-      .update({ fulfillment_status: newStatus })
-      .eq("order_id", orderId);
-  };
+      .update({
+        fulfillment_status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .eq("order_id", orderId)
+      .eq("fulfillment_status", "pending");
+  }
 
   try {
     const orderCodeLabel = order?.order_code || orderId?.slice(0, 8);

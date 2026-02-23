@@ -146,7 +146,7 @@ export default async function HostDashboardRegistry() {
                     {p.title}
                   </p>
                   <p className="text-xs text-[#939393]">{p.price}</p>
-                  <div className="flex items-center w-full justify-between">
+                  <div className="flex items-center w-full lg:justify-between flex-col lg:flex-row gap-2 lg:gap-0">
                     <button className="text-xs text-white cursor-pointer bg-[#5CAE2D] border border-[#5CAE2D] hover:bg-white hover:text-[#5CAE2D] rounded-xl px-4 py-1 flex items-center">
                       Buy
                     </button>

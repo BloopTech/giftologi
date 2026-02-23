@@ -40,6 +40,7 @@ export async function POST(request) {
         success: true,
         message: "No pending orders to expire.",
         expired: 0,
+        cancelled: 0,
       });
     }
 
@@ -48,7 +49,7 @@ export async function POST(request) {
     const { error: updateError } = await admin
       .from("orders")
       .update({
-        status: "expired",
+        status: "cancelled",
         updated_at: new Date().toISOString(),
       })
       .in("id", orderIds);
@@ -61,13 +62,31 @@ export async function POST(request) {
       );
     }
 
+    const { error: syncItemsError } = await admin
+      .from("order_items")
+      .update({
+        fulfillment_status: "cancelled",
+        updated_at: new Date().toISOString(),
+      })
+      .in("order_id", orderIds)
+      .eq("fulfillment_status", "pending");
+
+    if (syncItemsError) {
+      console.error("Expire pending orders item sync error:", syncItemsError);
+      return NextResponse.json(
+        { error: syncItemsError.message },
+        { status: 500 },
+      );
+    }
+
     console.log(
-      `Expired ${orderIds.length} pending orders older than ${PENDING_ORDER_TIMEOUT_HOURS}h`,
+      `Cancelled ${orderIds.length} pending orders older than ${PENDING_ORDER_TIMEOUT_HOURS}h`,
     );
 
     return NextResponse.json({
       success: true,
       expired: orderIds.length,
+      cancelled: orderIds.length,
       cutoff: cutoffIso,
     });
   } catch (error) {

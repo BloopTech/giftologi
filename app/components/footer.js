@@ -1,55 +1,128 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { PiFacebookLogo, PiInstagramLogo, PiTwitterLogo } from "react-icons/pi";
 import Image from "next/image";
+import { createClient as createSupabaseClient } from "../utils/supabase/client";
+import { roleRedirects } from "../routes";
+import { useStaticPageLinks } from "../utils/content/useStaticPageLinks";
 
-const companyInfoStatic = [
-  // { title: "Search Engine", href: "/search" },
-  // { title: "Registries", href: "/find-registry" },
-  // { title: "Shop", href: "/shop" },
-  // { title: "Vendors' Storefront", href: "/storefront" },
-  // { title: "Gift Guides", href: "/gift-guides" },
-  // { title: "Support", href: "/support" },
+const hostAndGuestsStatic = [
+  { title: "Your Dashboard", href: "/login" },
+  { title: "Track Your Order", href: "/order/lookup" },
+  { title: "Search Giftologi", href: "/search" },
 ];
 
-const membersStatic = [
-  { title: "Track Order", href: "/order/lookup" },
-  { title: "Search Engine", href: "/search" },
-  { title: "Registries", href: "/find-registry" },
-  { title: "Shop", href: "/shop" },
-  { title: "Gift Guides", href: "/gift-guides" },
-  { title: "Support", href: "/support" },
+const vendorsStatic = [
+  { title: "Vendor Guide", href: "/vendor" },
+  { title: "Become a Vendor", href: "/vendor" },
+  { title: "Your Vendor Account", href: "/login" },
 ];
+
+const legalStatic = [];
+
+const needHelpStatic = [
+  { title: "FAQs", href: "/faq" },
+  { title: "Contact", href: "/contact Us" },
+  { title: "Support Tickets", href: "/support" },
+];
+
+const LEGAL_PAGE_KEYWORDS = [
+  "terms",
+  "condition",
+  "privacy",
+  "refund",
+  "return",
+  "shipping",
+  "cookie",
+  "policy",
+];
+
+const normalize = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .trim();
+
+const matchesKeyword = (page, keywords) => {
+  const title = normalize(page?.title);
+  const slug = normalize(page?.slug);
+  return keywords.some((keyword) => title.includes(keyword) || slug.includes(keyword));
+};
 
 export default function Footer() {
-  const [dynamicPages, setDynamicPages] = useState([]);
+  const { pages } = useStaticPageLinks();
+  const [dashboardHref, setDashboardHref] = useState("/login");
 
   useEffect(() => {
+    const supabase = createSupabaseClient();
     let active = true;
-    const loadPages = async () => {
+
+    const loadAuthState = async () => {
       try {
-        const res = await fetch("/api/static-pages");
-        if (!res.ok) return;
-        const data = await res.json();
-        if (active && Array.isArray(data?.pages)) {
-          setDynamicPages(
-            data.pages.map((p) => ({
-              title: p.title,
-              href: `/pages/${p.slug}`,
-            })),
-          );
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!active) return;
+
+        if (!user) {
+          setDashboardHref("/login");
+          return;
         }
-      } catch {}
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        if (!active) return;
+
+        const role = profile?.role;
+        setDashboardHref(role && roleRedirects[role] ? roleRedirects[role] : "/dashboard/h");
+      } catch {
+        if (active) setDashboardHref("/login");
+      }
     };
-    loadPages();
+
+    loadAuthState();
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(() => {
+      loadAuthState();
+    });
+
     return () => {
       active = false;
+      subscription?.unsubscribe();
     };
   }, []);
 
-  const companyInfo = [...companyInfoStatic, ...dynamicPages];
-  const members = [...membersStatic];
+  const dynamicPages = useMemo(
+    () =>
+      (Array.isArray(pages) ? pages : [])
+        .filter((page) => page?.slug)
+        .map((page) => ({
+          title: page.title,
+          slug: page.slug,
+          href: `/pages/${page.slug}`,
+        })),
+    [pages],
+  );
+
+  const legalDynamicPages = useMemo(
+    () => dynamicPages.filter((page) => matchesKeyword(page, LEGAL_PAGE_KEYWORDS)),
+    [dynamicPages],
+  );
+
+  const needHelp = [...needHelpStatic];
+  const vendors = vendorsStatic.map((item) =>
+    item.title === "Your Vendor Account" ? { ...item, href: dashboardHref } : item,
+  );
+  const legal = [...legalStatic, ...legalDynamicPages];
+  const hostAndGuests = hostAndGuestsStatic.map((item) =>
+    item.title === "Your Dashboard" ? { ...item, href: dashboardHref } : item,
+  );
 
   return (
     <footer
@@ -101,14 +174,14 @@ export default function Footer() {
               ))}
             </div>
           </div>
-          <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-3 gap-12 text-left">
+          <div className="lg:col-span-8 grid grid-cols-2 md:grid-cols-4 gap-12 text-left">
             <nav
               aria-label="Member resources"
               className="flex flex-col space-y-4"
             >
-              <h2 className="font-semibold">Platform</h2>
+              <h2 className="font-semibold text-sm">FOR HOSTS & GUESTS</h2>
               <ul className="flex flex-col space-y-2 list-none p-0 m-0">
-                {members.map((item) => (
+                {hostAndGuests.map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
@@ -121,12 +194,30 @@ export default function Footer() {
               </ul>
             </nav>
             <nav
-              aria-label="Company information"
+              aria-label="Vendors Information"
               className="flex flex-col space-y-4"
             >
-              <h2 className="font-semibold">Company</h2>
+              <h2 className="font-semibold text-sm">FOR VENDORS</h2>
               <ul className="flex flex-col space-y-2 list-none p-0 m-0">
-                {companyInfo.map((item) => (
+                {vendors.map((item) => (
+                  <li key={item.title}>
+                    <Link
+                      href={item.href}
+                      className="text-xs text-[#909090] hover:text-primary focus:text-primary"
+                    >
+                      {item.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <nav
+              aria-label="Legal information"
+              className="flex flex-col space-y-4"
+            >
+              <h2 className="font-semibold text-sm">LEGAL</h2>
+              <ul className="flex flex-col space-y-2 list-none p-0 m-0">
+                {legal.map((item) => (
                   <li key={item.href}>
                     <Link
                       href={item.href}
@@ -138,7 +229,25 @@ export default function Footer() {
                 ))}
               </ul>
             </nav>
-            <div className="flex flex-col space-y-2">
+            <nav
+              aria-label="Help information"
+              className="flex flex-col space-y-4"
+            >
+              <h2 className="font-semibold text-sm">NEED HELP?</h2>
+              <ul className="flex flex-col space-y-2 list-none p-0 m-0">
+                {needHelp.map((item) => (
+                  <li key={item.href}>
+                    <Link
+                      href={item.href}
+                      className="text-xs text-[#909090] hover:text-primary focus:text-primary"
+                    >
+                      {item.title}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            {/* <div className="flex flex-col space-y-2">
               <h2 className="font-semibold" id="connect-heading">
                 Connect with Us
               </h2>
@@ -167,7 +276,7 @@ export default function Footer() {
                   Contact Us
                 </button>
               </form>
-            </div>
+            </div> */}
           </div>
         </div>
       </div>
@@ -177,17 +286,17 @@ export default function Footer() {
           © {new Date().getFullYear()} Giftologi LLC • Dedicated to elegance.
         </p>
         <div className="flex space-x-8">
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-200">
+          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400">
             Built by Bloop Global LLC
           </span>
-          <div className="flex items-center space-x-2">
+          {/* <div className="flex items-center space-x-2">
             <div className="w-6 h-6 rounded-full border border-gray-100 flex items-center justify-center text-[10px] font-serif">
               8
             </div>
             <span className="text-[10px] font-bold uppercase tracking-widest">
               Giftologi
             </span>
-          </div>
+          </div> */}
         </div>
       </div>
     </footer>

@@ -7,6 +7,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
+import { getOrCreateGuestBrowserId } from "../utils/guest";
 
 const SupportContext = createContext();
 
@@ -37,7 +38,14 @@ function useSupportProviderValue() {
       setError(null);
 
       try {
-        const res = await fetch("/api/support");
+        const guestId = getOrCreateGuestBrowserId();
+        const res = await fetch("/api/support", {
+          headers: guestId
+            ? {
+                "x-guest-id": guestId,
+              }
+            : undefined,
+        });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error || "Failed to load tickets");

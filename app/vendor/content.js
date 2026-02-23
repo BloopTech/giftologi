@@ -400,19 +400,28 @@ function VendorFooter() {
   const members = useMemo(
     () => [
       { title: "About Us", href: companyInfo[0]?.href || "/about" },
-      { title: "Wedding Guides", href: companyInfo[1]?.href || "/wedding-guides" },
+      {
+        title: "Wedding Guides",
+        href: companyInfo[1]?.href || "/wedding-guides",
+      },
       { title: "Baby Guides", href: companyInfo[2]?.href || "/baby-guides" },
       {
         title: "What is a Universal Gift List?",
         href: companyInfo[3]?.href || "/what-is-a-universal-gift-list",
       },
       { title: "Contact Us", href: companyInfo[4]?.href || "/contact" },
-      { title: "News and Press Releases", href: companyInfo[5]?.href || "/news" },
+      {
+        title: "News and Press Releases",
+        href: companyInfo[5]?.href || "/news",
+      },
       {
         title: "Terms and Conditions",
         href: companyInfo[6]?.href || "/terms-and-conditions",
       },
-      { title: "Privacy Statement", href: companyInfo[7]?.href || "/privacy-statement" },
+      {
+        title: "Privacy Statement",
+        href: companyInfo[7]?.href || "/privacy-statement",
+      },
       { title: "Careers", href: companyInfo[8]?.href || "/careers" },
     ],
     [companyInfo],
@@ -513,7 +522,7 @@ export default function VendorLandingPageContent() {
         Skip to main content
       </a>
       <VendorHeader />
-      <main id="vendor-main-content" role="main" tabIndex={-1}>
+      <main id="vendor-main-content" role="main" tabIndex={0}>
         <HeroSection onOpenModal={openModal} />
         <WhySellSection />
         <HowItWorksSection />

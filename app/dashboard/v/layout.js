@@ -35,7 +35,7 @@ export default function RootLayout({ children }) {
                   <main
                     id="vendor-main-content"
                     role="main"
-                    tabIndex={-1}
+                    //tabIndex={-1}
                     aria-label="Vendor dashboard content"
                     className="grow mt-28 lg:px-10 px-5"
                   >

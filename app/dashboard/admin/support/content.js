@@ -70,6 +70,8 @@ const categoryLabels = {
   account: "Account",
   vendor: "Vendor",
   registry: "Registry",
+  product: "Product",
+  treat: "Treat",
   general: "General",
   other: "Other",
 };
@@ -101,6 +103,7 @@ function TicketDetailPanel() {
     initialFormState
   );
   const [replyText, setReplyText] = useState("");
+  const [activeTab, setActiveTab] = useState("details");
 
   useEffect(() => {
     if (statusState?.success) {
@@ -130,15 +133,24 @@ function TicketDetailPanel() {
     }
   }, [replyState, fetchMessages, selectedTicket?.id]);
 
+  useEffect(() => {
+    if (selectedTicket?.id) {
+      setActiveTab("details");
+    }
+  }, [selectedTicket?.id]);
+
   if (!selectedTicket) return null;
 
   const ticket = selectedTicket;
   const sc = statusConfig[ticket.status] || statusConfig.open;
   const creator = ticket.creator;
+  const fallbackGuestName =
+    ticket.guest_name || ticket.guest_email || "Guest customer";
   const creatorName = creator
     ? [creator.firstname, creator.lastname].filter(Boolean).join(" ") ||
       creator.email
-    : "Unknown";
+    : fallbackGuestName;
+  const contactEmail = creator?.email || ticket.guest_email || null;
 
   return (
     <Dialog
@@ -152,178 +164,208 @@ function TicketDetailPanel() {
           {ticket.subject}
         </DialogTitle>
 
-        {/* Meta */}
-        <div className="flex flex-wrap items-center gap-2 mt-2">
-          <span
-            className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${sc.tone}`}
-          >
-            {sc.label}
-          </span>
-          <span
-            className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
-              priorityConfig[ticket.priority] || priorityConfig.normal
+        {/* Steps */}
+        <div className="mt-3 inline-flex items-center rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] p-1">
+          <button
+            type="button"
+            onClick={() => setActiveTab("details")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+              activeTab === "details"
+                ? "bg-white text-[#111827] shadow-sm"
+                : "text-[#6B7280] hover:text-[#111827]"
             }`}
           >
-            {ticket.priority}
-          </span>
-          <span className="text-[10px] text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
-            {categoryLabels[ticket.category] || ticket.category}
-          </span>
-        </div>
-
-        <div className="text-xs text-[#6B7280] mt-2 space-y-0.5">
-          <p>
-            <span className="font-medium">From:</span> {creatorName}
-            {creator?.email ? ` (${creator.email})` : ""}
-          </p>
-          <p>
-            <span className="font-medium">Created:</span>{" "}
-            {formatDate(ticket.created_at)}
-          </p>
-          {ticket.order_id && (
-            <p>
-              <span className="font-medium">Order:</span> {ticket.order_id}
-            </p>
-          )}
-        </div>
-
-        {ticket.description && (
-          <p className="text-sm text-[#374151] mt-3 whitespace-pre-wrap bg-[#F9FAFB] rounded-lg p-3 border border-[#E5E7EB]">
-            {ticket.description}
-          </p>
-        )}
-
-        {/* Admin actions */}
-        <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[#E5E7EB]">
-          {/* Status */}
-          <form action={statusAction} className="flex items-center gap-1">
-            <input type="hidden" name="ticketId" value={ticket.id} />
-            <Select name="status" defaultValue={ticket.status}>
-              <SelectTrigger className="h-8 text-xs w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="open">Open</SelectItem>
-                <SelectItem value="in_progress">In Progress</SelectItem>
-                <SelectItem value="resolved">Resolved</SelectItem>
-                <SelectItem value="closed">Closed</SelectItem>
-              </SelectContent>
-            </Select>
-            <button
-              type="submit"
-              disabled={statusPending}
-              className="px-3 h-8 text-xs font-medium bg-[#111827] text-white rounded-md hover:bg-[#1F2937] disabled:opacity-50 cursor-pointer"
-            >
-              {statusPending ? "..." : "Set"}
-            </button>
-          </form>
-
-          {/* Priority */}
-          <form action={priorityAction} className="flex items-center gap-1">
-            <input type="hidden" name="ticketId" value={ticket.id} />
-            <Select name="priority" defaultValue={ticket.priority}>
-              <SelectTrigger className="h-8 text-xs w-[110px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="low">Low</SelectItem>
-                <SelectItem value="normal">Normal</SelectItem>
-                <SelectItem value="high">High</SelectItem>
-                <SelectItem value="urgent">Urgent</SelectItem>
-              </SelectContent>
-            </Select>
-            <button
-              type="submit"
-              disabled={priorityPending}
-              className="px-3 h-8 text-xs font-medium bg-[#111827] text-white rounded-md hover:bg-[#1F2937] disabled:opacity-50 cursor-pointer"
-            >
-              {priorityPending ? "..." : "Set"}
-            </button>
-          </form>
-        </div>
-
-        {/* Messages */}
-        <div className="mt-4 pt-4 border-t border-[#E5E7EB]">
-          <p className="text-xs font-semibold text-[#374151] mb-3">
+            <User className="w-3.5 h-3.5" />
+            Details
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("conversation")}
+            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition cursor-pointer ${
+              activeTab === "conversation"
+                ? "bg-white text-[#111827] shadow-sm"
+                : "text-[#6B7280] hover:text-[#111827]"
+            }`}
+          >
+            <MessageSquare className="w-3.5 h-3.5" />
             Conversation
-          </p>
+            <span className="rounded-full bg-[#E5E7EB] px-1.5 py-0.5 text-[10px] text-[#4B5563]">
+              {messages.length}
+            </span>
+          </button>
+        </div>
 
-          {loadingMessages ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-5 h-5 animate-spin text-[#9CA3AF]" />
+        {activeTab === "details" ? (
+          <>
+            {/* Meta */}
+            <div className="flex flex-wrap items-center gap-2 mt-3">
+              <span
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${sc.tone}`}
+              >
+                {sc.label}
+              </span>
+              <span
+                className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                  priorityConfig[ticket.priority] || priorityConfig.normal
+                }`}
+              >
+                {ticket.priority}
+              </span>
+              <span className="text-[10px] text-[#6B7280] bg-[#F3F4F6] px-2 py-0.5 rounded-full">
+                {categoryLabels[ticket.category] || ticket.category}
+              </span>
             </div>
-          ) : messages.length === 0 ? (
-            <p className="text-xs text-[#9CA3AF] text-center py-6">
-              No messages yet.
-            </p>
-          ) : (
-            <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-              {messages.map((msg) => {
-                const isAdmin = msg.sender_role === "admin";
-                return (
-                  <div
-                    key={msg.id}
-                    className={`flex ${
-                      isAdmin ? "justify-end" : "justify-start"
-                    }`}
-                  >
+
+            <div className="text-xs text-[#6B7280] mt-2 space-y-0.5">
+              <p>
+                <span className="font-medium">From:</span> {creatorName}
+                {contactEmail ? ` (${contactEmail})` : ""}
+              </p>
+              <p>
+                <span className="font-medium">Created:</span>{" "}
+                {formatDate(ticket.created_at)}
+              </p>
+              {ticket.order_id && (
+                <p>
+                  <span className="font-medium">Order:</span> {ticket.order_id}
+                </p>
+              )}
+            </div>
+
+            {ticket.description && (
+              <p className="text-sm text-[#374151] mt-3 whitespace-pre-wrap bg-[#F9FAFB] rounded-lg p-3 border border-[#E5E7EB]">
+                {ticket.description}
+              </p>
+            )}
+
+            {/* Admin actions */}
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-[#E5E7EB]">
+              {/* Status */}
+              <form action={statusAction} className="flex items-center gap-1">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <Select name="status" defaultValue={ticket.status}>
+                  <SelectTrigger className="h-8 text-xs w-[130px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="open">Open</SelectItem>
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <SelectItem value="resolved">Resolved</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                  </SelectContent>
+                </Select>
+                <button
+                  type="submit"
+                  disabled={statusPending}
+                  className="px-3 h-8 text-xs font-medium bg-[#111827] text-white rounded-md hover:bg-[#1F2937] disabled:opacity-50 cursor-pointer"
+                >
+                  {statusPending ? "..." : "Set"}
+                </button>
+              </form>
+
+              {/* Priority */}
+              <form action={priorityAction} className="flex items-center gap-1">
+                <input type="hidden" name="ticketId" value={ticket.id} />
+                <Select name="priority" defaultValue={ticket.priority}>
+                  <SelectTrigger className="h-8 text-xs w-[110px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">Low</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="urgent">Urgent</SelectItem>
+                  </SelectContent>
+                </Select>
+                <button
+                  type="submit"
+                  disabled={priorityPending}
+                  className="px-3 h-8 text-xs font-medium bg-[#111827] text-white rounded-md hover:bg-[#1F2937] disabled:opacity-50 cursor-pointer"
+                >
+                  {priorityPending ? "..." : "Set"}
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <div className="mt-3 pt-1">
+            {loadingMessages ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-5 h-5 animate-spin text-[#9CA3AF]" />
+              </div>
+            ) : messages.length === 0 ? (
+              <p className="text-xs text-[#9CA3AF] text-center py-6">
+                No messages yet.
+              </p>
+            ) : (
+              <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                {messages.map((msg) => {
+                  const isAdmin = msg.sender_role === "admin";
+                  return (
                     <div
-                      className={`max-w-[80%] rounded-xl px-3 py-2 ${
-                        isAdmin
-                          ? "bg-[#111827] text-white"
-                          : "bg-[#F3F4F6] text-[#111827]"
+                      key={msg.id}
+                      className={`flex ${
+                        isAdmin ? "justify-end" : "justify-start"
                       }`}
                     >
-                      <div className="flex items-center gap-1 mb-0.5">
-                        {isAdmin ? (
-                          <ShieldCheck className="w-3 h-3 opacity-70" />
-                        ) : (
-                          <User className="w-3 h-3 opacity-50" />
-                        )}
-                        <span
-                          className={`text-[10px] ${
-                            isAdmin ? "text-white/60" : "text-[#6B7280]"
-                          }`}
-                        >
-                          {isAdmin ? "Admin" : "User"} ·{" "}
-                          {formatDate(msg.created_at)}
-                        </span>
+                      <div
+                        className={`max-w-[80%] rounded-xl px-3 py-2 ${
+                          isAdmin
+                            ? "bg-[#111827] text-white"
+                            : "bg-[#F3F4F6] text-[#111827]"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1 mb-0.5">
+                          {isAdmin ? (
+                            <ShieldCheck className="w-3 h-3 opacity-70" />
+                          ) : (
+                            <User className="w-3 h-3 opacity-50" />
+                          )}
+                          <span
+                            className={`text-[10px] ${
+                              isAdmin ? "text-white/60" : "text-[#6B7280]"
+                            }`}
+                          >
+                            {isAdmin ? "Admin" : "User"} ·{" "}
+                            {formatDate(msg.created_at)}
+                          </span>
+                        </div>
+                        <p className="text-xs whitespace-pre-wrap">
+                          {msg.message}
+                        </p>
                       </div>
-                      <p className="text-xs whitespace-pre-wrap">
-                        {msg.message}
-                      </p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
 
-          {/* Reply */}
-          <form action={replyAction} className="flex items-end gap-2 mt-4">
-            <input type="hidden" name="ticketId" value={ticket.id} />
-            <textarea
-              name="message"
-              value={replyText}
-              onChange={(e) => setReplyText(e.target.value)}
-              placeholder="Reply to the user..."
-              rows={2}
-              maxLength={5000}
-              className="flex-1 rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs text-[#111827] outline-none focus:border-[#A5914B] transition resize-none"
-            />
-            <button
-              type="submit"
-              disabled={replyPending || !replyText.trim()}
-              className="p-2 bg-[#111827] text-white rounded-lg hover:bg-[#1F2937] disabled:opacity-40 cursor-pointer"
-            >
-              {replyPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </button>
-          </form>
-        </div>
+            {/* Reply */}
+            <form action={replyAction} className="flex items-end gap-2 mt-4">
+              <input type="hidden" name="ticketId" value={ticket.id} />
+              <textarea
+                name="message"
+                value={replyText}
+                onChange={(e) => setReplyText(e.target.value)}
+                placeholder="Reply to the user..."
+                rows={2}
+                maxLength={5000}
+                className="flex-1 rounded-lg border border-[#D1D5DB] px-3 py-2 text-xs text-[#111827] outline-none focus:border-[#A5914B] transition resize-none"
+              />
+              <button
+                type="submit"
+                disabled={replyPending || !replyText.trim()}
+                className="p-2 bg-[#111827] text-white rounded-lg hover:bg-[#1F2937] disabled:opacity-40 cursor-pointer"
+              >
+                {replyPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </button>
+            </form>
+          </div>
+        )}
 
         <DialogClose className="absolute right-4 top-4 text-[#6B7280] hover:text-[#111827]">
           <XCircle className="w-5 h-5" />
@@ -484,11 +526,13 @@ export default function AdminSupportContent() {
                   const sc =
                     statusConfig[ticket.status] || statusConfig.open;
                   const creator = ticket.creator;
+                  const fallbackGuestName =
+                    ticket.guest_name || ticket.guest_email || "Guest customer";
                   const name = creator
                     ? [creator.firstname, creator.lastname]
                         .filter(Boolean)
                         .join(" ") || creator.email
-                    : "—";
+                    : fallbackGuestName;
 
                   return (
                     <tr

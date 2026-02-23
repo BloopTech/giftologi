@@ -1,14 +1,12 @@
 "use client";
-import React, { useState, useEffect, useActionState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 
 import {
   PiClock,
-  PiCheckCircle,
   PiTruck,
   PiPackage,
   PiMagnifyingGlass,
-  PiCaretDown,
   PiExport,
   PiEye,
   PiPrinter,
@@ -16,11 +14,11 @@ import {
   PiEnvelope,
   PiPhone,
   PiMapPin,
-  PiSpinner,
+  PiInfo,
+  PiCheckCircle,
 } from "react-icons/pi";
 
 import { useVendorOrdersContext } from "./context";
-import { manageOrders } from "./action";
 import {
   Select,
   SelectContent,
@@ -43,34 +41,40 @@ import {
   formatShortDate,
   StatCard,
   StatusBadge,
-  getStatusConfig,
 } from "./utils";
 
+function formatVariationLabel(variation) {
+  if (!variation) return "Standard";
 
-function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
-  const [state, formAction, isPending] = useActionState(manageOrders, {
-    success: false,
-    message: "",
-    errors: {},
-    values: {},
-  });
-  const formRef = useRef(null);
+  if (typeof variation === "string") {
+    const trimmed = variation.trim();
+    return trimmed || "Standard";
+  }
 
-  const [selectedStatus, setSelectedStatus] = useState(
-    order?.status || "pending",
-  );
+  if (typeof variation === "object") {
+    if (variation.label) return String(variation.label);
+    if (variation.name) return String(variation.name);
+
+    const skipKeys = new Set(["id", "key", "sku", "stock_qty", "price", "label", "name"]);
+    const parts = Object.entries(variation)
+      .filter(([key, value]) => !skipKeys.has(key) && value !== null && value !== "")
+      .map(([key, value]) => `${key}: ${value}`);
+
+    if (parts.length) return parts.join(", ");
+  }
+
+  return "Standard";
+}
+
+
+function OrderDetailsDialog({ open, onOpenChange, order }) {
+  const [activeTab, setActiveTab] = useState("product");
 
   useEffect(() => {
-    if (order?.status) {
-      setSelectedStatus(order.status);
+    if (open) {
+      setActiveTab("product");
     }
-  }, [order?.status]);
-
-  useEffect(() => {
-    if (state.success) {
-      onStatusUpdate?.(order?.id, state.newStatus);
-    }
-  }, [state.success, state.newStatus, order?.id, onStatusUpdate]);
+  }, [open, order?.id]);
 
   if (!order) return null;
 
@@ -94,13 +98,13 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
     ? "Gift wrap selected"
     : "No gift wrap";
 
-  const statusOptions = [
-    { value: "pending", label: "Pending", icon: PiClock },
-    { value: "confirmed", label: "Confirmed", icon: PiCheckCircle },
-    { value: "processing", label: "Processing", icon: PiSpinner },
-    { value: "shipped", label: "Shipped", icon: PiTruck },
-    { value: "delivered", label: "Delivered", icon: PiPackage },
-  ];
+  const shipping = order.shipping || {};
+  const hasShippingDetails =
+    !!shipping.address ||
+    !!shipping.city ||
+    !!shipping.region ||
+    !!shipping.digitalAddress;
+  const variationLabel = formatVariationLabel(order.variation);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -120,8 +124,44 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
         </DialogHeader>
 
         <div className="mt-4 space-y-6">
+          <div className="flex items-center gap-2 border-b border-[#E5E7EB] pb-3 print:hidden">
+            <button
+              type="button"
+              onClick={() => setActiveTab("product")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                activeTab === "product"
+                  ? "bg-[#111827] text-white"
+                  : "bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB]"
+              }`}
+            >
+              Product
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("buyer")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                activeTab === "buyer"
+                  ? "bg-[#111827] text-white"
+                  : "bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB]"
+              }`}
+            >
+              Buyer & Delivery
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("fulfillment")}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                activeTab === "fulfillment"
+                  ? "bg-[#111827] text-white"
+                  : "bg-[#F3F4F6] text-[#4B5563] hover:bg-[#E5E7EB]"
+              }`}
+            >
+              Fulfillment
+            </button>
+          </div>
+
           {/* Product Information */}
-          <div className="space-y-3">
+          <div className={`space-y-3 ${activeTab === "product" ? "block" : "hidden"} print:block`}>
             <h3 className="text-[#111827] text-sm font-semibold flex items-center gap-2">
               <PiPackage className="w-4 h-4" />
               Product Information
@@ -137,6 +177,12 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
                 <span className="text-[#6B7280] text-sm">SKU:</span>
                 <span className="text-[#111827] text-sm">
                   {order.product?.product_code || "—"}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#6B7280] text-sm">Variation:</span>
+                <span className="text-[#111827] text-sm text-right max-w-[60%]">
+                  {variationLabel}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -185,7 +231,7 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
           </div>
 
           {/* Customer Information */}
-          <div className="space-y-3">
+          <div className={`space-y-3 ${activeTab === "buyer" ? "block" : "hidden"} print:block`}>
             <h3 className="text-[#111827] text-sm font-semibold flex items-center gap-2">
               <PiUser className="w-4 h-4" />
               Customer Information
@@ -236,61 +282,53 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
           </div>
 
           {/* Shipping Address */}
-          <div className="space-y-3">
+          <div className={`space-y-3 ${activeTab === "buyer" ? "block" : "hidden"} print:block`}>
             <h3 className="text-[#111827] text-sm font-semibold flex items-center gap-2">
               <PiMapPin className="w-4 h-4" />
               Shipping Address
             </h3>
-            <div className="bg-[#F9FAFB] rounded-lg p-4">
-              <p className="text-[#6B7280] text-sm">
-                Shipping details are not available for this order.
+            {hasShippingDetails ? (
+              <div className="bg-[#F9FAFB] rounded-lg p-4 space-y-2">
+                {shipping.address && (
+                  <p className="text-[#111827] text-sm">{shipping.address}</p>
+                )}
+                {(shipping.city || shipping.region) && (
+                  <p className="text-[#4B5563] text-sm">
+                    {[shipping.city, shipping.region].filter(Boolean).join(", ")}
+                  </p>
+                )}
+                {shipping.digitalAddress && (
+                  <p className="text-[#4B5563] text-sm">
+                    Digital address: {shipping.digitalAddress}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="bg-[#F9FAFB] rounded-lg p-4">
+                <p className="text-[#6B7280] text-sm">
+                  Shipping details are not available for this order.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Fulfillment ownership note */}
+          <div className={`space-y-3 ${activeTab === "fulfillment" ? "block" : "hidden"} print:block`}>
+            <h3 className="text-[#111827] text-sm font-semibold">
+              Fulfillment Status
+            </h3>
+            <div className="rounded-lg border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 flex items-start gap-2">
+              <PiInfo className="w-4 h-4 mt-0.5 text-[#6B7280]" />
+              <p className="text-[#4B5563] text-xs leading-relaxed">
+                Giftologi Operations manages order fulfillment and delivery updates.
+                You can monitor this order here, but status changes are handled by
+                the admin operations team.
               </p>
             </div>
           </div>
-
-          {/* Update Order Status */}
-          <div className="space-y-3">
-            <h3 className="text-[#111827] text-sm font-semibold">
-              Update Order Status
-            </h3>
-            <form ref={formRef} action={formAction}>
-              <input type="hidden" name="action" value="update_status" />
-              <input type="hidden" name="orderItemId" value={order.id} />
-              <input type="hidden" name="status" value={selectedStatus} />
-
-              <div className="flex flex-wrap gap-2">
-                {statusOptions.map((option) => {
-                  const Icon = option.icon;
-                  const isSelected = selectedStatus === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setSelectedStatus(option.value)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
-                        isSelected
-                          ? "bg-[#111827] text-white border-[#111827]"
-                          : "bg-white text-[#374151] border-[#D1D5DB] hover:bg-[#F3F4F6]"
-                      }`}
-                    >
-                      <Icon className="w-3.5 h-3.5" />
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {state.message && !state.success && (
-                <p className="mt-2 text-red-600 text-xs">{state.message}</p>
-              )}
-              {state.message && state.success && (
-                <p className="mt-2 text-green-600 text-xs">{state.message}</p>
-              )}
-            </form>
-          </div>
         </div>
 
-        <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB]">
+        <DialogFooter className="mt-6 pt-4 border-t border-[#E5E7EB] print:hidden">
           <button
             type="button"
             onClick={() => window.print()}
@@ -307,14 +345,6 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
               Close
             </button>
           </DialogClose>
-          <button
-            type="button"
-            disabled={isPending || selectedStatus === order.status}
-            onClick={() => formRef.current?.requestSubmit()}
-            className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isPending ? "Updating..." : "Save Changes"}
-          </button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -322,8 +352,7 @@ function OrderDetailsDialog({ open, onOpenChange, order, onStatusUpdate }) {
 }
 
 export default function VendorOrdersContent() {
-  const { orders, stats, loading, error, refreshData } =
-    useVendorOrdersContext();
+  const { orders, stats, loading, error } = useVendorOrdersContext();
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -349,10 +378,6 @@ export default function VendorOrdersContent() {
   const handleViewOrder = (order) => {
     setSelectedOrder(order);
     setDialogOpen(true);
-  };
-
-  const handleStatusUpdate = (orderId, newStatus) => {
-    refreshData();
   };
 
   const handleExport = () => {
@@ -444,8 +469,8 @@ export default function VendorOrdersContent() {
         <StatCard
           icon={PiPackage}
           iconColor="text-[#6366F1]"
-          title="In Progress"
-          value={stats.confirmed + stats.processing}
+          title="Paid"
+          value={stats.paid}
         />
         <StatCard
           icon={PiTruck}
@@ -506,13 +531,11 @@ export default function VendorOrdersContent() {
               <SelectContent>
                 <SelectItem value="all">All Status ({orders.length})</SelectItem>
                 <SelectItem value="pending">Pending ({stats.pending})</SelectItem>
-                <SelectItem value="confirmed">Confirmed ({stats.confirmed})</SelectItem>
-                <SelectItem value="processing">
-                  Processing ({stats.processing})
-                </SelectItem>
+                <SelectItem value="paid">Paid ({stats.paid})</SelectItem>
                 <SelectItem value="shipped">Shipped ({stats.shipped})</SelectItem>
                 <SelectItem value="delivered">Delivered ({stats.delivered})</SelectItem>
                 <SelectItem value="cancelled">Cancelled ({stats.cancelled})</SelectItem>
+                <SelectItem value="expired">Expired ({stats.expired})</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -637,7 +660,10 @@ export default function VendorOrdersContent() {
                           <button
                             onClick={() => {
                               setSelectedOrder(order);
-                              window.print();
+                              setDialogOpen(true);
+                              setTimeout(() => {
+                                window.print();
+                              }, 0);
                             }}
                             className="p-1.5 rounded-lg hover:bg-[#F3F4F6] transition-colors"
                             title="Print"
@@ -660,7 +686,6 @@ export default function VendorOrdersContent() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         order={selectedOrder}
-        onStatusUpdate={handleStatusUpdate}
       />
     </section>
   );

@@ -9,6 +9,7 @@ import {
   PiCheckCircle,
   PiWarning,
 } from "react-icons/pi";
+import Footer from "@/app/components/footer";
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -150,8 +151,8 @@ export default function OrderTrackingContent({ orderCode }) {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F5F0]">
-      <div className="max-w-3xl mx-auto px-6 py-12">
+    <div className="min-h-screen bg-[#F7F5F0] w-full">
+      <div className="max-w-3xl mx-auto px-5 md:px-10 py-12 w-full pt-28">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
@@ -361,13 +362,14 @@ export default function OrderTrackingContent({ orderCode }) {
             Return / Exchange
           </Link>
           <Link
-            href="/"
+            href="/shop"
             className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-[#A5914B] text-white text-sm font-medium hover:bg-[#8B7A3F]"
           >
             Browse gifts
           </Link>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

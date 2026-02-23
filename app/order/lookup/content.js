@@ -3,28 +3,33 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { PiMagnifyingGlass, PiArrowRight } from "react-icons/pi";
+import Footer from "@/app/components/footer";
+import { LoaderCircle } from "lucide-react";
 
 export default function OrderLookupContent() {
   const router = useRouter();
   const [orderCode, setOrderCode] = useState("");
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = (event) => {
     event.preventDefault();
     const cleaned = orderCode.trim();
-
+    setLoading(true);
     if (!cleaned) {
       setError("Please enter your order code.");
+      setLoading(false);
       return;
     }
 
     setError(null);
+    setLoading(false);
     router.push(`/order/${encodeURIComponent(cleaned)}`);
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F5F0]">
-      <div className="max-w-2xl mx-auto px-6 py-16">
+    <div className="min-h-screen bg-[#F7F5F0] w-full">
+      <div className="max-w-2xl mx-auto px-5 md:px-10 py-16 w-full pt-28">
         <div className="text-center">
           <p className="text-xs uppercase tracking-[0.3em] text-[#6B7280]">
             Gift Order Tracking
@@ -61,17 +66,22 @@ export default function OrderLookupContent() {
               />
             </div>
             <button
+              disabled={loading}
               type="submit"
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#111827] px-5 py-3 text-sm font-medium text-white hover:bg-[#1F2937]"
+              className="disabled:cursor-not-allowed disabled:opacity-50 inline-flex items-center justify-center gap-2 rounded-full bg-[#111827] px-5 py-3 text-sm font-medium text-white border border-[#1F2937] hover:text-[#1F2937] hover:bg-white cursor-pointer"
             >
-              Track order
+              {loading ? (
+                <LoaderCircle className="size-4 animate-spin" />
+              ) : (
+                "Track order"
+              )}
               <PiArrowRight className="w-4 h-4" />
             </button>
           </div>
           {error && <p className="mt-3 text-xs text-[#B91C1C]">{error}</p>}
           <p className="mt-4 text-xs text-[#6B7280]">
-            Don&apos;t have your order code? Check your confirmation email or reach
-            out to the registry host for assistance.
+            Don&apos;t have your order code? Check your confirmation email or
+            reach out to the registry host for assistance.
           </p>
         </form>
 
@@ -84,6 +94,7 @@ export default function OrderLookupContent() {
           </Link>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

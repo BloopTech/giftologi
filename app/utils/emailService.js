@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 let _transport = null;
+const RESEND_API_URL = "https://api.resend.com/emails";
 
 const getSiteUrl = () =>
   process.env.NEXT_PUBLIC_SITE_URL ||
@@ -37,7 +38,86 @@ export function getEmailTransport() {
  * Returns the configured "from" address for outgoing emails.
  */
 export function getFromAddress() {
-  return process.env.SMTP_FROM || process.env.SMTP_USER || null;
+  return (
+    process.env.SMTP_FROM ||
+    process.env.RESEND_FROM_EMAIL ||
+    process.env.SMTP_USER ||
+    null
+  );
+}
+
+const hasResendConfig = () =>
+  Boolean(
+    process.env.RESEND_API_KEY &&
+    (process.env.RESEND_FROM_EMAIL || getFromAddress()),
+  );
+
+async function sendEmailWithResend({ to, subject, html, from, replyTo }) {
+  if (!hasResendConfig()) {
+    return { success: false, error: "Resend not configured" };
+  }
+
+  const fromAddress = from || process.env.RESEND_FROM_EMAIL || getFromAddress();
+  if (!fromAddress) {
+    return { success: false, error: "Missing sender address" };
+  }
+
+  try {
+    const response = await fetch(RESEND_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress,
+        to: [to],
+        subject,
+        html,
+        ...(replyTo ? { reply_to: replyTo } : {}),
+      }),
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      return {
+        success: false,
+        error: `Resend request failed (${response.status}): ${body}`,
+      };
+    }
+
+    return { success: true, error: null };
+  } catch (err) {
+    return { success: false, error: err?.message || "Resend send failed" };
+  }
+}
+
+async function sendEmailWithSmtp({ to, subject, html, from, replyTo }) {
+  const transport = getEmailTransport();
+  const fromAddress = from || getFromAddress();
+
+  if (!transport || !fromAddress) {
+    console.warn("[emailService] Email not sent: SMTP not configured.");
+    return { success: false, error: "SMTP not configured" };
+  }
+
+  try {
+    await transport.sendMail({
+      from: fromAddress,
+      to,
+      subject,
+      html,
+      ...(replyTo ? { replyTo } : {}),
+    });
+    return { success: true, error: null };
+  } catch (err) {
+    console.error(
+      "[emailService] Failed to send email via SMTP:",
+      err?.message,
+    );
+    return { success: false, error: err?.message || "SMTP send failed" };
+  }
 }
 
 /**
@@ -52,31 +132,29 @@ export function getFromAddress() {
  * @returns {Promise<{success: boolean, error: string|null}>}
  */
 export async function sendEmail({ to, subject, html, from, replyTo }) {
-  const transport = getEmailTransport();
-  const fromAddress = from || getFromAddress();
-
-  if (!transport || !fromAddress) {
-    console.warn("[emailService] Email not sent: SMTP not configured.");
-    return { success: false, error: "SMTP not configured" };
-  }
-
   if (!to || !subject || !html) {
     return { success: false, error: "Missing required email fields" };
   }
 
-  try {
-    await transport.sendMail({
-      from: fromAddress,
-      to,
-      subject,
-      html,
-      ...(replyTo ? { replyTo } : {}),
-    });
-    return { success: true, error: null };
-  } catch (err) {
-    console.error("[emailService] Failed to send email:", err?.message);
-    return { success: false, error: err?.message || "Send failed" };
+  const resendResult = await sendEmailWithResend({
+    to,
+    subject,
+    html,
+    from,
+    replyTo,
+  });
+
+  if (resendResult.success) {
+    return resendResult;
   }
+
+  if (hasResendConfig()) {
+    console.warn(
+      `[emailService] Resend delivery failed, falling back to SMTP: ${resendResult.error}`,
+    );
+  }
+
+  return sendEmailWithSmtp({ to, subject, html, from, replyTo });
 }
 
 /**
@@ -93,6 +171,23 @@ export function interpolateTemplate(template, variables = {}) {
     if (key in variables) return String(variables[key] ?? "");
     return match;
   });
+}
+
+function resolveTemplateReplyTo({ templateSlug, variables }) {
+  if (variables?.reply_to) return String(variables.reply_to);
+
+  const defaultReplyTo = process.env.EMAIL_REPLY_TO || null;
+  const supportReplyTemplate = process.env.SUPPORT_REPLY_TO_TEMPLATE || null;
+
+  if (
+    templateSlug?.startsWith("support_ticket_") &&
+    supportReplyTemplate &&
+    variables?.ticket_id
+  ) {
+    return interpolateTemplate(supportReplyTemplate, variables);
+  }
+
+  return defaultReplyTo;
 }
 
 /**
@@ -125,7 +220,7 @@ export async function sendTemplatedEmail({
 
   if (fetchError || !template) {
     console.warn(
-      `[emailService] Template "${templateSlug}" not found or inactive.`
+      `[emailService] Template "${templateSlug}" not found or inactive.`,
     );
     return {
       success: false,
@@ -137,9 +232,15 @@ export async function sendTemplatedEmail({
   const allVariables = { ...variables, site_url: siteUrl };
   const subject = interpolateTemplate(template.subject, allVariables);
   const html = interpolateTemplate(template.body, allVariables);
-  const from = template.sender_name
-    ? `${template.sender_name} <${getFromAddress()}>`
-    : undefined;
+  const senderAddress = getFromAddress();
+  const from =
+    template.sender_name && senderAddress
+      ? `${template.sender_name} <${senderAddress}>`
+      : undefined;
+  const replyTo = resolveTemplateReplyTo({
+    templateSlug,
+    variables: allVariables,
+  });
 
-  return sendEmail({ to, subject, html, from });
+  return sendEmail({ to, subject, html, from, replyTo });
 }

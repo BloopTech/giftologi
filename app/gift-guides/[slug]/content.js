@@ -208,7 +208,7 @@ function GuideProductDetailModal({ open, onOpenChange, product }) {
 
             <div className="flex flex-col gap-3 mt-auto">
               {!isOutOfStock && (
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-col lg:flex-row">
                   <button
                     type="button"
                     onClick={() => buyNow(product)}
@@ -742,7 +742,7 @@ export default function GuideDetailContent() {
   return (
     <>
       <section className="min-h-screen bg-[#FAFAFA]">
-        <div className="mx-auto max-w-6xl px-4 py-10 pt-24">
+        <div className="mx-auto max-w-6xl px-5 md:px-10 py-10 pt-24">
           {/* Back */}
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 py-8 border-b border-gray-200">
@@ -887,7 +887,7 @@ export default function GuideDetailContent() {
             ) : (
               <>
                 {viewMode === "grid" ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {products.map((product) => (
                       <ProductCard key={product.id} product={product} viewMode="grid" />
                     ))}

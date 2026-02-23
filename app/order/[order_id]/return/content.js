@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/app/components/Select";
+import Footer from "@/app/components/footer";
 
 export default function ReturnRequestContent({
   orderCode,
@@ -81,8 +82,8 @@ export default function ReturnRequestContent({
   ];
 
   return (
-    <div className="min-h-screen bg-[#F7F5F0]">
-      <div className="max-w-2xl mx-auto px-6 py-12">
+    <div className="min-h-screen bg-[#F7F5F0] w-full">
+      <div className="max-w-2xl mx-auto px-5 md:px-10 py-12 pt-28 w-full">
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[#6B7280]">
@@ -292,6 +293,7 @@ export default function ReturnRequestContent({
           </Link>
         </div>
       </div>
+      <Footer />
     </div>
   );
 }

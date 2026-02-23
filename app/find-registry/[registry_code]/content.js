@@ -168,7 +168,7 @@ function RegistryContentInner() {
       <main
         id="registry-main-content"
         role="main"
-        tabIndex={-1}
+        //tabIndex={-1}
         aria-label={`${registry?.title || "Registry"} gift list`}
         className="flex flex-col space-y-8 w-full"
       >

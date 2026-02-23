@@ -40,6 +40,7 @@ import { useHostRegistryListContext } from "./context";
 import { deleteRegistry, updateRegistryDetails } from "./[registry_code]/action";
 import EditRegistryBuilderDialog from "../components/registry-builder/EditRegistryBuilderDialog";
 import FormInput from "../components/registry-builder/FormInput";
+import Image from "next/image";
 
 const carouselItems = [
   {
@@ -117,7 +118,7 @@ export default function HostDashboardRegistryListsContent(props) {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-6xl w-full font-brasley-medium min-h-screen">
-      <main className="flex flex-col space-y-16 w-full">
+      <main className="flex flex-col space-y-16 w-full px-5 md:px-10">
         <CarouselHero
           items={carouselItems}
           openCreateRegistry={openCreateRegistry}
@@ -151,7 +152,7 @@ export default function HostDashboardRegistryListsContent(props) {
                 {error?.message || "Failed to load registries"}
               </div>
             ) : registries?.length ? (
-              <div className="flex w-full flex-wrap gap-8 items-center">
+              <div className="w-full grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {registries?.map((row) => {
                   const coverPhoto = row?.cover_photo;
                   const title = row?.title;
@@ -164,7 +165,7 @@ export default function HostDashboardRegistryListsContent(props) {
                   return (
                     <div
                       key={registryId}
-                      className="flex flex-col rounded-2xl border border-[#DCDCDE] overflow-hidden w-[230px]"
+                      className="flex flex-col rounded-2xl border border-[#DCDCDE] overflow-hidden"
                     >
                       <div className="bg-[#FFFCF3] p-4 w-full flex items-center justify-center relative h-[200px] overflow-hidden">
                         <div className="w-full h-full">
@@ -234,11 +235,11 @@ export default function HostDashboardRegistryListsContent(props) {
                     </div>
                   );
                 })}
-                <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-4 justify-center items-center">
                   <button
                     type="button"
                     onClick={openCreateRegistry}
-                    className="cursor-pointer flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]"
+                    className="cursor-pointer w-30 h-[200px] flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]"
                   >
                     <Plus className="size-8" />
                     <span className="w-full flex items-center justify-center relative h-[100px] -my-[1rem]">

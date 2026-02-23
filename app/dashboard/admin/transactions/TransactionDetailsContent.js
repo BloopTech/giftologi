@@ -13,6 +13,12 @@ const TABS = [
   { id: "audit", label: "Audit Trail" },
 ];
 
+const DELIVERY_STEPS = [
+  { id: "destination", label: "Destination" },
+  { id: "logistics", label: "Logistics & Fees" },
+  { id: "proof", label: "Proof & Actions" },
+];
+
 const formatDate = (value) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -60,6 +66,66 @@ const mapPaymentMethodLabel = (value) => {
   if (methodValue === "card") return "Card";
   if (methodValue === "bank") return "Bank Transfer";
   return methodValue.charAt(0).toUpperCase() + methodValue.slice(1);
+};
+
+const mapPaymentProviderLabel = (value) => {
+  if (!value) return "Unrecorded";
+  const providerValue = String(value).trim();
+  if (!providerValue) return "Unrecorded";
+
+  const normalized = providerValue.toLowerCase();
+  if (normalized === "expresspay") return "ExpressPay";
+
+  return providerValue.charAt(0).toUpperCase() + providerValue.slice(1);
+};
+
+const parseJsonObject = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value !== "string") return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const pickPaymentValue = (source, keys) => {
+  if (!source || typeof source !== "object") return null;
+
+  for (const key of keys) {
+    const value = source[key];
+    if (value === null || typeof value === "undefined") continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+
+  return null;
+};
+
+const formatVariationLabel = (variation) => {
+  if (!variation) return "Standard";
+
+  if (typeof variation === "string") {
+    const trimmed = variation.trim();
+    return trimmed || "Standard";
+  }
+
+  if (typeof variation === "object") {
+    if (variation.label) return String(variation.label);
+    if (variation.name) return String(variation.name);
+
+    const skipKeys = new Set(["id", "key", "sku", "stock_qty", "price", "label", "name"]);
+    const parts = Object.entries(variation)
+      .filter(([key, value]) => !skipKeys.has(key) && value !== null && value !== "")
+      .map(([key, value]) => `${key}: ${value}`);
+
+    if (parts.length) return parts.join(", ");
+  }
+
+  return "Standard";
 };
 
 export default function TransactionDetailsContent({ transaction }) {
@@ -263,6 +329,8 @@ export default function TransactionDetailsContent({ transaction }) {
 
   const paymentSummary = useMemo(() => {
     const payment = details.payment;
+    const paymentMeta = parseJsonObject(payment?.meta);
+    const orderPaymentResponse = parseJsonObject(order?.payment_response);
 
     let amountValue = 0;
     if (typeof payment?.amount === "number") {
@@ -277,7 +345,25 @@ export default function TransactionDetailsContent({ transaction }) {
     const serviceFeeValue = amountValue * serviceFeeRate;
     const netVendorValue = amountValue - serviceFeeValue;
 
-    const methodSource = payment?.method || order?.payment_method;
+    const methodSource =
+      payment?.method ||
+      pickPaymentValue(paymentMeta, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]) ||
+      transaction?.paymentMethodValue ||
+      order?.payment_method ||
+      pickPaymentValue(orderPaymentResponse, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]);
+
+    const providerSource =
+      payment?.provider ||
+      pickPaymentValue(paymentMeta, ["provider", "gateway", "payment_provider", "paymentProvider"]) ||
+      transaction?.paymentProviderLabel ||
+      pickPaymentValue(orderPaymentResponse, ["provider", "gateway", "payment_provider", "paymentProvider"]);
+
+    const referenceSource =
+      payment?.provider_ref ||
+      pickPaymentValue(paymentMeta, ["provider_ref", "reference", "payment_reference", "transaction_id"]) ||
+      transaction?.paymentReference ||
+      order?.payment_reference ||
+      pickPaymentValue(orderPaymentResponse, ["provider_ref", "reference", "payment_reference", "transaction_id"]);
 
     const statusSource =
       payment?.status ||
@@ -302,16 +388,15 @@ export default function TransactionDetailsContent({ transaction }) {
     }
 
     const transactionId =
-      payment?.provider_ref ||
+      referenceSource ||
       (order?.id
         ? `TXN-${String(order.id).slice(0, 8).toUpperCase()}`
         : transaction?.orderCode || "—");
 
     return {
       transactionId,
-      paymentMethodLabel:
-        transaction?.paymentMethodLabel || mapPaymentMethodLabel(methodSource),
-      paymentProviderLabel: payment?.provider || "—",
+      paymentMethodLabel: mapPaymentMethodLabel(methodSource),
+      paymentProviderLabel: mapPaymentProviderLabel(providerSource),
       paymentStatusLabel: statusLabel,
       paymentStatusVariant: statusVariant,
       paymentDateLabel: formatDate(payment?.created_at || order?.created_at),
@@ -358,6 +443,7 @@ export default function TransactionDetailsContent({ transaction }) {
         id: item.id || String(index),
         name,
         sku,
+        variationLabel: formatVariationLabel(item.variation),
         quantity,
         unitPriceLabel: formatCurrencyGHS(unitPriceValue),
         subtotalLabel: formatCurrencyGHS(subtotalValue),
@@ -434,11 +520,15 @@ export default function TransactionDetailsContent({ transaction }) {
     const pieces = Number.isFinite(Number(checkoutContext.pieces))
       ? Number(checkoutContext.pieces)
       : null;
+    const inboundFeeValue =
+      delivery.inbound_shipping_fee ??
+      order?.shipping_fee ??
+      0;
 
     return {
       courierPartner: delivery.courier_partner || "—",
       trackingId: delivery.tracking_id || "—",
-      inboundFeeLabel: formatCurrencyGHS(delivery.inbound_shipping_fee),
+      inboundFeeLabel: formatCurrencyGHS(inboundFeeValue),
       outboundFeeLabel: formatCurrencyGHS(delivery.outbound_shipping_fee),
       giftWrappingFeeLabel: formatCurrencyGHS(delivery.gift_wrapping_fee),
       deliveryStatusLabel: label,
@@ -456,6 +546,28 @@ export default function TransactionDetailsContent({ transaction }) {
       rawStatus: normalized,
     };
   }, [details.delivery, details.checkoutContext, transaction, order]);
+
+  const deliveryDestination = useMemo(() => {
+    const fullName =
+      [order?.buyer_firstname, order?.buyer_lastname]
+        .filter(Boolean)
+        .join(" ")
+        .trim() ||
+      [buyer?.firstname, buyer?.lastname].filter(Boolean).join(" ").trim() ||
+      transaction?.guestName ||
+      "Guest";
+
+    return {
+      recipientName: fullName,
+      recipientEmail: order?.buyer_email || buyer?.email || transaction?.email || "—",
+      recipientPhone: order?.buyer_phone || buyer?.phone || "—",
+      addressLine: order?.shipping_address || "—",
+      cityRegion:
+        [order?.shipping_city, order?.shipping_region].filter(Boolean).join(", ") ||
+        "—",
+      digitalAddress: order?.shipping_digital_address || "—",
+    };
+  }, [order, buyer, transaction]);
 
   const auditEntries = useMemo(() => {
     const entries = [];
@@ -577,7 +689,12 @@ export default function TransactionDetailsContent({ transaction }) {
       )}
 
       {activeTab === "delivery" && (
-        <DeliverySection loading={loading} summary={deliverySummary} orderId={orderId} />
+        <DeliverySection
+          loading={loading}
+          summary={deliverySummary}
+          orderId={orderId}
+          destination={deliveryDestination}
+        />
       )}
 
       {activeTab === "audit" && (
@@ -790,6 +907,9 @@ function OrderItemsSection({ loading, items }) {
                   <th className="px-4 py-2 text-left text-[11px] font-medium text-[#6A7282]">
                     SKU
                   </th>
+                  <th className="px-4 py-2 text-left text-[11px] font-medium text-[#6A7282]">
+                    Variation
+                  </th>
                   <th className="px-4 py-2 text-right text-[11px] font-medium text-[#6A7282]">
                     Quantity
                   </th>
@@ -822,6 +942,9 @@ function OrderItemsSection({ loading, items }) {
                     <td className="px-4 py-2 text-xs text-[#0A0A0A]">
                       {item.sku}
                     </td>
+                    <td className="px-4 py-2 text-xs text-[#0A0A0A]">
+                      {item.variationLabel}
+                    </td>
                     <td className="px-4 py-2 text-xs text-right text-[#0A0A0A]">
                       {item.quantity ?? "—"}
                     </td>
@@ -842,7 +965,8 @@ function OrderItemsSection({ loading, items }) {
   );
 }
 
-function DeliverySection({ loading, summary, orderId }) {
+function DeliverySection({ loading, summary, orderId, destination }) {
+  const [activeStep, setActiveStep] = useState("destination");
   const [failReason, setFailReason] = useState("");
   const [actionLoading, setActionLoading] = useState(null);
   const [actionMsg, setActionMsg] = useState(null);
@@ -877,199 +1001,265 @@ function DeliverySection({ loading, summary, orderId }) {
 
   return (
     <div className="space-y-4 text-xs text-[#0A0A0A]">
-      <div className="space-y-1">
-        <p className="text-[11px] font-medium text-[#717182]">
-          Delivery Information
-        </p>
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-[11px] text-[#717182]">Courier Partner</p>
-            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-              {summary.courierPartner}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] text-[#717182]">Tracking ID</p>
-            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-              {summary.trackingId}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] text-[#717182]">Inbound Shipping Fee</p>
-            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-              {summary.inboundFeeLabel}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] text-[#717182]">Outbound Shipping Fee</p>
-            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-              {summary.outboundFeeLabel}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] text-[#717182]">Gift Wrapping Fee</p>
-            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-              {summary.giftWrappingFeeLabel}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] text-[#717182]">Delivery Status</p>
-            <div className="mt-1">
-              <Badge
-                variant={summary.deliveryStatusVariant}
-                className="text-[11px]"
-              >
-                {summary.deliveryStatusLabel}
-              </Badge>
-            </div>
-          </div>
-          <div>
-            <p className="text-[11px] text-[#717182]">Total Weight</p>
-            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-              {summary.totalWeightKgLabel}
-            </p>
-          </div>
-          <div>
-            <p className="text-[11px] text-[#717182]">Pieces</p>
-            <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-              {summary.piecesLabel}
-            </p>
-          </div>
-          {summary.attempts > 1 && (
-            <div>
-              <p className="text-[11px] text-[#717182]">Delivery Attempts</p>
-              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
-                {summary.attempts}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Delivery Confirmation */}
-      <div className="space-y-1">
-        <p className="text-[11px] font-medium text-[#717182]">
-          Delivery Confirmation
-        </p>
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
-          {summary.confirmedAt ? (
-            <div className="flex items-center gap-2">
-              <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
-              <p className="text-[11px] text-[#0A0A0A]">
-                Confirmed by <span className="font-medium">{summary.confirmedBy || "—"}</span> on{" "}
-                {formatDateTime(summary.confirmedAt)}
-              </p>
-            </div>
-          ) : (
-            <p className="text-[11px] text-[#717182]">
-              Delivery has not been confirmed by the recipient yet.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Failed Delivery Info */}
-      {summary.failedAt && (
-        <div className="space-y-1">
-          <p className="text-[11px] font-medium text-red-600">
-            Failed Delivery
-          </p>
-          <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-1">
-            <p className="text-[11px] text-red-700">
-              Failed at: {formatDateTime(summary.failedAt)}
-            </p>
-            {summary.failedReason && (
-              <p className="text-[11px] text-red-700">
-                Reason: {summary.failedReason}
-              </p>
+      <div className="inline-flex rounded-full bg-[#F3F4F6] p-1 text-[11px]">
+        {DELIVERY_STEPS.map((step) => (
+          <button
+            key={step.id}
+            type="button"
+            onClick={() => setActiveStep(step.id)}
+            className={cx(
+              "px-3 py-1.5 rounded-full cursor-pointer transition-colors",
+              activeStep === step.id
+                ? "bg-white text-[#0A0A0A] shadow-sm"
+                : "text-[#6A7282] hover:text-[#0A0A0A]"
             )}
+          >
+            {step.label}
+          </button>
+        ))}
+      </div>
+
+      {activeStep === "destination" && (
+        <div className="space-y-1">
+          <p className="text-[11px] font-medium text-[#717182]">
+            Recipient & Delivery Destination
+          </p>
+          <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[11px] text-[#717182]">Recipient</p>
+              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                {destination?.recipientName || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[#717182]">Email</p>
+              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                {destination?.recipientEmail || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[#717182]">Phone</p>
+              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                {destination?.recipientPhone || "—"}
+              </p>
+            </div>
+            <div>
+              <p className="text-[11px] text-[#717182]">City / Region</p>
+              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                {destination?.cityRegion || "—"}
+              </p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-[11px] text-[#717182]">Street Address</p>
+              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                {destination?.addressLine || "—"}
+              </p>
+            </div>
+            <div className="col-span-2">
+              <p className="text-[11px] text-[#717182]">Digital Address</p>
+              <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                {destination?.digitalAddress || "—"}
+              </p>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Proof of Delivery */}
-      <div className="space-y-1">
-        <p className="text-[11px] font-medium text-[#717182]">
-          Proof of Delivery
-        </p>
-        <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 flex items-center justify-between gap-3">
-          <p className="text-[11px] text-[#717182]">
-            {summary.proofUrl
-              ? "A proof of delivery file has been uploaded."
-              : "No proof of delivery uploaded yet."}
-          </p>
-          {summary.proofUrl && (
-            <a
-              href={summary.proofUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-full border border-[#3979D2] px-4 py-1.5 text-[11px] text-[#3979D2] hover:bg-[#3979D2] hover:text-white cursor-pointer"
-            >
-              View File
-            </a>
-          )}
-        </div>
-      </div>
-
-      {/* Admin Actions */}
-      {orderId && (
-        <div className="space-y-1">
-          <p className="text-[11px] font-medium text-[#717182]">
-            Delivery Actions
-          </p>
-          <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 space-y-3">
-            {actionMsg && (
-              <div
-                className={cx(
-                  "rounded-md px-3 py-2 text-[11px]",
-                  actionMsg.type === "success"
-                    ? "bg-green-50 border border-green-200 text-green-700"
-                    : "bg-red-50 border border-red-200 text-red-700"
-                )}
-              >
-                {actionMsg.text}
+      {activeStep === "logistics" && (
+        <>
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium text-[#717182]">
+              Delivery Information
+            </p>
+            <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[11px] text-[#717182]">Courier Partner</p>
+                <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                  {summary.courierPartner}
+                </p>
               </div>
-            )}
-
-            <div className="flex flex-wrap gap-2">
-              {/* Mark Failed */}
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="Failure reason (optional)"
-                  value={failReason}
-                  onChange={(e) => setFailReason(e.target.value)}
-                  disabled={!!actionLoading}
-                  className="rounded-full border border-[#D6D6D6] px-3 py-1.5 text-[11px] outline-none w-48"
-                />
-                <button
-                  type="button"
-                  disabled={!!actionLoading}
-                  onClick={() =>
-                    handleAction("markFailed", { reason: failReason })
-                  }
-                  className="inline-flex items-center justify-center rounded-full border border-red-400 px-4 py-1.5 text-[11px] text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-50 cursor-pointer"
-                >
-                  {actionLoading === "markFailed"
-                    ? "Marking…"
-                    : "Mark Failed"}
-                </button>
+              <div>
+                <p className="text-[11px] text-[#717182]">Tracking ID</p>
+                <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                  {summary.trackingId}
+                </p>
               </div>
-
-              {/* Re-attempt */}
-              <button
-                type="button"
-                disabled={!!actionLoading}
-                onClick={() => handleAction("reattempt")}
-                className="inline-flex items-center justify-center rounded-full border border-[#3979D2] px-4 py-1.5 text-[11px] text-[#3979D2] hover:bg-[#3979D2] hover:text-white disabled:opacity-50 cursor-pointer"
-              >
-                {actionLoading === "reattempt"
-                  ? "Creating shipment…"
-                  : "Re-attempt Delivery"}
-              </button>
+              <div>
+                <p className="text-[11px] text-[#717182]">Inbound Shipping Fee</p>
+                <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                  {summary.inboundFeeLabel}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#717182]">Outbound Shipping Fee</p>
+                <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                  {summary.outboundFeeLabel}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#717182]">Gift Wrapping Fee</p>
+                <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                  {summary.giftWrappingFeeLabel}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#717182]">Delivery Status</p>
+                <div className="mt-1">
+                  <Badge
+                    variant={summary.deliveryStatusVariant}
+                    className="text-[11px]"
+                  >
+                    {summary.deliveryStatusLabel}
+                  </Badge>
+                </div>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#717182]">Total Weight</p>
+                <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                  {summary.totalWeightKgLabel}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-[#717182]">Pieces</p>
+                <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                  {summary.piecesLabel}
+                </p>
+              </div>
+              {summary.attempts > 1 && (
+                <div>
+                  <p className="text-[11px] text-[#717182]">Delivery Attempts</p>
+                  <p className="mt-1 text-sm font-medium text-[#0A0A0A]">
+                    {summary.attempts}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium text-[#717182]">
+              Delivery Confirmation
+            </p>
+            <div className="rounded-xl border border-[#E5E7EB] bg-white p-4">
+              {summary.confirmedAt ? (
+                <div className="flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full bg-green-500" />
+                  <p className="text-[11px] text-[#0A0A0A]">
+                    Confirmed by <span className="font-medium">{summary.confirmedBy || "—"}</span> on{" "}
+                    {formatDateTime(summary.confirmedAt)}
+                  </p>
+                </div>
+              ) : (
+                <p className="text-[11px] text-[#717182]">
+                  Delivery has not been confirmed by the recipient yet.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {summary.failedAt && (
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-red-600">
+                Failed Delivery
+              </p>
+              <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-1">
+                <p className="text-[11px] text-red-700">
+                  Failed at: {formatDateTime(summary.failedAt)}
+                </p>
+                {summary.failedReason && (
+                  <p className="text-[11px] text-red-700">
+                    Reason: {summary.failedReason}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {activeStep === "proof" && (
+        <>
+          <div className="space-y-1">
+            <p className="text-[11px] font-medium text-[#717182]">
+              Proof of Delivery
+            </p>
+            <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 flex items-center justify-between gap-3">
+              <p className="text-[11px] text-[#717182]">
+                {summary.proofUrl
+                  ? "A proof of delivery file has been uploaded."
+                  : "No proof of delivery uploaded yet."}
+              </p>
+              {summary.proofUrl && (
+                <a
+                  href={summary.proofUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center justify-center rounded-full border border-[#3979D2] px-4 py-1.5 text-[11px] text-[#3979D2] hover:bg-[#3979D2] hover:text-white cursor-pointer"
+                >
+                  View File
+                </a>
+              )}
+            </div>
+          </div>
+
+          {orderId && (
+            <div className="space-y-1">
+              <p className="text-[11px] font-medium text-[#717182]">
+                Delivery Actions
+              </p>
+              <div className="rounded-xl border border-[#E5E7EB] bg-white p-4 space-y-3">
+                {actionMsg && (
+                  <div
+                    className={cx(
+                      "rounded-md px-3 py-2 text-[11px]",
+                      actionMsg.type === "success"
+                        ? "bg-green-50 border border-green-200 text-green-700"
+                        : "bg-red-50 border border-red-200 text-red-700"
+                    )}
+                  >
+                    {actionMsg.text}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      placeholder="Failure reason (optional)"
+                      value={failReason}
+                      onChange={(e) => setFailReason(e.target.value)}
+                      disabled={!!actionLoading}
+                      className="rounded-full border border-[#D6D6D6] px-3 py-1.5 text-[11px] outline-none w-48"
+                    />
+                    <button
+                      type="button"
+                      disabled={!!actionLoading}
+                      onClick={() =>
+                        handleAction("markFailed", { reason: failReason })
+                      }
+                      className="inline-flex items-center justify-center rounded-full border border-red-400 px-4 py-1.5 text-[11px] text-red-600 hover:bg-red-600 hover:text-white disabled:opacity-50 cursor-pointer"
+                    >
+                      {actionLoading === "markFailed"
+                        ? "Marking…"
+                        : "Mark Failed"}
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={!!actionLoading}
+                    onClick={() => handleAction("reattempt")}
+                    className="inline-flex items-center justify-center rounded-full border border-[#3979D2] px-4 py-1.5 text-[11px] text-[#3979D2] hover:bg-[#3979D2] hover:text-white disabled:opacity-50 cursor-pointer"
+                  >
+                    {actionLoading === "reattempt"
+                      ? "Creating shipment…"
+                      : "Re-attempt Delivery"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

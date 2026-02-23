@@ -13,6 +13,84 @@ import { useQueryState, parseAsString } from "nuqs";
 
 const ViewTransactionsContext = createContext();
 
+const parseJsonObject = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value !== "string") return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const pickPaymentValue = (source, keys) => {
+  if (!source || typeof source !== "object") return null;
+
+  for (const key of keys) {
+    const value = source[key];
+    if (value === null || typeof value === "undefined") continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+
+  return null;
+};
+
+const mapPaymentMethodLabel = (value) => {
+  if (!value) return "Unrecorded";
+
+  const methodValue = String(value).toLowerCase();
+  if (methodValue === "momo") return "MoMo";
+  if (methodValue === "mtn_momo") return "MTN MoMo";
+  if (methodValue === "telecel_cash") return "Telecel Cash";
+  if (methodValue === "at_momo") return "AT MoMo";
+  if (methodValue === "card") return "Card";
+  if (methodValue === "bank") return "Bank Transfer";
+
+  return methodValue.charAt(0).toUpperCase() + methodValue.slice(1);
+};
+
+const resolvePaymentMethod = ({ paymentRow, orderRow }) => {
+  const paymentMeta = parseJsonObject(paymentRow?.meta);
+  const orderResponse = parseJsonObject(orderRow?.payment_response);
+
+  return (
+    paymentRow?.method ||
+    pickPaymentValue(paymentMeta, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]) ||
+    orderRow?.payment_method ||
+    pickPaymentValue(orderResponse, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]) ||
+    ""
+  );
+};
+
+const resolvePaymentProvider = ({ paymentRow, orderRow }) => {
+  const paymentMeta = parseJsonObject(paymentRow?.meta);
+  const orderResponse = parseJsonObject(orderRow?.payment_response);
+
+  return (
+    paymentRow?.provider ||
+    pickPaymentValue(paymentMeta, ["provider", "gateway", "payment_provider", "paymentProvider"]) ||
+    pickPaymentValue(orderResponse, ["provider", "gateway", "payment_provider", "paymentProvider"]) ||
+    "Unrecorded"
+  );
+};
+
+const resolvePaymentReference = ({ paymentRow, orderRow }) => {
+  const paymentMeta = parseJsonObject(paymentRow?.meta);
+  const orderResponse = parseJsonObject(orderRow?.payment_response);
+
+  return (
+    paymentRow?.provider_ref ||
+    pickPaymentValue(paymentMeta, ["provider_ref", "reference", "payment_reference", "transaction_id"]) ||
+    orderRow?.payment_reference ||
+    pickPaymentValue(orderResponse, ["provider_ref", "reference", "payment_reference", "transaction_id"]) ||
+    ""
+  );
+};
+
 export const ViewTransactionsProvider = ({ children }) => {
   const value = useViewTransactionsProviderValue();
 
@@ -216,20 +294,67 @@ function useViewTransactionsProviderValue() {
         const supabase = createSupabaseClient();
         const from = transactionsPage * pageSize;
         const to = from + pageSize - 1;
+        const selectedPaymentMethod =
+          paymentMethodFilter && paymentMethodFilter !== "all"
+            ? paymentMethodFilter
+            : "";
+
+        let filteredOrderIds = null;
+        if (selectedPaymentMethod) {
+          const [legacyMethodRows, methodPaymentRows] = await Promise.all([
+            supabase
+              .from("orders")
+              .select("id")
+              .eq("payment_method", selectedPaymentMethod),
+            supabase
+              .from("order_payments")
+              .select("order_id")
+              .eq("method", selectedPaymentMethod),
+          ]);
+
+          const filterFetchError =
+            legacyMethodRows?.error?.message || methodPaymentRows?.error?.message;
+          if (filterFetchError) {
+            if (!ignore) {
+              setErrorTransactions(filterFetchError);
+              setTransactions([]);
+              setTransactionsTotal(0);
+            }
+            return;
+          }
+
+          const ids = new Set();
+          for (const row of legacyMethodRows?.data || []) {
+            if (row?.id) ids.add(row.id);
+          }
+          for (const row of methodPaymentRows?.data || []) {
+            if (row?.order_id) ids.add(row.order_id);
+          }
+
+          filteredOrderIds = Array.from(ids);
+
+          if (!filteredOrderIds.length) {
+            if (!ignore) {
+              setTransactions([]);
+              setTransactionsTotal(0);
+            }
+            return;
+          }
+        }
 
         let query = supabase
           .from("orders")
           .select(
-            "id, registry_id, buyer_id, total_amount, status, payment_method, created_at",
+            "id, order_code, registry_id, buyer_id, total_amount, status, payment_method, payment_reference, payment_response, created_at, updated_at, buyer_firstname, buyer_lastname, buyer_email, buyer_phone, shipping_address, shipping_city, shipping_region, shipping_digital_address, shipping_fee",
             { count: "exact" }
           );
 
-        if (statusFilter && statusFilter !== "all") {
-          query = query.eq("status", statusFilter);
+        if (filteredOrderIds) {
+          query = query.in("id", filteredOrderIds);
         }
 
-        if (paymentMethodFilter && paymentMethodFilter !== "all") {
-          query = query.eq("payment_method", paymentMethodFilter);
+        if (statusFilter && statusFilter !== "all") {
+          query = query.eq("status", statusFilter);
         }
 
         if (fromDate) {
@@ -304,26 +429,39 @@ function useViewTransactionsProviderValue() {
           ? supabase
               .from("order_items")
               .select(
-                "id, order_id, product_id, quantity, price, gift_message, wrapping, gift_wrap_option_id, vendor_id, registry_item_id, tracking_number, fulfillment_status, gift_wrap_options(id, name, fee)"
+                "id, order_id, product_id, quantity, price, gift_message, wrapping, variation, gift_wrap_option_id, vendor_id, registry_item_id, tracking_number, fulfillment_status, gift_wrap_options(id, name, fee)"
               )
               .in("order_id", orderIds)
+          : Promise.resolve({ data: [], error: null });
+
+        const orderPaymentsPromise = orderIds.length
+          ? supabase
+              .from("order_payments")
+              .select(
+                "id, order_id, provider, method, provider_ref, created_at, meta"
+              )
+              .in("order_id", orderIds)
+              .order("created_at", { ascending: false })
           : Promise.resolve({ data: [], error: null });
 
         const [
           { data: registriesData, error: registriesError },
           { data: buyersData, error: buyersError },
           { data: orderItemsData, error: orderItemsError },
+          { data: orderPaymentsData, error: orderPaymentsError },
         ] = await Promise.all([
           registriesPromise,
           buyersPromise,
           orderItemsPromise,
+          orderPaymentsPromise,
         ]);
 
-        if (registriesError || buyersError || orderItemsError) {
+        if (registriesError || buyersError || orderItemsError || orderPaymentsError) {
           const message =
             registriesError?.message ||
             buyersError?.message ||
             orderItemsError?.message ||
+            orderPaymentsError?.message ||
             "Failed to load order details";
           if (!ignore) {
             setErrorTransactions(message);
@@ -391,6 +529,15 @@ function useViewTransactionsProviderValue() {
           }
         }
 
+        const latestPaymentByOrderId = new Map();
+        if (Array.isArray(orderPaymentsData)) {
+          for (const payment of orderPaymentsData) {
+            if (!payment?.order_id) continue;
+            if (latestPaymentByOrderId.has(payment.order_id)) continue;
+            latestPaymentByOrderId.set(payment.order_id, payment);
+          }
+        }
+
         const baseTransactions = orderRows.map((order) => {
           const registry = order.registry_id
             ? registriesById.get(order.registry_id)
@@ -403,8 +550,17 @@ function useViewTransactionsProviderValue() {
           const guestNameParts = [];
           if (buyer?.firstname) guestNameParts.push(buyer.firstname);
           if (buyer?.lastname) guestNameParts.push(buyer.lastname);
+          if (!guestNameParts.length && order.buyer_firstname) {
+            guestNameParts.push(order.buyer_firstname);
+          }
+          if (!guestNameParts.length && order.buyer_lastname) {
+            guestNameParts.push(order.buyer_lastname);
+          }
           const guestName =
-            guestNameParts.join(" ") || buyer?.email || "—";
+            guestNameParts.join(" ") ||
+            buyer?.email ||
+            order.buyer_email ||
+            "—";
 
           const vendorIdsForOrder = Array.from(
             new Set(items.map((row) => row.vendor_id).filter(Boolean))
@@ -447,25 +603,22 @@ function useViewTransactionsProviderValue() {
             normalizedStatus.charAt(0).toUpperCase() +
             normalizedStatus.slice(1);
 
-          const paymentMethod = order.payment_method || null;
-          let paymentMethodLabel = "—";
-          if (paymentMethod) {
-            const methodValue = String(paymentMethod).toLowerCase();
-            if (methodValue === "momo") paymentMethodLabel = "MoMo";
-            else if (methodValue === "mtn_momo")
-              paymentMethodLabel = "MTN MoMo";
-            else if (methodValue === "telecel_cash")
-              paymentMethodLabel = "Telecel Cash";
-            else if (methodValue === "at_momo")
-              paymentMethodLabel = "AT MoMo";
-            else if (methodValue === "card") paymentMethodLabel = "Card";
-            else if (methodValue === "bank")
-              paymentMethodLabel = "Bank Transfer";
-            else
-              paymentMethodLabel =
-                methodValue.charAt(0).toUpperCase() +
-                methodValue.slice(1);
-          }
+          const latestPayment = latestPaymentByOrderId.get(order.id) || null;
+          const paymentMethodValue = String(
+            resolvePaymentMethod({
+              paymentRow: latestPayment,
+              orderRow: order,
+            }) || ""
+          ).toLowerCase();
+          const paymentMethodLabel = mapPaymentMethodLabel(paymentMethodValue);
+          const paymentProviderLabel = resolvePaymentProvider({
+            paymentRow: latestPayment,
+            orderRow: order,
+          });
+          const paymentReference = resolvePaymentReference({
+            paymentRow: latestPayment,
+            orderRow: order,
+          });
 
           const amountValue = Number(order.total_amount || 0);
           const amountLabel = Number.isNaN(amountValue)
@@ -480,9 +633,8 @@ function useViewTransactionsProviderValue() {
             : "—";
 
           const orderId = String(order.id || "");
-          const orderCode = orderId
-            ? `ORD-${orderId.slice(0, 4).toUpperCase()}`
-            : "—";
+          const orderCode = order.order_code ||
+            (orderId ? `ORD-${orderId.slice(0, 4).toUpperCase()}` : "—");
 
           return {
             id: order.id,
@@ -490,9 +642,12 @@ function useViewTransactionsProviderValue() {
             registryCode:
               registry?.registry_code || registry?.title || "—",
             guestName,
-            email: buyer?.email || null,
+            email: buyer?.email || order.buyer_email || null,
             vendorName,
+            paymentMethodValue,
             paymentMethodLabel,
+            paymentProviderLabel,
+            paymentReference,
             amount: amountValue,
             amountLabel,
             status: orderStatus,
@@ -506,6 +661,7 @@ function useViewTransactionsProviderValue() {
               registry,
               buyer,
               items,
+              payment: latestPayment,
             },
           };
         });
@@ -535,11 +691,8 @@ function useViewTransactionsProviderValue() {
                 verifyQuery = verifyQuery.eq("status", statusFilter);
               }
 
-              if (paymentMethodFilter && paymentMethodFilter !== "all") {
-                verifyQuery = verifyQuery.eq(
-                  "payment_method",
-                  paymentMethodFilter
-                );
+              if (filteredOrderIds) {
+                verifyQuery = verifyQuery.in("id", filteredOrderIds);
               }
 
               if (fromDate) {
@@ -583,11 +736,8 @@ function useViewTransactionsProviderValue() {
                   rankQuery = rankQuery.eq("status", statusFilter);
                 }
 
-                if (paymentMethodFilter && paymentMethodFilter !== "all") {
-                  rankQuery = rankQuery.eq(
-                    "payment_method",
-                    paymentMethodFilter
-                  );
+                if (filteredOrderIds) {
+                  rankQuery = rankQuery.in("id", filteredOrderIds);
                 }
 
                 if (fromDate) {

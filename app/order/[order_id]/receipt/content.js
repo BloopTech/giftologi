@@ -2,6 +2,7 @@
 import React from "react";
 import Link from "next/link";
 import { Printer, Download, ArrowLeft } from "lucide-react";
+import Footer from "@/app/components/footer";
 
 const formatDate = (value) => {
   if (!value) return "—";
@@ -21,9 +22,9 @@ const formatCurrency = (amount, currency = "GHS") => {
 };
 
 export default function ReceiptContent({ order, items }) {
-  const buyerName = [order.buyer_firstname, order.buyer_lastname]
-    .filter(Boolean)
-    .join(" ") || "Guest";
+  const buyerName =
+    [order.buyer_firstname, order.buyer_lastname].filter(Boolean).join(" ") ||
+    "Guest";
   const gifterName = [order.gifter_firstname, order.gifter_lastname]
     .filter(Boolean)
     .join(" ");
@@ -50,8 +51,12 @@ export default function ReceiptContent({ order, items }) {
       {/* Print-specific styles */}
       <style jsx global>{`
         @media print {
-          body { background: white !important; }
-          .no-print { display: none !important; }
+          body {
+            background: white !important;
+          }
+          .no-print {
+            display: none !important;
+          }
           .print-container {
             max-width: 100% !important;
             margin: 0 !important;
@@ -62,7 +67,7 @@ export default function ReceiptContent({ order, items }) {
         }
       `}</style>
 
-      <div className="min-h-screen bg-[#F7F5F0] print:bg-white">
+      <div className="min-h-screen bg-[#F7F5F0] print:bg-white w-full pt-28 px-5 md:px-10">
         {/* Action bar — hidden on print */}
         <div className="no-print bg-white border-b border-[#E5E7EB] sticky top-0 z-10">
           <div className="max-w-3xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -185,11 +190,21 @@ export default function ReceiptContent({ order, items }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[#F9FAFB] text-[#6B7280]">
-                      <th className="text-left px-4 py-2.5 font-medium">Product</th>
-                      <th className="text-left px-4 py-2.5 font-medium hidden sm:table-cell">Vendor</th>
-                      <th className="text-center px-4 py-2.5 font-medium">Qty</th>
-                      <th className="text-right px-4 py-2.5 font-medium">Unit Price</th>
-                      <th className="text-right px-4 py-2.5 font-medium">Total</th>
+                      <th className="text-left px-4 py-2.5 font-medium">
+                        Product
+                      </th>
+                      <th className="text-left px-4 py-2.5 font-medium hidden sm:table-cell">
+                        Vendor
+                      </th>
+                      <th className="text-center px-4 py-2.5 font-medium">
+                        Qty
+                      </th>
+                      <th className="text-right px-4 py-2.5 font-medium">
+                        Unit Price
+                      </th>
+                      <th className="text-right px-4 py-2.5 font-medium">
+                        Total
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -198,12 +213,11 @@ export default function ReceiptContent({ order, items }) {
                       const vendorName = item.vendor?.business_name || "—";
                       const qty = item.quantity ?? 1;
                       const unitPrice = Number(item.price ?? 0);
-                      const lineTotal = Number(item.total_price ?? unitPrice * qty);
+                      const lineTotal = Number(
+                        item.total_price ?? unitPrice * qty,
+                      );
                       return (
-                        <tr
-                          key={item.id}
-                          className="border-t border-[#E5E7EB]"
-                        >
+                        <tr key={item.id} className="border-t border-[#E5E7EB]">
                           <td className="px-4 py-3 text-[#111827] font-medium">
                             {productName}
                           </td>
@@ -274,11 +288,16 @@ export default function ReceiptContent({ order, items }) {
                 Thank you for your purchase on Giftologi.
               </p>
               <p className="text-xs text-[#9CA3AF] mt-1">
-                For support, visit giftologi.com or contact our support team.
+                For support, visit{" "}
+                <Link href="/support" className="text-primary hover:underline">
+                  here
+                </Link>
+                .
               </p>
             </div>
           </div>
         </div>
+        <Footer />
       </div>
     </>
   );

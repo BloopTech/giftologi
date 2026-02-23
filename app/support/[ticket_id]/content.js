@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   PiArrowLeft,
@@ -12,6 +12,7 @@ import {
 } from "react-icons/pi";
 import { toast } from "sonner";
 import Footer from "../../components/footer";
+import { getOrCreateGuestBrowserId } from "../../utils/guest";
 
 const statusConfig = {
   open: { label: "Open", color: "bg-blue-100 text-blue-700" },
@@ -83,7 +84,8 @@ function MessageBubble({ msg, isOwn }) {
 
 export default function TicketDetailContent() {
   const { ticket_id } = useParams();
-  const router = useRouter();
+  const searchParams = useSearchParams();
+  const accessToken = searchParams.get("access_token") || "";
 
   const [ticket, setTicket] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -97,7 +99,18 @@ export default function TicketDetailContent() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/support/${ticket_id}`);
+      const guestId = getOrCreateGuestBrowserId();
+      const res = await fetch(`/api/support/${ticket_id}`, {
+        headers:
+          guestId || accessToken
+            ? {
+                ...(guestId ? { "x-guest-id": guestId } : {}),
+                ...(accessToken
+                  ? { "x-support-access-token": accessToken }
+                  : {}),
+              }
+            : undefined,
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || "Failed to load ticket");
@@ -110,7 +123,7 @@ export default function TicketDetailContent() {
     } finally {
       setLoading(false);
     }
-  }, [ticket_id]);
+  }, [ticket_id, accessToken]);
 
   useEffect(() => {
     fetchTicket();
@@ -126,10 +139,15 @@ export default function TicketDetailContent() {
       if (!newMessage.trim()) return;
       setSending(true);
       try {
+        const guestId = getOrCreateGuestBrowserId();
         const res = await fetch(`/api/support/${ticket_id}/messages`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ message: newMessage.trim() }),
+          headers: {
+            "Content-Type": "application/json",
+            ...(guestId ? { "x-guest-id": guestId } : {}),
+            ...(accessToken ? { "x-support-access-token": accessToken } : {}),
+          },
+          body: JSON.stringify({ message: newMessage.trim(), guestId, accessToken }),
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Failed to send message");
@@ -141,7 +159,7 @@ export default function TicketDetailContent() {
         setSending(false);
       }
     },
-    [newMessage, ticket_id]
+    [newMessage, ticket_id, accessToken]
   );
 
   const sc = statusConfig[ticket?.status] || statusConfig.open;

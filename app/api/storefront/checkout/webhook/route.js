@@ -5,32 +5,13 @@ import {
 import { buildAramexTrackingUrl, createAramexShipment } from "../../../../utils/shipping/aramex";
 import { computeShipmentWeight } from "../../../../utils/shipping/weights";
 import { dispatchNotification } from "../../../../utils/notificationService";
-
-const EXPRESSPAY_QUERY_URL =
-  process.env.EXPRESSPAY_ENV === "live"
-    ? "https://expresspaygh.com/api/query.php"
-    : "https://sandbox.expresspaygh.com/api/query.php";
-
-const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
-const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
-
-const TERMINAL_ORDER_STATUSES = new Set([
-  "paid",
-  "declined",
-  "failed",
-  "cancelled",
-]);
-
-function mapExpressPayResultToOrderStatus(resultCode, currentStatus = "pending") {
-  const normalizedResult = Number(resultCode);
-
-  if (normalizedResult === 1) return "paid";
-  if (normalizedResult === 2) return "declined";
-  if (normalizedResult === 3) return "failed";
-  if (normalizedResult === 4) return "pending";
-
-  return currentStatus;
-}
+import {
+  hasExpressPayAmountMismatch,
+  resolveExpressPayMethod,
+  mapExpressPayResultToOrderStatus,
+  queryExpressPayTransaction,
+  TERMINAL_ORDER_STATUSES,
+} from "../../../../utils/payments/expresspay";
 
 export async function POST(request) {
   try {
@@ -50,7 +31,9 @@ export async function POST(request) {
     if (tokenFromWebhook) {
       const { data } = await admin
         .from("orders")
-        .select("id, order_code, status, payment_token")
+        .select(
+          "id, order_code, status, payment_token, payment_method, total_amount, currency"
+        )
         .eq("payment_token", tokenFromWebhook)
         .maybeSingle();
       order = data;
@@ -59,7 +42,9 @@ export async function POST(request) {
     if (!order && orderIdFromWebhook) {
       const { data } = await admin
         .from("orders")
-        .select("id, order_code, status, payment_token")
+        .select(
+          "id, order_code, status, payment_token, payment_method, total_amount, currency"
+        )
         .eq("order_code", orderIdFromWebhook)
         .maybeSingle();
       order = data;
@@ -83,40 +68,53 @@ export async function POST(request) {
       return NextResponse.json({ status: "ok" }, { status: 200 });
     }
 
-    // Query ExpressPay for payment status
-    const queryParams = new URLSearchParams({
-      "merchant-id": EXPRESSPAY_MERCHANT_ID,
-      "api-key": EXPRESSPAY_API_KEY,
-      token: queryToken,
-    });
-
-    const queryResponse = await fetch(EXPRESSPAY_QUERY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: queryParams.toString(),
-    });
-
-    const queryData = await queryResponse.json();
+    const queryData = await queryExpressPayTransaction(queryToken);
+    const paymentMethod =
+      resolveExpressPayMethod(queryData) || order?.payment_method || null;
 
     const newStatus = mapExpressPayResultToOrderStatus(
       queryData.result,
-      order.status
+      order.status,
+      queryData["result-text"]
     );
     const paymentReference =
-      queryData["transaction-id"] || queryData.token || null;
+      queryData["transaction-id"] || queryData.token || queryToken || null;
+    let finalizedStatus = newStatus;
+    let mismatchMeta = null;
+
+    if (newStatus === "paid") {
+      const hasAmountMismatch = hasExpressPayAmountMismatch({
+        expectedAmount: order.total_amount,
+        expectedCurrency: order.currency,
+        receivedAmount: queryData.amount,
+        receivedCurrency: queryData.currency,
+      });
+
+      if (hasAmountMismatch) {
+        finalizedStatus = "pending";
+        mismatchMeta = {
+          amount_mismatch: true,
+          expected_amount: order.total_amount,
+          expected_currency: order.currency,
+          received_amount: queryData.amount,
+          received_currency: queryData.currency,
+        };
+      }
+    }
 
     const updatePayload = {
-      status: newStatus,
+      status: finalizedStatus,
+      payment_method: paymentMethod,
       payment_reference: paymentReference,
-      payment_response: queryData,
+      payment_response: mismatchMeta
+        ? { ...queryData, ...mismatchMeta }
+        : queryData,
       updated_at: new Date().toISOString(),
     };
 
     let paidTransitioned = false;
 
-    if (newStatus === "paid") {
+    if (finalizedStatus === "paid") {
       const { data: updatedOrder, error: updateError } = await admin
         .from("orders")
         .update(updatePayload)
@@ -142,9 +140,29 @@ export async function POST(request) {
       }
     }
 
-    if (newStatus !== "paid" || !paidTransitioned) {
+    if (finalizedStatus !== "paid" || !paidTransitioned) {
       return NextResponse.json({ status: "ok" }, { status: 200 });
     }
+
+    // Persist payment record early so admin/payment reports are complete even
+    // when subsequent fulfillment side-effects fail.
+    await admin.from("order_payments").upsert(
+      {
+        order_id: order.id,
+        provider: "expresspay",
+        method: paymentMethod,
+        amount: queryData.amount || 0,
+        currency: queryData.currency || "GHS",
+        provider_ref: paymentReference,
+        status: "completed",
+        meta: queryData,
+        created_at: new Date().toISOString(),
+      },
+      {
+        onConflict: "order_id,provider,provider_ref",
+        ignoreDuplicates: true,
+      }
+    );
 
     // If payment successful, update product stock and create payment record
     // Get order items
@@ -261,17 +279,6 @@ export async function POST(request) {
     } catch (error) {
       console.error("Failed to notify vendors:", error);
     }
-
-    // Create payment record
-    await admin.from("order_payments").insert({
-      order_id: order.id,
-      amount: queryData.amount || 0,
-      currency: queryData.currency || "GHS",
-      payment_method: "expresspay",
-      payment_reference: paymentReference,
-      status: "completed",
-      created_at: new Date().toISOString(),
-    });
 
     try {
       const vendorId = orderItems?.find((item) => item?.vendor_id)?.vendor_id;

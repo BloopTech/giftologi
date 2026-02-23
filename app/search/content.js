@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import ImageWithFallback from "@/app/components/ImageWithFallback";
 import Link from "next/link";
 import {
@@ -12,8 +12,8 @@ import {
   ChevronRight,
   CalendarDays,
 } from "lucide-react";
-import { useQueryState, parseAsString } from "nuqs";
 import Footer from "../components/footer";
+import { useGlobalSearchContext } from "./context";
 
 const TYPE_OPTIONS = [
   { id: "all", label: "All" },
@@ -45,140 +45,24 @@ const formatDate = (value) => {
 };
 
 export default function GlobalSearchContent() {
-  const [searchParam, setSearchParam] = useQueryState(
-    "q",
-    parseAsString.withDefault("")
-  );
-  const [typeParam, setTypeParam] = useQueryState(
-    "type",
-    parseAsString.withDefault("all")
-  );
-  const [pageParam, setPageParam] = useQueryState(
-    "page",
-    parseAsString.withDefault("1")
-  );
-  const [limitParam, setLimitParam] = useQueryState(
-    "limit",
-    parseAsString.withDefault("12")
-  );
-
-  const [localSearch, setLocalSearch] = useState(searchParam || "");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [results, setResults] = useState({
-    products: [],
-    registries: [],
-    vendors: [],
-  });
-  const [counts, setCounts] = useState({
-    products: 0,
-    registries: 0,
-    vendors: 0,
-  });
-
-  const searchQuery = searchParam || "";
-  const activeType = typeParam || "all";
-  const page = useMemo(() => {
-    const parsed = Number.parseInt(pageParam || "1", 10);
-    if (Number.isNaN(parsed) || parsed < 1) return 1;
-    return parsed;
-  }, [pageParam]);
-  const limit = useMemo(() => {
-    const parsed = Number.parseInt(limitParam || "12", 10);
-    if (Number.isNaN(parsed) || parsed < 1) return 12;
-    return Math.min(24, parsed);
-  }, [limitParam]);
-
-  useEffect(() => {
-    setLocalSearch(searchQuery || "");
-  }, [searchQuery]);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (localSearch !== searchQuery) {
-        setSearchParam(localSearch);
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [localSearch, searchQuery, setSearchParam]);
-
-  useEffect(() => {
-    const trimmed = searchQuery.trim();
-    if (!trimmed) {
-      setResults({ products: [], registries: [], vendors: [] });
-      setCounts({ products: 0, registries: 0, vendors: 0 });
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
-    let ignore = false;
-    const controller = new AbortController();
-
-    const fetchResults = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const url = new URL("/api/search", window.location.origin);
-        url.searchParams.set("q", trimmed);
-        if (activeType && activeType !== "all") {
-          url.searchParams.set("type", activeType);
-          url.searchParams.set("page", String(page));
-          url.searchParams.set("limit", String(limit));
-        }
-        const response = await fetch(url.toString(), {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const body = await response.json().catch(() => ({}));
-          if (!ignore) {
-            setError(body?.message || "Unable to load search results.");
-            setResults({ products: [], registries: [], vendors: [] });
-            setCounts({ products: 0, registries: 0, vendors: 0 });
-          }
-          return;
-        }
-
-        const body = await response.json().catch(() => ({}));
-        if (!ignore) {
-          setResults({
-            products: Array.isArray(body?.results?.products)
-              ? body.results.products
-              : [],
-            registries: Array.isArray(body?.results?.registries)
-              ? body.results.registries
-              : [],
-            vendors: Array.isArray(body?.results?.vendors)
-              ? body.results.vendors
-              : [],
-          });
-          setCounts({
-            products: body?.counts?.products || 0,
-            registries: body?.counts?.registries || 0,
-            vendors: body?.counts?.vendors || 0,
-          });
-        }
-      } catch (err) {
-        if (!ignore && err?.name !== "AbortError") {
-          setError(err?.message || "Unable to load search results.");
-        }
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    };
-
-    fetchResults();
-
-    return () => {
-      ignore = true;
-      controller.abort();
-    };
-  }, [activeType, limit, page, searchQuery]);
-
-  const hasQuery = searchQuery.trim().length > 0;
+  const {
+    localSearch,
+    setLocalSearch,
+    loading,
+    error,
+    results,
+    counts,
+    searchQuery,
+    activeType,
+    page,
+    totalCount,
+    totalPages,
+    canPrevious,
+    canNext,
+    hasQuery,
+    handleTypeChange,
+    setPageParam,
+  } = useGlobalSearchContext();
 
   const summaryCards = useMemo(
     () => [
@@ -204,33 +88,9 @@ export default function GlobalSearchContent() {
     [counts]
   );
 
-  const handleTypeChange = useCallback(
-    (nextType) => {
-      setTypeParam(nextType || "all");
-      setPageParam("1");
-    },
-    [setPageParam, setTypeParam]
-  );
-
-  const totalCount = useMemo(() => {
-    if (activeType === "products") return counts.products || 0;
-    if (activeType === "registries") return counts.registries || 0;
-    if (activeType === "vendors") return counts.vendors || 0;
-    return counts.products + counts.registries + counts.vendors;
-  }, [activeType, counts]);
-
-  const totalPages = useMemo(() => {
-    if (activeType === "all") return 1;
-    const pages = Math.ceil((totalCount || 0) / (limit || 1));
-    return Math.max(1, pages);
-  }, [activeType, limit, totalCount]);
-
-  const canPrevious = activeType !== "all" && page > 1;
-  const canNext = activeType !== "all" && page < totalPages;
-
   return (
-    <div className="min-h-screen bg-[#F7F2EA] text-[#2C2A24] font-brasley-medium">
-      <header className="relative overflow-hidden border-b border-[#E5DCC9] bg-[#FBF7EF]">
+    <div className="min-h-screen bg-[#F7F2EA] text-[#2C2A24] font-brasley-medium w-full">
+      <header className="relative overflow-hidden border-b border-[#E5DCC9] bg-[#FBF7EF] w-full pt-24">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(165,145,75,0.18),_transparent_55%)]" />
         <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 py-12 md:py-16">
           <p className="text-xs uppercase tracking-[0.4em] text-[#A5914B]">
@@ -246,7 +106,7 @@ export default function GlobalSearchContent() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-4 py-10">
+      <main className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 md:px-10 py-10">
         <section className="rounded-[28px] border border-[#E6DDC8] bg-white/90 p-6 shadow-sm backdrop-blur">
           <div className="flex flex-col gap-4">
             <div className="relative">

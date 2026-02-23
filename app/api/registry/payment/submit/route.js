@@ -2,15 +2,11 @@ import { NextResponse } from "next/server";
 import { createAdminClient, createClient } from "../../../../utils/supabase/server";
 import { evaluatePromoCode, roundCurrency } from "../../../../utils/promos";
 import { computeShipmentWeight } from "../../../../utils/shipping/weights";
+import {
+  createExpressPaySdkClient,
+  resolveExpressPayCheckoutUrl,
+} from "../../../../utils/payments/expresspay";
 import { randomBytes } from "crypto";
-
-const EXPRESSPAY_SUBMIT_URL =
-  process.env.EXPRESSPAY_ENV === "live"
-    ? "https://expresspaygh.com/api/submit.php"
-    : "https://sandbox.expresspaygh.com/api/submit.php";
-
-const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
-const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
 
 
 function generateOrderId() {
@@ -19,6 +15,7 @@ function generateOrderId() {
 
 export async function POST(request) {
   try {
+    const expressPaySdk = createExpressPaySdkClient();
     const body = await request.json();
     const {
       registryId,
@@ -290,33 +287,19 @@ export async function POST(request) {
       console.error("Order item creation error:", orderItemError);
     }
 
-    // Prepare ExpressPay request
-    const expressPayParams = new URLSearchParams({
-      "merchant-id": EXPRESSPAY_MERCHANT_ID,
-      "api-key": EXPRESSPAY_API_KEY,
-      firstname: gifterInfo?.firstName || "Guest",
-      lastname: gifterInfo?.lastName || "Gifter",
+    const expressPayData = await expressPaySdk.submit({
+      firstName: gifterInfo?.firstName || "Guest",
+      lastName: gifterInfo?.lastName || "Gifter",
       email: gifterInfo?.email || `guest-${orderId}@giftologi.com`,
-      phonenumber: gifterInfo?.phone || "",
+      phone: gifterInfo?.phone || "",
       username: gifterInfo?.email || `guest-${orderId}@giftologi.com`,
       currency,
       amount: totalAmount.toFixed(2),
-      "order-id": orderId,
-      "order-desc": `Gift purchase for ${registryItem.registry?.title || "Registry"}`,
-      "redirect-url": redirectUrl,
-      "post-url": postUrl,
+      orderId,
+      orderDescription: `Gift purchase for ${registryItem.registry?.title || "Registry"}`,
+      redirectUrl,
+      postUrl,
     });
-
-    // Submit to ExpressPay
-    const expressPayResponse = await fetch(EXPRESSPAY_SUBMIT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: expressPayParams.toString(),
-    });
-
-    const expressPayData = await expressPayResponse.json();
 
     if (expressPayData.status !== 1) {
       // Update order status to failed
@@ -367,11 +350,9 @@ export async function POST(request) {
       })
       .eq("id", order.id);
 
-    // Return checkout URL
     const checkoutUrl =
-      process.env.EXPRESSPAY_ENV === "live"
-        ? `https://expresspaygh.com/api/checkout.php?token=${expressPayData.token}`
-        : `https://sandbox.expresspaygh.com/api/checkout.php?token=${expressPayData.token}`;
+      resolveExpressPayCheckoutUrl(expressPayData) ||
+      `/api/registry/payment/callback?order-id=${encodeURIComponent(orderId)}`;
 
     return NextResponse.json({
       success: true,

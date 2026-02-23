@@ -37,6 +37,7 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/close_requests",
       "/dashboard/admin/vendor_categories",
       "/dashboard/admin/products",
+      "/dashboard/admin/orders",
       "/dashboard/admin/registry_list",
       "/dashboard/admin/transactions",
       "/dashboard/admin/disputes",
@@ -47,11 +48,13 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/support",
     ]),
     finance_admin: new Set([
+      "/dashboard/admin/orders",
       "/dashboard/admin/transactions",
       "/dashboard/admin/payouts",
       "/dashboard/admin/reports",
     ]),
     customer_support_admin: new Set([
+      "/dashboard/admin/orders",
       "/dashboard/admin/registry_list",
       "/dashboard/admin/disputes",
       "/dashboard/admin/activity_log",
@@ -171,6 +174,18 @@ export const useNavigationData = (role) => {
       id: 8,
       items: [
         {
+          name: "Order Operations",
+          href: "/dashboard/admin/orders",
+          icon: PiPackage,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 9,
+      items: [
+        {
           name: "View Transactions",
           href: "/dashboard/admin/transactions",
           icon: PiShoppingBagOpen,
@@ -180,7 +195,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 16,
+      id: 10,
       items: [
         {
           name: "Disputes",
@@ -192,7 +207,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 9,
+      id: 11,
       items: [
         {
           name: "Payouts",
@@ -204,7 +219,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 10,
+      id: 12,
       items: [
         {
           name: "Generate Reports",
@@ -216,7 +231,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 11,
+      id: 13,
       items: [
         {
           name: "View Activity Log",
@@ -228,7 +243,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 12,
+      id: 14,
       items: [
         {
           name: "API Documentation",
@@ -240,7 +255,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 13,
+      id: 15,
       items: [
         {
           name: "Analytics & Reporting",
@@ -252,7 +267,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 14,
+      id: 16,
       items: [
         {
           name: "Content & Policy Pages",
@@ -264,7 +279,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 15,
+      id: 17,
       items: [
         {
           name: "All Users",
@@ -276,7 +291,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 17,
+      id: 18,
       items: [
         {
           name: "Gift Guides",
@@ -288,7 +303,7 @@ export const useNavigationData = (role) => {
     },
     {
       label: "",
-      id: 18,
+      id: 19,
       items: [
         {
           name: "Support Tickets",

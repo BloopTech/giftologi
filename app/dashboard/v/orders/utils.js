@@ -50,6 +50,11 @@ export const getStatusConfig = (status) => {
       className: "bg-[#FEF3C7] text-[#D97706]",
       dotColor: "bg-[#F59E0B]",
     },
+    paid: {
+      label: "Paid",
+      className: "bg-[#E0E7FF] text-[#4338CA]",
+      dotColor: "bg-[#6366F1]",
+    },
     confirmed: {
       label: "Confirmed",
       className: "bg-[#DBEAFE] text-[#2563EB]",
@@ -74,6 +79,11 @@ export const getStatusConfig = (status) => {
       label: "Cancelled",
       className: "bg-[#FEE2E2] text-[#DC2626]",
       dotColor: "bg-[#EF4444]",
+    },
+    expired: {
+      label: "Expired",
+      className: "bg-[#E5E7EB] text-[#4B5563]",
+      dotColor: "bg-[#6B7280]",
     },
   };
   return (

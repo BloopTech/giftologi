@@ -58,13 +58,13 @@ const RECIPIENT_TYPE_OPTIONS = [
 ];
 
 const VARIABLE_MAP = {
-  host: "{{host_name}} {{registry_title}} {{dashboard_url}} {{amount}} {{order_reference}} {{status}} {{event_title}} {{days_until}} {{pending_count}} {{gifts_count}} {{views_count}} {{total_value}} {{buyer_name}}",
+  host: "{{host_name}} {{registry_title}} {{dashboard_url}} {{amount}} {{order_reference}} {{status}} {{event_title}} {{days_until}} {{pending_count}} {{gifts_count}} {{views_count}} {{total_value}} {{buyer_name}} {{ticket_id}} {{ticket_subject}} {{ticket_status}} {{ticket_url}} {{support_access_token}} {{admin_name}} {{message_excerpt}}",
   vendor:
     "{{vendor_name}} {{dashboard_url}} {{order_reference}} {{amount}} {{status}} {{payout_status}} {{product_name}} {{reviewer_name}} {{rating}} {{reason}}",
   admin:
     "{{vendor_name}} {{application_id}} {{dashboard_url}} {{order_reference}} {{amount}} {{reason}}",
   guest:
-    "{{guest_name}} {{order_reference}} {{amount}} {{registry_title}} {{tracking_url}} {{status}}",
+    "{{guest_name}} {{order_reference}} {{amount}} {{registry_title}} {{tracking_url}} {{status}} {{ticket_id}} {{ticket_subject}} {{ticket_status}} {{ticket_category}} {{ticket_url}} {{support_access_token}} {{admin_name}} {{message_excerpt}}",
 };
 
 function VariableHints({ category, recipientType }) {

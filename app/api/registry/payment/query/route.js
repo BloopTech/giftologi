@@ -1,13 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../../utils/supabase/server";
-
-const EXPRESSPAY_QUERY_URL =
-  process.env.EXPRESSPAY_ENV === "live"
-    ? "https://expresspaygh.com/api/query.php"
-    : "https://sandbox.expresspaygh.com/api/query.php";
-
-const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
-const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
+import { queryExpressPayTransaction } from "../../../../utils/payments/expresspay";
 
 export async function POST(request) {
   try {
@@ -50,22 +43,8 @@ export async function POST(request) {
       );
     }
 
-    // Query ExpressPay
-    const queryParams = new URLSearchParams({
-      "merchant-id": EXPRESSPAY_MERCHANT_ID,
-      "api-key": EXPRESSPAY_API_KEY,
-      token: queryToken,
-    });
-
-    const queryResponse = await fetch(EXPRESSPAY_QUERY_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: queryParams.toString(),
-    });
-
-    const queryData = await queryResponse.json();
+    const queryData = await queryExpressPayTransaction(queryToken);
+    const normalizedResult = Number(queryData.result);
 
     // Map result to status
     const resultMap = {
@@ -77,8 +56,8 @@ export async function POST(request) {
 
     return NextResponse.json({
       success: true,
-      result: queryData.result,
-      status: resultMap[queryData.result] || "unknown",
+      result: normalizedResult,
+      status: resultMap[normalizedResult] || "unknown",
       resultText: queryData["result-text"],
       transactionId: queryData["transaction-id"],
       amount: queryData.amount,

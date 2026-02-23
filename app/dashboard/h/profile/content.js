@@ -19,6 +19,7 @@ import {
   PiPhone,
 } from "react-icons/pi";
 import { toast } from "sonner";
+import Image from "next/image";
 
 import { useHostProfileContentContext } from "./context";
 import { updateHostProfile, saveHostProfilePhoto } from "./action";
@@ -80,7 +81,7 @@ const skeletonCardClass = "bg-white rounded-xl border border-[#E5E7EB] p-5";
 const HostProfileSkeleton = () => (
   <section
     aria-label="Loading host profile"
-    className="flex flex-col space-y-6 w-full mb-8"
+    className="flex flex-col space-y-6 w-full mb-8 max-w-6xl mx-auto"
   >
     <div className={skeletonCardClass}>
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -396,7 +397,7 @@ export default function HostProfileContent() {
       aria-label="Host profile"
       className="dark:text-white bg-[#FAFAFA] mt-10 py-8 dark:bg-gray-950 mx-auto max-w-6xl w-full font-brasley-medium min-h-screen"
     >
-      <div className="flex flex-col space-y-6 w-full mb-8">
+      <div className="flex flex-col space-y-6 w-full mb-8 px-5 md:px-10">
         {/* Profile Header */}
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">

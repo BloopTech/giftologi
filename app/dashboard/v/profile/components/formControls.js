@@ -60,7 +60,7 @@ export function FormField({
           aria-readonly={readOnly}
           aria-invalid={Boolean(error)}
           aria-describedby={errorId}
-          tabIndex={readOnly ? -1 : 0}
+          //tabIndex={readOnly ? -1 : 0}
           className={inputClasses}
           {...refProp}
           {...inputProps}
@@ -144,7 +144,7 @@ export function TextAreaField({
         value: inputValue,
         readOnly: true,
         'aria-readonly': true,
-        tabIndex: -1,
+        //tabIndex: -1,
       }
     : { defaultValue: inputValue };
 

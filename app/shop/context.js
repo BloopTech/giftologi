@@ -56,6 +56,27 @@ const getVariationPriceStats = (variations, serviceCharge = 0) => {
   };
 };
 
+const buildVariationKey = (variation, index) =>
+  String(variation?.id || variation?.sku || index);
+
+const getDefaultVariationSelection = (variations) => {
+  if (!Array.isArray(variations) || variations.length === 0) return null;
+
+  const priced = variations
+    .map((variation, index) => ({
+      key: buildVariationKey(variation, index),
+      raw: variation,
+      price: Number(variation?.price),
+    }))
+    .filter((entry) => Number.isFinite(entry.price));
+
+  if (!priced.length) return null;
+
+  return priced.reduce((lowest, current) =>
+    current.price < lowest.price ? current : lowest
+  );
+};
+
 const isSaleActive = (product) => {
   const salePrice = Number(product?.sale_price);
   if (!Number.isFinite(salePrice) || salePrice <= 0) return false;
@@ -571,6 +592,7 @@ export function ShopProvider({
       }
       setAddingToCartId(product.id);
       try {
+        const defaultVariation = getDefaultVariationSelection(product?.variations);
         const guestBrowserId = getOrCreateGuestBrowserId();
         const res = await fetch("/api/storefront/cart", {
           method: "POST",
@@ -579,6 +601,8 @@ export function ShopProvider({
             vendorSlug: product.vendor.slug,
             productId: product.id,
             quantity: 1,
+            variationKey: defaultVariation?.key || null,
+            variation: defaultVariation?.raw || null,
             guestBrowserId,
           }),
         });
@@ -655,6 +679,7 @@ export function ShopProvider({
       }
       setBuyingProductId(product.id);
       try {
+        const defaultVariation = getDefaultVariationSelection(product?.variations);
         const guestBrowserId = getOrCreateGuestBrowserId();
         const res = await fetch("/api/storefront/cart", {
           method: "POST",
@@ -663,6 +688,8 @@ export function ShopProvider({
             vendorSlug: product.vendor.slug,
             productId: product.id,
             quantity: 1,
+            variationKey: defaultVariation?.key || null,
+            variation: defaultVariation?.raw || null,
             guestBrowserId,
           }),
         });

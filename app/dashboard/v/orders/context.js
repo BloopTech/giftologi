@@ -15,13 +15,32 @@ const createInitialOrdersData = () => ({
   orders: [],
   stats: {
     pending: 0,
-    confirmed: 0,
-    processing: 0,
+    paid: 0,
     shipped: 0,
     delivered: 0,
     cancelled: 0,
+    expired: 0,
   },
 });
+
+const normalizeOrderStatus = (value) => {
+  const status = String(value || "pending").toLowerCase();
+  return status === "canceled" ? "cancelled" : status;
+};
+
+const deriveFulfillmentStatus = (fulfillmentStatus, orderStatus) => {
+  const normalizedFulfillment = String(fulfillmentStatus || "pending").toLowerCase();
+  const normalizedOrder = normalizeOrderStatus(orderStatus);
+
+  if (
+    (normalizedFulfillment === "pending" || !fulfillmentStatus) &&
+    (normalizedOrder === "cancelled" || normalizedOrder === "expired")
+  ) {
+    return normalizedOrder;
+  }
+
+  return normalizedFulfillment;
+};
 
 const toReadableError = (err) => {
   if (!err) return "Failed to load orders data";
@@ -87,14 +106,25 @@ export const VendorOrdersProvider = ({ children }) => {
           product_id,
           quantity,
           price,
+          variation,
           wrapping,
           gift_wrap_option_id,
-          vendor_status,
+          fulfillment_status,
           created_at,
           orders (
             id,
+            order_code,
+            status,
             registry_id,
             buyer_id,
+            buyer_firstname,
+            buyer_lastname,
+            buyer_email,
+            buyer_phone,
+            shipping_address,
+            shipping_city,
+            shipping_region,
+            shipping_digital_address,
             created_at,
             checkout_context (
               order_id,
@@ -141,34 +171,55 @@ export const VendorOrdersProvider = ({ children }) => {
 
       if (orderItemsError) throw orderItemsError;
 
-      const orders = (orderItemsData || []).map((item) => ({
-        id: item.id,
-        orderId: item.order_id,
-        orderCode: `ORD-${String(item.order_id).slice(-4).toUpperCase()}`,
-        product: item.products,
-        quantity: item.quantity,
-        price: item.price,
-        totalAmount: item.quantity * item.price,
-        status: item.vendor_status || "pending",
-        createdAt: item.created_at,
-        order: item.orders,
-        customer: item.orders?.profiles,
-        registry: item.orders?.registries,
-        registryOwner: item.orders?.registries?.profiles,
-        wrapping: item.wrapping ?? false,
-        giftWrapOptionId: item.gift_wrap_option_id || null,
-        giftWrapOption: item.gift_wrap_options || null,
-        checkoutContext:
-          item.orders?.checkout_context?.[0] || item.orders?.checkout_context || null,
-      }));
+      const orders = (orderItemsData || []).map((item) => {
+        const orderStatus = normalizeOrderStatus(item.orders?.status);
+        const profile = item.orders?.profiles;
+
+        return {
+          id: item.id,
+          orderId: item.order_id,
+          orderCode:
+            item.orders?.order_code ||
+            `ORD-${String(item.order_id).slice(-4).toUpperCase()}`,
+          product: item.products,
+          quantity: item.quantity,
+          price: item.price,
+          totalAmount: item.quantity * item.price,
+          orderStatus,
+          status: deriveFulfillmentStatus(item.fulfillment_status, orderStatus),
+          fulfillmentStatusRaw: String(item.fulfillment_status || "pending").toLowerCase(),
+          createdAt: item.created_at,
+          order: item.orders,
+          customer: {
+            firstname: profile?.firstname || item.orders?.buyer_firstname || "",
+            lastname: profile?.lastname || item.orders?.buyer_lastname || "",
+            email: profile?.email || item.orders?.buyer_email || "",
+            phone: profile?.phone || item.orders?.buyer_phone || "",
+          },
+          shipping: {
+            address: item.orders?.shipping_address || null,
+            city: item.orders?.shipping_city || null,
+            region: item.orders?.shipping_region || null,
+            digitalAddress: item.orders?.shipping_digital_address || null,
+          },
+          registry: item.orders?.registries,
+          registryOwner: item.orders?.registries?.profiles,
+          variation: item.variation || null,
+          wrapping: item.wrapping ?? false,
+          giftWrapOptionId: item.gift_wrap_option_id || null,
+          giftWrapOption: item.gift_wrap_options || null,
+          checkoutContext:
+            item.orders?.checkout_context?.[0] || item.orders?.checkout_context || null,
+        };
+      });
 
       const stats = {
         pending: orders.filter((o) => o.status === "pending").length,
-        confirmed: orders.filter((o) => o.status === "confirmed").length,
-        processing: orders.filter((o) => o.status === "processing").length,
+        paid: orders.filter((o) => o.status === "paid").length,
         shipped: orders.filter((o) => o.status === "shipped").length,
         delivered: orders.filter((o) => o.status === "delivered").length,
         cancelled: orders.filter((o) => o.status === "cancelled").length,
+        expired: orders.filter((o) => o.status === "expired").length,
       };
 
       setOrdersData({ orders, stats });

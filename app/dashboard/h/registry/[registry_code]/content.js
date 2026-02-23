@@ -64,6 +64,7 @@ import {
 } from "../../../../components/Dropdown";
 import FormInput from "../../components/registry-builder/FormInput";
 import EditRegistryBuilderDialog from "../../components/registry-builder/EditRegistryBuilderDialog";
+import Image from "next/image";
 
 const initialState = {
   message: "",
@@ -155,6 +156,12 @@ export default function HostDashboardRegistryContent(props) {
     gps_location: "",
     digital_address: "",
   });
+  const [shippingRegions, setShippingRegions] = useState([]);
+  const [zonesState, setZonesState] = useState({ loading: false, error: null });
+  const [selectedRegion, setSelectedRegion] = useState(null);
+  const [availableCities, setAvailableCities] = useState([]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [citiesError, setCitiesError] = useState(null);
 
   useEffect(() => {
     if (registry?.cover_photo) {
@@ -194,6 +201,121 @@ export default function HostDashboardRegistryContent(props) {
       digital_address: (deliveryAddress?.digital_address || "").toString(),
     });
   }, [deliveryAddress]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadZones = async () => {
+      setZonesState({ loading: true, error: null });
+      try {
+        const response = await fetch("/api/shipping/aramex/zones?country=GH");
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(payload?.details || payload?.error || "Failed to load regions.");
+        }
+
+        if (cancelled) return;
+        setShippingRegions(Array.isArray(payload?.zones) ? payload.zones : []);
+        setZonesState({ loading: false, error: null });
+      } catch (error) {
+        if (cancelled) return;
+        setShippingRegions([]);
+        setZonesState({
+          loading: false,
+          error: error?.message || "Failed to load regions.",
+        });
+      }
+    };
+
+    loadZones();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!shippingRegions.length) {
+      setSelectedRegion(null);
+      return;
+    }
+
+    const stateValue = String(addressInput.state_province || "").trim().toLowerCase();
+    if (!stateValue) {
+      setSelectedRegion(null);
+      return;
+    }
+
+    const match = shippingRegions.find((region) => {
+      const regionName = String(region?.name || "").trim().toLowerCase();
+      const regionCode = String(region?.aramex_code || "").trim().toLowerCase();
+      return stateValue === regionName || stateValue === regionCode;
+    });
+
+    setSelectedRegion(match || null);
+
+    if (match && addressInput.state_province !== match.name) {
+      setAddressInput((prev) => ({
+        ...prev,
+        state_province: match.name,
+      }));
+    }
+  }, [shippingRegions, addressInput.state_province]);
+
+  useEffect(() => {
+    if (!selectedRegion?.name) {
+      setAvailableCities([]);
+      setCitiesError(null);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadCities = async () => {
+      setCitiesLoading(true);
+      setCitiesError(null);
+      try {
+        const stateCode = selectedRegion.aramex_code || selectedRegion.name || "";
+        const response = await fetch(
+          `/api/shipping/cities?country=GH&stateCode=${encodeURIComponent(stateCode)}`,
+        );
+        const payload = await response.json().catch(() => ({}));
+
+        if (cancelled) return;
+
+        if (!response.ok || !payload?.success) {
+          throw new Error(payload?.details || payload?.error || "Failed to load cities.");
+        }
+
+        const cities = Array.isArray(payload?.cities) ? payload.cities : [];
+        setAvailableCities(cities);
+        setAddressInput((prev) => {
+          const currentCity = String(prev.city || "").trim();
+          if (currentCity && !cities.includes(currentCity)) {
+            return { ...prev, city: "" };
+          }
+          return prev;
+        });
+      } catch (error) {
+        if (cancelled) return;
+        setAvailableCities([]);
+        setCitiesError(error?.message || "Failed to load cities.");
+        setAddressInput((prev) => ({
+          ...prev,
+          city: "",
+        }));
+      } finally {
+        if (!cancelled) setCitiesLoading(false);
+      }
+    };
+
+    loadCities();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedRegion?.id, selectedRegion?.aramex_code, selectedRegion?.name]);
 
   // Handle save photo success
   useEffect(() => {
@@ -449,6 +571,16 @@ export default function HostDashboardRegistryContent(props) {
   const inviteErrors = inviteState?.errors?.emails || [];
   const thankYouEmailErrors = thankYouState?.errors?.recipient_email || [];
   const thankYouMessageErrors = thankYouState?.errors?.message || [];
+  const addressStateErrors = Array.isArray(addressState?.errors?.state_province)
+    ? addressState.errors.state_province
+    : [];
+  const addressCityErrors = Array.isArray(addressState?.errors?.city)
+    ? addressState.errors.city
+    : [];
+  const hasAddressStateError =
+    addressStateErrors.length > 0 && !selectedRegion?.name;
+  const hasAddressCityError =
+    addressCityErrors.length > 0 && !String(addressInput.city || "").trim();
   const inviteList = Array.isArray(registryInvites) ? registryInvites : [];
   const thankYouList = Array.isArray(thankYouNotes) ? thankYouNotes : [];
   const ordersList = Array.isArray(registryOrders) ? registryOrders : [];
@@ -499,7 +631,7 @@ export default function HostDashboardRegistryContent(props) {
       {/* <p className="capitalize">
         {profile?.role} Dashboard {profile?.firstname}
       </p> */}
-      <main className="flex flex-col space-y-16 w-full">
+      <main className="flex flex-col space-y-16 w-full px-5 md:px-10">
         <div className="w-full rounded-xl overflow-hidden h-[200px] relative">
           {/* Persistent, hidden form to submit the server action with the real File */}
           <form
@@ -891,7 +1023,7 @@ export default function HostDashboardRegistryContent(props) {
         ) : (
           <div className="w-full flex flex-col space-y-4">
             <p className="text-[#394B71] font-semibold">View Products</p>
-            <div className="flex flex-wrap gap-4">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full gap-8">
               {products.map((p) => {
                 const isPurchased =
                   (p.purchased ?? 0) >= (p.desired ?? 0) &&
@@ -901,7 +1033,7 @@ export default function HostDashboardRegistryContent(props) {
                 return (
                   <div
                     key={p.id}
-                    className="group flex bg-white rounded-lg flex-col w-[220px] overflow-hidden border border-gray-200 relative"
+                    className="group flex bg-white rounded-lg flex-col overflow-hidden border border-gray-200 relative"
                   >
                     {/* Priority badge */}
                     {p.priority && (
@@ -1457,29 +1589,124 @@ export default function HostDashboardRegistryContent(props) {
                 placeholder="Street address line 2"
                 disabled={isAddressPending}
               />
-              <input
-                name="city"
-                value={addressInput.city}
-                onChange={(e) =>
-                  setAddressInput((prev) => ({ ...prev, city: e.target.value }))
-                }
-                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
-                placeholder="City"
-                disabled={isAddressPending}
-              />
-              <input
-                name="state_province"
-                value={addressInput.state_province}
-                onChange={(e) =>
-                  setAddressInput((prev) => ({
-                    ...prev,
-                    state_province: e.target.value,
-                  }))
-                }
-                className="w-full rounded-2xl border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder-gray-400 shadow-sm outline-none transition hover:border-gray-400"
-                placeholder="State/Province"
-                disabled={isAddressPending}
-              />
+              <input type="hidden" name="state_province" value={addressInput.state_province} />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-900">
+                  Region/State <span className="text-red-600">*</span>
+                </label>
+                <Select
+                  value={selectedRegion?.id ? String(selectedRegion.id) : ""}
+                  onValueChange={(value) => {
+                    const region = shippingRegions.find((item) => String(item.id) === value);
+                    setSelectedRegion(region || null);
+                    setAddressInput((prev) => ({
+                      ...prev,
+                      state_province: region?.name || "",
+                      city: "",
+                    }));
+                    setAvailableCities([]);
+                    setCitiesError(null);
+                  }}
+                  disabled={
+                    isAddressPending ||
+                    zonesState.loading ||
+                    shippingRegions.length === 0
+                  }
+                >
+                  <SelectTrigger
+                    className="w-full rounded-2xl py-3 text-sm"
+                    hasError={hasAddressStateError}
+                  >
+                    <SelectValue
+                      placeholder={
+                        zonesState.loading
+                          ? "Loading regions..."
+                          : shippingRegions.length === 0
+                            ? "No regions available"
+                            : "Select region"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {shippingRegions.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-gray-500">No regions available</div>
+                    ) : (
+                      shippingRegions.map((region) => (
+                        <SelectItem key={region.id} value={String(region.id)}>
+                          {region.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {zonesState.error ? (
+                  <p className="text-xs text-red-600">{zonesState.error}</p>
+                ) : null}
+                {hasAddressStateError ? (
+                  <ul className="list-disc pl-5 text-xs text-red-600">
+                    {addressStateErrors.map((error, index) => (
+                      <li key={`${error}-${index}`}>{error}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+              <input type="hidden" name="city" value={addressInput.city} />
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-gray-900">
+                  City <span className="text-red-600">*</span>
+                </label>
+                <Select
+                  value={addressInput.city || ""}
+                  onValueChange={(value) =>
+                    setAddressInput((prev) => ({
+                      ...prev,
+                      city: value,
+                    }))
+                  }
+                  disabled={
+                    isAddressPending ||
+                    !selectedRegion ||
+                    citiesLoading ||
+                    availableCities.length === 0
+                  }
+                >
+                  <SelectTrigger
+                    className="w-full rounded-2xl py-3 text-sm"
+                    hasError={hasAddressCityError}
+                  >
+                    <SelectValue
+                      placeholder={
+                        citiesLoading
+                          ? "Loading cities..."
+                          : !selectedRegion
+                            ? "Select region first"
+                            : availableCities.length === 0
+                              ? "No cities available"
+                              : "Select city"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableCities.length === 0 ? (
+                      <div className="px-3 py-2 text-xs text-gray-500">No cities available</div>
+                    ) : (
+                      availableCities.map((city) => (
+                        <SelectItem key={city} value={city}>
+                          {city}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+                {citiesError ? <p className="text-xs text-red-600">{citiesError}</p> : null}
+                {hasAddressCityError ? (
+                  <ul className="list-disc pl-5 text-xs text-red-600">
+                    {addressCityErrors.map((error, index) => (
+                      <li key={`${error}-${index}`}>{error}</li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
               <input
                 name="postal_code"
                 value={addressInput.postal_code}

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createAdminClient, createClient } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
+import { issueSupportTicketAccessToken } from "../../../utils/supportAccessToken";
 
 const ADMIN_ROLES = [
   "super_admin",
@@ -235,6 +236,14 @@ export async function adminReply(prevState, formData) {
   const { ticketId, message } = parsed.data;
   const admin = createAdminClient();
 
+  const { data: ticket } = await admin
+    .from("support_tickets")
+    .select(
+      "id, subject, guest_email, guest_name, created_by, creator:profiles!support_tickets_created_by_fkey(email, firstname, lastname)"
+    )
+    .eq("id", ticketId)
+    .maybeSingle();
+
   const { data: newMsg, error: insertError } = await admin
     .from("support_ticket_messages")
     .insert({
@@ -255,6 +264,60 @@ export async function adminReply(prevState, formData) {
     .from("support_tickets")
     .update({ updated_at: new Date().toISOString() })
     .eq("id", ticketId);
+
+  const recipientEmail =
+    ticket?.guest_email || ticket?.creator?.email || null;
+
+  if (recipientEmail) {
+    const templateSlug = ticket?.guest_email
+      ? "support_ticket_admin_reply_guest"
+      : "support_ticket_admin_reply_user";
+    const adminName =
+      [profile?.firstname, profile?.lastname].filter(Boolean).join(" ") ||
+      profile?.email ||
+      "Support Team";
+    const recipientName = ticket?.guest_email
+      ? ticket?.guest_name || "Customer"
+      : [ticket?.creator?.firstname, ticket?.creator?.lastname]
+            .filter(Boolean)
+            .join(" ") || "Customer";
+    let ticketUrl = `/support/${ticketId}`;
+    let accessToken = null;
+
+    try {
+      accessToken = await issueSupportTicketAccessToken({
+        ticketId,
+        email: recipientEmail,
+      });
+
+      if (accessToken) {
+        ticketUrl = `${ticketUrl}?access_token=${encodeURIComponent(accessToken)}`;
+      }
+    } catch (tokenError) {
+      console.error("[admin/support] Failed to create support access token:", tokenError);
+    }
+
+    try {
+      await admin.from("notification_email_queue").insert({
+        recipient_id: ticket?.created_by || null,
+        recipient_email: recipientEmail,
+        template_slug: templateSlug,
+        variables: {
+          guest_name: recipientName,
+          user_name: recipientName,
+          admin_name: adminName,
+          ticket_id: ticketId,
+          ticket_subject: ticket?.subject || "Support ticket",
+          ticket_url: ticketUrl,
+          support_access_token: accessToken,
+          message_excerpt: message.slice(0, 500),
+        },
+        status: "pending",
+      });
+    } catch (queueError) {
+      console.error("[admin/support] Failed to queue reply email:", queueError);
+    }
+  }
 
   revalidatePath("/dashboard/admin/support");
   return { message: "", errors: {}, success: true, data: newMsg };

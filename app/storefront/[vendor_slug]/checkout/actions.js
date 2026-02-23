@@ -4,16 +4,12 @@ import { createAdminClient, createClient } from "../../../utils/supabase/server"
 import { evaluatePromoCode, roundCurrency } from "../../../utils/promos";
 import { calculateAramexRate } from "../../../utils/shipping/aramex";
 import { computeShipmentWeight } from "../../../utils/shipping/weights";
+import {
+  createExpressPaySdkClient,
+  resolveExpressPayCheckoutUrl,
+} from "../../../utils/payments/expresspay";
 import { randomBytes } from "crypto";
 import { unstable_cache } from "next/cache";
-
-const EXPRESSPAY_SUBMIT_URL =
-  process.env.EXPRESSPAY_ENV === "live"
-    ? "https://expresspaygh.com/api/submit.php"
-    : "https://sandbox.expresspaygh.com/api/submit.php";
-
-const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
-const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
 
 function generateOrderId() {
   return randomBytes(8).toString("hex");
@@ -21,6 +17,7 @@ function generateOrderId() {
 
 export async function processStorefrontCheckout(prevState, formData) {
   try {
+    const expressPaySdk = createExpressPaySdkClient();
     const vendorId = formData.get("vendorId");
     const vendorSlug = formData.get("vendorSlug");
     const productId = formData.get("productId");
@@ -652,33 +649,19 @@ export async function processStorefrontCheckout(prevState, formData) {
       console.error("Order item creation error:", orderItemError);
     }
 
-    // Prepare ExpressPay request
-    const expressPayParams = new URLSearchParams({
-      "merchant-id": EXPRESSPAY_MERCHANT_ID,
-      "api-key": EXPRESSPAY_API_KEY,
-      firstname: firstName,
-      lastname: lastName,
-      email: email,
-      phonenumber: phone,
+    const expressPayData = await expressPaySdk.submit({
+      firstName,
+      lastName,
+      email,
+      phone,
       username: email,
       currency: "GHS",
       amount: (Number.isFinite(computedTotal) ? computedTotal : total).toFixed(2),
-      "order-id": orderId,
-      "order-desc": orderDescription,
-      "redirect-url": redirectUrl,
-      "post-url": postUrl,
+      orderId,
+      orderDescription,
+      redirectUrl,
+      postUrl,
     });
-
-    // Submit to ExpressPay
-    const expressPayResponse = await fetch(EXPRESSPAY_SUBMIT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: expressPayParams.toString(),
-    });
-
-    const expressPayData = await expressPayResponse.json();
 
     if (expressPayData.status !== 1) {
       // Update order status to failed
@@ -726,17 +709,19 @@ export async function processStorefrontCheckout(prevState, formData) {
       })
       .eq("id", order.id);
 
-    // Return checkout URL
     const checkoutUrl =
-      process.env.EXPRESSPAY_ENV === "live"
-        ? `https://expresspaygh.com/api/checkout.php?token=${expressPayData.token}`
-        : `https://sandbox.expresspaygh.com/api/checkout.php?token=${expressPayData.token}`;
+      resolveExpressPayCheckoutUrl(expressPayData) ||
+      `/storefront/${vendorSlug}/checkout/callback?order-id=${encodeURIComponent(orderId)}`;
 
     return {
       success: true,
       orderId: order.id,
       orderCode: orderId,
       token: expressPayData.token,
+      payableAmount: Number(
+        (Number.isFinite(computedTotal) ? computedTotal : total).toFixed(2)
+      ),
+      currency: "GHS",
       checkoutUrl,
     };
   } catch (error) {

@@ -12,15 +12,10 @@ import babyshower from "../../../public/host/babyshower.png";
 import fundraiser from "../../../public/host/fundraiser.png";
 import giftbox from "../../../public/host/lists-gift-box.png";
 import { Plus } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "../../components/Dialog";
+import { Dialog, DialogContent, DialogTitle } from "../../components/Dialog";
 import VisuallyHidden from "../../components/accessibility/VisuallyHidden";
 import CreateRegistryDialog from "./components/createRegistryDialog";
 import RegistryType from "./components/registryType";
-
 
 const carouselItems = [
   {
@@ -54,7 +49,12 @@ export default function HostDashboardContent(props) {
 
   return (
     <div className="dark:text-white bg-[#FAFAFA] py-8 dark:bg-gray-950 mx-auto max-w-6xl w-full font-brasley-medium min-h-screen">
-      <main id="host-dashboard-content" role="main" aria-label="Host dashboard" className="flex flex-col space-y-16 w-full">
+      <main
+        id="host-dashboard-content"
+        role="main"
+        aria-label="Host dashboard"
+        className="flex flex-col space-y-16 w-full px-5 md:px-10"
+      >
         <CarouselHero
           items={carouselItems}
           openCreateRegistry={openCreateRegistry}
@@ -81,12 +81,12 @@ export default function HostDashboardContent(props) {
           </div>
 
           {registry?.length ? (
-            <div className="flex w-full flex-wrap gap-8 items-center">
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 w-full gap-8">
               {registry?.map(({ id, cover_photo, title, registry_code }) => {
                 return (
                   <div
                     key={id}
-                    className="flex flex-col rounded-2xl border border-[#DCDCDE] overflow-hidden w-[230px]"
+                    className="flex flex-col rounded-2xl border border-[#DCDCDE] overflow-hidden"
                   >
                     <div className="bg-[#FFFCF3] p-4 w-full flex items-center justify-center relative h-[200px] overflow-hidden">
                       <div className="w-full h-full">
@@ -113,11 +113,11 @@ export default function HostDashboardContent(props) {
                   </div>
                 );
               })}
-              <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 items-center justify-center">
                 <button
                   type="button"
                   onClick={openCreateRegistry}
-                  className="cursor-pointer flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]"
+                  className="cursor-pointer w-30 h-[200px] flex flex-col space-y-4 items-center rounded-full bg-white px-4 py-6 border border-[#DAC67E] text-[#A5914B]"
                 >
                   <Plus className="size-8" />
                   <span className="w-full flex items-center justify-center relative h-[100px] -my-[1rem]">

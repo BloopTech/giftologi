@@ -8,10 +8,25 @@ import React, {
   useCallback,
   useRef,
 } from "react";
-import { createClient as createSupabaseClient } from "../../../utils/supabase/client";
 import { useQueryState, parseAsString } from "nuqs";
 
 const AllUsersContext = createContext();
+
+const STATUS_CANONICAL_MAP = {
+  active: "Active",
+  inactive: "Inactive",
+  suspended: "Suspended",
+  pending: "Pending",
+  deleted: "Deleted",
+};
+
+const normalizeStatusFilter = (value) => {
+  const raw = String(value || "").trim();
+  if (!raw) return "all";
+  const lower = raw.toLowerCase();
+  if (lower === "all") return "all";
+  return STATUS_CANONICAL_MAP[lower] || raw;
+};
 
 export const AllUsersProvider = ({ children }) => {
   const value = useAllUsersProviderValue();
@@ -58,7 +73,7 @@ function useAllUsersProviderValue() {
 
   const searchTerm = searchParam || "";
   const roleFilter = (roleParam || "all").toLowerCase();
-  const statusFilter = statusParam || "all";
+  const statusFilter = normalizeStatusFilter(statusParam || "all");
   const focusId = focusIdParam || "";
 
   const lastAppliedFocusIdRef = useRef("");
@@ -97,7 +112,7 @@ function useAllUsersProviderValue() {
 
   const setStatusFilter = useCallback(
     (value) => {
-      setStatusParam(value || "all");
+      setStatusParam(normalizeStatusFilter(value || "all"));
       setPageParam("1");
     },
     [setStatusParam, setPageParam]
@@ -111,202 +126,23 @@ function useAllUsersProviderValue() {
       setErrorUsers(null);
 
       try {
-        const supabase = createSupabaseClient();
+        const params = new URLSearchParams();
+        if (searchTerm) params.set("q", searchTerm);
+        if (roleFilter) params.set("role", roleFilter);
+        if (statusFilter) params.set("status", statusFilter);
 
-        const staffRoles = [
-          "super_admin",
-          "finance_admin",
-          "operations_manager_admin",
-          "customer_support_admin",
-          "store_manager_admin",
-          "marketing_admin",
-        ];
+        const response = await fetch(`/api/admin/all-users?${params.toString()}`, {
+          method: "GET",
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => ({}));
 
-        let profilesQuery = supabase
-          .from("profiles")
-          .select(
-            "id, email, firstname, lastname, phone, role, status, created_at, updated_at, created_by",
-            { count: "exact" }
-          );
-
-        if (roleFilter && roleFilter !== "all") {
-          if (
-            roleFilter === "host" ||
-            roleFilter === "vendor" ||
-            roleFilter === "guest"
-          ) {
-            profilesQuery = profilesQuery.eq("role", roleFilter);
-          } else if (roleFilter === "admin" || roleFilter === "staff") {
-            profilesQuery = profilesQuery.in("role", staffRoles);
-          }
-        }
-
-        if (statusFilter && statusFilter !== "all") {
-          profilesQuery = profilesQuery.eq("status", statusFilter);
-        }
-
-        if (searchTerm && searchTerm.trim()) {
-          const term = searchTerm.trim();
-          profilesQuery = profilesQuery.textSearch("search_vector", term, {
-            type: "websearch",
-            config: "simple",
-          });
-        }
-
-        const allInviteRoles = [
-          ...staffRoles,
-          "host",
-          "guest",
-          "vendor",
-        ];
-
-        let inviteRolesForFilter = [];
-        if (!roleFilter || roleFilter === "all") {
-          inviteRolesForFilter = allInviteRoles;
-        } else if (roleFilter === "admin" || roleFilter === "staff") {
-          inviteRolesForFilter = staffRoles;
-        } else if (
-          roleFilter === "host" ||
-          roleFilter === "guest" ||
-          roleFilter === "vendor"
-        ) {
-          inviteRolesForFilter = [roleFilter];
-        }
-
-        const shouldIncludeInvites =
-          inviteRolesForFilter.length > 0 &&
-          (statusFilter === "all" || statusFilter === "Pending");
-
-        const signupProfilesPromise = shouldIncludeInvites
-          ? supabase
-              .from("signup_profiles")
-              .select(
-                "user_id, email, firstname, lastname, phone, role, created_at, updated_at, created_by"
-              )
-              .in("role", inviteRolesForFilter)
-              .order("created_at", { ascending: false })
-          : Promise.resolve({ data: [], error: null });
-
-        const [
-          { data: profileRows, error: profilesError, count },
-          { data: signupRows },
-        ] = await Promise.all([
-          profilesQuery.order("created_at", { ascending: false }),
-          signupProfilesPromise,
-        ]);
-
-        if (profilesError) {
-          if (!ignore) {
-            setErrorUsers(profilesError.message);
-            setUsers([]);
-            setUsersTotal(0);
-          }
-          return;
+        if (!response.ok) {
+          throw new Error(payload?.error || "Failed to load users");
         }
 
         if (!ignore) {
-          const baseRows = Array.isArray(profileRows) ? profileRows : [];
-
-          const existingIds = new Set(baseRows.map((row) => row.id));
-
-          const pendingInvites = Array.isArray(signupRows)
-            ? signupRows
-                .filter((row) => row.user_id && !existingIds.has(row.user_id))
-                .map((row) => ({
-                  id: row.user_id,
-                  email: row.email,
-                  firstname: row.firstname,
-                  lastname: row.lastname,
-                  phone: row.phone,
-                  role: row.role,
-                  status: "Pending",
-                  created_at: row.created_at,
-                  updated_at: row.updated_at,
-                  created_by: row.created_by,
-                  __source: "invite",
-                }))
-            : [];
-
-          let enriched = [...pendingInvites, ...baseRows];
-
-          try {
-            const creatorIds = Array.from(
-              new Set(
-                enriched
-                  .map((row) => row.created_by)
-                  .filter(Boolean)
-              )
-            );
-
-            let creatorMap = {};
-
-            if (creatorIds.length) {
-              const { data: creators } = await supabase
-                .from("profiles")
-                .select("id, firstname, lastname, email")
-                .in("id", creatorIds);
-
-              if (creators && Array.isArray(creators)) {
-                creatorMap = creators.reduce((acc, profile) => {
-                  const nameParts = [
-                    profile.firstname,
-                    profile.lastname,
-                  ].filter(Boolean);
-                  const name =
-                    (nameParts.length
-                      ? nameParts.join(" ")
-                      : profile.email || "") || "—";
-                  acc[profile.id] = name;
-                  return acc;
-                }, {});
-              }
-            }
-
-            enriched = enriched.map((row) => ({
-              ...row,
-              created_by_label: row.created_by
-                ? creatorMap[row.created_by] || "—"
-                : "—",
-            }));
-          } catch (_) {}
-
-          try {
-            const profileIds = Array.from(
-              new Set(
-                enriched
-                  .map((row) => row.id)
-                  .filter(Boolean)
-              )
-            );
-
-            if (profileIds.length) {
-              const { data: lastLoginRows } = await supabase.rpc(
-                "get_last_sign_in_for_profiles",
-                { profile_ids: profileIds }
-              );
-
-              if (Array.isArray(lastLoginRows)) {
-                const authMetaMap = lastLoginRows.reduce((acc, item) => {
-                  if (item && item.profile_id) {
-                    acc[item.profile_id] = {
-                      last_sign_in_at: item.last_sign_in_at || null,
-                      auth_created_at: item.created_at || null,
-                    };
-                  }
-                  return acc;
-                }, {});
-
-                enriched = enriched.map((row) => ({
-                  ...row,
-                  last_sign_in_at:
-                    authMetaMap[row.id]?.last_sign_in_at ?? row.last_sign_in_at ?? null,
-                  auth_created_at:
-                    authMetaMap[row.id]?.auth_created_at ?? row.auth_created_at ?? null,
-                }));
-              }
-            }
-          } catch (_) {}
-
+          const enriched = Array.isArray(payload?.rows) ? payload.rows : [];
           const totalItems = enriched.length;
 
           if (focusId && focusId !== lastAppliedFocusIdRef.current) {

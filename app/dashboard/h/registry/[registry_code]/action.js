@@ -430,7 +430,7 @@ export async function updateDeliveryAddress(prev, queryData) {
 
   const registry_id = queryData.get("registry_id");
   const event_id = queryData.get("event_id");
-  const payload = {
+  const rawPayload = {
     street_address: (queryData.get("street_address") || "").toString().trim(),
     street_address_2: (queryData.get("street_address_2") || "")
       .toString()
@@ -443,6 +443,30 @@ export async function updateDeliveryAddress(prev, queryData) {
       .toString()
       .trim(),
   };
+
+  const deliveryAddressSchema = z.object({
+    street_address: z.string().trim().min(1, { message: "Street address is required" }),
+    street_address_2: z.string().optional(),
+    city: z.string().trim().min(1, { message: "City is required" }),
+    state_province: z
+      .string()
+      .trim()
+      .min(1, { message: "Region/State is required" }),
+    postal_code: z.string().optional(),
+    gps_location: z.string().optional(),
+    digital_address: z.string().optional(),
+  });
+
+  const parsedPayload = deliveryAddressSchema.safeParse(rawPayload);
+  if (!parsedPayload.success) {
+    return {
+      errors: parsedPayload.error.flatten().fieldErrors,
+      message: parsedPayload.error.issues?.[0]?.message || "Failed to save delivery address",
+      data: {},
+    };
+  }
+
+  const payload = parsedPayload.data;
 
   const { data: isEventData, error: isEventError } = await supabase
     .from("events")

@@ -858,23 +858,54 @@ export default function CheckoutContent({
   const total = discountedSubtotal + shippingFee + discountedGiftWrapFee;
 
   if (state.success && state.checkoutUrl) {
+    const callbackParams = new URLSearchParams();
+    if (state?.token) callbackParams.set("token", state.token);
+    if (state?.orderCode) callbackParams.set("order-id", state.orderCode);
+    const callbackHref = `/storefront/${vendor?.slug}/checkout/callback?${callbackParams.toString()}`;
+    const payableAmount = Number(state?.payableAmount);
+    const amountToPay = Number.isFinite(payableAmount) ? payableAmount : total;
+
     return (
-      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
+      <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 pt-24">
+        <div className="bg-white rounded-2xl shadow-lg p-6 max-w-3xl w-full text-center">
           <CheckCircle className="size-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Order Created!
           </h1>
-          <p className="text-gray-600 mb-6">
-            Your order has been created. You will be redirected to complete
-            payment.
+          <p className="text-gray-600 mb-4">
+            Complete payment below without leaving Giftologi.
           </p>
-          <a
-            href={state.checkoutUrl}
-            className="inline-block w-full bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors"
-          >
-            Proceed to Payment
-          </a>
+          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#F8F4E7] px-4 py-2 border border-[#E9DFC0]">
+            <span className="text-xs uppercase tracking-wide text-[#7A6A35] font-semibold">
+              Amount to pay
+            </span>
+            <span className="text-sm font-bold text-[#A5914B]">
+              {formatPrice(amountToPay)}
+            </span>
+          </div>
+          <div className="w-full rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
+            <iframe
+              title="ExpressPay Checkout"
+              src={state.checkoutUrl}
+              className="w-full min-h-[560px]"
+            />
+          </div>
+          <div className="mt-4 flex flex-col md:flex-row gap-3">
+            <Link
+              href={state.checkoutUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-block w-full bg-white border border-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-xl hover:bg-gray-50 transition-colors"
+            >
+              Open payment in new tab
+            </Link>
+            <Link
+              href={callbackHref}
+              className="inline-block w-full bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors"
+            >
+              Check payment status
+            </Link>
+          </div>
           <p className="text-xs text-gray-500 mt-4">
             Order Reference: {state.orderCode}
           </p>

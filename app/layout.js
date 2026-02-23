@@ -128,7 +128,7 @@ export default async function RootLayout({ children }) {
           <main
             id="main-content"
             role="main"
-            tabIndex={-1}
+            //tabIndex={-1}
             className="w-full font-brasley-medium bg-white text-black dark:bg-gray-950 dark:text-white min-h-screen"
           >
             <NuqsAdapter>{children}</NuqsAdapter>

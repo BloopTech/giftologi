@@ -228,7 +228,7 @@ export default function RegistryDiscoverContent() {
       <main
         id="registry-discover-content"
         role="main"
-        tabIndex={-1}
+        //tabIndex={-1}
         aria-label="Registry discovery"
         className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-10"
       >

@@ -40,10 +40,10 @@ export default function RegistryType(props) {
   const { openCreateRegistry } = props;
   
   return (
-    <div className="flex items-center gap-4 w-full md:flex-wrap lg:flex-nowrap">
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 w-full">
       {customStyles.map((style) => (
         <div key={style.id} className="flex flex-col space-y-4">
-          <div className="w-[200px] h-[200px] bg-[#E9E9ED] border border-[#DCDCDE] rounded-md relative overflow-hidden">
+          <div className="h-[200px] bg-[#E9E9ED] border border-[#DCDCDE] rounded-md relative overflow-hidden">
             <Image
               src={style.image}
               alt="gift box"

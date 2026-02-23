@@ -149,6 +149,8 @@ function useAdminSupportProviderValue() {
         (t) =>
           t.subject?.toLowerCase().includes(term) ||
           t.description?.toLowerCase().includes(term) ||
+          t.guest_email?.toLowerCase().includes(term) ||
+          t.guest_name?.toLowerCase().includes(term) ||
           t.creator?.email?.toLowerCase().includes(term) ||
           t.creator?.firstname?.toLowerCase().includes(term) ||
           t.creator?.lastname?.toLowerCase().includes(term)

@@ -233,6 +233,14 @@ export default function TransactionsTable() {
           <span className="text-xs text-[#6A7282]">{info.getValue()}</span>
         ),
       }),
+      columnHelper.accessor("paymentProviderLabel", {
+        header: ({ column }) => (
+          <SortableHeader column={column} title="Payment Provider" />
+        ),
+        cell: (info) => (
+          <span className="text-xs text-[#6A7282]">{info.getValue() || "Unrecorded"}</span>
+        ),
+      }),
       columnHelper.accessor("amountLabel", {
         header: ({ column }) => (
           <SortableHeader column={column} title="Amount (GHS)" />
@@ -538,7 +546,7 @@ export default function TransactionsTable() {
                   className={cx(
                     bodyRow(),
                     isFocused &&
-                      "bg-[#EDF4FF] outline outline-2 outline-[#B8D4FF]"
+                      "bg-[#EDF4FF] outline-2 outline-[#B8D4FF]"
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (

@@ -1,5 +1,27 @@
 import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "../../../utils/supabase/server";
+import { verifySupportTicketAccessToken } from "../../../utils/supportAccessToken";
+
+const MAX_GUEST_ID_LENGTH = 191;
+
+const normalizeGuestId = (value) => {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  return normalized.slice(0, MAX_GUEST_ID_LENGTH);
+};
+
+const getGuestIdFromRequest = (request) =>
+  normalizeGuestId(request?.headers?.get("x-guest-id"));
+
+const getAccessTokenFromRequest = (request) => {
+  const headerToken = String(
+    request?.headers?.get("x-support-access-token") || ""
+  ).trim();
+  if (headerToken) return headerToken;
+
+  const queryToken = String(request?.nextUrl?.searchParams?.get("access_token") || "").trim();
+  return queryToken || null;
+};
 
 /**
  * GET /api/support/[ticket_id] — get ticket details + messages
@@ -10,19 +32,26 @@ export async function GET(request, { params }) {
     const supabase = await createClient();
     const {
       data: { user },
-      error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user) {
+    const guestId = getGuestIdFromRequest(request);
+    const accessToken = getAccessTokenFromRequest(request);
+    const isAuthenticated = Boolean(user?.id);
+
+    if (!isAuthenticated && !guestId && !accessToken) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // Check if user owns this ticket or is admin
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
+    let profile = null;
+    if (isAuthenticated) {
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      profile = data;
+    }
 
     const isAdmin = [
       "super_admin",
@@ -35,7 +64,7 @@ export async function GET(request, { params }) {
     const ticketQuery = admin
       .from("support_tickets")
       .select(
-        "id, subject, description, category, status, priority, order_id, assigned_admin_id, guest_email, guest_name, created_by, created_at, updated_at, resolved_at, closed_at"
+        "id, subject, description, category, status, priority, order_id, assigned_admin_id, guest_id, guest_email, guest_name, created_by, created_at, updated_at, resolved_at, closed_at, creator:profiles!support_tickets_created_by_fkey(email)"
       )
       .eq("id", ticket_id)
       .single();
@@ -46,9 +75,42 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: "Ticket not found" }, { status: 404 });
     }
 
-    // Authorization: user must own the ticket or be admin
-    if (!isAdmin && ticket.created_by !== user.id) {
+    // Authorization: requester must own the ticket or be admin
+    const tokenVerification = accessToken
+      ? await verifySupportTicketAccessToken(accessToken)
+      : { valid: false, payload: null };
+
+    const tokenEmail = String(tokenVerification?.payload?.email || "")
+      .trim()
+      .toLowerCase();
+    const tokenTicketId = String(tokenVerification?.payload?.ticket_id || "").trim();
+    const normalizedGuestEmail = String(ticket.guest_email || "")
+      .trim()
+      .toLowerCase();
+    const normalizedCreatorEmail = String(ticket.creator?.email || "")
+      .trim()
+      .toLowerCase();
+
+    const isTokenOwner =
+      tokenVerification.valid &&
+      tokenTicketId === ticket.id &&
+      tokenEmail &&
+      (tokenEmail === normalizedGuestEmail || tokenEmail === normalizedCreatorEmail);
+
+    const isTicketOwner = isAuthenticated
+      ? ticket.created_by === user.id
+      : (ticket.guest_id && ticket.guest_id === guestId) || isTokenOwner;
+
+    if (!isAdmin && !isTicketOwner) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (!isAuthenticated && guestId && isTokenOwner && ticket.guest_id !== guestId) {
+      await admin
+        .from("support_tickets")
+        .update({ guest_id: guestId, updated_at: new Date().toISOString() })
+        .eq("id", ticket.id);
+      ticket.guest_id = guestId;
     }
 
     // Fetch messages
@@ -59,11 +121,15 @@ export async function GET(request, { params }) {
       .order("created_at", { ascending: true });
 
     // Fetch creator profile
-    const { data: creator } = await admin
-      .from("profiles")
-      .select("id, firstname, lastname, email, image")
-      .eq("id", ticket.created_by)
-      .single();
+    let creator = null;
+    if (ticket.created_by) {
+      const { data } = await admin
+        .from("profiles")
+        .select("id, firstname, lastname, email, image")
+        .eq("id", ticket.created_by)
+        .single();
+      creator = data || null;
+    }
 
     // Fetch assigned admin profile if any
     let assignedAdmin = null;

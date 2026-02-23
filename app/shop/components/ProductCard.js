@@ -86,7 +86,7 @@ export default function ProductCard({ product }) {
 
         {/* Buy + Cart */}
         {p.stock > 0 && (
-          <div className="flex gap-1.5 mb-1.5">
+          <div className="flex gap-1.5 mb-1.5 flex-col lg:flex-row">
             {inCart ? (
               <button
                 type="button"

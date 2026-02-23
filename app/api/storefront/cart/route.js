@@ -26,6 +26,24 @@ const findVariationByKey = (variations, key) => {
   return variations.find((variation, index) => buildVariationKey(variation, index) === key) || null;
 };
 
+const findLowestPricedVariation = (variations) => {
+  if (!Array.isArray(variations) || variations.length === 0) return null;
+
+  const priced = variations
+    .map((variation, index) => ({
+      key: buildVariationKey(variation, index),
+      variation,
+      price: Number(variation?.price),
+    }))
+    .filter((entry) => Number.isFinite(entry.price));
+
+  if (!priced.length) return null;
+
+  return priced.reduce((lowest, current) =>
+    current.price < lowest.price ? current : lowest
+  );
+};
+
 const buildVariationPayload = (variation, key) => {
   if (!variation || typeof variation !== "object") return null;
   return {
@@ -358,11 +376,21 @@ export async function POST(request) {
 
     const variations = normalizeVariations(product.variations);
     const matchedVariation = findVariationByKey(variations, variationKey);
-    const variationPayload = matchedVariation
-      ? buildVariationPayload(matchedVariation, variationKey)
+    const defaultVariationSelection = !variationKey
+      ? findLowestPricedVariation(variations)
+      : null;
+    const resolvedVariation =
+      matchedVariation || defaultVariationSelection?.variation || null;
+    const resolvedVariationKey = matchedVariation
+      ? variationKey
+      : defaultVariationSelection?.key || variationKey || null;
+    const variationPayload = resolvedVariation
+      ? buildVariationPayload(resolvedVariation, resolvedVariationKey)
       : buildVariationPayload(variation, variationKey);
 
-    const variationPrice = Number(matchedVariation?.price);
+    const variationPrice = Number(
+      resolvedVariation?.price ?? variationPayload?.price
+    );
     const serviceCharge = Number(product.service_charge || 0);
     const basePrice = Number(product.price);
     const salePrice = Number(product.sale_price);
@@ -430,8 +458,8 @@ export async function POST(request) {
       .eq("cart_id", cart.id)
       .eq("product_id", productId);
 
-    if (variationKey) {
-      itemQuery = itemQuery.eq("variation->>key", variationKey);
+    if (resolvedVariationKey) {
+      itemQuery = itemQuery.eq("variation->>key", resolvedVariationKey);
     } else {
       itemQuery = itemQuery.is("variation", null);
     }
