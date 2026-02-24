@@ -176,7 +176,7 @@ export default function AnalyticsReportingContent() {
         toast.success(
           result?.deduped
             ? "A matching export is already queued."
-            : "Export queued. You will receive a download email shortly."
+            : "Export queued. You will receive a download email shortly.",
         );
       } else if (result?.error) {
         toast.error(result.error);
@@ -271,7 +271,7 @@ export default function AnalyticsReportingContent() {
           toast.success(
             result?.deduped
               ? "A matching export is already queued."
-              : "Export queued. You will receive a download email shortly."
+              : "Export queued. You will receive a download email shortly.",
           );
         } else if (result?.error) {
           toast.error(result.error);
@@ -288,7 +288,7 @@ export default function AnalyticsReportingContent() {
       toast.success(
         result?.deduped
           ? "A matching export is already queued."
-          : "Export queued. You will receive a download email shortly."
+          : "Export queued. You will receive a download email shortly.",
       );
     } else if (result?.error) {
       toast.error(result.error);
@@ -328,17 +328,21 @@ export default function AnalyticsReportingContent() {
               <SelectItem value="all_time">All time</SelectItem>
             </SelectContent>
           </Select>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={Boolean(exporting)}
-            className="inline-flex items-center justify-center space-x-2 rounded-full bg-primary px-4 py-2 text-xs font-medium text-white border border-primary cursor-pointer hover:bg-white hover:text-primary"
-          >
-            <PiDownloadSimple className="size-4" />
-            <span>
-              {exporting ? "Queueing export..." : "Export summary (email CSV)"}
-            </span>
-          </button>
+          <div className="w-full md:w-[50%]">
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={Boolean(exporting)}
+              className="w-full inline-flex items-center justify-center space-x-2 rounded-full bg-primary px-4 py-2 text-xs font-medium text-white border border-primary cursor-pointer hover:bg-white hover:text-primary"
+            >
+              <PiDownloadSimple className="size-4" />
+              <span>
+                {exporting
+                  ? "Queueing export..."
+                  : "Export summary (email CSV)"}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 

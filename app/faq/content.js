@@ -1,11 +1,19 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import Link from "next/link";
-import { ChevronDown, Search, CircleHelp, Mail, LifeBuoy } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import PublicNavbar from "../components/PublicNavbar";
 import Footer from "../components/footer";
 import { useFaqContext } from "./context";
+import NewsletterSubscription from "../components/NewsletterSubscription";
+
+function toCategoryId(category) {
+  return String(category || "General")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
 
 function FAQItem({ item, isOpen, onToggle }) {
   return (
@@ -16,7 +24,9 @@ function FAQItem({ item, isOpen, onToggle }) {
         className="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-[#FAFAFA] transition-colors cursor-pointer"
         aria-expanded={isOpen}
       >
-        <span className="text-sm sm:text-base font-medium text-[#111827]">{item.question}</span>
+        <span className="text-sm sm:text-base font-medium text-[#111827]">
+          {item.question}
+        </span>
         <ChevronDown
           className={`size-4 text-[#6B7280] transition-transform ${
             isOpen ? "rotate-180" : "rotate-0"
@@ -34,17 +44,46 @@ function FAQItem({ item, isOpen, onToggle }) {
 
 export default function FAQContent() {
   const {
-    categories,
-    groupedFaqs,
-    filteredFaqs,
+    categories = [],
+    groupedFaqs = {},
+    filteredFaqs = [],
     loading,
     error,
-    searchQuery,
+    searchQuery = "",
     setSearchQuery,
     refresh,
   } = useFaqContext() || {};
 
   const [openById, setOpenById] = useState({});
+
+  const categorySections = useMemo(
+    () =>
+      categories
+        .map((category) => ({
+          id: toCategoryId(category),
+          category,
+          items: Array.isArray(groupedFaqs?.[category])
+            ? groupedFaqs[category]
+            : [],
+        }))
+        .filter((section) => section.items.length > 0),
+    [categories, groupedFaqs],
+  );
+
+  const scrollToCategory = (id) => {
+    const element = document.getElementById(id);
+    if (element) {
+      const headerOffset = 100;
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition =
+        elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: "smooth",
+      });
+    }
+  };
 
   const handleToggle = (id) => {
     setOpenById((prev) => ({
@@ -59,109 +98,144 @@ export default function FAQContent() {
   );
 
   return (
-    <div className="min-h-screen bg-[#FCFCFB] text-[#111827]">
+    <div className="min-h-screen bg-[#F9F9F9] relative">
       <PublicNavbar />
-
-      <section className="pt-36 pb-20 px-5 sm:px-8 lg:px-14">
-        <div className="mx-auto w-full max-w-5xl">
-          <div className="rounded-3xl border border-[#ECECEC] bg-white p-8 sm:p-10">
-            <div className="flex items-center gap-2 text-[#A5914B]">
-              <CircleHelp className="size-5" />
-              <span className="text-xs font-semibold tracking-[0.16em] uppercase">
-                Help Center
+      <main>
+        <section className="relative pt-44 pb-24 px-6 sm:px-12 lg:px-24 overflow-hidden bg-[#F9F9F9]">
+          {/* Giftologi Background Pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.08] pointer-events-none"
+            style={{
+              backgroundImage: 'url("/pattern.png")',
+              backgroundSize: "380px",
+            }}
+          ></div>
+          <div className="max-w-6xl mx-auto relative z-10 text-center">
+            <h4 className="text-[13px] font-bold tracking-[0.4em] text-[#FF6581] uppercase mb-6">
+              Support Center
+            </h4>
+            <h1 className="text-5xl md:text-7xl font-bold leading-[1.1] text-gray-900 mb-8">
+              <span className="block font-serif">Frequently Asked</span>
+              <span className="block italic font-light text-[#FDD17D]">
+                Questions.
               </span>
-            </div>
-            <h1 className="mt-4 text-4xl sm:text-5xl font-didot-bold text-[#101828]">
-              Frequently Asked Questions
             </h1>
-            <p className="mt-4 text-sm sm:text-base text-[#667085] max-w-2xl leading-relaxed">
-              Find quick answers from the FAQs managed by our admin team. Need personal help?
-              Reach out through the contact page or support tickets.
+            <p className="text-xl text-gray-600 font-light leading-relaxed max-w-2xl mx-auto">
+              Everything you need to know about Giftologi. Can&apos;t find what
+              you&apos;re looking for? Reach out to our concierge team.
             </p>
+          </div>
+        </section>
+        <section className="pt-40 pb-32 px-6 sm:px-12 lg:px-24">
+          <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-16">
+            {/* Category Menu - Sidebar */}
+            <div className="lg:w-1/4 space-y-8 lg:sticky lg:top-32 h-fit">
+              <div className="space-y-4">
+                <h4 className="text-[13px] font-sans font-semibold tracking-[0.2em] text-gray-400 uppercase">
+                  Categories
+                </h4>
+                <nav className="flex flex-col space-y-2">
+                  {categorySections.map((section) => (
+                    <button
+                      key={section.id}
+                      onClick={() => scrollToCategory(section.id)}
+                      className="text-left py-3 px-6 rounded-xl text-sm font-sans font-semibold text-gray-600 hover:bg-white hover:text-primary-gold hover:shadow-sm transition-all duration-300"
+                    >
+                      {section.category}
+                    </button>
+                  ))}
+                </nav>
+              </div>
 
-            <div className="mt-7 rounded-full border border-[#D0D5DD] bg-white px-4 py-3 flex items-center gap-3">
-              <Search className="size-4 text-[#98A2B3]" />
-              <input
-                type="text"
-                value={searchQuery || ""}
-                onChange={(event) => setSearchQuery?.(event.target.value)}
-                placeholder="Search FAQs by keyword"
-                className="w-full bg-transparent outline-none text-sm text-[#111827] placeholder:text-[#98A2B3]"
-              />
+              {/* Search Field */}
+              <div className="relative">
+                <Search
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+                  size={16}
+                />
+                <input
+                  type="text"
+                  placeholder="Search questions..."
+                  className="w-full bg-white border border-gray-100 rounded-xl py-3 pl-12 pr-4 text-sm font-sans outline-none focus:ring-2 focus:ring-primary-gold/20 focus:border-primary-gold transition-all"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {/* Accordion Content */}
+            <div className="lg:w-3/4 space-y-20">
+              {loading ? (
+                <div className="space-y-6">
+                  {[0, 1, 2].map((idx) => (
+                    <div
+                      key={idx}
+                      className="h-20 rounded-2xl border border-gray-100 bg-white animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : null}
+
+              {!loading && error ? (
+                <div className="rounded-3xl border border-red-100 bg-red-50 px-6 py-8 text-red-800 space-y-4">
+                  <p className="font-medium">{error}</p>
+                  <button
+                    type="button"
+                    onClick={refresh}
+                    className="inline-flex items-center rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 transition-colors"
+                  >
+                    Retry
+                  </button>
+                </div>
+              ) : null}
+
+              {!loading && !error && !hasResults ? (
+                <div className="rounded-3xl border border-gray-200 bg-white px-6 py-10 text-center space-y-3">
+                  <p className="text-xl font-serif text-gray-900">No questions found</p>
+                  <p className="text-sm text-gray-500">
+                    {searchQuery
+                      ? "Try a different keyword or clear your search."
+                      : "FAQs will appear here once they are published."}
+                  </p>
+                </div>
+              ) : null}
+
+              {!loading && !error
+                ? categorySections.map((section) => (
+                    <div
+                      key={section.id}
+                      id={section.id}
+                      className="space-y-8 scroll-mt-32"
+                    >
+                      <div className="flex items-center space-x-6">
+                        <h4 className="text-[15px] font-sans font-semibold tracking-[0.3em] text-gray-950 uppercase">
+                          {section.category}
+                        </h4>
+                        <div className="h-px flex-1 bg-gray-200"></div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {section.items.map((faq, faqIdx) => {
+                          const faqId = `${section.id}-${faq?.id || faqIdx}`;
+
+                          return (
+                            <FAQItem
+                              key={faqId}
+                              item={faq}
+                              isOpen={Boolean(openById[faqId])}
+                              onToggle={() => handleToggle(faqId)}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))
+                : null}
             </div>
           </div>
-
-          <div className="mt-8 space-y-6">
-            {loading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 6 }).map((_, index) => (
-                  <div
-                    key={index}
-                    className="h-14 rounded-2xl border border-[#E5E7EB] bg-white animate-pulse"
-                  />
-                ))}
-              </div>
-            ) : error ? (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
-                <p className="text-sm text-red-700">{error}</p>
-                <button
-                  type="button"
-                  onClick={refresh}
-                  className="mt-3 inline-flex text-sm text-red-700 underline cursor-pointer"
-                >
-                  Retry
-                </button>
-              </div>
-            ) : !hasResults ? (
-              <div className="rounded-2xl border border-[#E5E7EB] bg-white p-8 text-center">
-                <p className="text-sm text-[#6B7280]">No FAQs matched your search.</p>
-              </div>
-            ) : (
-              categories.map((category) => (
-                <section key={category} aria-label={`${category} FAQs`}>
-                  <h2 className="text-xs font-semibold tracking-[0.12em] uppercase text-[#A5914B] mb-3">
-                    {category}
-                  </h2>
-                  <div className="space-y-3">
-                    {(groupedFaqs?.[category] || []).map((item) => (
-                      <FAQItem
-                        key={item.id}
-                        item={item}
-                        isOpen={Boolean(openById[item.id])}
-                        onToggle={() => handleToggle(item.id)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              ))
-            )}
-          </div>
-
-          <div className="mt-12 rounded-2xl border border-[#E5E7EB] bg-white p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h3 className="text-lg font-semibold text-[#111827]">Still need help?</h3>
-              <p className="text-sm text-[#6B7280] mt-1">
-                Contact our team directly or open a support ticket.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Link
-                href="/contact"
-                className="inline-flex items-center gap-2 rounded-full bg-[#A5914B] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-white hover:bg-[#8B7A3F] transition-colors"
-              >
-                <Mail className="size-4" /> Contact Us
-              </Link>
-              <Link
-                href="/support"
-                className="inline-flex items-center gap-2 rounded-full border border-[#D0D5DD] px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-[#344054] hover:bg-[#F9FAFB] transition-colors"
-              >
-                <LifeBuoy className="size-4" /> Support Tickets
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
+        </section>
+      </main>
+      <NewsletterSubscription />
       <Footer />
     </div>
   );

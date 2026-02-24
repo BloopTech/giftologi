@@ -23,7 +23,7 @@ const legalStatic = [];
 
 const needHelpStatic = [
   { title: "FAQs", href: "/faq" },
-  { title: "Contact", href: "/contact Us" },
+  { title: "Contact Us", href: "/contact" },
   { title: "Support Tickets", href: "/support" },
 ];
 
