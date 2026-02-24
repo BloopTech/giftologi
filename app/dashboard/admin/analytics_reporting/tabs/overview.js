@@ -64,7 +64,7 @@ export default function AnalyticsReportOverview(props) {
       <MetricCard
         title="Service Charges"
         value={renderValue("serviceCharges")}
-        description="Platform fees earned (5%)"
+        description="Platform service fees retained"
         Icon={<PiCurrencyDollar className="size-4 text-[#00A63E]" />}
       />
       <MetricCard
@@ -76,7 +76,7 @@ export default function AnalyticsReportOverview(props) {
       <MetricCard
         title="Pending Approvals"
         value={renderValue("pendingApprovals")}
-        description="Products, vendors, registries"
+        description="Products and vendor applications"
         Icon={<PiWarning className="size-4 text-[#F54900]" />}
       />
       <MetricCard

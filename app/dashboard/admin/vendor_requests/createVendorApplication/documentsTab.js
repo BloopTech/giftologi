@@ -59,13 +59,11 @@ export default function DocumentsTab(props) {
         <div className="rounded-2xl border border-[#E5E7EB] bg-white p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-1">
             <p className="text-[11px] text-[#717182]">
-              Business Registration Certificate{" "}
-              <span className="text-red-500">*</span>
+              Business Registration Certificate
             </p>
             <input
               name="businessRegistrationCertificate"
               type="file"
-              required
               accept=".pdf,.jpeg,.jpg,.png,.docx,.doc,.webp"
               className="block w-full text-[11px] text-[#4B5563] file:mr-3 file:rounded-full file:border file:border-[#D6D6D6] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-[#0A0A0A] hover:file:bg-gray-50"
               disabled={isPending}
@@ -89,12 +87,11 @@ export default function DocumentsTab(props) {
 
           <div className="space-y-1">
             <p className="text-[11px] text-[#717182]">
-              Tax Clearance Certificate <span className="text-red-500">*</span>
+              Tax Clearance Certificate
             </p>
             <input
               name="taxClearanceCertificate"
               type="file"
-              required
               accept=".pdf,.jpeg,.jpg,.png,.docx,.doc,.webp"
               className="block w-full text-[11px] text-[#4B5563] file:mr-3 file:rounded-full file:border file:border-[#D6D6D6] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-[#0A0A0A] hover:file:bg-gray-50"
               disabled={isPending}
@@ -135,12 +132,10 @@ export default function DocumentsTab(props) {
 
           <div className="space-y-1">
             <p className="text-[11px] text-[#717182]">
-              Bank Statement (Last 3 Months){" "}
-              <span className="text-red-500">*</span>
+              Bank Statement (Last 3 Months)
             </p>
             <input
               name="bankStatement"
-              required
               type="file"
               accept=".pdf,.jpeg,.jpg,.png,.docx,.doc,.webp"
               className="block w-full text-[11px] text-[#4B5563] file:mr-3 file:rounded-full file:border file:border-[#D6D6D6] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-[#0A0A0A] hover:file:bg-gray-50"
@@ -159,12 +154,11 @@ export default function DocumentsTab(props) {
 
           <div className="space-y-1 md:col-span-2">
             <p className="text-[11px] text-[#717182]">
-              Proof of Business Address <span className="text-red-500">*</span>
+              Proof of Business Address
             </p>
             <input
               name="proofOfBusinessAddress"
               type="file"
-              required
               accept=".pdf,.jpeg,.jpg,.png,.docx,.doc,.webp"
               className="block w-full text-[11px] text-[#4B5563] file:mr-3 file:rounded-full file:border file:border-[#D6D6D6] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-medium file:text-[#0A0A0A] hover:file:bg-gray-50"
               disabled={isPending}
@@ -180,6 +174,9 @@ export default function DocumentsTab(props) {
             {renderMeta("Proof of Business Address", "proofOfBusinessAddress")}
           </div>
         </div>
+        <p className="text-[10px] text-[#9CA3AF]">
+          Owner ID Card / Passport is required for approval.
+        </p>
         <p className="text-[10px] text-[#9CA3AF]">
           Supported formats: PDF, JPEG, JPG, WEBP, PNG, DOCX, DOC. Each file
           must be 2MB or smaller. Files are uploaded securely and stored as URLs

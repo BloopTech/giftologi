@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { PiDownloadSimple } from "react-icons/pi";
+import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -26,7 +27,10 @@ export default function AnalyticsReportingContent() {
     vendorProduct,
     registryUser,
     loading,
+    exporting,
     exportSummary,
+    exportJobs,
+    exportJobsLoading,
   } = context;
 
   const isLoading = !!loading;
@@ -36,6 +40,42 @@ export default function AnalyticsReportingContent() {
     const num = Number(value);
     if (Number.isNaN(num)) return "—";
     return num.toLocaleString();
+  };
+
+  const formatDateTime = (value) => {
+    if (!value) return "—";
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "—";
+    return parsed.toLocaleString();
+  };
+
+  const getExportStatusLabel = (status, isReady) => {
+    if (isReady) return "Completed";
+
+    const value = String(status || "pending").toLowerCase();
+    if (value === "processing") return "Processing";
+    if (value === "failed") return "Failed";
+    return "Pending";
+  };
+
+  const getExportStatusClassName = (status, isReady) => {
+    if (isReady) return "bg-[#ECFDF3] text-[#027A48]";
+
+    const value = String(status || "pending").toLowerCase();
+    if (value === "processing") return "bg-[#EFF8FF] text-[#175CD3]";
+    if (value === "failed") return "bg-[#FEF3F2] text-[#B42318]";
+    return "bg-[#F4F4F5] text-[#3F3F46]";
+  };
+
+  const handleDownloadJob = (jobId) => {
+    if (!jobId || typeof document === "undefined") return;
+
+    const link = document.createElement("a");
+    link.href = `/api/admin/analytics/exports/${jobId}`;
+    link.rel = "noopener";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const formatCurrency = (value) => {
@@ -131,7 +171,16 @@ export default function AnalyticsReportingContent() {
 
     // CSV uses the existing summary export so it stays consistent
     if (normalized === "csv") {
-      exportSummary?.("financial");
+      const result = await exportSummary?.("financial");
+      if (result?.ok) {
+        toast.success(
+          result?.deduped
+            ? "A matching export is already queued."
+            : "Export queued. You will receive a download email shortly."
+        );
+      } else if (result?.error) {
+        toast.error(result.error);
+      }
       return;
     }
 
@@ -153,15 +202,14 @@ export default function AnalyticsReportingContent() {
       });
       const csv = [header, ...csvLines].join("\n");
       const blob = new Blob([csv], {
-        type:
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;",
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=utf-8;",
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
       link.setAttribute(
         "download",
-        `financial_overview_${new Date().toISOString().slice(0, 10)}.xlsx`
+        `financial_overview_${new Date().toISOString().slice(0, 10)}.xlsx`,
       );
       document.body.appendChild(link);
       link.click();
@@ -210,7 +258,7 @@ export default function AnalyticsReportingContent() {
         link.href = url;
         link.setAttribute(
           "download",
-          `financial_overview_${new Date().toISOString().slice(0, 10)}.pdf`
+          `financial_overview_${new Date().toISOString().slice(0, 10)}.pdf`,
         );
         document.body.appendChild(link);
         link.click();
@@ -218,22 +266,44 @@ export default function AnalyticsReportingContent() {
         URL.revokeObjectURL(url);
       } catch (_) {
         // Fallback to CSV if PDF generation fails
-        exportSummary?.("financial");
+        const result = await exportSummary?.("financial");
+        if (result?.ok) {
+          toast.success(
+            result?.deduped
+              ? "A matching export is already queued."
+              : "Export queued. You will receive a download email shortly."
+          );
+        } else if (result?.error) {
+          toast.error(result.error);
+        }
       }
     }
   };
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!exportSummary) return;
-    exportSummary(activeTab);
+
+    const result = await exportSummary(activeTab);
+    if (result?.ok) {
+      toast.success(
+        result?.deduped
+          ? "A matching export is already queued."
+          : "Export queued. You will receive a download email shortly."
+      );
+    } else if (result?.error) {
+      toast.error(result.error);
+    }
   };
 
   const currentDateRange = dateRange || "last_30_days";
   const currentTab = activeTab || "overview";
 
   return (
-    <section aria-label="Analytics and reporting" className="flex flex-col space-y-4 w-full mb-8">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+    <section
+      aria-label="Analytics and reporting"
+      className="flex flex-col space-y-4 w-full mb-8"
+    >
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 md:gap-0 w-full">
         <div className="flex flex-col">
           <h1 className="text-[#0A0A0A] font-medium text-sm font-brasley-medium">
             Analytics & Reporting
@@ -242,12 +312,12 @@ export default function AnalyticsReportingContent() {
             Track platform performance and download high-level summaries.
           </span>
         </div>
-        <div className="flex flex-col md:flex-row md:items-center gap-2">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-end gap-2 md:w-[50%]">
           <Select
             value={currentDateRange}
             onValueChange={(value) => setDateRange?.(value)}
           >
-            <SelectTrigger className="min-w-[180px] text-xs">
+            <SelectTrigger className="w-full md:w-[40%] text-xs">
               <SelectValue placeholder="Select date range" />
             </SelectTrigger>
             <SelectContent>
@@ -261,10 +331,13 @@ export default function AnalyticsReportingContent() {
           <button
             type="button"
             onClick={handleExport}
+            disabled={Boolean(exporting)}
             className="inline-flex items-center justify-center space-x-2 rounded-full bg-primary px-4 py-2 text-xs font-medium text-white border border-primary cursor-pointer hover:bg-white hover:text-primary"
           >
             <PiDownloadSimple className="size-4" />
-            <span>Export summary (CSV)</span>
+            <span>
+              {exporting ? "Queueing export..." : "Export summary (email CSV)"}
+            </span>
           </button>
         </div>
       </div>

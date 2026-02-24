@@ -1,10 +1,24 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../utils/supabase/server";
-import { sendTemplatedEmail } from "../../../utils/emailService";
+import { sendEmail, sendTemplatedEmail } from "../../../utils/emailService";
 import { dispatchNotification } from "../../../utils/notificationService";
+import {
+  buildAnalyticsCsv,
+  buildAnalyticsExportEmailHtml,
+  fetchAdminAnalyticsMetrics,
+} from "../../../utils/analytics/adminReporting";
+import {
+  buildVendorOrdersCsv,
+  buildVendorOrdersExportEmailHtml,
+  normalizeVendorOrderExportFilters,
+} from "../../../utils/vendorOrderExport";
 
 const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
+const EXPORT_JOB_RETENTION_HOURS = Number.parseInt(
+  process.env.EXPORT_JOB_RETENTION_HOURS || "24",
+  10,
+);
 
 /**
  * Unified cron dispatcher — single Vercel invocation handles all scheduled tasks:
@@ -38,6 +52,15 @@ export async function POST(request) {
     // ─── Task 4: Reconcile pending ExpressPay payments ────────────────
     results.paymentReconciliation =
       await reconcilePendingExpressPayPayments(admin);
+
+    // ─── Task 5: Process analytics export queue ────────────────────────
+    results.analyticsExports = await processAnalyticsExportQueue(admin);
+
+    // ─── Task 6: Process vendor order export queue ─────────────────────
+    results.vendorOrderExports = await processVendorOrderExportQueue(admin);
+
+    // ─── Task 7: Clean up stale completed export jobs ───────────────────
+    results.exportJobCleanup = await cleanupCompletedExportJobs(admin);
 
     return NextResponse.json({ success: true, ...results });
   } catch (error) {
@@ -140,6 +163,508 @@ async function processEmailQueue(admin) {
   } catch (err) {
     console.error("[cron/dispatch] Email queue error:", err);
     summary.error = err?.message;
+  }
+
+  return summary;
+}
+
+async function processAnalyticsExportQueue(admin) {
+  const summary = { processed: 0, completed: 0, failed: 0 };
+
+  try {
+    const { data: jobs, error: fetchError } = await admin
+      .from("analytics_export_jobs")
+      .select("id, requested_by, recipient_email, tab_id, date_range, attempts")
+      .eq("status", "pending")
+      .lt("attempts", MAX_ATTEMPTS)
+      .order("queued_at", { ascending: true })
+      .limit(10);
+
+    if (fetchError) {
+      return { ...summary, error: fetchError.message };
+    }
+
+    if (!jobs?.length) {
+      return summary;
+    }
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.CRON_BASE_URL ||
+      "";
+
+    for (const job of jobs) {
+      summary.processed += 1;
+      const nowIso = new Date().toISOString();
+      const nextAttempts = (job.attempts || 0) + 1;
+
+      try {
+        await admin
+          .from("analytics_export_jobs")
+          .update({
+            status: "processing",
+            attempts: nextAttempts,
+            started_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", job.id)
+          .eq("status", "pending");
+
+        const metrics = await fetchAdminAnalyticsMetrics({
+          adminClient: admin,
+          dateRange: job.date_range,
+        });
+
+        const csvContent = buildAnalyticsCsv({
+          tabId: job.tab_id,
+          metricsByTab: metrics,
+        });
+
+        const completedAt = new Date().toISOString();
+
+        const { error: completeError } = await admin
+          .from("analytics_export_jobs")
+          .update({
+            status: "completed",
+            csv_content: csvContent,
+            completed_at: completedAt,
+            updated_at: completedAt,
+            last_error: null,
+          })
+          .eq("id", job.id);
+
+        if (completeError) {
+          throw new Error(completeError.message || "Failed to finalize export job");
+        }
+
+        if (job.recipient_email) {
+          const normalizedBase = appUrl.endsWith("/") ? appUrl.slice(0, -1) : appUrl;
+          const downloadUrl = normalizedBase
+            ? `${normalizedBase}/api/admin/analytics/exports/${job.id}`
+            : `/api/admin/analytics/exports/${job.id}`;
+
+          const emailResult = await sendEmail({
+            to: job.recipient_email,
+            subject: "Your Giftologi analytics export is ready",
+            html: buildAnalyticsExportEmailHtml({
+              downloadUrl,
+              tabId: job.tab_id,
+              dateRange: job.date_range,
+            }),
+          });
+
+          if (emailResult?.success) {
+            await admin
+              .from("analytics_export_jobs")
+              .update({
+                notified_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+          } else {
+            await admin
+              .from("analytics_export_jobs")
+              .update({
+                status: nextAttempts >= MAX_ATTEMPTS ? "failed" : "pending",
+                last_error: emailResult?.error || "Failed to send export email",
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", job.id);
+
+            summary.failed += 1;
+            continue;
+          }
+        }
+
+        summary.completed += 1;
+      } catch (error) {
+        const failedAt = new Date().toISOString();
+        await admin
+          .from("analytics_export_jobs")
+          .update({
+            status: nextAttempts >= MAX_ATTEMPTS ? "failed" : "pending",
+            last_error: error?.message || "Failed to process analytics export",
+            updated_at: failedAt,
+          })
+          .eq("id", job.id);
+
+        summary.failed += 1;
+      }
+    }
+  } catch (error) {
+    summary.error = error?.message || "Failed to process analytics export queue.";
+  }
+
+  return summary;
+}
+
+const MAX_VENDOR_EXPORT_ROWS = 20000;
+
+function normalizeOrderStatus(value) {
+  const status = String(value || "pending").toLowerCase();
+  return status === "canceled" ? "cancelled" : status;
+}
+
+function deriveFulfillmentStatus(fulfillmentStatus, orderStatus) {
+  const normalizedFulfillment = String(fulfillmentStatus || "pending").toLowerCase();
+  const normalizedOrder = normalizeOrderStatus(orderStatus);
+
+  if (
+    (normalizedFulfillment === "pending" || !fulfillmentStatus) &&
+    (normalizedOrder === "cancelled" || normalizedOrder === "expired")
+  ) {
+    return normalizedOrder;
+  }
+
+  return normalizedFulfillment;
+}
+
+function formatVariationForExport(variation) {
+  if (!variation) return "Standard";
+
+  if (typeof variation === "string") {
+    const trimmed = variation.trim();
+    return trimmed || "Standard";
+  }
+
+  if (typeof variation === "object") {
+    if (variation.label) return String(variation.label);
+    if (variation.name) return String(variation.name);
+
+    const skipKeys = new Set([
+      "id",
+      "key",
+      "sku",
+      "stock_qty",
+      "price",
+      "label",
+      "name",
+    ]);
+
+    const parts = Object.entries(variation)
+      .filter(([key, value]) => !skipKeys.has(key) && value !== null && value !== "")
+      .map(([key, value]) => `${key}: ${value}`);
+
+    if (parts.length > 0) return parts.join(", ");
+  }
+
+  return "Standard";
+}
+
+function parseFilterDate(value, endOfDay = false) {
+  if (!value) return null;
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+
+  if (endOfDay && raw.length <= 10) {
+    date.setHours(23, 59, 59, 999);
+  }
+
+  return date;
+}
+
+async function processVendorOrderExportQueue(admin) {
+  const summary = { processed: 0, completed: 0, failed: 0 };
+
+  try {
+    const { data: jobs, error: fetchError } = await admin
+      .from("vendor_order_export_jobs")
+      .select("id, requested_by, vendor_id, recipient_email, filters, attempts")
+      .eq("status", "pending")
+      .lt("attempts", MAX_ATTEMPTS)
+      .order("queued_at", { ascending: true })
+      .limit(10);
+
+    if (fetchError) {
+      return { ...summary, error: fetchError.message };
+    }
+
+    if (!jobs?.length) {
+      return summary;
+    }
+
+    const appUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.CRON_BASE_URL ||
+      "";
+
+    for (const job of jobs) {
+      summary.processed += 1;
+      const nowIso = new Date().toISOString();
+      const nextAttempts = (job.attempts || 0) + 1;
+
+      try {
+        await admin
+          .from("vendor_order_export_jobs")
+          .update({
+            status: "processing",
+            attempts: nextAttempts,
+            started_at: nowIso,
+            updated_at: nowIso,
+          })
+          .eq("id", job.id)
+          .eq("status", "pending");
+
+        const filters = normalizeVendorOrderExportFilters(job.filters || {});
+
+        const { data: orderRows, error: orderError } = await admin
+          .from("order_items")
+          .select(
+            `
+            quantity,
+            price,
+            variation,
+            fulfillment_status,
+            created_at,
+            orders (
+              order_code,
+              status,
+              created_at,
+              buyer_firstname,
+              buyer_lastname,
+              registries ( title )
+            ),
+            products (
+              name,
+              product_code
+            )
+          `,
+          )
+          .eq("vendor_id", job.vendor_id)
+          .order("created_at", { ascending: false })
+          .limit(MAX_VENDOR_EXPORT_ROWS);
+
+        if (orderError) {
+          throw new Error(orderError.message || "Failed to load vendor orders");
+        }
+
+        const normalizedRows = (orderRows || []).map((row) => {
+          const order = row?.orders || {};
+          const product = row?.products || {};
+          const createdAtRaw = order?.created_at || row?.created_at || null;
+          const createdAt = createdAtRaw ? new Date(createdAtRaw) : null;
+
+          return {
+            orderCode: order?.order_code || "",
+            productName: product?.name || "",
+            productSku: product?.product_code || "",
+            variation: formatVariationForExport(row?.variation),
+            customerName:
+              `${order?.buyer_firstname || ""} ${order?.buyer_lastname || ""}`.trim(),
+            registryTitle: order?.registries?.title || "",
+            quantity: Number(row?.quantity || 0),
+            amount: Number(row?.price || 0) * Number(row?.quantity || 0),
+            status: deriveFulfillmentStatus(row?.fulfillment_status, order?.status),
+            createdAt,
+            date:
+              createdAt && !Number.isNaN(createdAt.getTime())
+                ? createdAt.toISOString()
+                : "",
+          };
+        });
+
+        const fromDate = parseFilterDate(filters.from, false);
+        const toDate = parseFilterDate(filters.to, true);
+        const queryText = String(filters.q || "").toLowerCase();
+
+        const filteredRows = normalizedRows.filter((row) => {
+          if (filters.status !== "all") {
+            const status = String(row?.status || "").toLowerCase();
+            if (status !== filters.status) return false;
+          }
+
+          if (fromDate && row.createdAt && row.createdAt < fromDate) {
+            return false;
+          }
+
+          if (toDate && row.createdAt && row.createdAt > toDate) {
+            return false;
+          }
+
+          if (queryText) {
+            const searchable = [
+              row.orderCode,
+              row.productName,
+              row.productSku,
+              row.customerName,
+              row.registryTitle,
+            ]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase();
+
+            if (!searchable.includes(queryText)) return false;
+          }
+
+          return true;
+        });
+
+        const csvContent = buildVendorOrdersCsv(filteredRows);
+        const completedAt = new Date().toISOString();
+
+        const { error: completeError } = await admin
+          .from("vendor_order_export_jobs")
+          .update({
+            status: "completed",
+            csv_content: csvContent,
+            completed_at: completedAt,
+            updated_at: completedAt,
+            last_error: null,
+          })
+          .eq("id", job.id);
+
+        if (completeError) {
+          throw new Error(completeError.message || "Failed to finalize vendor export job");
+        }
+
+        const normalizedBase = appUrl.endsWith("/") ? appUrl.slice(0, -1) : appUrl;
+        const downloadUrl = normalizedBase
+          ? `${normalizedBase}/api/vendor/orders/exports/${job.id}`
+          : `/api/vendor/orders/exports/${job.id}`;
+
+        const emailResult = await sendEmail({
+          to: job.recipient_email,
+          subject: "Your Giftologi vendor orders export is ready",
+          html: buildVendorOrdersExportEmailHtml({
+            downloadUrl,
+            status: filters.status,
+            q: filters.q,
+            from: filters.from,
+            to: filters.to,
+          }),
+        });
+
+        if (emailResult?.success) {
+          await admin
+            .from("vendor_order_export_jobs")
+            .update({
+              notified_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+        } else {
+          await admin
+            .from("vendor_order_export_jobs")
+            .update({
+              status: nextAttempts >= MAX_ATTEMPTS ? "failed" : "pending",
+              last_error: emailResult?.error || "Failed to send export email",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", job.id);
+
+          summary.failed += 1;
+          continue;
+        }
+
+        summary.completed += 1;
+      } catch (error) {
+        const failedAt = new Date().toISOString();
+        await admin
+          .from("vendor_order_export_jobs")
+          .update({
+            status: nextAttempts >= MAX_ATTEMPTS ? "failed" : "pending",
+            last_error: error?.message || "Failed to process vendor order export",
+            updated_at: failedAt,
+          })
+          .eq("id", job.id);
+
+        summary.failed += 1;
+      }
+    }
+  } catch (error) {
+    summary.error = error?.message || "Failed to process vendor order export queue.";
+  }
+
+  return summary;
+}
+
+async function purgeOldJobsForTable(admin, tableName, cutoffIso) {
+  const PAGE_SIZE = 200;
+  let deleted = 0;
+
+  while (true) {
+    const { data: jobs, error: fetchError } = await admin
+      .from(tableName)
+      .select("id")
+      .in("status", ["completed", "failed"])
+      .lt("updated_at", cutoffIso)
+      .order("updated_at", { ascending: true })
+      .limit(PAGE_SIZE);
+
+    if (fetchError) {
+      return { deleted, error: fetchError.message || "Failed to load stale jobs" };
+    }
+
+    if (!jobs?.length) {
+      return { deleted, error: null };
+    }
+
+    const ids = jobs.map((job) => job?.id).filter(Boolean);
+    if (!ids.length) {
+      return { deleted, error: null };
+    }
+
+    const { error: deleteError } = await admin.from(tableName).delete().in("id", ids);
+    if (deleteError) {
+      return {
+        deleted,
+        error: deleteError.message || "Failed to delete stale export jobs",
+      };
+    }
+
+    deleted += ids.length;
+
+    if (jobs.length < PAGE_SIZE) {
+      return { deleted, error: null };
+    }
+  }
+}
+
+async function cleanupCompletedExportJobs(admin) {
+  const retentionHours =
+    Number.isFinite(EXPORT_JOB_RETENTION_HOURS) && EXPORT_JOB_RETENTION_HOURS > 0
+      ? EXPORT_JOB_RETENTION_HOURS
+      : 24;
+
+  const cutoffIso = new Date(
+    Date.now() - retentionHours * 60 * 60 * 1000,
+  ).toISOString();
+
+  const summary = {
+    retentionHours,
+    cutoffIso,
+    deleted: 0,
+    analyticsExportJobsDeleted: 0,
+    vendorOrderExportJobsDeleted: 0,
+  };
+
+  const analyticsResult = await purgeOldJobsForTable(
+    admin,
+    "analytics_export_jobs",
+    cutoffIso,
+  );
+  summary.analyticsExportJobsDeleted = analyticsResult.deleted;
+  summary.deleted += analyticsResult.deleted;
+
+  const vendorResult = await purgeOldJobsForTable(
+    admin,
+    "vendor_order_export_jobs",
+    cutoffIso,
+  );
+  summary.vendorOrderExportJobsDeleted = vendorResult.deleted;
+  summary.deleted += vendorResult.deleted;
+
+  if (analyticsResult.error || vendorResult.error) {
+    summary.error =
+      analyticsResult.error ||
+      vendorResult.error ||
+      "Failed to clean export jobs";
   }
 
   return summary;

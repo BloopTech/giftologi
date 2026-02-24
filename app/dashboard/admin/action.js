@@ -863,6 +863,95 @@ const defaultCreateVendorValues = {
   phone: [],
 };
 
+const CREATE_VENDOR_EMAIL_IN_USE_ERROR =
+  "This email is already linked to an existing account. Use another email or ask the vendor to reset their password.";
+const CREATE_VENDOR_VENDOR_EXISTS_ERROR =
+  "A vendor account already exists for this user. Refresh and try again.";
+const GENERIC_CREATE_VENDOR_ERROR =
+  "Unable to create vendor account. Please try again or contact support.";
+
+function mapCreateVendorError(error) {
+  if (!error) {
+    return { message: GENERIC_CREATE_VENDOR_ERROR, field: null };
+  }
+
+  const message = String(error?.message || "").trim();
+  const details = String(error?.details || "").trim();
+  const hint = String(error?.hint || "").trim();
+  const combined = `${message} ${details} ${hint}`.toLowerCase();
+  const constraint =
+    combined.match(/constraint\s+"?([a-z0-9_]+)"?/i)?.[1] || "";
+
+  const isDuplicateError =
+    error?.code === "23505" ||
+    combined.includes("duplicate key value violates unique") ||
+    combined.includes("duplicate key") ||
+    combined.includes("already registered") ||
+    combined.includes("already exists");
+
+  if (isDuplicateError) {
+    if (
+      combined.includes("email") ||
+      combined.includes("signup_profiles_email_key") ||
+      combined.includes("profiles_email_key") ||
+      constraint.includes("email")
+    ) {
+      return {
+        message: CREATE_VENDOR_EMAIL_IN_USE_ERROR,
+        field: "email",
+      };
+    }
+
+    if (
+      combined.includes("vendors_profiles_id_key") ||
+      combined.includes("profiles_id") ||
+      constraint.includes("vendors_profiles_id")
+    ) {
+      return {
+        message: CREATE_VENDOR_VENDOR_EXISTS_ERROR,
+        field: null,
+      };
+    }
+
+    return {
+      message: "This vendor already exists. Refresh and try again.",
+      field: null,
+    };
+  }
+
+  if (combined.includes("foreign key") || error?.code === "23503") {
+    return {
+      message:
+        "Some related account records could not be linked. Refresh and try again.",
+      field: null,
+    };
+  }
+
+  if (combined.includes("permission denied") || error?.code === "42501") {
+    return {
+      message: "You do not have permission to create this vendor.",
+      field: null,
+    };
+  }
+
+  return { message: GENERIC_CREATE_VENDOR_ERROR, field: null };
+}
+
+function buildCreateVendorErrorResponse(rawValues, mappedError) {
+  const message = mappedError?.message || GENERIC_CREATE_VENDOR_ERROR;
+  const field = mappedError?.field;
+
+  return {
+    message,
+    errors: {
+      ...defaultCreateVendorValues,
+      ...(field ? { [field]: [message] } : {}),
+    },
+    values: rawValues,
+    data: {},
+  };
+}
+
 const createVendorSchema = z.object({
   businessName: z
     .string()
@@ -958,22 +1047,24 @@ export async function createVendor(prevState, formData) {
 
   const vendorSlug = await generateUniqueVendorSlug(supabase, businessName);
 
-  const { data: existingProfile } = await supabase
+  const { data: existingProfile, error: existingProfileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("email", email)
-    .single();
+    .maybeSingle();
+
+  if (existingProfileError) {
+    return buildCreateVendorErrorResponse(
+      raw,
+      mapCreateVendorError(existingProfileError),
+    );
+  }
 
   if (existingProfile) {
-    return {
-      message: "Email already exists",
-      errors: {
-        ...defaultCreateVendorValues,
-        email: ["Email already exists"],
-      },
-      values: raw,
-      data: {},
-    };
+    return buildCreateVendorErrorResponse(raw, {
+      message: CREATE_VENDOR_EMAIL_IN_USE_ERROR,
+      field: "email",
+    });
   }
 
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -982,15 +1073,7 @@ export async function createVendor(prevState, formData) {
   });
 
   if (authError) {
-    return {
-      message: authError.message,
-      errors: {
-        ...defaultCreateVendorValues,
-        email: [authError.message],
-      },
-      values: raw,
-      data: {},
-    };
+    return buildCreateVendorErrorResponse(raw, mapCreateVendorError(authError));
   }
 
   const userId = authData?.user?.id;
@@ -1032,20 +1115,15 @@ export async function createVendor(prevState, formData) {
         created_at: new Date(),
         updated_at: new Date(),
       },
-    ])
+    ], { onConflict: "user_id" })
     .select("*")
     .single();
 
   if (signupProfileError) {
-    return {
-      message: signupProfileError.message,
-      errors: {
-        ...defaultCreateVendorValues,
-        email: [signupProfileError.message],
-      },
-      values: raw,
-      data: {},
-    };
+    return buildCreateVendorErrorResponse(
+      raw,
+      mapCreateVendorError(signupProfileError),
+    );
   }
 
   const { data: profile, error: profileError } = await supabase
@@ -1068,15 +1146,7 @@ export async function createVendor(prevState, formData) {
     .single();
 
   if (profileError) {
-    return {
-      message: profileError.message,
-      errors: {
-        ...defaultCreateVendorValues,
-        email: [profileError.message],
-      },
-      values: raw,
-      data: {},
-    };
+    return buildCreateVendorErrorResponse(raw, mapCreateVendorError(profileError));
   }
 
   const { data: existingVendor, error: existingVendorError } = await supabase
@@ -1088,14 +1158,10 @@ export async function createVendor(prevState, formData) {
     .maybeSingle();
 
   if (existingVendorError) {
-    return {
-      message: existingVendorError.message,
-      errors: {
-        ...defaultCreateVendorValues,
-      },
-      values: raw,
-      data: {},
-    };
+    return buildCreateVendorErrorResponse(
+      raw,
+      mapCreateVendorError(existingVendorError),
+    );
   }
 
   let vendor = existingVendor;
@@ -1115,14 +1181,10 @@ export async function createVendor(prevState, formData) {
       .single();
 
     if (updateVendorError) {
-      return {
-        message: updateVendorError.message,
-        errors: {
-          ...defaultCreateVendorValues,
-        },
-        values: raw,
-        data: {},
-      };
+      return buildCreateVendorErrorResponse(
+        raw,
+        mapCreateVendorError(updateVendorError),
+      );
     }
 
     vendor = updatedVendor;
@@ -1147,14 +1209,7 @@ export async function createVendor(prevState, formData) {
       .single();
 
     if (vendorError) {
-      return {
-        message: vendorError.message,
-        errors: {
-          ...defaultCreateVendorValues,
-        },
-        values: raw,
-        data: {},
-      };
+      return buildCreateVendorErrorResponse(raw, mapCreateVendorError(vendorError));
     }
 
     vendor = insertedVendor;

@@ -165,7 +165,7 @@ export default function AnalyticsReportRegistryUser(props) {
         <MetricCard
           title="User Growth Rate"
           value={renderPercentage(metrics?.userGrowthRate)}
-          description="Month-over-month growth"
+          description="Compared with the previous period"
         />
         <MetricCard
           title="Returning Visitors"

@@ -30,6 +30,37 @@ const initialState = {
   data: {},
 };
 
+function toAdminFriendlyVendorError(rawMessage) {
+  const message = String(rawMessage || "").trim();
+  if (!message) return "";
+
+  const normalized = message.toLowerCase();
+
+  const duplicateLike =
+    normalized.includes("duplicate key") ||
+    normalized.includes("unique constraint") ||
+    normalized.includes("already exists") ||
+    normalized.includes("already registered");
+
+  if (duplicateLike) {
+    if (normalized.includes("email")) {
+      return "This email is already linked to an existing account. Use another email or ask the vendor to reset their password.";
+    }
+
+    return "A vendor account already exists for this user. Refresh and try again.";
+  }
+
+  if (normalized.includes("permission denied")) {
+    return "You do not have permission to create this vendor.";
+  }
+
+  if (normalized.includes("foreign key")) {
+    return "Some related account records could not be linked. Refresh and try again.";
+  }
+
+  return message;
+}
+
 function generateStrongPassword() {
   const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
   const lower = "abcdefghijkmnopqrstuvwxyz";
@@ -96,7 +127,7 @@ export default function AddVendorDialog({ onClose }) {
     const hasData =
       state?.message && state?.data && Object.keys(state.data || {}).length > 0;
 
-    const errorMessage = (state?.message || "").trim();
+    const errorMessage = toAdminFriendlyVendorError((state?.message || "").trim());
 
     if (hasErrors) {
       toast.custom(() => (

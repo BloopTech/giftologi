@@ -214,13 +214,7 @@ export default function VendorKycDialog({
   );
   const normalizedDocuments = Array.isArray(documents) ? documents : [];
 
-  const REQUIRED_DOCUMENT_TITLES = [
-    "Business Registration Certificate",
-    "Tax Clearance Certificate",
-    "Owner ID Card/Passport",
-    "Bank Statement (Last 3 Months)",
-    "Proof of Business Address",
-  ];
+  const REQUIRED_DOCUMENT_TITLES = ["Owner ID Card/Passport"];
 
   const missingRequiredDocuments = REQUIRED_DOCUMENT_TITLES.filter(
     (requiredTitle) => {
@@ -586,8 +580,8 @@ export default function VendorKycDialog({
                 <div className="rounded-2xl border border-[#F97316] bg-[#FFF7ED] p-3">
                   <p className="text-[11px] text-[#9A3412]">
                     This application is missing one or more required documents.
-                    Please ensure all five required documents are uploaded and
-                    reviewed before approving this vendor.
+                    Please ensure the required Owner ID Card / Passport document
+                    is uploaded and reviewed before approving this vendor.
                   </p>
                   {missingRequiredDocuments.length > 0 && (
                     <p className="mt-1 text-[10px] text-[#B45309]">

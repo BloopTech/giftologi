@@ -854,6 +854,10 @@ const defaultCreateVendorApplicationValues = {
   bankBranch: [],
 };
 
+const REQUIRED_VENDOR_DOCUMENTS = [
+  { field: "ownerIdDocument", label: "Owner ID Card/Passport" },
+];
+
 const createVendorApplicationSchema = z.object({
   vendorUserId: z.uuid({ message: "Select a vendor" }),
   businessName: z
@@ -1220,19 +1224,16 @@ export async function createVendorApplication(prevState, formData) {
   const bankStatementFile = formData.get("bankStatement");
   const proofOfAddressFile = formData.get("proofOfBusinessAddress");
 
-  const requiredDocuments = [
-    {
-      file: businessRegistrationFile,
-      label: "Business Registration Certificate",
-    },
-    { file: taxClearanceFile, label: "Tax Clearance Certificate" },
-    { file: ownerIdFile, label: "Owner ID Card/Passport" },
-    { file: bankStatementFile, label: "Bank Statement (Last 3 Months)" },
-    { file: proofOfAddressFile, label: "Proof of Business Address" },
-  ];
+  const documentFiles = {
+    businessRegistrationCertificate: businessRegistrationFile,
+    taxClearanceCertificate: taxClearanceFile,
+    ownerIdDocument: ownerIdFile,
+    bankStatement: bankStatementFile,
+    proofOfBusinessAddress: proofOfAddressFile,
+  };
 
-  const missingDocs = requiredDocuments.filter(
-    ({ file }) => !isValidSelectedFile(file),
+  const missingDocs = REQUIRED_VENDOR_DOCUMENTS.filter(
+    ({ field }) => !isValidSelectedFile(documentFiles[field]),
   );
 
   if (missingDocs.length > 0) {

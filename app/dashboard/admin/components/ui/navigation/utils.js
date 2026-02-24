@@ -46,12 +46,14 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/analytics_reporting",
       "/dashboard/admin/gift_guides",
       "/dashboard/admin/support",
+      "/dashboard/admin/newsletter_subscribers",
     ]),
     finance_admin: new Set([
       "/dashboard/admin/orders",
       "/dashboard/admin/transactions",
       "/dashboard/admin/payouts",
       "/dashboard/admin/reports",
+      "/dashboard/admin/newsletter_subscribers",
     ]),
     customer_support_admin: new Set([
       "/dashboard/admin/orders",
@@ -60,6 +62,7 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/activity_log",
       "/dashboard/admin/all_users",
       "/dashboard/admin/support",
+      "/dashboard/admin/newsletter_subscribers",
     ]),
     store_manager_admin: new Set(["/dashboard/admin/products"]),
     marketing_admin: new Set([
@@ -67,6 +70,7 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/content_policy_pages",
       "/dashboard/admin/promo_codes",
       "/dashboard/admin/gift_guides",
+      "/dashboard/admin/newsletter_subscribers",
     ]),
   };
 
@@ -309,6 +313,18 @@ export const useNavigationData = (role) => {
           name: "Support Tickets",
           href: "/dashboard/admin/support",
           icon: PiHeadset,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 20,
+      items: [
+        {
+          name: "Newsletter Subscribers",
+          href: "/dashboard/admin/newsletter_subscribers",
+          icon: PiFiles,
           other_items: [],
         },
       ],

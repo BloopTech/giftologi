@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 
 import {
   PiClock,
@@ -38,7 +39,6 @@ import {
 import {
   formatCurrency,
   formatDate,
-  formatShortDate,
   StatCard,
   StatusBadge,
 } from "./utils";
@@ -358,6 +358,7 @@ export default function VendorOrdersContent() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const filteredOrders = orders.filter((order) => {
     const matchesSearch =
@@ -380,41 +381,40 @@ export default function VendorOrdersContent() {
     setDialogOpen(true);
   };
 
-  const handleExport = () => {
-    const csvContent = [
-      [
-        "Order Code",
-        "Product",
-        "SKU",
-        "Customer",
-        "Registry",
-        "Quantity",
-        "Amount",
-        "Date",
-        "Status",
-      ],
-      ...filteredOrders.map((order) => [
-        order.orderCode,
-        order.product?.name || "",
-        order.product?.product_code || "",
-        `${order.customer?.firstname || ""} ${order.customer?.lastname || ""}`.trim(),
-        order.registry?.title || "",
-        order.quantity,
-        order.totalAmount,
-        formatShortDate(order.createdAt),
-        order.status,
-      ]),
-    ]
-      .map((row) => row.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
+  const handleExport = async () => {
+    if (exporting) return;
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `orders-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setExporting(true);
+
+    try {
+      const response = await fetch("/api/vendor/orders/exports", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: statusFilter,
+          q: searchQuery,
+        }),
+      });
+
+      const result = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(result?.error || "Failed to queue export");
+      }
+
+      toast.success(
+        result?.deduped
+          ? "A matching export is already queued."
+          : result?.message ||
+              "Export queued. You will receive a download email shortly.",
+      );
+    } catch (error) {
+      toast.error(error?.message || "Failed to queue export");
+    } finally {
+      setExporting(false);
+    }
   };
 
   if (loading) {
@@ -500,10 +500,11 @@ export default function VendorOrdersContent() {
           </div>
           <button
             onClick={handleExport}
-            className="inline-flex items-center gap-2 px-4 py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors"
+            disabled={exporting}
+            className="inline-flex items-center gap-2 px-4 py-2.5 text-[#374151] text-sm font-medium border border-[#D1D5DB] rounded-lg hover:bg-[#F9FAFB] transition-colors disabled:cursor-not-allowed disabled:opacity-60"
           >
             <PiExport className="w-4 h-4" />
-            Export
+            {exporting ? "Queueing export..." : "Export"}
           </button>
         </div>
 

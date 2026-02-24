@@ -82,6 +82,8 @@ const DOCUMENT_FIELDS = [
   "proofOfBusinessAddress",
 ];
 
+const REQUIRED_DOCUMENT_FIELDS = ["ownerIdDocument"];
+
 const initialState = {
   message: "",
   errors: {
@@ -542,7 +544,7 @@ export default function CreateVendorApplicationDialog({ open, onOpenChange }) {
     // If we're on the last tab, submit the form using the server action
     if (currentIndex === TAB_ORDER.length - 1) {
       startTransition(() => {
-        const missingDocs = DOCUMENT_FIELDS.filter(
+        const missingDocs = REQUIRED_DOCUMENT_FIELDS.filter(
           (field) => !(docFiles[field] instanceof File),
         );
 
