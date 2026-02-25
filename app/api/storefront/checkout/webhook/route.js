@@ -5,6 +5,7 @@ import {
 import { buildAramexTrackingUrl, createAramexShipment } from "../../../../utils/shipping/aramex";
 import { computeShipmentWeight } from "../../../../utils/shipping/weights";
 import { dispatchNotification } from "../../../../utils/notificationService";
+import { logSecurityEvent, SecurityEvents } from "../../../../utils/securityLogger";
 import {
   hasExpressPayAmountMismatch,
   resolveExpressPayMethod,
@@ -13,14 +14,76 @@ import {
   TERMINAL_ORDER_STATUSES,
 } from "../../../../utils/payments/expresspay";
 
+const WEBHOOK_SOURCE = "/api/storefront/checkout/webhook";
+
+const asObject = (value) =>
+  value && typeof value === "object" && !Array.isArray(value) ? value : {};
+
+function buildWebhookDebug({
+  outcome,
+  stage = null,
+  tokenSuffix = null,
+  orderStatus = null,
+  queryToken = null,
+  paymentReference = null,
+}) {
+  return {
+    source: WEBHOOK_SOURCE,
+    outcome,
+    stage,
+    token_suffix: tokenSuffix,
+    query_token_suffix: queryToken ? String(queryToken).slice(-6) : null,
+    payment_reference: paymentReference || null,
+    order_status: orderStatus,
+    received_at: new Date().toISOString(),
+  };
+}
+
+async function persistWebhookOutcome(
+  admin,
+  order,
+  debugMeta,
+  paymentResponseBase = null
+) {
+  if (!admin || !order?.id || !debugMeta) return;
+
+  const mergedPaymentResponse = {
+    ...asObject(paymentResponseBase ?? order.payment_response),
+    webhook_debug: debugMeta,
+  };
+
+  const { error } = await admin
+    .from("orders")
+    .update({
+      payment_response: mergedPaymentResponse,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", order.id);
+
+  if (!error) {
+    order.payment_response = mergedPaymentResponse;
+  }
+}
+
 export async function POST(request) {
   try {
+    logSecurityEvent(SecurityEvents.WEBHOOK_RECEIVED, {
+      route: WEBHOOK_SOURCE,
+      ip: request.headers.get("x-forwarded-for") || "unknown",
+    });
+
     const body = await request.formData();
     const tokenFromWebhook = body.get("token");
     const orderIdFromWebhook = body.get("order-id");
+    const tokenSuffix = tokenFromWebhook
+      ? String(tokenFromWebhook).slice(-6)
+      : null;
 
     if (!tokenFromWebhook && !orderIdFromWebhook) {
-      return NextResponse.json({ status: "ok" }, { status: 200 });
+      return NextResponse.json(
+        { status: "ok", outcome: "ignored_missing_params" },
+        { status: 200 }
+      );
     }
 
     const admin = createAdminClient();
@@ -32,7 +95,7 @@ export async function POST(request) {
       const { data } = await admin
         .from("orders")
         .select(
-          "id, order_code, status, payment_token, payment_method, total_amount, currency"
+          "id, order_code, status, payment_token, payment_method, total_amount, currency, payment_response"
         )
         .eq("payment_token", tokenFromWebhook)
         .maybeSingle();
@@ -43,7 +106,7 @@ export async function POST(request) {
       const { data } = await admin
         .from("orders")
         .select(
-          "id, order_code, status, payment_token, payment_method, total_amount, currency"
+          "id, order_code, status, payment_token, payment_method, total_amount, currency, payment_response"
         )
         .eq("order_code", orderIdFromWebhook)
         .maybeSingle();
@@ -54,18 +117,63 @@ export async function POST(request) {
       console.error("Storefront webhook order not found:", {
         orderId: orderIdFromWebhook,
       });
-      return NextResponse.json({ status: "ok" }, { status: 200 });
+      return NextResponse.json(
+        {
+          status: "ok",
+          outcome: "ignored_order_not_found",
+          orderCode: orderIdFromWebhook || null,
+          tokenSuffix,
+        },
+        { status: 200 }
+      );
     }
 
     // Skip if already in terminal state
     if (TERMINAL_ORDER_STATUSES.has(order.status)) {
-      return NextResponse.json({ status: "ok" }, { status: 200 });
+      await persistWebhookOutcome(
+        admin,
+        order,
+        buildWebhookDebug({
+          outcome: "ignored_terminal_status",
+          stage: "pre_query",
+          tokenSuffix,
+          orderStatus: order.status,
+        })
+      );
+
+      return NextResponse.json(
+        {
+          status: "ok",
+          outcome: "ignored_terminal_status",
+          orderId: order.id,
+          orderStatus: order.status,
+        },
+        { status: 200 }
+      );
     }
 
     const queryToken = tokenFromWebhook || order.payment_token;
     if (!queryToken) {
       console.error("Storefront webhook missing query token for order:", order.id);
-      return NextResponse.json({ status: "ok" }, { status: 200 });
+      await persistWebhookOutcome(
+        admin,
+        order,
+        buildWebhookDebug({
+          outcome: "ignored_missing_query_token",
+          stage: "pre_query",
+          tokenSuffix,
+          orderStatus: order.status,
+        })
+      );
+
+      return NextResponse.json(
+        {
+          status: "ok",
+          outcome: "ignored_missing_query_token",
+          orderId: order.id,
+        },
+        { status: 200 }
+      );
     }
 
     const queryData = await queryExpressPayTransaction(queryToken);
@@ -125,7 +233,29 @@ export async function POST(request) {
 
       if (updateError) {
         console.error("Failed to update order:", updateError);
-        return NextResponse.json({ status: "ok" }, { status: 200 });
+        await persistWebhookOutcome(
+          admin,
+          order,
+          buildWebhookDebug({
+            outcome: "error",
+            stage: "order_update_paid",
+            tokenSuffix,
+            orderStatus: finalizedStatus,
+            queryToken,
+            paymentReference,
+          }),
+          updatePayload.payment_response
+        );
+
+        return NextResponse.json(
+          {
+            status: "ok",
+            outcome: "error",
+            stage: "order_update_paid",
+            orderId: order.id,
+          },
+          { status: 200 }
+        );
       }
 
       paidTransitioned = Boolean(updatedOrder?.id);
@@ -141,7 +271,29 @@ export async function POST(request) {
     }
 
     if (finalizedStatus !== "paid" || !paidTransitioned) {
-      return NextResponse.json({ status: "ok" }, { status: 200 });
+      await persistWebhookOutcome(
+        admin,
+        order,
+        buildWebhookDebug({
+          outcome: "updated_non_paid",
+          stage: "finalized",
+          tokenSuffix,
+          orderStatus: finalizedStatus,
+          queryToken,
+          paymentReference,
+        }),
+        updatePayload.payment_response
+      );
+
+      return NextResponse.json(
+        {
+          status: "ok",
+          outcome: "updated_non_paid",
+          orderId: order.id,
+          orderStatus: finalizedStatus,
+        },
+        { status: 200 }
+      );
     }
 
     // Persist payment record early so admin/payment reports are complete even
@@ -425,9 +577,39 @@ export async function POST(request) {
       console.error("Aramex auto-shipment error:", error);
     }
 
-    return NextResponse.json({ status: "ok" }, { status: 200 });
+    await persistWebhookOutcome(
+      admin,
+      order,
+      buildWebhookDebug({
+        outcome: "paid_transitioned",
+        stage: "finalized",
+        tokenSuffix,
+        orderStatus: finalizedStatus,
+        queryToken,
+        paymentReference,
+      }),
+      updatePayload.payment_response
+    );
+
+    return NextResponse.json(
+      {
+        status: "ok",
+        outcome: "paid_transitioned",
+        orderId: order.id,
+        orderStatus: finalizedStatus,
+      },
+      { status: 200 }
+    );
   } catch (error) {
     console.error("Webhook error:", error);
-    return NextResponse.json({ status: "ok" }, { status: 200 });
+    return NextResponse.json(
+      {
+        status: "ok",
+        outcome: "error",
+        stage: "exception",
+        message: error?.message || "Webhook error",
+      },
+      { status: 200 }
+    );
   }
 }

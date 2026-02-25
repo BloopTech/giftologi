@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "../../utils/supabase/server";
 import { issueSupportTicketAccessToken } from "../../utils/supportAccessToken";
+import { rateLimit, getClientIp } from "../../utils/rateLimit";
+import { logSecurityEvent, SecurityEvents } from "../../utils/securityLogger";
+
+const supportLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10 });
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_GUEST_ID_LENGTH = 191;
@@ -66,6 +70,16 @@ export async function GET(request) {
 
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = supportLimiter.check(ip);
+    if (!allowed) {
+      logSecurityEvent(SecurityEvents.RATE_LIMITED, { ip, route: "/api/support" });
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     const supabase = await createClient();
     const {
       data: { user },

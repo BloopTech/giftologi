@@ -6,6 +6,7 @@ import {
   Cormorant_Garamond,
   Bodoni_Moda,
   Inter,
+  Caveat
 } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -97,13 +98,18 @@ const brasleyMedium = localFont({
   display: "swap",
 });
 
+const fontHandwriting = Caveat({
+    variable: "--font-handwriting",
+    subsets: ["latin"],
+});
+
 export default async function RootLayout({ children }) {
   const h = await headers();
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} ${didotBold.variable} ${brasleySemibold.variable} ${brasleyMedium.variable} antialiased`}
+        className={`${fontHandwriting.variable} ${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} ${bodoniModa.variable} ${playfairDisplay.variable} ${cormorantGaramond.variable} ${didotBold.variable} ${brasleySemibold.variable} ${brasleyMedium.variable} antialiased`}
       >
         <ThemeProvider attribute="class">
           {process.env.NEXT_PUBLIC_GA_ID && (

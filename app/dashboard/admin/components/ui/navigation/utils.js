@@ -40,6 +40,7 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/orders",
       "/dashboard/admin/registry_list",
       "/dashboard/admin/transactions",
+      "/dashboard/admin/payment_webhooks",
       "/dashboard/admin/disputes",
       "/dashboard/admin/reports",
       "/dashboard/admin/promo_codes",
@@ -51,6 +52,7 @@ const filterNavigationByRole = (navigation, role) => {
     finance_admin: new Set([
       "/dashboard/admin/orders",
       "/dashboard/admin/transactions",
+      "/dashboard/admin/payment_webhooks",
       "/dashboard/admin/payouts",
       "/dashboard/admin/reports",
       "/dashboard/admin/newsletter_subscribers",
@@ -62,6 +64,7 @@ const filterNavigationByRole = (navigation, role) => {
       "/dashboard/admin/activity_log",
       "/dashboard/admin/all_users",
       "/dashboard/admin/support",
+      "/dashboard/admin/payment_webhooks",
       "/dashboard/admin/newsletter_subscribers",
     ]),
     store_manager_admin: new Set(["/dashboard/admin/products"]),
@@ -325,6 +328,18 @@ export const useNavigationData = (role) => {
           name: "Newsletter Subscribers",
           href: "/dashboard/admin/newsletter_subscribers",
           icon: PiFiles,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 21,
+      items: [
+        {
+          name: "Payment Webhooks",
+          href: "/dashboard/admin/payment_webhooks",
+          icon: PiLog,
           other_items: [],
         },
       ],

@@ -24,11 +24,22 @@ export default async function ShopCheckoutCallbackPage({ searchParams }) {
     if (orderCode) formData.set("order-id", orderCode);
 
     try {
-      await fetch(webhookUrl, {
+      const webhookResponse = await fetch(webhookUrl, {
         method: "POST",
         body: formData,
         cache: "no-store",
       });
+
+      const webhookPayload = await webhookResponse.json().catch(() => ({}));
+      const webhookOutcome = String(webhookPayload?.outcome || "unknown");
+
+      if (!webhookResponse.ok || webhookOutcome === "error") {
+        console.error("Shop callback webhook sync failed:", {
+          ok: webhookResponse.ok,
+          outcome: webhookOutcome,
+          stage: webhookPayload?.stage || null,
+        });
+      }
     } catch (error) {
       console.error("Failed to sync shop payment status from callback:", error);
     }

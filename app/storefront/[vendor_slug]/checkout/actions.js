@@ -10,9 +10,38 @@ import {
 } from "../../../utils/payments/expresspay";
 import { randomBytes } from "crypto";
 import { unstable_cache } from "next/cache";
+import { headers } from "next/headers";
 
 function generateOrderId() {
   return randomBytes(8).toString("hex");
+}
+
+async function resolveAppOrigin() {
+  const fallbackOrigin =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.CRON_BASE_URL ||
+    "https://mygiftologi.com";
+
+  const isLocalHost = (value) =>
+    /(^|:\/\/)(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(
+      String(value || "")
+    );
+
+  try {
+    const headerStore = await headers();
+    const forwardedHost = headerStore.get("x-forwarded-host");
+    const host = forwardedHost || headerStore.get("host");
+    const protocol = headerStore.get("x-forwarded-proto") || "https";
+
+    if (host && !isLocalHost(host)) {
+      return `${protocol}://${host}`.replace(/\/$/, "");
+    }
+  } catch {
+    // Ignore header resolution issues and fall back to env config.
+  }
+
+  return String(fallbackOrigin).replace(/\/$/, "");
 }
 
 export async function processStorefrontCheckout(prevState, formData) {
@@ -573,7 +602,7 @@ export async function processStorefrontCheckout(prevState, formData) {
     const orderId = generateOrderId();
 
     // Get the base URL for redirects
-    const origin = process.env.NEXT_PUBLIC_APP_URL || "https://mygiftologi.com";
+    const origin = await resolveAppOrigin();
     const redirectUrl = `${origin}/storefront/${vendorSlug}/checkout/callback`;
     const postUrl = `${origin}/api/storefront/checkout/webhook`;
 

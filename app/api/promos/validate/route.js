@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, createClient } from "@/app/utils/supabase/server";
 import { evaluatePromoCode, roundCurrency } from "@/app/utils/promos";
+import { rateLimit, getClientIp } from "@/app/utils/rateLimit";
+import { logSecurityEvent, SecurityEvents } from "@/app/utils/securityLogger";
+
+const promoLimiter = rateLimit({ windowMs: 60 * 1000, max: 20 });
 
 const buildCategoryMap = (rows = []) => {
   const map = new Map();
@@ -15,6 +19,16 @@ const buildCategoryMap = (rows = []) => {
 
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = promoLimiter.check(ip);
+    if (!allowed) {
+      logSecurityEvent(SecurityEvents.RATE_LIMITED, { ip, route: "/api/promos/validate" });
+      return NextResponse.json(
+        { valid: false, error: "Too many requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     const body = await request.json();
     const {
       code,

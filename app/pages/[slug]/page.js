@@ -7,6 +7,7 @@ import { createMetadata, getSeoDefaults } from "../../utils/seo";
 import PublicNavbar from "../../components/PublicNavbar";
 import Footer from "../../components/footer";
 import { ChevronRight, Home, FileText } from "lucide-react";
+import { sanitizeHtml } from "../../utils/sanitize";
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
@@ -139,7 +140,7 @@ export default async function StaticPage({ params }) {
               prose-td:p-3 prose-td:border-b prose-td:border-gray-200 dark:prose-td:border-gray-700
               [&_img]:rounded-lg [&_img]:my-6 [&_img]:max-w-full [&_img]:h-auto
               [&_hr]:my-8 [&_hr]:border-gray-200 dark:[&_hr]:border-gray-700"
-            dangerouslySetInnerHTML={{ __html: page.content || "" }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content || "") }}
           />
 
           {/* Back to Home CTA */}

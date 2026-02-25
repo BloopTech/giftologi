@@ -11,10 +11,12 @@ import { NuqsAdapter } from "nuqs/adapters/next/app";
 import HostSidebar from "./components/ui/navigation";
 import Header from "./components/ui/navigation/header";
 import { SkipLink } from "@/app/components/accessibility";
+import SessionManager from "@/app/components/SessionManager";
 
 export default function RootLayout({ children }) {
   return (
     <>
+      <SessionManager />
       <div
         className={`font-brasley-medium bg-[#FAFAFA] scroll-auto antialiased selection:bg-primary selection:text-primary dark:bg-gray-950`}
       >

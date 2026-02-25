@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/app/components/Dialog";
 import { X, FileText, Layout } from "lucide-react";
+import { sanitizeHtml } from "@/app/utils/sanitize";
 
 const TABS = [
   { id: "details", label: "Details", icon: Layout },
@@ -129,7 +130,7 @@ export default function ViewStaticPageDialog({ open, onOpenChange, page }) {
                 {page.content ? (
                   <div
                     className="prose prose-sm max-w-none prose-a:text-[#A5914B] prose-a:no-underline hover:prose-a:underline prose-a:font-medium"
-                    dangerouslySetInnerHTML={{ __html: page.content }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) }}
                   />
                 ) : (
                   <p className="text-[#717182] italic">No body content available.</p>

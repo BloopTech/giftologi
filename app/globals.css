@@ -22,6 +22,7 @@
   --color-secondary: #FFFCEF;
   --color-muted: #f1f5f9;
   --color-border: #e2e8f0;
+  --font-handwriting: var(--font-handwriting), 'Caveat', cursive;
 }
 @utility editorial-underline {
   @apply relative inline-block;

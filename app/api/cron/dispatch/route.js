@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../utils/supabase/server";
+import { logSecurityEvent, SecurityEvents } from "../../../utils/securityLogger";
 import { sendEmail, sendTemplatedEmail } from "../../../utils/emailService";
 import { dispatchNotification } from "../../../utils/notificationService";
 import {
@@ -33,7 +34,16 @@ export async function POST(request) {
     const authHeader = request.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      console.error("[cron/dispatch] CRON_SECRET is not configured");
+      return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      logSecurityEvent(SecurityEvents.INVALID_CRON_SECRET, {
+        route: "/api/cron/dispatch",
+        ip: request.headers.get("x-forwarded-for") || "unknown",
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -676,6 +686,7 @@ async function reconcilePendingExpressPayPayments(admin) {
     attempted: 0,
     reconciled: 0,
     failed: 0,
+    outcomeCounts: {},
   };
 
   try {
@@ -697,12 +708,16 @@ async function reconcilePendingExpressPayPayments(admin) {
 
     if (!orders.length) return summary;
 
-    const baseUrl =
-      process.env.CRON_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "";
+    const rawBaseUrl =
+      process.env.CRON_BASE_URL ||
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "";
+    const baseUrl = String(rawBaseUrl || "").replace(/\/$/, "");
 
     if (!baseUrl) {
       summary.error =
-        "CRON_BASE_URL or NEXT_PUBLIC_APP_URL is required for payment reconciliation.";
+        "CRON_BASE_URL, NEXT_PUBLIC_APP_URL, or NEXT_PUBLIC_SITE_URL is required for payment reconciliation.";
       return summary;
     }
 
@@ -729,7 +744,18 @@ async function reconcilePendingExpressPayPayments(admin) {
           cache: "no-store",
         });
 
-        if (response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        const outcome = String(payload?.outcome || "unknown");
+        summary.outcomeCounts[outcome] =
+          (summary.outcomeCounts[outcome] || 0) + 1;
+
+        const hasSemanticFailure =
+          outcome === "error" ||
+          outcome === "ignored_order_not_found" ||
+          outcome === "ignored_missing_query_token" ||
+          outcome === "ignored_missing_params";
+
+        if (response.ok && !hasSemanticFailure) {
           summary.reconciled += 1;
         } else {
           summary.failed += 1;

@@ -199,7 +199,28 @@ export async function POST(request) {
     const orderId = generateOrderId();
 
     // Get the base URL for redirects
-    const origin = request.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL;
+    const fallbackOrigin =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.CRON_BASE_URL ||
+      "";
+    const headerOrigin = request.headers.get("origin");
+    const isLocalHost = (value) =>
+      /(^|:\/\/)(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(
+        String(value || "")
+      );
+
+    const origin = String(
+      headerOrigin && !isLocalHost(headerOrigin) ? headerOrigin : fallbackOrigin
+    ).replace(/\/$/, "");
+
+    if (!origin) {
+      return NextResponse.json(
+        { error: "Missing public app URL configuration for payment callbacks." },
+        { status: 500 }
+      );
+    }
+
     const redirectUrl = `${origin}/api/registry/payment/callback`;
     const postUrl = `${origin}/api/registry/payment/webhook`;
 

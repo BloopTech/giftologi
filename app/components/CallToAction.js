@@ -53,23 +53,22 @@ export default function CallToAction() {
               <Image
                 src="/feature-lifestyle.png"
                 alt="Giftologi Lifestyle"
-                className="object-cover"
+                className="w-full h-full object-cover"
+                fill
                 priority
                 sizes="(max-width: 1024px) 100vw, 50vw"
-                fill
               />
               {/* Overlay Block */}
               <div className="absolute inset-0 bg-[#FDD17D]/10 mix-blend-overlay"></div>
             </div>
 
             {/* Quote Over Image */}
-            <div className="absolute -bottom-12 -left-12 bg-white p-10 rounded-[3rem] shadow-2xl border border-gray-50 max-w-[300px] transform -rotate-3">
-              <p className="text-lg font-serif italic text-gray-600 mb-4 text-center leading-relaxed">
-                &quot;The most beautiful way to celebrate with those you
-                love.&quot;
+            <div className="absolute -bottom-8 -left-8 bg-[#f5f0e8] border border-[#e8dfc8] p-8 shadow-xl max-w-[280px] transform rotate-[-4deg] rounded-sm flex flex-col items-center justify-center min-h-[160px]">
+              <p className="text-xl font-handwriting text-gray-800 mb-2 text-center leading-snug">
+                The most beautiful way to celebrate with those you love. ♡
               </p>
-              <span className="block text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                — The Giftologi Team
+              <span className="block text-right w-full text-lg font-handwriting text-gray-800 mt-2">
+                xo, Giftologi
               </span>
             </div>
           </div>

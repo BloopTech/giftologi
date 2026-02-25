@@ -27,7 +27,10 @@ export default function VendorCTA() {
             </p>
 
             <div className="pt-6">
-              <Link href="/vendor" className="cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#FDD17D] text-gray-900 px-12 py-6 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-500 shadow-xl hover:shadow-2xl">
+              <Link
+                href="/vendor"
+                className="cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed bg-[#FDD17D] text-gray-900 px-12 py-6 rounded-full text-[10px] font-bold tracking-[0.2em] uppercase hover:bg-gray-900 hover:text-white transition-all duration-500 shadow-xl hover:shadow-2xl"
+              >
                 Become a Vendor
               </Link>
             </div>
@@ -40,8 +43,8 @@ export default function VendorCTA() {
                 src="/registry-wedding.png"
                 alt="Vendor Partnership"
                 className="object-cover grayscale-[20%] hover:grayscale-0 transition-all duration-1000"
-                priority
                 fill
+                priority
                 sizes="(max-width: 1024px) 100vw, 60vw"
               />
               {/* Gradient Overlay */}
@@ -49,11 +52,11 @@ export default function VendorCTA() {
             </div>
 
             {/* Floating Metric */}
-            <div className="absolute -bottom-12 -right-12 bg-white p-10 rounded-[3rem] shadow-2xl border border-gray-50 max-w-[280px]">
-              <span className="block text-4xl font-didot-bold font-bold text-gray-900 mb-2">
+            <div className="absolute -bottom-8 -right-8 bg-[#f5f0e8] border border-[#e8dfc8] p-8 shadow-xl max-w-[240px] transform rotate-[2deg] rounded-sm flex flex-col items-center justify-center min-h-[140px] z-10">
+              <span className="block text-4xl font-handwriting text-gray-800 mb-2 font-bold select-none">
                 500k+
               </span>
-              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest leading-loose">
+              <p className="text-lg font-handwriting text-gray-800 leading-snug text-center">
                 Active registries waiting for your products.
               </p>
             </div>

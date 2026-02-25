@@ -19,6 +19,7 @@ import { useTheme } from "next-themes";
 import { createClient } from "../../../../../utils/supabase/client";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { clearTabPresence } from "@/app/components/SessionManager";
 import Link from "next/link";
 
 export function DropdownUserProfile({ children, align = "start", userData }) {
@@ -32,6 +33,7 @@ export function DropdownUserProfile({ children, align = "start", userData }) {
   const handleLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
+    clearTabPresence();
     try {
       await supabase.auth.signOut();
       toast.success("Logged out successfully");

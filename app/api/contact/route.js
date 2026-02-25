@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../utils/supabase/server";
+import { rateLimit, getClientIp } from "../../utils/rateLimit";
+import { logSecurityEvent, SecurityEvents } from "../../utils/securityLogger";
+
+const contactLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -33,6 +37,16 @@ export async function GET() {
 
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = contactLimiter.check(ip);
+    if (!allowed) {
+      logSecurityEvent(SecurityEvents.RATE_LIMITED, { ip, route: "/api/contact" });
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     const body = await request.json().catch(() => ({}));
 
     const name = String(body?.name || "").trim();

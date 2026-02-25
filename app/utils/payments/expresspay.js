@@ -1,5 +1,12 @@
-const EXPRESSPAY_ENV =
-  process.env.EXPRESSPAY_ENV === "live" ? "production" : "sandbox";
+const RAW_EXPRESSPAY_ENV = String(process.env.EXPRESSPAY_ENV || "")
+  .trim()
+  .toLowerCase();
+
+const EXPRESSPAY_ENV = ["live", "production", "prod"].includes(
+  RAW_EXPRESSPAY_ENV
+)
+  ? "production"
+  : "sandbox";
 
 const EXPRESSPAY_SUBMIT_URL =
   EXPRESSPAY_ENV === "production"

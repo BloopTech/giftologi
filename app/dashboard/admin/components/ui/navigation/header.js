@@ -8,6 +8,7 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { clearTabPresence } from "@/app/components/SessionManager";
 import { Switch } from "../../../../../components/Switch";
 import {
   DropdownMenu,
@@ -69,6 +70,7 @@ export default function Header() {
   const handleLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
+    clearTabPresence();
     try {
       await supabase.auth.signOut();
       toast.success("Logged out successfully");

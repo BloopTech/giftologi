@@ -6,6 +6,20 @@ import {
 } from "../../routes";
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse } from "next/server";
+import { logSecurityEvent, SecurityEvents } from "../../utils/securityLogger";
+
+function sanitizeRedirectPath(value) {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return null;
+  try {
+    const parsed = new URL(trimmed, "http://localhost");
+    if (parsed.hostname !== "localhost") return null;
+    return parsed.pathname + parsed.search;
+  } catch {
+    return null;
+  }
+}
 
 const loginRedirect = "/";
 
@@ -65,7 +79,14 @@ export async function middlewareClient(request) {
   );
 
   const url = new URL(request.url);
-  const next = url.searchParams.get("next");
+  const rawNext = url.searchParams.get("next");
+  const next = sanitizeRedirectPath(rawNext);
+  if (rawNext && !next) {
+    logSecurityEvent(SecurityEvents.OPEN_REDIRECT_BLOCKED, {
+      blocked: rawNext,
+      ip: request.headers.get("x-forwarded-for") || "unknown",
+    });
+  }
   const hasOAuthOrVerifyCode = url.searchParams.has("code");
   const code = url.searchParams.get("code");
   const type = url.searchParams.get("type");

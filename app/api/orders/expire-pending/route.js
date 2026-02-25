@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../utils/supabase/server";
+import { logSecurityEvent, SecurityEvents } from "../../../utils/securityLogger";
 
 const PENDING_ORDER_TIMEOUT_HOURS = parseInt(
   process.env.PENDING_ORDER_TIMEOUT_HOURS || "24",
@@ -11,7 +12,16 @@ export async function POST(request) {
     const authHeader = request.headers.get("authorization");
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret) {
+      console.error("[cron/expire-pending] CRON_SECRET is not configured");
+      return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+    }
+
+    if (authHeader !== `Bearer ${cronSecret}`) {
+      logSecurityEvent(SecurityEvents.INVALID_CRON_SECRET, {
+        route: "/api/orders/expire-pending",
+        ip: request.headers.get("x-forwarded-for") || "unknown",
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

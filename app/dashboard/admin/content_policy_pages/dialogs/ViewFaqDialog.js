@@ -10,6 +10,7 @@ import {
   DialogTitle,
 } from "@/app/components/Dialog";
 import { X } from "lucide-react";
+import { sanitizeHtml } from "@/app/utils/sanitize";
 
 export default function ViewFaqDialog({ open, onOpenChange, faq }) {
   const handleOpenChange = (next) => {
@@ -90,7 +91,7 @@ export default function ViewFaqDialog({ open, onOpenChange, faq }) {
             <div
               className="rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] px-4 py-3 text-[11px] text-[#374151] max-h-80 overflow-auto prose prose-sm max-w-none prose-a:text-[#A5914B] prose-a:no-underline hover:prose-a:underline prose-a:font-medium"
               dangerouslySetInnerHTML={{
-                __html: faq.answer || "<p class='text-[#717182] italic'>No answer provided.</p>",
+                __html: sanitizeHtml(faq.answer || "<p class='text-[#717182] italic'>No answer provided.</p>"),
               }}
             />
           </div>

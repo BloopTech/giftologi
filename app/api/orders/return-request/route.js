@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../utils/supabase/server";
+import { rateLimit, getClientIp } from "../../../utils/rateLimit";
+import { logSecurityEvent, SecurityEvents } from "../../../utils/securityLogger";
+
+const returnLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 5 });
 
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = returnLimiter.check(ip);
+    if (!allowed) {
+      logSecurityEvent(SecurityEvents.RATE_LIMITED, { ip, route: "/api/orders/return-request" });
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     const body = await request.json();
     const { order_code, guest_email, order_item_id, request_type, reason, details } = body;
 

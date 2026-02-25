@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../utils/supabase/server";
 import { issueSupportTicketAccessToken } from "../../../utils/supportAccessToken";
+import { rateLimit, getClientIp } from "../../../utils/rateLimit";
+import { logSecurityEvent, SecurityEvents } from "../../../utils/securityLogger";
+
+const recoveryLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 3 });
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_TICKETS_PER_REQUEST = 10;
@@ -9,6 +13,16 @@ const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 
 export async function POST(request) {
   try {
+    const ip = getClientIp(request);
+    const { allowed } = recoveryLimiter.check(ip);
+    if (!allowed) {
+      logSecurityEvent(SecurityEvents.RATE_LIMITED, { ip, route: "/api/support/recovery" });
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 },
+      );
+    }
+
     if (!process.env.SUPPORT_ACCESS_TOKEN_SECRET) {
       return NextResponse.json(
         { error: "Support recovery is temporarily unavailable." },

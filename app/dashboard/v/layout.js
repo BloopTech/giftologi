@@ -14,10 +14,12 @@ import AdminSidebar from "./components/ui/navigation";
 import { VendorDashboardProvider } from "./context";
 import { TooltipProvider } from "@/app/components/Tooltip";
 import { SkipLink } from "@/app/components/accessibility";
+import SessionManager from "@/app/components/SessionManager";
 
 export default function RootLayout({ children }) {
   return (
     <>
+      <SessionManager />
       <div
         className={`w-full font-brasley-medium bg-[#FAFAFA] scroll-auto antialiased selection:bg-primary selection:text-primary dark:bg-gray-950`}
       >
