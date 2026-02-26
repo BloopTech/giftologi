@@ -3,6 +3,7 @@ export const publicRoutes = [`/`, `/vendor`];
 export const eventPublicRoutes = [
   `/shop`,
   `/shop/checkout`,
+  `/shop/checkout/callback`,
   `/categories`,
   `/categories/:category_slug`,
   `/event/:event_code`,
@@ -12,6 +13,7 @@ export const eventPublicRoutes = [
   `/storefront/:vendor_slug`,
   `/storefront/:vendor_slug/:product_code`,
   `/storefront/:vendor_slug/checkout`,
+  `/storefront/:vendor_slug/checkout/callback`,
   `/search`,
   `/gift-guides`,
   `/gift-guides/:slug`,

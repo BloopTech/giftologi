@@ -204,15 +204,8 @@ export async function POST(request) {
       process.env.NEXT_PUBLIC_SITE_URL ||
       process.env.CRON_BASE_URL ||
       "";
-    const headerOrigin = request.headers.get("origin");
-    const isLocalHost = (value) =>
-      /(^|:\/\/)(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(
-        String(value || "")
-      );
-
-    const origin = String(
-      headerOrigin && !isLocalHost(headerOrigin) ? headerOrigin : fallbackOrigin
-    ).replace(/\/$/, "");
+    const headerOrigin = String(request.headers.get("origin") || "").trim();
+    const origin = String(headerOrigin || fallbackOrigin).replace(/\/$/, "");
 
     if (!origin) {
       return NextResponse.json(

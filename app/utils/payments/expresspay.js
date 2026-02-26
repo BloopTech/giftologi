@@ -194,7 +194,11 @@ export function resolveExpressPayCheckoutUrl(expressPayResponse = {}) {
 
     try {
       const parsed = new URL(trimmed);
-      if (/expresspaygh\.com$/i.test(parsed.hostname)) {
+      const isExpressPayHost = /expresspaygh\.com$/i.test(parsed.hostname);
+      const isCheckoutPath = /\/api\/checkout\.php$/i.test(parsed.pathname || "");
+      const hasToken = !!parsed.searchParams.get("token");
+
+      if (isExpressPayHost && isCheckoutPath && hasToken) {
         return trimmed;
       }
     } catch {

@@ -40,7 +40,7 @@ export default function CallbackContent({ order, vendor }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-brasley-medium">
+    <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center p-4 font-brasley-medium pt-28">
       <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center">
         {isSuccess && (
           <>
@@ -66,8 +66,8 @@ export default function CallbackContent({ order, vendor }) {
               Payment Pending
             </h1>
             <p className="text-gray-600 mb-6">
-              Your payment is being processed. We'll send you an email
-              confirmation once it's complete.
+              Your payment is being processed. We&apos;ll send you an email
+              confirmation once it&apos;s complete.
             </p>
           </>
         )}
@@ -123,10 +123,10 @@ export default function CallbackContent({ order, vendor }) {
               <Package className="size-5 text-blue-600 shrink-0 mt-0.5" />
               <div>
                 <h3 className="text-sm font-semibold text-blue-900">
-                  What's Next?
+                  What&apos;s Next?
                 </h3>
                 <p className="text-xs text-blue-700 mt-1">
-                  Your order will be shipped via Aramex. You'll receive tracking
+                  Your order will be shipped via Aramex. You&apos;ll receive tracking
                   information via email within 24-48 hours.
                 </p>
               </div>

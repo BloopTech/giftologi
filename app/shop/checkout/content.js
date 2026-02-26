@@ -495,7 +495,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
             Order Created!
           </h1>
           <p className="text-gray-600 mb-4">
-            Complete payment below without leaving Giftologi.
+            Continue to ExpressPay in a secure browser tab to complete your payment.
           </p>
           <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#F8F4E7] px-4 py-2 border border-[#E9DFC0]">
             <span className="text-xs uppercase tracking-wide text-[#7A6A35] font-semibold">
@@ -505,14 +505,17 @@ export default function ShopCheckoutContent({ userProfile = null }) {
               {formatPrice(amountToPay)}
             </span>
           </div>
-          <div className="w-full rounded-xl border border-gray-200 overflow-hidden bg-gray-50">
-            <iframe
-              title="ExpressPay Checkout"
-              src={state.checkoutUrl}
-              className="w-full min-h-[560px]"
-            />
+          <div className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-left text-sm text-amber-900">
+            Some browsers block embedded payment windows for security reasons.
+            Use the button below to continue directly on ExpressPay.
           </div>
           <div className="mt-4 flex flex-col md:flex-row gap-3">
+            <Link
+              href={state.checkoutUrl}
+              className="inline-block w-full bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors"
+            >
+              Continue to secure payment
+            </Link>
             <Link
               href={state.checkoutUrl}
               target="_blank"
@@ -523,7 +526,7 @@ export default function ShopCheckoutContent({ userProfile = null }) {
             </Link>
             <Link
               href={callbackHref}
-              className="inline-block w-full bg-[#A5914B] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#8B7A3F] transition-colors"
+              className="inline-block w-full bg-[#111827] text-white font-semibold py-3 px-6 rounded-xl hover:bg-[#1F2937] transition-colors"
             >
               Check payment status
             </Link>

@@ -2,7 +2,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { createClient } from "../../../utils/supabase/server";
+import { createAdminClient } from "../../../utils/supabase/server";
 import ShopCallbackContent from "./content";
 
 export default async function ShopCheckoutCallbackPage({ searchParams }) {
@@ -15,7 +15,12 @@ export default async function ShopCheckoutCallbackPage({ searchParams }) {
   const headerStore = await headers();
   const forwardedHost = headerStore.get("x-forwarded-host");
   const host = forwardedHost || headerStore.get("host");
-  const protocol = headerStore.get("x-forwarded-proto") || "https";
+  const isLocalHost = (value) =>
+    /(^|:\/\/)(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(
+      String(value || "")
+    );
+  const protocol =
+    headerStore.get("x-forwarded-proto") || (isLocalHost(host) ? "http" : "https");
 
   if (host && (token || orderCode)) {
     const webhookUrl = `${protocol}://${host}/api/storefront/checkout/webhook`;
@@ -45,40 +50,44 @@ export default async function ShopCheckoutCallbackPage({ searchParams }) {
     }
   }
 
-  const supabase = await createClient();
+  const adminClient = createAdminClient();
 
   let order = null;
+  const orderSelect = `
+    id,
+    order_code,
+    status,
+    total_amount,
+    currency,
+    buyer_firstname,
+    buyer_email,
+    payment_token
+  `;
 
   if (token) {
-    const { data } = await supabase
+    const { data } = await adminClient
       .from("orders")
-      .select(`
-        id,
-        order_code,
-        status,
-        total_amount,
-        currency,
-        buyer_firstname,
-        buyer_email
-      `)
+      .select(orderSelect)
       .eq("payment_token", token)
-      .single();
+      .maybeSingle();
     order = data;
-  } else if (orderCode) {
-    const { data } = await supabase
+  }
+
+  if (!order && orderCode) {
+    const { data } = await adminClient
       .from("orders")
-      .select(`
-        id,
-        order_code,
-        status,
-        total_amount,
-        currency,
-        buyer_firstname,
-        buyer_email
-      `)
+      .select(orderSelect)
       .eq("order_code", orderCode)
-      .single();
+      .maybeSingle();
     order = data;
+  }
+
+  if (order?.id && token && order.payment_token !== token) {
+    await adminClient
+      .from("orders")
+      .update({ payment_token: token, updated_at: new Date().toISOString() })
+      .eq("id", order.id);
+    order.payment_token = token;
   }
 
   return <ShopCallbackContent order={order} />;

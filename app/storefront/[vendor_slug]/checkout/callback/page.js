@@ -2,7 +2,7 @@
 import React from "react";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import { createClient } from "../../../../utils/supabase/server";
+import { createAdminClient } from "../../../../utils/supabase/server";
 import CallbackContent from "./content";
 
 export default async function CheckoutCallbackPage({ params, searchParams }) {
@@ -16,7 +16,12 @@ export default async function CheckoutCallbackPage({ params, searchParams }) {
   const headerStore = await headers();
   const forwardedHost = headerStore.get("x-forwarded-host");
   const host = forwardedHost || headerStore.get("host");
-  const protocol = headerStore.get("x-forwarded-proto") || "https";
+  const isLocalHost = (value) =>
+    /(^|:\/\/)(localhost|127\.0\.0\.1|0\.0\.0\.0)(:\d+)?(\/|$)/i.test(
+      String(value || "")
+    );
+  const protocol =
+    headerStore.get("x-forwarded-proto") || (isLocalHost(host) ? "http" : "https");
 
   if (host && (token || orderCode)) {
     const webhookUrl = `${protocol}://${host}/api/storefront/checkout/webhook`;
@@ -46,64 +51,51 @@ export default async function CheckoutCallbackPage({ params, searchParams }) {
     }
   }
 
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    const nextParams = new URLSearchParams();
-    if (token) nextParams.set("token", token);
-    if (orderCode) nextParams.set("order-id", orderCode);
-    const next = `/storefront/${vendor_slug}/checkout/callback?${nextParams.toString()}`;
-    redirect(`/login?next=${encodeURIComponent(next)}`);
-  }
+  const adminClient = createAdminClient();
 
   // Find order by token or order code
   let order = null;
   let vendor = null;
+  const orderSelect = `
+    id,
+    order_code,
+    status,
+    total_amount,
+    currency,
+    buyer_firstname,
+    buyer_email,
+    payment_token,
+    order_items(
+      product:products(
+        vendor:vendors(slug, business_name)
+      )
+    )
+  `;
 
   if (token) {
-    const { data } = await supabase
+    const { data } = await adminClient
       .from("orders")
-      .select(`
-        id,
-        order_code,
-        status,
-        total_amount,
-        currency,
-        buyer_firstname,
-        buyer_email,
-        order_items(
-          product:products(
-            vendor:vendors(slug, business_name)
-          )
-        )
-      `)
+      .select(orderSelect)
       .eq("payment_token", token)
-      .single();
+      .maybeSingle();
     order = data;
-  } else if (orderCode) {
-    const { data } = await supabase
+  }
+
+  if (!order && orderCode) {
+    const { data } = await adminClient
       .from("orders")
-      .select(`
-        id,
-        order_code,
-        status,
-        total_amount,
-        currency,
-        buyer_firstname,
-        buyer_email,
-        order_items(
-          product:products(
-            vendor:vendors(slug, business_name)
-          )
-        )
-      `)
+      .select(orderSelect)
       .eq("order_code", orderCode)
-      .single();
+      .maybeSingle();
     order = data;
+  }
+
+  if (order?.id && token && order.payment_token !== token) {
+    await adminClient
+      .from("orders")
+      .update({ payment_token: token, updated_at: new Date().toISOString() })
+      .eq("id", order.id);
+    order.payment_token = token;
   }
 
   if (order?.order_items?.[0]?.product?.vendor) {

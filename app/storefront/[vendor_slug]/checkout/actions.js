@@ -32,9 +32,11 @@ async function resolveAppOrigin() {
     const headerStore = await headers();
     const forwardedHost = headerStore.get("x-forwarded-host");
     const host = forwardedHost || headerStore.get("host");
-    const protocol = headerStore.get("x-forwarded-proto") || "https";
+    if (host) {
+      const protocol =
+        headerStore.get("x-forwarded-proto") ||
+        (isLocalHost(host) ? "http" : "https");
 
-    if (host && !isLocalHost(host)) {
       return `${protocol}://${host}`.replace(/\/$/, "");
     }
   } catch {
