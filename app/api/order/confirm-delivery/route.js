@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "../../../utils/supabase/server";
+import {
+  DELIVERY_CONFIRMABLE_ORDER_STATUSES,
+  mapOrderStatusGuardDbError,
+} from "../../../utils/orders/statusGuards";
+
+const toErrorStatusCode = (error) => {
+  const code = String(error?.code || "");
+  if (code === "23514" || code === "23503") return 400;
+  return 500;
+};
 
 export async function POST(request) {
   try {
@@ -49,9 +59,12 @@ export async function POST(request) {
 
     // Check order is in a confirmable state
     const status = (order.status || "").toLowerCase();
-    if (status === "cancelled" || status === "pending") {
+    if (!DELIVERY_CONFIRMABLE_ORDER_STATUSES.includes(status)) {
       return NextResponse.json(
-        { error: "This order cannot be confirmed in its current state" },
+        {
+          error:
+            "This order must be paid or shipped before delivery can be confirmed",
+        },
         { status: 400 }
       );
     }
@@ -121,7 +134,7 @@ export async function POST(request) {
 
     // Update order status to delivered if not already
     if (status !== "delivered") {
-      await admin
+      const { error: orderStatusError } = await admin
         .from("orders")
         .update({
           status: "delivered",
@@ -129,11 +142,35 @@ export async function POST(request) {
         })
         .eq("id", order.id);
 
+      if (orderStatusError) {
+        return NextResponse.json(
+          {
+            error: mapOrderStatusGuardDbError(
+              orderStatusError,
+              "Failed to confirm delivery"
+            ),
+          },
+          { status: toErrorStatusCode(orderStatusError) }
+        );
+      }
+
       // Also update order items
-      await admin
+      const { error: itemStatusError } = await admin
         .from("order_items")
         .update({ fulfillment_status: "delivered" })
         .eq("order_id", order.id);
+
+      if (itemStatusError) {
+        return NextResponse.json(
+          {
+            error: mapOrderStatusGuardDbError(
+              itemStatusError,
+              "Failed to sync delivered item statuses"
+            ),
+          },
+          { status: toErrorStatusCode(itemStatusError) }
+        );
+      }
     }
 
     return NextResponse.json({

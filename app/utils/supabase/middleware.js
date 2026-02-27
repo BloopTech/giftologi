@@ -123,11 +123,16 @@ export async function middlewareClient(request) {
   };
 
   const roleRestrictedAdminPaths = {
-    store_manager_admin: new Set(["/dashboard/admin", "/dashboard/admin/products"]),
+    store_manager_admin: new Set([
+      "/dashboard/admin",
+      "/dashboard/admin/products",
+      "/dashboard/admin/notifications",
+    ]),
     marketing_admin: new Set([
       "/dashboard/admin",
       "/dashboard/admin/analytics_reporting",
       "/dashboard/admin/content_policy_pages",
+      "/dashboard/admin/notifications",
     ]),
   };
 

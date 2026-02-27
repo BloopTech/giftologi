@@ -105,6 +105,15 @@ const pickPaymentValue = (source, keys) => {
   return null;
 };
 
+const hasExpressPaySignature = (source) => {
+  if (!source || typeof source !== "object") return false;
+  return Boolean(
+    pickPaymentValue(source, ["transaction-id", "auth-code"]) ||
+      (pickPaymentValue(source, ["result", "result-text"]) &&
+        pickPaymentValue(source, ["order-id", "token"]))
+  );
+};
+
 const formatVariationLabel = (variation) => {
   if (!variation) return "Standard";
 
@@ -347,23 +356,51 @@ export default function TransactionDetailsContent({ transaction }) {
 
     const methodSource =
       payment?.method ||
-      pickPaymentValue(paymentMeta, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]) ||
+      pickPaymentValue(paymentMeta, [
+        "method",
+        "payment_method",
+        "payment-method",
+        "paymentMode",
+        "payment_mode",
+        "payment-option-type",
+        "channel",
+        "network",
+      ]) ||
       transaction?.paymentMethodValue ||
       order?.payment_method ||
-      pickPaymentValue(orderPaymentResponse, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]);
+      pickPaymentValue(orderPaymentResponse, [
+        "method",
+        "payment_method",
+        "payment-method",
+        "paymentMode",
+        "payment_mode",
+        "payment-option-type",
+        "channel",
+        "network",
+      ]);
+
+    const transactionProviderCandidate =
+      transaction?.paymentProviderLabel &&
+      String(transaction.paymentProviderLabel).toLowerCase() !== "unrecorded"
+        ? transaction.paymentProviderLabel
+        : "";
 
     const providerSource =
       payment?.provider ||
       pickPaymentValue(paymentMeta, ["provider", "gateway", "payment_provider", "paymentProvider"]) ||
-      transaction?.paymentProviderLabel ||
-      pickPaymentValue(orderPaymentResponse, ["provider", "gateway", "payment_provider", "paymentProvider"]);
+      pickPaymentValue(orderPaymentResponse, ["provider", "gateway", "payment_provider", "paymentProvider"]) ||
+      transactionProviderCandidate ||
+      (hasExpressPaySignature(paymentMeta) ||
+      hasExpressPaySignature(orderPaymentResponse)
+        ? "expresspay"
+        : "");
 
     const referenceSource =
       payment?.provider_ref ||
-      pickPaymentValue(paymentMeta, ["provider_ref", "reference", "payment_reference", "transaction_id"]) ||
+      pickPaymentValue(paymentMeta, ["provider_ref", "reference", "payment_reference", "transaction_id", "transaction-id"]) ||
       transaction?.paymentReference ||
       order?.payment_reference ||
-      pickPaymentValue(orderPaymentResponse, ["provider_ref", "reference", "payment_reference", "transaction_id"]);
+      pickPaymentValue(orderPaymentResponse, ["provider_ref", "reference", "payment_reference", "transaction_id", "transaction-id"]);
 
     const statusSource =
       payment?.status ||

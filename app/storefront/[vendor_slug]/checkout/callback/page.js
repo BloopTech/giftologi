@@ -7,7 +7,9 @@ import CallbackContent from "./content";
 
 export default async function CheckoutCallbackPage({ params, searchParams }) {
   const { vendor_slug } = await params;
-  const { token, "order-id": orderCode } = await searchParams;
+  const resolvedSearchParams = (await searchParams) || {};
+  const token = resolvedSearchParams.token;
+  const orderCode = resolvedSearchParams["order-id"];
 
   if (!token && !orderCode) {
     redirect("/");
@@ -26,8 +28,21 @@ export default async function CheckoutCallbackPage({ params, searchParams }) {
   if (host && (token || orderCode)) {
     const webhookUrl = `${protocol}://${host}/api/storefront/checkout/webhook`;
     const formData = new FormData();
-    if (token) formData.set("token", token);
-    if (orderCode) formData.set("order-id", orderCode);
+    Object.entries(resolvedSearchParams).forEach(([key, rawValue]) => {
+      if (Array.isArray(rawValue)) {
+        rawValue.forEach((value) => {
+          if (value === null || typeof value === "undefined") return;
+          formData.append(key, String(value));
+        });
+        return;
+      }
+
+      if (rawValue === null || typeof rawValue === "undefined") return;
+      formData.set(key, String(rawValue));
+    });
+
+    if (token && !formData.get("token")) formData.set("token", token);
+    if (orderCode && !formData.get("order-id")) formData.set("order-id", orderCode);
 
     try {
       const webhookResponse = await fetch(webhookUrl, {

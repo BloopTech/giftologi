@@ -7,6 +7,11 @@ import {
   createClient,
 } from "../../../utils/supabase/server";
 import { logAdminActivityWithClient } from "../activity_log/logger";
+import {
+  DELIVERY_ALLOWED_PRIOR_STATUSES,
+  SHIPMENT_ALLOWED_PRIOR_STATUSES,
+  mapOrderStatusGuardDbError,
+} from "../../../utils/orders/statusGuards";
 
 const defaultErrors = {
   orderItemId: [],
@@ -110,6 +115,50 @@ export async function updateOrderItemFulfillment(prevState, formData) {
     };
   }
 
+  if (fulfillmentStatus === "shipped" || fulfillmentStatus === "delivered") {
+    const { data: parentOrder, error: parentOrderError } = await adminClient
+      .from("orders")
+      .select("id, status")
+      .eq("id", existingItem.order_id)
+      .maybeSingle();
+
+    if (parentOrderError || !parentOrder) {
+      return {
+        message: parentOrderError?.message || "Parent order not found.",
+        errors: { ...defaultErrors },
+        values: raw,
+        data: {},
+      };
+    }
+
+    const orderStatus = String(parentOrder.status || "").toLowerCase();
+
+    if (
+      fulfillmentStatus === "shipped" &&
+      !SHIPMENT_ALLOWED_PRIOR_STATUSES.includes(orderStatus)
+    ) {
+      return {
+        message: "Order must be paid before an item can be marked as shipped.",
+        errors: { ...defaultErrors },
+        values: raw,
+        data: {},
+      };
+    }
+
+    if (
+      fulfillmentStatus === "delivered" &&
+      !DELIVERY_ALLOWED_PRIOR_STATUSES.includes(orderStatus)
+    ) {
+      return {
+        message:
+          "Order must be paid or already shipped before an item can be marked as delivered.",
+        errors: { ...defaultErrors },
+        values: raw,
+        data: {},
+      };
+    }
+  }
+
   const requiresTracking =
     fulfillmentStatus === "shipped" || fulfillmentStatus === "delivered";
   const nextTracking = requiresTracking
@@ -128,7 +177,10 @@ export async function updateOrderItemFulfillment(prevState, formData) {
 
   if (updateError) {
     return {
-      message: updateError.message || "Failed to update fulfillment.",
+      message: mapOrderStatusGuardDbError(
+        updateError,
+        "Failed to update fulfillment."
+      ),
       errors: { ...defaultErrors },
       values: raw,
       data: {},

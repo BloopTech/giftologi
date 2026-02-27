@@ -19,6 +19,29 @@ const parseJsonObject = (value) => {
   }
 };
 
+const pickPaymentValue = (source, keys) => {
+  if (!source || typeof source !== "object") return "";
+
+  for (const key of keys) {
+    const value = source[key];
+    if (value === null || typeof value === "undefined") continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+
+  return "";
+};
+
+const hasExpressPaySignature = (source) => {
+  if (!source || typeof source !== "object") return false;
+
+  return Boolean(
+    pickPaymentValue(source, ["transaction-id", "auth-code"]) ||
+      (pickPaymentValue(source, ["result", "result-text"]) &&
+        pickPaymentValue(source, ["order-id", "token"]))
+  );
+};
+
 const formatDateTime = (value) => {
   if (!value) return "—";
   const date = new Date(value);
@@ -64,6 +87,26 @@ export default function PaymentWebhooksContent() {
             webhookDebug.order_status || order.status || "unknown"
           );
           const receivedAt = webhookDebug.received_at || null;
+          const paymentMethod =
+            order.payment_method ||
+            pickPaymentValue(paymentResponse, [
+              "method",
+              "payment_method",
+              "payment-method",
+              "payment-option-type",
+              "channel",
+              "network",
+            ]) ||
+            "—";
+
+          const paymentProvider =
+            pickPaymentValue(paymentResponse, [
+              "provider",
+              "gateway",
+              "payment_provider",
+              "paymentProvider",
+            ]) ||
+            (hasExpressPaySignature(paymentResponse) ? "expresspay" : "—");
 
           return {
             id: order.id,
@@ -72,7 +115,8 @@ export default function PaymentWebhooksContent() {
             stage,
             source,
             orderStatus,
-            paymentMethod: order.payment_method || "—",
+            paymentMethod,
+            paymentProvider,
             paymentReference:
               webhookDebug.payment_reference || order.payment_reference || "—",
             tokenSuffix: webhookDebug.token_suffix || "—",
@@ -117,6 +161,8 @@ export default function PaymentWebhooksContent() {
         row.outcome,
         row.stage,
         row.orderStatus,
+        row.paymentMethod,
+        row.paymentProvider,
         row.paymentReference,
         row.source,
       ].some((value) => String(value || "").toLowerCase().includes(query));
@@ -182,7 +228,7 @@ export default function PaymentWebhooksContent() {
         ) : null}
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1100px]">
+          <table className="w-full min-w-[1200px]">
             <thead className="bg-[#F9FAFB]">
               <tr>
                 <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Order</th>
@@ -190,6 +236,7 @@ export default function PaymentWebhooksContent() {
                 <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Stage</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Order Status</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Method</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Provider</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Reference</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Token Suffix</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-[#6B7280] uppercase">Received</th>
@@ -198,7 +245,7 @@ export default function PaymentWebhooksContent() {
             <tbody className="divide-y divide-[#E5E7EB]">
               {loading ? (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-[#6B7280]">
+                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-[#6B7280]">
                     Loading webhook outcomes...
                   </td>
                 </tr>
@@ -218,6 +265,7 @@ export default function PaymentWebhooksContent() {
                     <td className="px-3 py-3 text-xs text-[#111827]">{row.stage}</td>
                     <td className="px-3 py-3 text-xs text-[#111827]">{row.orderStatus}</td>
                     <td className="px-3 py-3 text-xs text-[#111827]">{row.paymentMethod}</td>
+                    <td className="px-3 py-3 text-xs text-[#111827]">{row.paymentProvider}</td>
                     <td className="px-3 py-3 text-xs text-[#111827]">{row.paymentReference}</td>
                     <td className="px-3 py-3 text-xs text-[#111827]">
                       {row.tokenSuffix} / {row.queryTokenSuffix}
@@ -232,7 +280,7 @@ export default function PaymentWebhooksContent() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-sm text-[#6B7280]">
+                  <td colSpan={9} className="px-3 py-8 text-center text-sm text-[#6B7280]">
                     No webhook outcomes found for current filters.
                   </td>
                 </tr>

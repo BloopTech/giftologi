@@ -8,6 +8,7 @@ import React, {
   useState,
 } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Bell } from "lucide-react";
 import { createClient } from "../utils/supabase/client";
 
@@ -41,37 +42,77 @@ const VARIANT_STYLES = {
   },
 };
 
+const getNotificationsPagePath = (pathname) => {
+  if (pathname?.startsWith("/dashboard/admin")) {
+    return "/dashboard/admin/notifications";
+  }
+  if (pathname?.startsWith("/dashboard/h")) {
+    return "/dashboard/h/notifications";
+  }
+  if (pathname?.startsWith("/dashboard/v")) {
+    return "/dashboard/v/notifications";
+  }
+  return "/dashboard/admin/notifications";
+};
+
 export default function NotificationBell({
   userId,
   variant = "header",
   className = "",
 }) {
+  const pathname = usePathname();
   const styles = VARIANT_STYLES[variant] || VARIANT_STYLES.header;
   const supabase = useMemo(() => createClient(), []);
+  const notificationsPagePath = useMemo(
+    () => getNotificationsPagePath(pathname),
+    [pathname],
+  );
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isOpen, setIsOpen] = useState(false);
   const panelRef = useRef(null);
   const buttonRef = useRef(null);
 
-  const unreadCount = useMemo(
-    () => notifications.filter((notification) => !notification.read).length,
-    [notifications],
-  );
+  const loadUnreadCount = useCallback(async () => {
+    if (!userId) return;
+
+    const { count, error: countError } = await supabase
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("read", false)
+      .is("archived_at", null);
+
+    if (!countError) {
+      setUnreadCount(count || 0);
+    }
+  }, [supabase, userId]);
 
   const loadNotifications = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError(null);
-    const { data, error: fetchError } = await supabase
-      .from("notifications")
-      .select(
-        "id, message, type, link, data, read, read_at, created_at, user_id",
-      )
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false })
-      .limit(20);
+
+    const [{ data, error: fetchError }, { count, error: countError }] =
+      await Promise.all([
+        supabase
+          .from("notifications")
+          .select(
+            "id, message, type, link, data, read, read_at, created_at, user_id, archived_at",
+          )
+          .eq("user_id", userId)
+          .is("archived_at", null)
+          .order("created_at", { ascending: false })
+          .limit(20),
+        supabase
+          .from("notifications")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId)
+          .eq("read", false)
+          .is("archived_at", null),
+      ]);
 
     if (fetchError) {
       setError(fetchError.message || "Failed to load notifications.");
@@ -80,6 +121,9 @@ export default function NotificationBell({
     }
 
     setNotifications(Array.isArray(data) ? data : []);
+    if (!countError) {
+      setUnreadCount(count || 0);
+    }
     setLoading(false);
   }, [supabase, userId]);
 
@@ -90,7 +134,8 @@ export default function NotificationBell({
       const { error: updateError } = await supabase
         .from("notifications")
         .update({ read: true, read_at: now })
-        .eq("id", notification.id);
+        .eq("id", notification.id)
+        .eq("user_id", userId);
 
       if (!updateError) {
         setNotifications((prev) =>
@@ -100,38 +145,39 @@ export default function NotificationBell({
               : item,
           ),
         );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
       }
     },
-    [supabase],
+    [supabase, userId],
   );
 
   const markAllAsRead = useCallback(async () => {
-    if (!notifications.length) return;
-    const unreadIds = notifications
-      .filter((notification) => !notification.read)
-      .map((notification) => notification.id);
-    if (!unreadIds.length) return;
+    if (!userId || unreadCount === 0) return;
 
     const now = new Date().toISOString();
     const { error: updateError } = await supabase
       .from("notifications")
       .update({ read: true, read_at: now })
-      .in("id", unreadIds);
+      .eq("user_id", userId)
+      .eq("read", false)
+      .is("archived_at", null);
 
     if (!updateError) {
       setNotifications((prev) =>
         prev.map((notification) =>
-          unreadIds.includes(notification.id)
+          !notification.read
             ? { ...notification, read: true, read_at: now }
             : notification,
         ),
       );
+      setUnreadCount(0);
     }
-  }, [notifications, supabase]);
+  }, [supabase, unreadCount, userId]);
 
   useEffect(() => {
     if (!userId) {
       setLoading(false);
+      setUnreadCount(0);
       return;
     }
     loadNotifications();
@@ -150,10 +196,14 @@ export default function NotificationBell({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
+          if (payload.new?.archived_at) return;
           setNotifications((prev) => {
             const next = [payload.new, ...prev];
             return next.slice(0, 20);
           });
+          if (!payload.new?.read) {
+            setUnreadCount((prev) => prev + 1);
+          }
         },
       )
       .on(
@@ -165,11 +215,15 @@ export default function NotificationBell({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          setNotifications((prev) =>
-            prev.map((item) =>
+          setNotifications((prev) => {
+            if (payload.new?.archived_at) {
+              return prev.filter((item) => item.id !== payload.new.id);
+            }
+            return prev.map((item) =>
               item.id === payload.new.id ? payload.new : item,
-            ),
-          );
+            );
+          });
+          loadUnreadCount();
         },
       )
       .subscribe();
@@ -177,7 +231,7 @@ export default function NotificationBell({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [supabase, userId]);
+  }, [loadUnreadCount, supabase, userId]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -232,7 +286,8 @@ export default function NotificationBell({
             <button
               type="button"
               onClick={markAllAsRead}
-              className="text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8]"
+              disabled={unreadCount === 0}
+              className="text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Mark all read
             </button>
@@ -296,6 +351,16 @@ export default function NotificationBell({
                 })}
               </div>
             )}
+          </div>
+
+          <div className="border-t border-[#E5E7EB] px-4 py-2">
+            <Link
+              href={notificationsPagePath}
+              className="text-xs font-medium text-[#2563EB] hover:text-[#1D4ED8]"
+              onClick={() => setIsOpen(false)}
+            >
+              View all notifications
+            </Link>
           </div>
         </div>
       ) : null}

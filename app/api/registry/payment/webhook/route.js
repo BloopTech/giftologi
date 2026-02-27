@@ -13,6 +13,7 @@ import {
 } from "../../../../utils/payments/expresspay";
 
 const WEBHOOK_SOURCE = "/api/registry/payment/webhook";
+const PAYMENT_PROVIDER = "expresspay";
 
 const asObject = (value) =>
   value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -94,7 +95,7 @@ export async function POST(request) {
       const { data } = await adminClient
         .from("orders")
         .select(
-          "id, order_code, status, registry_id, payment_token, payment_method, total_amount, currency, payment_response"
+          "id, order_code, status, registry_id, payment_token, payment_method, payment_reference, total_amount, currency, payment_response"
         )
         .eq("order_code", orderIdFromWebhook)
         .maybeSingle();
@@ -105,7 +106,7 @@ export async function POST(request) {
       const { data } = await adminClient
         .from("orders")
         .select(
-          "id, order_code, status, registry_id, payment_token, payment_method, total_amount, currency, payment_response"
+          "id, order_code, status, registry_id, payment_token, payment_method, payment_reference, total_amount, currency, payment_response"
         )
         .eq("payment_token", tokenFromWebhook)
         .maybeSingle();
@@ -129,21 +130,120 @@ export async function POST(request) {
 
     // Skip if already processed
     if (TERMINAL_ORDER_STATUSES.has(order.status)) {
+      const terminalPaymentResponse = asObject(order.payment_response);
+      let enrichedTerminalPaymentResponse = terminalPaymentResponse?.provider
+        ? terminalPaymentResponse
+        : { ...terminalPaymentResponse, provider: PAYMENT_PROVIDER };
+
+      let terminalOutcome = "ignored_terminal_status";
+      let terminalStage = "pre_query";
+      let terminalPaymentReference = order.payment_reference || null;
+      let terminalQueryToken = tokenFromWebhook || order.payment_token || null;
+
+      if (
+        order.status === "paid" &&
+        terminalQueryToken &&
+        (!order.payment_method || !terminalPaymentResponse?.provider)
+      ) {
+        try {
+          const terminalQueryData = await queryExpressPayTransaction(
+            terminalQueryToken
+          );
+          const terminalPaymentMethod =
+            resolveExpressPayMethod(terminalQueryData) ||
+            order.payment_method ||
+            null;
+          terminalPaymentReference =
+            terminalQueryData["transaction-id"] ||
+            terminalQueryData.token ||
+            terminalPaymentReference ||
+            terminalQueryToken;
+
+          const terminalPaymentResponsePayload = {
+            ...terminalQueryData,
+            provider: PAYMENT_PROVIDER,
+          };
+          enrichedTerminalPaymentResponse = terminalPaymentResponsePayload;
+
+          const terminalUpdatePayload = {
+            payment_reference: terminalPaymentReference,
+            payment_response: terminalPaymentResponsePayload,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (terminalPaymentMethod) {
+            terminalUpdatePayload.payment_method = terminalPaymentMethod;
+          }
+
+          const { error: terminalUpdateError } = await adminClient
+            .from("orders")
+            .update(terminalUpdatePayload)
+            .eq("id", order.id);
+
+          if (terminalUpdateError) {
+            console.error(
+              "Registry terminal reconciliation failed to update order:",
+              terminalUpdateError
+            );
+          }
+
+          if (terminalPaymentMethod && terminalPaymentReference) {
+            const { error: terminalUpsertError } = await adminClient
+              .from("order_payments")
+              .upsert(
+                {
+                  order_id: order.id,
+                  provider: PAYMENT_PROVIDER,
+                  method: terminalPaymentMethod,
+                  amount: terminalQueryData.amount || 0,
+                  currency: terminalQueryData.currency || "GHS",
+                  provider_ref: terminalPaymentReference,
+                  status: "completed",
+                  meta: terminalPaymentResponsePayload,
+                  created_at: new Date().toISOString(),
+                },
+                {
+                  onConflict: "order_id,provider,provider_ref",
+                  ignoreDuplicates: true,
+                }
+              );
+
+            if (terminalUpsertError) {
+              console.error(
+                "Registry terminal reconciliation failed to upsert payment:",
+                terminalUpsertError
+              );
+            }
+          }
+
+          terminalOutcome = "ignored_terminal_status_reconciled";
+          terminalStage = "terminal_reconcile";
+        } catch (terminalReconcileError) {
+          console.error(
+            "Registry terminal reconciliation query failed:",
+            terminalReconcileError
+          );
+        }
+      }
+
       await persistWebhookOutcome(
         adminClient,
         order,
         buildWebhookDebug({
-          outcome: "ignored_terminal_status",
-          stage: "pre_query",
+          outcome: terminalOutcome,
+          stage: terminalStage,
           tokenSuffix,
           orderStatus: order.status,
-        })
+          queryToken: terminalQueryToken,
+          paymentReference: terminalPaymentReference,
+        }),
+        enrichedTerminalPaymentResponse
       );
 
       return NextResponse.json(
         {
           status: "ok",
-          outcome: "ignored_terminal_status",
+          outcome: terminalOutcome,
           orderId: order.id,
           orderStatus: order.status,
         },
@@ -209,13 +309,15 @@ export async function POST(request) {
       }
     }
 
+    const paymentResponsePayload = mismatchMeta
+      ? { ...queryData, provider: PAYMENT_PROVIDER, ...mismatchMeta }
+      : { ...queryData, provider: PAYMENT_PROVIDER };
+
     const updatePayload = {
       status: finalizedStatus,
       payment_method: paymentMethod,
       payment_reference: paymentReference,
-      payment_response: mismatchMeta
-        ? { ...queryData, ...mismatchMeta }
-        : queryData,
+      payment_response: paymentResponsePayload,
       updated_at: new Date().toISOString(),
     };
 
@@ -294,23 +396,36 @@ export async function POST(request) {
       );
     }
 
-    await adminClient.from("order_payments").upsert(
-      {
-        order_id: order.id,
-        provider: "expresspay",
-        method: paymentMethod,
-        amount: queryData.amount || 0,
-        currency: queryData.currency || "GHS",
-        provider_ref: paymentReference,
-        status: "completed",
-        meta: queryData,
-        created_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "order_id,provider,provider_ref",
-        ignoreDuplicates: true,
+    if (paymentMethod) {
+      const { error: paymentUpsertError } = await adminClient
+        .from("order_payments")
+        .upsert(
+          {
+            order_id: order.id,
+            provider: PAYMENT_PROVIDER,
+            method: paymentMethod,
+            amount: queryData.amount || 0,
+            currency: queryData.currency || "GHS",
+            provider_ref: paymentReference,
+            status: "completed",
+            meta: paymentResponsePayload,
+            created_at: new Date().toISOString(),
+          },
+          {
+            onConflict: "order_id,provider,provider_ref",
+            ignoreDuplicates: true,
+          }
+        );
+
+      if (paymentUpsertError) {
+        console.error("Registry webhook payment upsert failed:", paymentUpsertError);
       }
-    );
+    } else {
+      console.warn(
+        "Registry webhook skipped order_payments upsert because payment method is unavailable",
+        { orderId: order.id, orderCode: order.order_code }
+      );
+    }
 
     // If payment was successful, update purchased quantity
     const { data: orderItems } = await adminClient

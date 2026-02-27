@@ -11,6 +11,8 @@ import { createClient as createSupabaseClient } from "../../../utils/supabase/cl
 
 const VendorAnalyticsContext = createContext();
 
+const SUCCESSFUL_ORDER_STATUSES = ["paid", "shipped", "delivered"];
+
 const createInitialState = () => ({
   vendor: null,
   products: [],
@@ -95,8 +97,11 @@ export const VendorAnalyticsProvider = ({ children }) => {
       ] = await Promise.all([
         supabase
           .from("order_items")
-          .select("id, order_id, product_id, quantity, price, created_at, orders ( buyer_id )")
+          .select(
+            "id, order_id, product_id, quantity, price, created_at, orders!inner ( buyer_id, status )",
+          )
           .eq("vendor_id", vendorRecord.id)
+          .in("orders.status", SUCCESSFUL_ORDER_STATUSES)
           .gte("created_at", sinceIso),
         pageViewsRequest,
         reviewsRequest,

@@ -39,6 +39,15 @@ const pickPaymentValue = (source, keys) => {
   return null;
 };
 
+const hasExpressPaySignature = (source) => {
+  if (!source || typeof source !== "object") return false;
+  return Boolean(
+    pickPaymentValue(source, ["transaction-id", "auth-code"]) ||
+      (pickPaymentValue(source, ["result", "result-text"]) &&
+        pickPaymentValue(source, ["order-id", "token"]))
+  );
+};
+
 const mapPaymentMethodLabel = (value) => {
   if (!value) return "Unrecorded";
 
@@ -59,9 +68,27 @@ const resolvePaymentMethod = ({ paymentRow, orderRow }) => {
 
   return (
     paymentRow?.method ||
-    pickPaymentValue(paymentMeta, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]) ||
+    pickPaymentValue(paymentMeta, [
+      "method",
+      "payment_method",
+      "payment-method",
+      "paymentMode",
+      "payment_mode",
+      "payment-option-type",
+      "channel",
+      "network",
+    ]) ||
     orderRow?.payment_method ||
-    pickPaymentValue(orderResponse, ["method", "payment_method", "paymentMode", "payment_mode", "channel"]) ||
+    pickPaymentValue(orderResponse, [
+      "method",
+      "payment_method",
+      "payment-method",
+      "paymentMode",
+      "payment_mode",
+      "payment-option-type",
+      "channel",
+      "network",
+    ]) ||
     ""
   );
 };
@@ -69,11 +96,26 @@ const resolvePaymentMethod = ({ paymentRow, orderRow }) => {
 const resolvePaymentProvider = ({ paymentRow, orderRow }) => {
   const paymentMeta = parseJsonObject(paymentRow?.meta);
   const orderResponse = parseJsonObject(orderRow?.payment_response);
+  const paymentMetaProvider = pickPaymentValue(paymentMeta, [
+    "provider",
+    "gateway",
+    "payment_provider",
+    "paymentProvider",
+  ]);
+  const orderResponseProvider = pickPaymentValue(orderResponse, [
+    "provider",
+    "gateway",
+    "payment_provider",
+    "paymentProvider",
+  ]);
 
   return (
     paymentRow?.provider ||
-    pickPaymentValue(paymentMeta, ["provider", "gateway", "payment_provider", "paymentProvider"]) ||
-    pickPaymentValue(orderResponse, ["provider", "gateway", "payment_provider", "paymentProvider"]) ||
+    paymentMetaProvider ||
+    orderResponseProvider ||
+    (hasExpressPaySignature(paymentMeta) || hasExpressPaySignature(orderResponse)
+      ? "expresspay"
+      : "") ||
     "Unrecorded"
   );
 };
@@ -84,9 +126,9 @@ const resolvePaymentReference = ({ paymentRow, orderRow }) => {
 
   return (
     paymentRow?.provider_ref ||
-    pickPaymentValue(paymentMeta, ["provider_ref", "reference", "payment_reference", "transaction_id"]) ||
+    pickPaymentValue(paymentMeta, ["provider_ref", "reference", "payment_reference", "transaction_id", "transaction-id"]) ||
     orderRow?.payment_reference ||
-    pickPaymentValue(orderResponse, ["provider_ref", "reference", "payment_reference", "transaction_id"]) ||
+    pickPaymentValue(orderResponse, ["provider_ref", "reference", "payment_reference", "transaction_id", "transaction-id"]) ||
     ""
   );
 };

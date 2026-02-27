@@ -9,6 +9,8 @@ const FORCE_LOGOUT_KEY = `${PREFIX}force_logout_on_reopen`;
 const TAB_ID_KEY = `${PREFIX}tab_id`;
 const OPEN_TABS_MAP_KEY = `${PREFIX}open_tab_ids`;
 const RELOAD_MARKER_KEY = `${PREFIX}reload_marker`;
+const SUPPRESS_FORCE_LOGOUT_ON_PAGEHIDE_KEY =
+  `${PREFIX}suppress_force_logout_on_pagehide`;
 const HEARTBEAT_INTERVAL_MS = 2000;
 const STALE_TTL_MS = 7000;
 
@@ -106,6 +108,15 @@ export default function SessionManager() {
 
   const markTabAbsent = useCallback(() => {
     try {
+      let suppressForceLogout = false;
+      try {
+        suppressForceLogout =
+          sessionStorage.getItem(SUPPRESS_FORCE_LOGOUT_ON_PAGEHIDE_KEY) === "1";
+        if (suppressForceLogout) {
+          sessionStorage.removeItem(SUPPRESS_FORCE_LOGOUT_ON_PAGEHIDE_KEY);
+        }
+      } catch {}
+
       const id = sessionStorage.getItem(TAB_ID_KEY);
       let map = cleanupOpenTabsMap();
       if (id && map[id]) {
@@ -115,7 +126,7 @@ export default function SessionManager() {
       // Re-read after cleanup to check if truly empty
       map = cleanupOpenTabsMap();
       const isEmpty = !map || Object.keys(map).length === 0;
-      if (isEmpty) {
+      if (isEmpty && !suppressForceLogout) {
         try {
           localStorage.setItem(FORCE_LOGOUT_KEY, "1");
         } catch {}
@@ -123,8 +134,18 @@ export default function SessionManager() {
     } catch {}
   }, [cleanupOpenTabsMap, writeOpenTabsMap]);
 
+  const suppressNextPageHideForceLogout = useCallback(() => {
+    try {
+      sessionStorage.setItem(SUPPRESS_FORCE_LOGOUT_ON_PAGEHIDE_KEY, "1");
+    } catch {}
+    try {
+      localStorage.removeItem(FORCE_LOGOUT_KEY);
+    } catch {}
+  }, []);
+
   // ─── Logout helper ───────────────────────────────────────────────────────
   const performLogout = useCallback(async () => {
+    suppressNextPageHideForceLogout();
     try {
       const supabase = getSupabase();
       await supabase.auth.signOut();
@@ -134,7 +155,7 @@ export default function SessionManager() {
       // Always redirect regardless of signOut result
       window.location.href = "/login";
     }
-  }, [getSupabase]);
+  }, [getSupabase, suppressNextPageHideForceLogout]);
 
   // ─── Reload detection (distinguish reload from tab close) ────────────────
   const isReloadNavigation = useCallback(() => {
@@ -253,6 +274,7 @@ export default function SessionManager() {
  */
 export function clearTabPresence() {
   try {
+    sessionStorage.setItem(SUPPRESS_FORCE_LOGOUT_ON_PAGEHIDE_KEY, "1");
     localStorage.removeItem(FORCE_LOGOUT_KEY);
     localStorage.removeItem(OPEN_TABS_MAP_KEY);
   } catch {}

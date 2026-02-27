@@ -15,9 +15,34 @@ import {
 } from "../../../../utils/payments/expresspay";
 
 const WEBHOOK_SOURCE = "/api/storefront/checkout/webhook";
+const PAYMENT_PROVIDER = "expresspay";
 
 const asObject = (value) =>
   value && typeof value === "object" && !Array.isArray(value) ? value : {};
+
+const extractWebhookMethodHints = (formData) => {
+  if (!formData || typeof formData.get !== "function") return {};
+
+  const keys = [
+    "payment-option-type",
+    "payment_option_type",
+    "payment-method",
+    "payment_method",
+    "method",
+    "channel",
+    "network",
+    "type",
+  ];
+
+  return keys.reduce((acc, key) => {
+    const value = formData.get(key);
+    if (value === null || typeof value === "undefined") return acc;
+    const text = String(value).trim();
+    if (!text) return acc;
+    acc[key] = text;
+    return acc;
+  }, {});
+};
 
 function buildWebhookDebug({
   outcome,
@@ -75,6 +100,7 @@ export async function POST(request) {
     const body = await request.formData();
     const tokenFromWebhook = body.get("token");
     const orderIdFromWebhook = body.get("order-id");
+    const webhookMethodHints = extractWebhookMethodHints(body);
     const tokenSuffix = tokenFromWebhook
       ? String(tokenFromWebhook).slice(-6)
       : null;
@@ -95,7 +121,7 @@ export async function POST(request) {
       const { data } = await admin
         .from("orders")
         .select(
-          "id, order_code, status, payment_token, payment_method, total_amount, currency, payment_response"
+          "id, order_code, status, payment_token, payment_method, payment_reference, total_amount, currency, payment_response"
         )
         .eq("payment_token", tokenFromWebhook)
         .maybeSingle();
@@ -106,7 +132,7 @@ export async function POST(request) {
       const { data } = await admin
         .from("orders")
         .select(
-          "id, order_code, status, payment_token, payment_method, total_amount, currency, payment_response"
+          "id, order_code, status, payment_token, payment_method, payment_reference, total_amount, currency, payment_response"
         )
         .eq("order_code", orderIdFromWebhook)
         .maybeSingle();
@@ -130,21 +156,127 @@ export async function POST(request) {
 
     // Skip if already in terminal state
     if (TERMINAL_ORDER_STATUSES.has(order.status)) {
+      const terminalPaymentResponse = asObject(order.payment_response);
+      let enrichedTerminalPaymentResponse = terminalPaymentResponse?.provider
+        ? terminalPaymentResponse
+        : { ...terminalPaymentResponse, provider: PAYMENT_PROVIDER };
+
+      let terminalOutcome = "ignored_terminal_status";
+      let terminalStage = "pre_query";
+      let terminalPaymentReference = order.payment_reference || null;
+      let terminalQueryToken = tokenFromWebhook || order.payment_token || null;
+
+      // Safe reconciliation path: terminal "paid" orders may still be missing
+      // payment method/provider metadata or order_payments rows.
+      if (
+        order.status === "paid" &&
+        terminalQueryToken &&
+        (!order.payment_method || !terminalPaymentResponse?.provider)
+      ) {
+        try {
+          const terminalQueryData = await queryExpressPayTransaction(
+            terminalQueryToken
+          );
+          const terminalPaymentMethod =
+            resolveExpressPayMethod({
+              ...terminalQueryData,
+              ...webhookMethodHints,
+            }) ||
+            order.payment_method ||
+            null;
+          terminalPaymentReference =
+            terminalQueryData["transaction-id"] ||
+            terminalQueryData.token ||
+            terminalPaymentReference ||
+            terminalQueryToken;
+
+          const terminalPaymentResponsePayload = {
+            ...terminalQueryData,
+            ...webhookMethodHints,
+            provider: PAYMENT_PROVIDER,
+          };
+          enrichedTerminalPaymentResponse = terminalPaymentResponsePayload;
+
+          const terminalUpdatePayload = {
+            payment_reference: terminalPaymentReference,
+            payment_response: terminalPaymentResponsePayload,
+            updated_at: new Date().toISOString(),
+          };
+
+          if (terminalPaymentMethod) {
+            terminalUpdatePayload.payment_method = terminalPaymentMethod;
+          }
+
+          const { error: terminalUpdateError } = await admin
+            .from("orders")
+            .update(terminalUpdatePayload)
+            .eq("id", order.id);
+
+          if (terminalUpdateError) {
+            console.error(
+              "Terminal reconciliation failed to update order payment fields:",
+              terminalUpdateError
+            );
+          }
+
+          if (terminalPaymentMethod && terminalPaymentReference) {
+            const { error: terminalUpsertError } = await admin
+              .from("order_payments")
+              .upsert(
+                {
+                  order_id: order.id,
+                  provider: PAYMENT_PROVIDER,
+                  method: terminalPaymentMethod,
+                  amount: terminalQueryData.amount || 0,
+                  currency: terminalQueryData.currency || "GHS",
+                  provider_ref: terminalPaymentReference,
+                  status: "completed",
+                  meta: terminalPaymentResponsePayload,
+                  created_at: new Date().toISOString(),
+                },
+                {
+                  onConflict: "order_id,provider,provider_ref",
+                  ignoreDuplicates: true,
+                }
+              );
+
+            if (terminalUpsertError) {
+              console.error(
+                "Terminal reconciliation failed to upsert order payment:",
+                terminalUpsertError
+              );
+            }
+          }
+
+          terminalOutcome = "ignored_terminal_status_reconciled";
+          terminalStage = "terminal_reconcile";
+          terminalQueryToken = terminalQueryToken || null;
+        } catch (terminalReconcileError) {
+          console.error(
+            "Terminal reconciliation query failed:",
+            terminalReconcileError
+          );
+        }
+      }
+
       await persistWebhookOutcome(
         admin,
         order,
         buildWebhookDebug({
-          outcome: "ignored_terminal_status",
-          stage: "pre_query",
+          outcome: terminalOutcome,
+          stage: terminalStage,
           tokenSuffix,
           orderStatus: order.status,
-        })
+          queryToken: terminalQueryToken,
+          paymentReference: terminalPaymentReference,
+        }),
+        enrichedTerminalPaymentResponse
       );
 
       return NextResponse.json(
         {
           status: "ok",
-          outcome: "ignored_terminal_status",
+          outcome: terminalOutcome,
           orderId: order.id,
           orderStatus: order.status,
         },
@@ -178,7 +310,9 @@ export async function POST(request) {
 
     const queryData = await queryExpressPayTransaction(queryToken);
     const paymentMethod =
-      resolveExpressPayMethod(queryData) || order?.payment_method || null;
+      resolveExpressPayMethod({ ...queryData, ...webhookMethodHints }) ||
+      order?.payment_method ||
+      null;
 
     const newStatus = mapExpressPayResultToOrderStatus(
       queryData.result,
@@ -210,13 +344,20 @@ export async function POST(request) {
       }
     }
 
+    const paymentResponsePayload = mismatchMeta
+      ? {
+          ...queryData,
+          ...webhookMethodHints,
+          provider: PAYMENT_PROVIDER,
+          ...mismatchMeta,
+        }
+      : { ...queryData, ...webhookMethodHints, provider: PAYMENT_PROVIDER };
+
     const updatePayload = {
       status: finalizedStatus,
       payment_method: paymentMethod,
       payment_reference: paymentReference,
-      payment_response: mismatchMeta
-        ? { ...queryData, ...mismatchMeta }
-        : queryData,
+      payment_response: paymentResponsePayload,
       updated_at: new Date().toISOString(),
     };
 
@@ -298,23 +439,34 @@ export async function POST(request) {
 
     // Persist payment record early so admin/payment reports are complete even
     // when subsequent fulfillment side-effects fail.
-    await admin.from("order_payments").upsert(
-      {
-        order_id: order.id,
-        provider: "expresspay",
-        method: paymentMethod,
-        amount: queryData.amount || 0,
-        currency: queryData.currency || "GHS",
-        provider_ref: paymentReference,
-        status: "completed",
-        meta: queryData,
-        created_at: new Date().toISOString(),
-      },
-      {
-        onConflict: "order_id,provider,provider_ref",
-        ignoreDuplicates: true,
+    if (paymentMethod) {
+      const { error: paymentUpsertError } = await admin.from("order_payments").upsert(
+        {
+          order_id: order.id,
+          provider: PAYMENT_PROVIDER,
+          method: paymentMethod,
+          amount: queryData.amount || 0,
+          currency: queryData.currency || "GHS",
+          provider_ref: paymentReference,
+          status: "completed",
+          meta: paymentResponsePayload,
+          created_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "order_id,provider,provider_ref",
+          ignoreDuplicates: true,
+        }
+      );
+
+      if (paymentUpsertError) {
+        console.error("Failed to upsert order payment record:", paymentUpsertError);
       }
-    );
+    } else {
+      console.warn("Skipping order_payments upsert because payment method is unavailable", {
+        orderId: order.id,
+        orderCode: order.order_code,
+      });
+    }
 
     // If payment successful, update product stock and create payment record
     // Get order items

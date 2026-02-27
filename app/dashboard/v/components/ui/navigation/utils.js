@@ -103,6 +103,18 @@ export const useNavigationData = () => {
       id: 8,
       items: [
         {
+          name: "Notifications",
+          href: "/dashboard/v/notifications",
+          icon: Bell,
+          other_items: [],
+        },
+      ],
+    },
+    {
+      label: "",
+      id: 9,
+      items: [
+        {
           name: "Settings",
           href: "/dashboard/v/settings",
           icon: Settings,
@@ -202,6 +214,18 @@ export const navigation = [
   {
     label: "",
     id: 8,
+    items: [
+      {
+        name: "Notifications",
+        href: "/dashboard/v/notifications",
+        icon: Bell,
+        other_items: [],
+      },
+    ],
+  },
+  {
+    label: "",
+    id: 9,
     items: [
       {
         name: "Settings",

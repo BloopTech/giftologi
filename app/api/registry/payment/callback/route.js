@@ -9,6 +9,8 @@ import {
   TERMINAL_ORDER_STATUSES,
 } from "../../../../utils/payments/expresspay";
 
+const PAYMENT_PROVIDER = "expresspay";
+
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -39,6 +41,7 @@ export async function GET(request) {
           payment_token,
           payment_reference,
           payment_method,
+          payment_response,
           total_amount,
           currency,
           registry:registries(
@@ -65,6 +68,7 @@ export async function GET(request) {
           payment_token,
           payment_reference,
           payment_method,
+          payment_response,
           total_amount,
           currency,
           registry:registries(
@@ -90,6 +94,87 @@ export async function GET(request) {
     const baseUrl = registryCode ? `/find-/registry/${registryCode}` : "/";
 
     if (TERMINAL_ORDER_STATUSES.has(order.status)) {
+      if (
+        order.status === "paid" &&
+        (token || order.payment_token) &&
+        (!order.payment_method || !order?.payment_response?.provider)
+      ) {
+        try {
+          const terminalQueryToken = token || order.payment_token;
+          const terminalQueryData = await queryExpressPayTransaction(
+            terminalQueryToken
+          );
+          const terminalPaymentMethod =
+            resolveExpressPayMethod(terminalQueryData) ||
+            order?.payment_method ||
+            null;
+          const terminalPaymentReference =
+            terminalQueryData["transaction-id"] ||
+            terminalQueryData.token ||
+            order.payment_reference ||
+            terminalQueryToken;
+          const terminalPaymentResponsePayload = {
+            ...terminalQueryData,
+            provider: PAYMENT_PROVIDER,
+          };
+
+          const terminalUpdatePayload = {
+            payment_reference: terminalPaymentReference,
+            payment_response: terminalPaymentResponsePayload,
+            updated_at: new Date().toISOString(),
+          };
+          if (terminalPaymentMethod) {
+            terminalUpdatePayload.payment_method = terminalPaymentMethod;
+          }
+
+          const { error: terminalUpdateError } = await adminClient
+            .from("orders")
+            .update(terminalUpdatePayload)
+            .eq("id", order.id);
+
+          if (terminalUpdateError) {
+            console.error(
+              "Registry callback terminal reconciliation failed to update order:",
+              terminalUpdateError
+            );
+          }
+
+          if (terminalPaymentMethod && terminalPaymentReference) {
+            const { error: terminalUpsertError } = await adminClient
+              .from("order_payments")
+              .upsert(
+                {
+                  order_id: order.id,
+                  provider: PAYMENT_PROVIDER,
+                  method: terminalPaymentMethod,
+                  amount: terminalQueryData.amount || 0,
+                  currency: terminalQueryData.currency || "GHS",
+                  provider_ref: terminalPaymentReference,
+                  status: mapOrderStatusToPaymentStatus("paid"),
+                  meta: terminalPaymentResponsePayload,
+                  created_at: new Date().toISOString(),
+                },
+                {
+                  onConflict: "order_id,provider,provider_ref",
+                  ignoreDuplicates: true,
+                }
+              );
+
+            if (terminalUpsertError) {
+              console.error(
+                "Registry callback terminal reconciliation failed to upsert payment:",
+                terminalUpsertError
+              );
+            }
+          }
+        } catch (terminalReconcileError) {
+          console.error(
+            "Registry callback terminal reconciliation query failed:",
+            terminalReconcileError
+          );
+        }
+      }
+
       if (order.status === "paid") {
         return NextResponse.redirect(
           new URL(`${baseUrl}?payment=success&order=${orderCode}`, request.url)
@@ -142,6 +227,10 @@ export async function GET(request) {
       }
     }
 
+    const paymentResponsePayload = mismatchMeta
+      ? { ...queryData, provider: PAYMENT_PROVIDER, ...mismatchMeta }
+      : { ...queryData, provider: PAYMENT_PROVIDER };
+
     // Update order status (idempotent)
     const { data: updatedOrder } = await adminClient
       .from("orders")
@@ -149,9 +238,7 @@ export async function GET(request) {
         status: finalizedStatus,
         payment_method: paymentMethod,
         payment_reference: paymentReference,
-        payment_response: mismatchMeta
-          ? { ...queryData, ...mismatchMeta }
-          : queryData,
+        payment_response: paymentResponsePayload,
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id)
@@ -161,23 +248,36 @@ export async function GET(request) {
 
     // If payment was successful, update purchased quantity
     if (finalizedStatus === "paid" && updatedOrder?.id) {
-      await adminClient.from("order_payments").upsert(
-        {
-          order_id: order.id,
-          provider: "expresspay",
-          method: paymentMethod,
-          amount: queryData.amount || 0,
-          currency: queryData.currency || "GHS",
-          provider_ref: paymentReference,
-          status: mapOrderStatusToPaymentStatus(finalizedStatus),
-          meta: queryData,
-          created_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "order_id,provider,provider_ref",
-          ignoreDuplicates: true,
+      if (paymentMethod) {
+        const { error: paymentUpsertError } = await adminClient
+          .from("order_payments")
+          .upsert(
+            {
+              order_id: order.id,
+              provider: PAYMENT_PROVIDER,
+              method: paymentMethod,
+              amount: queryData.amount || 0,
+              currency: queryData.currency || "GHS",
+              provider_ref: paymentReference,
+              status: mapOrderStatusToPaymentStatus(finalizedStatus),
+              meta: paymentResponsePayload,
+              created_at: new Date().toISOString(),
+            },
+            {
+              onConflict: "order_id,provider,provider_ref",
+              ignoreDuplicates: true,
+            }
+          );
+
+        if (paymentUpsertError) {
+          console.error("Registry callback payment upsert failed:", paymentUpsertError);
         }
-      );
+      } else {
+        console.warn(
+          "Registry callback skipped order_payments upsert because payment method is unavailable",
+          { orderId: order.id, orderCode: order.order_code }
+        );
+      }
 
       // Get order items
       const { data: orderItems } = await adminClient

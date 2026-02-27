@@ -9,6 +9,11 @@ import {
   dispatchNotificationBulk,
   dispatchToAdmins,
 } from "../../../utils/notificationService";
+import {
+  DELIVERY_ALLOWED_PRIOR_STATUSES,
+  SHIPMENT_ALLOWED_PRIOR_STATUSES,
+  mapOrderStatusGuardDbError,
+} from "../../../utils/orders/statusGuards";
 
 const defaultUpdateOrderStatusValues = {
   orderId: [],
@@ -104,7 +109,34 @@ export async function updateOrderStatus(prevState, formData) {
     };
   }
 
-  if (order.status && String(order.status).toLowerCase() === newStatus) {
+  const currentStatus = String(order.status || "").toLowerCase();
+
+  if (
+    newStatus === "shipped" &&
+    !SHIPMENT_ALLOWED_PRIOR_STATUSES.includes(currentStatus)
+  ) {
+    return {
+      message: "Order must be paid before it can be marked as shipped.",
+      errors: { ...defaultUpdateOrderStatusValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (
+    newStatus === "delivered" &&
+    !DELIVERY_ALLOWED_PRIOR_STATUSES.includes(currentStatus)
+  ) {
+    return {
+      message:
+        "Order must be paid or already shipped before it can be marked as delivered.",
+      errors: { ...defaultUpdateOrderStatusValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (order.status && currentStatus === newStatus) {
     return {
       message: "Order is already in this status.",
       errors: {},
@@ -123,7 +155,10 @@ export async function updateOrderStatus(prevState, formData) {
 
   if (updateError) {
     return {
-      message: updateError.message,
+      message: mapOrderStatusGuardDbError(
+        updateError,
+        "Failed to update order status."
+      ),
       errors: { ...defaultUpdateOrderStatusValues },
       values: raw,
       data: {},
@@ -657,6 +692,16 @@ export async function reattemptDelivery(prevState, formData) {
     };
   }
 
+  const currentStatus = String(order.status || "").toLowerCase();
+  if (!SHIPMENT_ALLOWED_PRIOR_STATUSES.includes(currentStatus)) {
+    return {
+      message: "Order must be paid before it can be re-shipped.",
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
   // Get vendor info from order items
   const { data: orderItems } = await adminClient
     .from("order_items")
@@ -820,15 +865,39 @@ export async function reattemptDelivery(prevState, formData) {
   }
 
   // Set order back to shipped
-  await adminClient
+  const { error: setOrderShippedError } = await adminClient
     .from("orders")
     .update({ status: "shipped", updated_at: nowIso })
     .eq("id", orderId);
 
-  await adminClient
+  if (setOrderShippedError) {
+    return {
+      message: mapOrderStatusGuardDbError(
+        setOrderShippedError,
+        "Failed to set order status to shipped."
+      ),
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { error: setItemsShippedError } = await adminClient
     .from("order_items")
     .update({ fulfillment_status: "shipped" })
     .eq("order_id", orderId);
+
+  if (setItemsShippedError) {
+    return {
+      message: mapOrderStatusGuardDbError(
+        setItemsShippedError,
+        "Failed to update item fulfillment statuses."
+      ),
+      errors: {},
+      values: raw,
+      data: {},
+    };
+  }
 
   // Notify buyer
   try {
