@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { createClient } from "../utils/supabase/client";
 
@@ -22,6 +22,8 @@ const formatRelativeTime = (value) => {
   if (diffMs < 86400000) return `${Math.floor(diffMs / 3600000)}h ago`;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
+
+const UNREAD_PREVIEW_LIMIT = 5;
 
 const VARIANT_STYLES = {
   header: {
@@ -37,7 +39,7 @@ const VARIANT_STYLES = {
     button:
       "relative flex w-full items-center gap-2 rounded-lg border border-[#E5E7EB] bg-white px-3 py-2 text-xs text-[#686868] hover:bg-[#F9FAFB] transition-colors",
     panel:
-      "absolute left-full ml-4 top-0 w-80 rounded-xl border border-[#E5E7EB] bg-white shadow-lg z-20",
+      "absolute -right-30 bottom-full mb-2 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-[#E5E7EB] bg-white shadow-lg z-40",
     label: "Notifications",
   },
 };
@@ -61,6 +63,7 @@ export default function NotificationBell({
   className = "",
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const styles = VARIANT_STYLES[variant] || VARIANT_STYLES.header;
   const supabase = useMemo(() => createClient(), []);
   const notificationsPagePath = useMemo(
@@ -103,9 +106,10 @@ export default function NotificationBell({
             "id, message, type, link, data, read, read_at, created_at, user_id, archived_at",
           )
           .eq("user_id", userId)
+          .eq("read", false)
           .is("archived_at", null)
           .order("created_at", { ascending: false })
-          .limit(20),
+          .limit(UNREAD_PREVIEW_LIMIT),
         supabase
           .from("notifications")
           .select("id", { count: "exact", head: true })
@@ -130,6 +134,7 @@ export default function NotificationBell({
   const markAsRead = useCallback(
     async (notification) => {
       if (!notification || notification.read) return;
+
       const now = new Date().toISOString();
       const { error: updateError } = await supabase
         .from("notifications")
@@ -139,11 +144,7 @@ export default function NotificationBell({
 
       if (!updateError) {
         setNotifications((prev) =>
-          prev.map((item) =>
-            item.id === notification.id
-              ? { ...item, read: true, read_at: now }
-              : item,
-          ),
+          prev.filter((item) => item.id !== notification.id),
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
       }
@@ -163,13 +164,7 @@ export default function NotificationBell({
       .is("archived_at", null);
 
     if (!updateError) {
-      setNotifications((prev) =>
-        prev.map((notification) =>
-          !notification.read
-            ? { ...notification, read: true, read_at: now }
-            : notification,
-        ),
-      );
+      setNotifications([]);
       setUnreadCount(0);
     }
   }, [supabase, unreadCount, userId]);
@@ -196,14 +191,15 @@ export default function NotificationBell({
           filter: `user_id=eq.${userId}`,
         },
         (payload) => {
-          if (payload.new?.archived_at) return;
+          if (payload.new?.archived_at || payload.new?.read) return;
           setNotifications((prev) => {
-            const next = [payload.new, ...prev];
-            return next.slice(0, 20);
+            const next = [
+              payload.new,
+              ...prev.filter((item) => item.id !== payload.new.id),
+            ];
+            return next.slice(0, UNREAD_PREVIEW_LIMIT);
           });
-          if (!payload.new?.read) {
-            setUnreadCount((prev) => prev + 1);
-          }
+          setUnreadCount((prev) => prev + 1);
         },
       )
       .on(
@@ -216,11 +212,15 @@ export default function NotificationBell({
         },
         (payload) => {
           setNotifications((prev) => {
-            if (payload.new?.archived_at) {
-              return prev.filter((item) => item.id !== payload.new.id);
+            const withoutUpdated = prev.filter(
+              (item) => item.id !== payload.new.id,
+            );
+            if (payload.new?.archived_at || payload.new?.read) {
+              return withoutUpdated;
             }
-            return prev.map((item) =>
-              item.id === payload.new.id ? payload.new : item,
+            return [payload.new, ...withoutUpdated].slice(
+              0,
+              UNREAD_PREVIEW_LIMIT,
             );
           });
           loadUnreadCount();
@@ -250,6 +250,15 @@ export default function NotificationBell({
     };
   }, [isOpen]);
 
+  const handleBellClick = useCallback(() => {
+    if (!loading && unreadCount === 0) {
+      setIsOpen(false);
+      router.push(notificationsPagePath);
+      return;
+    }
+    setIsOpen((prev) => !prev);
+  }, [loading, notificationsPagePath, router, unreadCount]);
+
   if (!userId) return null;
 
   return (
@@ -257,7 +266,7 @@ export default function NotificationBell({
       <button
         type="button"
         ref={buttonRef}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={handleBellClick}
         className={`${styles.button} cursor-pointer`}
         aria-label="Notifications"
       >
@@ -299,24 +308,36 @@ export default function NotificationBell({
             ) : error ? (
               <p className="text-xs text-[#B91C1C]">{error}</p>
             ) : notifications.length === 0 ? (
-              <p className="text-xs text-[#6B7280]">No notifications yet.</p>
+              <p className="text-xs text-[#6B7280]">No unread notifications.</p>
             ) : (
               <div className="space-y-2">
                 {notifications.map((notification) => {
+                  const cardClassName = notification.read
+                    ? "border-[#E5E7EB] bg-white"
+                    : "border-[#FECACA] bg-[#FEF2F2]";
+
                   const content = (
                     <div
-                      className={`rounded-lg border px-3 py-2 transition-colors ${
-                        notification.read
-                          ? "border-[#E5E7EB] bg-white"
-                          : "border-[#FCD34D] bg-[#FFFBEB]"
-                      }`}
+                      className={`rounded-lg border px-3 py-2 transition-colors ${cardClassName}`}
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-xs font-medium text-[#111827]">
+                      <div className="flex items-start justify-between gap-2 w-full">
+                        <p className="w-[65%] text-xs font-medium text-[#111827] line-clamp-2">
                           {notification.message}
                         </p>
                         {!notification.read ? (
-                          <span className="mt-1 h-2 w-2 rounded-full bg-[#F97316]" />
+                          <div className="flex justify-end w-[25%]">
+                            <button
+                              type="button"
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                markAsRead(notification);
+                              }}
+                              className="cursor-pointer rounded-full border border-[#FCA5A5] bg-white px-2 py-0.5 text-[10px] font-medium text-[#B91C1C] hover:bg-[#FEE2E2] w-full flex items-center justify-center"
+                            >
+                              Mark as read
+                            </button>
+                          </div>
                         ) : null}
                       </div>
                       <p className="text-[11px] text-[#6B7280]">

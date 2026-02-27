@@ -25,6 +25,7 @@ const STALE_TTL_MS = 7000;
  */
 export default function SessionManager() {
   const supabaseRef = useRef(null);
+  const isAuthenticatedRef = useRef(false);
 
   // Lazy-init Supabase client
   const getSupabase = useCallback(() => {
@@ -126,9 +127,13 @@ export default function SessionManager() {
       // Re-read after cleanup to check if truly empty
       map = cleanupOpenTabsMap();
       const isEmpty = !map || Object.keys(map).length === 0;
-      if (isEmpty && !suppressForceLogout) {
+      if (isEmpty && !suppressForceLogout && isAuthenticatedRef.current) {
         try {
           localStorage.setItem(FORCE_LOGOUT_KEY, "1");
+        } catch {}
+      } else if (!isAuthenticatedRef.current) {
+        try {
+          localStorage.removeItem(FORCE_LOGOUT_KEY);
         } catch {}
       }
     } catch {}
@@ -184,11 +189,21 @@ export default function SessionManager() {
   }, []);
 
   // ─── Check for force-logout flag on reopen ───────────────────────────────
-  const checkForceLogoutOnReopen = useCallback(() => {
+  const checkForceLogoutOnReopen = useCallback(async () => {
     try {
       if (typeof window === "undefined") return;
       const flag = localStorage.getItem(FORCE_LOGOUT_KEY);
       if (!flag) return;
+      const supabase = getSupabase();
+      const {
+        data: { session } = {},
+      } = await supabase.auth.getSession();
+      if (!session) {
+        try {
+          localStorage.removeItem(FORCE_LOGOUT_KEY);
+        } catch {}
+        return;
+      }
       try {
         localStorage.removeItem(FORCE_LOGOUT_KEY);
       } catch {}
@@ -196,7 +211,49 @@ export default function SessionManager() {
       if (isReloadNavigation()) return;
       performLogout();
     } catch {}
-  }, [performLogout, isReloadNavigation]);
+  }, [getSupabase, performLogout, isReloadNavigation]);
+
+  // ─── Effect 0: Track auth state to avoid stale force-logout loops ─────────
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const supabase = getSupabase();
+    let isActive = true;
+
+    const syncSession = async () => {
+      try {
+        const {
+          data: { session } = {},
+        } = await supabase.auth.getSession();
+        if (!isActive) return;
+        isAuthenticatedRef.current = Boolean(session);
+        if (!session) {
+          try {
+            localStorage.removeItem(FORCE_LOGOUT_KEY);
+          } catch {}
+        }
+      } catch {}
+    };
+
+    syncSession();
+
+    const {
+      data: { subscription } = {},
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      isAuthenticatedRef.current = Boolean(session);
+      if (!session) {
+        try {
+          localStorage.removeItem(FORCE_LOGOUT_KEY);
+        } catch {}
+      }
+    });
+
+    return () => {
+      isActive = false;
+      try {
+        subscription?.unsubscribe();
+      } catch {}
+    };
+  }, [getSupabase]);
 
   // ─── Effect 1: Register tab + pagehide listener ──────────────────────────
   useEffect(() => {

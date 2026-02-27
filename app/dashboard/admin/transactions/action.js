@@ -14,6 +14,7 @@ import {
   SHIPMENT_ALLOWED_PRIOR_STATUSES,
   mapOrderStatusGuardDbError,
 } from "../../../utils/orders/statusGuards";
+import { requestExpressPayRefund } from "../../../utils/payments/expresspay";
 
 const defaultUpdateOrderStatusValues = {
   orderId: [],
@@ -283,6 +284,95 @@ const defaultInitiateRefundValues = {
   reason: [],
 };
 
+const refundableOrderStatuses = new Set(["paid", "shipped", "delivered", "disputed"]);
+const blockingRefundStatuses = ["pending", "processing", "approved", "processed"];
+
+const normalizeText = (value) => String(value || "").trim().toLowerCase();
+
+const parseJsonObject = (value) => {
+  if (!value) return null;
+  if (typeof value === "object") return value;
+  if (typeof value !== "string") return null;
+
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const pickPaymentValue = (source, keys) => {
+  if (!source || typeof source !== "object") return "";
+
+  for (const key of keys) {
+    const value = source[key];
+    if (value === null || typeof value === "undefined") continue;
+    const text = String(value).trim();
+    if (text) return text;
+  }
+
+  return "";
+};
+
+const resolvePaymentProvider = ({ paymentRow, orderRow }) => {
+  const paymentMeta = parseJsonObject(paymentRow?.meta);
+  const orderResponse = parseJsonObject(orderRow?.payment_response);
+
+  return normalizeText(
+    paymentRow?.provider ||
+      pickPaymentValue(paymentMeta, [
+        "provider",
+        "gateway",
+        "payment_provider",
+        "paymentProvider",
+      ]) ||
+      pickPaymentValue(orderResponse, [
+        "provider",
+        "gateway",
+        "payment_provider",
+        "paymentProvider",
+      ])
+  );
+};
+
+const resolvePaymentReference = ({ paymentRow, orderRow }) => {
+  const paymentMeta = parseJsonObject(paymentRow?.meta);
+  const orderResponse = parseJsonObject(orderRow?.payment_response);
+
+  return (
+    paymentRow?.provider_ref ||
+    pickPaymentValue(paymentMeta, [
+      "provider_ref",
+      "reference",
+      "payment_reference",
+      "transaction-id",
+      "transaction_id",
+    ]) ||
+    orderRow?.payment_reference ||
+    pickPaymentValue(orderResponse, [
+      "provider_ref",
+      "reference",
+      "payment_reference",
+      "transaction-id",
+      "transaction_id",
+    ]) ||
+    ""
+  );
+};
+
+const resolvePaymentToken = ({ paymentRow, orderRow }) => {
+  const paymentMeta = parseJsonObject(paymentRow?.meta);
+  const orderResponse = parseJsonObject(orderRow?.payment_response);
+
+  return (
+    pickPaymentValue(paymentMeta, ["token", "payment_token"]) ||
+    pickPaymentValue(orderResponse, ["token", "payment_token"]) ||
+    orderRow?.payment_token ||
+    ""
+  );
+};
+
 const initiateRefundSchema = z.object({
   orderId: z.string().uuid({ message: "Invalid order" }),
   reason: z
@@ -346,10 +436,13 @@ export async function initiateOrderRefund(prevState, formData) {
   }
 
   const { orderId, reason } = parsed.data;
+  const nowIso = new Date().toISOString();
 
   const { data: order, error: orderError } = await supabase
     .from("orders")
-    .select("id, total_amount, status, order_code")
+    .select(
+      "id, total_amount, currency, status, order_code, payment_token, payment_reference, payment_method, payment_response"
+    )
     .eq("id", orderId)
     .single();
 
@@ -362,9 +455,49 @@ export async function initiateOrderRefund(prevState, formData) {
     };
   }
 
+  const normalizedOrderStatus = normalizeText(order.status);
+  if (!refundableOrderStatuses.has(normalizedOrderStatus)) {
+    return {
+      message: "Only paid, shipped, delivered, or disputed orders can be refunded.",
+      errors: { ...defaultInitiateRefundValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  const { data: existingRefunds, error: existingRefundError } = await supabase
+    .from("order_refunds")
+    .select("id, status, created_at")
+    .eq("order_id", orderId)
+    .in("status", blockingRefundStatuses)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (existingRefundError) {
+    return {
+      message:
+        existingRefundError.message ||
+        "Failed to verify existing refunds before creating a new one.",
+      errors: { ...defaultInitiateRefundValues },
+      values: raw,
+      data: {},
+    };
+  }
+
+  if (Array.isArray(existingRefunds) && existingRefunds.length) {
+    const activeRefund = existingRefunds[0];
+    const activeStatus = String(activeRefund.status || "pending").toLowerCase();
+    return {
+      message: `A refund is already ${activeStatus} for this order.`,
+      errors: { ...defaultInitiateRefundValues },
+      values: raw,
+      data: {},
+    };
+  }
+
   const { data: paymentRows } = await supabase
     .from("order_payments")
-    .select("id, amount, status, created_at")
+    .select("id, amount, status, created_at, provider, method, provider_ref, meta")
     .eq("order_id", orderId)
     .order("created_at", { ascending: false })
     .limit(1);
@@ -387,6 +520,32 @@ export async function initiateOrderRefund(prevState, formData) {
     };
   }
 
+  const paymentProvider =
+    resolvePaymentProvider({ paymentRow: primaryPayment, orderRow: order }) ||
+    "unrecorded";
+  const paymentReference = resolvePaymentReference({
+    paymentRow: primaryPayment,
+    orderRow: order,
+  });
+  const paymentToken = resolvePaymentToken({
+    paymentRow: primaryPayment,
+    orderRow: order,
+  });
+
+  const refundMeta = {
+    source: "admin_transactions",
+    flow: "manual_review",
+    payment_provider: paymentProvider,
+    payment_method: primaryPayment?.method || order.payment_method || null,
+    payment_reference: paymentReference || null,
+    payment_token_suffix: paymentToken ? String(paymentToken).slice(-8) : null,
+    automated_gateway_attempted: false,
+    automated_gateway_result: "manual_review_required",
+    automated_gateway_message: null,
+    automated_gateway_response: null,
+    initiated_at: nowIso,
+  };
+
   const { data: refund, error: refundError } = await supabase
     .from("order_refunds")
     .insert([
@@ -397,7 +556,7 @@ export async function initiateOrderRefund(prevState, formData) {
         status: "pending",
         reason,
         created_by: currentProfile?.id || user.id,
-        meta: null,
+        meta: refundMeta,
       },
     ])
     .select("id")
@@ -412,6 +571,138 @@ export async function initiateOrderRefund(prevState, formData) {
     };
   }
 
+  let finalizedRefundStatus = "pending";
+  let processorMessage = "Refund request queued for finance review.";
+  let processedAt = null;
+  let gatewayReference = "";
+  let gatewayResponse = null;
+  let gatewayOutcome = "manual_review_required";
+
+  if (paymentProvider === "expresspay") {
+    const hasGatewayIdentifiers = Boolean(paymentToken || paymentReference);
+
+    if (hasGatewayIdentifiers) {
+      try {
+        const gatewayResult = await requestExpressPayRefund({
+          token: paymentToken || null,
+          transactionId: paymentReference || null,
+          amount: amountValue,
+          currency: order.currency || "GHS",
+          reason,
+          orderId: order.order_code || order.id,
+          merchantReference: refund.id,
+        });
+
+        gatewayReference = gatewayResult?.providerReference || "";
+        gatewayResponse = gatewayResult?.payload || null;
+
+        if (gatewayResult?.status === "processed") {
+          finalizedRefundStatus = "processed";
+          processedAt = new Date().toISOString();
+          processorMessage =
+            gatewayResult?.message ||
+            "Refund processed successfully by ExpressPay.";
+          gatewayOutcome = "processed";
+        } else if (gatewayResult?.status === "pending") {
+          finalizedRefundStatus = "approved";
+          processorMessage =
+            gatewayResult?.message ||
+            "Refund submitted to ExpressPay and is awaiting final settlement.";
+          gatewayOutcome = "pending_settlement";
+        } else {
+          finalizedRefundStatus = "pending";
+          processorMessage =
+            gatewayResult?.message ||
+            "ExpressPay did not accept the refund automatically. Manual follow-up is required.";
+          gatewayOutcome = "failed_manual_followup";
+        }
+      } catch (gatewayError) {
+        finalizedRefundStatus = "pending";
+        processorMessage =
+          gatewayError?.message ||
+          "Automated ExpressPay refund failed. Manual follow-up is required.";
+        gatewayOutcome = "error_manual_followup";
+      }
+    } else {
+      processorMessage =
+        "ExpressPay payment reference/token is missing. Refund is queued for manual follow-up.";
+      gatewayOutcome = "missing_reference_manual_followup";
+    }
+  } else if (paymentProvider !== "unrecorded") {
+    processorMessage = `Refund queued for manual processing via ${paymentProvider}.`;
+    gatewayOutcome = "manual_provider_followup";
+  }
+
+  const finalizedMeta = {
+    ...refundMeta,
+    automated_gateway_attempted: paymentProvider === "expresspay",
+    automated_gateway_result: gatewayOutcome,
+    automated_gateway_message: processorMessage,
+    automated_gateway_reference: gatewayReference || null,
+    automated_gateway_response: gatewayResponse,
+    finalized_at: new Date().toISOString(),
+  };
+
+  const refundFinalizePayload = {
+    status: finalizedRefundStatus,
+    processor_message: processorMessage,
+    meta: finalizedMeta,
+  };
+  if (processedAt) {
+    refundFinalizePayload.processed_at = processedAt;
+  }
+
+  const { error: refundFinalizeError } = await supabase
+    .from("order_refunds")
+    .update(refundFinalizePayload)
+    .eq("id", refund.id);
+
+  if (refundFinalizeError) {
+    return {
+      message:
+        refundFinalizeError.message ||
+        "Refund was created but failed to save final processing state.",
+      errors: { ...defaultInitiateRefundValues },
+      values: raw,
+      data: { orderId, refundId: refund.id },
+    };
+  }
+
+  if (finalizedRefundStatus === "processed") {
+    const refundPaymentRef = String(
+      gatewayReference || `refund:${refund.id}`
+    ).trim();
+
+    const { error: refundPaymentInsertError } = await adminClient
+      .from("order_payments")
+      .upsert(
+        {
+          order_id: orderId,
+          provider: paymentProvider === "unrecorded" ? "expresspay" : paymentProvider,
+          method: primaryPayment?.method || order.payment_method || null,
+          amount: -Math.abs(Number(amountValue)),
+          currency: order.currency || "GHS",
+          provider_ref: refundPaymentRef,
+          status: "refunded",
+          meta: {
+            source: "admin_refund",
+            refund_id: refund.id,
+            original_payment_id: primaryPayment?.id || null,
+            processor_message: processorMessage,
+          },
+          created_at: new Date().toISOString(),
+        },
+        {
+          onConflict: "order_id,provider,provider_ref",
+          ignoreDuplicates: true,
+        }
+      );
+
+    if (refundPaymentInsertError) {
+      console.error("Failed to store refund adjustment payment row:", refundPaymentInsertError);
+    }
+  }
+
   // Mark order as disputed for reporting
   await supabase
     .from("orders")
@@ -420,6 +711,14 @@ export async function initiateOrderRefund(prevState, formData) {
 
   try {
     const orderCodeLabel = order?.order_code || orderId?.slice(0, 8);
+    const refundVerb =
+      finalizedRefundStatus === "processed"
+        ? "processed"
+        : finalizedRefundStatus === "approved"
+        ? "submitted"
+        : "initiated";
+    const vendorStatus =
+      finalizedRefundStatus === "processed" ? "refunded" : "disputed";
     const { data: orderItems } = await adminClient
       .from("order_items")
       .select("vendor_id")
@@ -442,13 +741,14 @@ export async function initiateOrderRefund(prevState, formData) {
           recipientId: vendor.profiles_id,
           recipientRole: "vendor",
           eventType: "order_status",
-          message: `Refund initiated for order ${orderCodeLabel}.`,
+          message: `Refund ${refundVerb} for order ${orderCodeLabel}.`,
           link: "/dashboard/v/orders",
           data: {
             order_id: orderId,
             order_code: order?.order_code || null,
-            status: "refunded",
+            status: vendorStatus,
             vendor_id: vendor.id,
+            refund_id: refund.id,
           },
           vendorId: vendor.id,
         });
@@ -458,11 +758,12 @@ export async function initiateOrderRefund(prevState, formData) {
     await dispatchToAdmins({
       client: adminClient,
       eventType: "dispute_or_refund",
-      message: `Refund initiated for order ${orderCodeLabel}.`,
+      message: `Refund ${refundVerb} for order ${orderCodeLabel}.`,
       link: "/dashboard/admin/transactions",
       data: {
         order_id: orderId,
         refund_id: refund.id,
+        refund_status: finalizedRefundStatus,
       },
     });
   } catch (error) {
@@ -477,17 +778,30 @@ export async function initiateOrderRefund(prevState, formData) {
     action: "initiated_order_refund",
     entity: "orders",
     targetId: orderId,
-    details: `Initiated refund of ${amountValue} for order ${orderId}`,
+    details: `Refund ${finalizedRefundStatus} for ${amountValue} on order ${orderId}: ${processorMessage}`,
   });
 
   revalidatePath("/dashboard/admin/transactions");
   revalidatePath("/dashboard/admin");
 
+  const successMessage =
+    finalizedRefundStatus === "processed"
+      ? "Refund processed successfully via ExpressPay."
+      : finalizedRefundStatus === "approved"
+      ? "Refund submitted to ExpressPay and is awaiting settlement confirmation."
+      : paymentProvider === "expresspay"
+      ? "Refund request created. ExpressPay automatic processing needs manual follow-up."
+      : "Refund request initiated for manual processing.";
+
   return {
-    message: "Refund request initiated.",
+    message: successMessage,
     errors: {},
     values: {},
-    data: { orderId, refundId: refund.id },
+    data: {
+      orderId,
+      refundId: refund.id,
+      refundStatus: finalizedRefundStatus,
+    },
   };
 }
 

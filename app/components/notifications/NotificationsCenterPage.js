@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { Archive, ArchiveRestore, Bell, CheckCheck } from "lucide-react";
 import { createClient } from "@/app/utils/supabase/client";
@@ -201,7 +207,9 @@ export default function NotificationsCenterPage({
 
       setNotifications((prev) =>
         prev.map((item) =>
-          item.id === notificationId ? { ...item, read: true, read_at: now } : item,
+          item.id === notificationId
+            ? { ...item, read: true, read_at: now }
+            : item,
         ),
       );
       fetchCounts(userId);
@@ -231,7 +239,14 @@ export default function NotificationsCenterPage({
     }
 
     await refreshFeed();
-  }, [activeFilter, counts.unread, isArchivedView, refreshFeed, supabase, userId]);
+  }, [
+    activeFilter,
+    counts.unread,
+    isArchivedView,
+    refreshFeed,
+    supabase,
+    userId,
+  ]);
 
   const archiveNotification = useCallback(
     async (notificationId) => {
@@ -277,9 +292,7 @@ export default function NotificationsCenterPage({
     let isMounted = true;
 
     const loadUser = async () => {
-      const {
-        data: { user } = {},
-      } = await supabase.auth.getUser();
+      const { data: { user } = {} } = await supabase.auth.getUser();
 
       if (!isMounted) return;
       setUserId(user?.id || null);
@@ -410,7 +423,9 @@ export default function NotificationsCenterPage({
 
       <div className="rounded-2xl border border-[#E5E7EB] bg-white">
         {authLoading || loading ? (
-          <p className="px-4 py-6 text-sm text-[#6B7280]">Loading notifications...</p>
+          <p className="px-4 py-6 text-sm text-[#6B7280]">
+            Loading notifications...
+          </p>
         ) : !userId ? (
           <p className="px-4 py-6 text-sm text-[#B91C1C]">
             You must be signed in to view notifications.
@@ -420,7 +435,9 @@ export default function NotificationsCenterPage({
         ) : notifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
             <Bell className="mb-3 h-8 w-8 text-[#9CA3AF]" />
-            <p className="text-sm font-medium text-[#111827]">No notifications found.</p>
+            <p className="text-sm font-medium text-[#111827]">
+              No notifications found.
+            </p>
             <p className="text-xs text-[#6B7280]">
               Try switching filters or check back later.
             </p>
@@ -428,19 +445,37 @@ export default function NotificationsCenterPage({
         ) : (
           <div className="divide-y divide-[#F3F4F6]">
             {notifications.map((notification) => {
+              const cardClassName = notification.read
+                ? "border-[#F3F4F6] bg-white hover:bg-[#F9FAFB]"
+                : "border-[#FECACA] bg-[#FEF2F2] hover:bg-[#FEE2E2]";
+
               const content = (
                 <>
-                  <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-medium text-[#111827]">
+                  <div className="flex items-start justify-between gap-3 w-full">
+                    <p className="text-sm font-medium text-[#111827] w-[65%] line-clamp-2">
                       {notification.message}
                     </p>
                     {!notification.read ? (
-                      <span className="mt-1 inline-flex h-2.5 w-2.5 rounded-full bg-[#F97316]" />
+                      <div className="flex justify-end w-[25%]">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            markAsRead(notification.id);
+                          }}
+                          className="cursor-pointeer flex items-center justify-center rounded-full border border-[#FCA5A5] bg-white px-2 py-0.5 text-[11px] font-medium text-[#B91C1C] hover:bg-[#FEE2E2]"
+                        >
+                          Mark as read
+                        </button>
+                      </div>
                     ) : null}
                   </div>
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-[#6B7280]">
                     <span>{formatRelativeTime(notification.created_at)}</span>
-                    {notification.type ? <span>• {notification.type}</span> : null}
+                    {notification.type ? (
+                      <span>• {notification.type}</span>
+                    ) : null}
                   </div>
                 </>
               );
@@ -455,7 +490,7 @@ export default function NotificationsCenterPage({
                           markAsRead(notification.id);
                         }
                       }}
-                      className="block rounded-lg border border-[#F3F4F6] bg-white p-3 hover:bg-[#F9FAFB]"
+                      className={`block rounded-lg border p-3 transition-colors ${cardClassName}`}
                     >
                       {content}
                     </Link>
@@ -467,23 +502,13 @@ export default function NotificationsCenterPage({
                           markAsRead(notification.id);
                         }
                       }}
-                      className="block w-full rounded-lg border border-[#F3F4F6] bg-white p-3 text-left hover:bg-[#F9FAFB]"
+                      className={`block w-full rounded-lg border p-3 text-left transition-colors ${cardClassName}`}
                     >
                       {content}
                     </button>
                   )}
 
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {!notification.read ? (
-                      <button
-                        type="button"
-                        onClick={() => markAsRead(notification.id)}
-                        className="rounded-full border border-[#D1D5DB] px-2.5 py-1 text-[11px] font-medium text-[#374151]"
-                      >
-                        Mark read
-                      </button>
-                    ) : null}
-
                     {allowArchive ? (
                       isArchivedView ? (
                         <button
@@ -513,7 +538,10 @@ export default function NotificationsCenterPage({
         )}
 
         {hasMore ? (
-          <div ref={sentinelRef} className="px-4 py-4 text-center text-xs text-[#6B7280]">
+          <div
+            ref={sentinelRef}
+            className="px-4 py-4 text-center text-xs text-[#6B7280]"
+          >
             {loadingMore ? "Loading more..." : "Scroll for more"}
           </div>
         ) : notifications.length > 0 ? (

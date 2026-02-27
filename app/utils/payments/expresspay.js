@@ -18,6 +18,8 @@ const EXPRESSPAY_QUERY_URL =
     ? "https://expresspaygh.com/api/query.php"
     : "https://sandbox.expresspaygh.com/api/query.php";
 
+const EXPRESSPAY_REFUND_URL = String(process.env.EXPRESSPAY_REFUND_URL || "").trim();
+
 const EXPRESSPAY_MERCHANT_ID = process.env.EXPRESSPAY_MERCHANT_ID;
 const EXPRESSPAY_API_KEY = process.env.EXPRESSPAY_API_KEY;
 
@@ -261,10 +263,104 @@ export async function queryExpressPayTransaction(token) {
   return payload;
 }
 
+export async function requestExpressPayRefund({
+  token,
+  transactionId,
+  amount,
+  currency,
+  reason,
+  orderId,
+  merchantReference,
+}) {
+  assertCredentials();
+
+  if (!EXPRESSPAY_REFUND_URL) {
+    throw new Error(
+      "ExpressPay refund endpoint is not configured. Set EXPRESSPAY_REFUND_URL to enable automated refunds."
+    );
+  }
+
+  if (!token && !transactionId) {
+    throw new Error(
+      "ExpressPay refund requires either a token or transaction reference."
+    );
+  }
+
+  const params = new URLSearchParams({
+    "merchant-id": EXPRESSPAY_MERCHANT_ID,
+    "api-key": EXPRESSPAY_API_KEY,
+    amount: String(amount),
+    currency: currency || "GHS",
+    reason: reason || "Customer refund",
+    "order-id": orderId ? String(orderId) : "",
+    "merchant-reference": merchantReference ? String(merchantReference) : "",
+  });
+
+  if (token) params.set("token", String(token));
+  if (transactionId) {
+    params.set("transaction-id", String(transactionId));
+    params.set("transaction_id", String(transactionId));
+  }
+
+  const { payload } = await postForm(EXPRESSPAY_REFUND_URL, params);
+
+  const resultCode = Number(
+    payload?.result ?? payload?.status_code ?? payload?.statusCode
+  );
+  const statusText = String(
+    payload?.status || payload?.state || payload?.["result-text"] || ""
+  )
+    .trim()
+    .toLowerCase();
+
+  let status = "failed";
+  if (
+    resultCode === 1 ||
+    statusText === "approved" ||
+    statusText === "processed" ||
+    statusText === "success"
+  ) {
+    status = "processed";
+  } else if (
+    resultCode === 4 ||
+    statusText === "pending" ||
+    statusText === "processing"
+  ) {
+    status = "pending";
+  }
+
+  const message =
+    payload?.["result-text"] ||
+    payload?.message ||
+    (status === "processed"
+      ? "Refund processed successfully."
+      : status === "pending"
+      ? "Refund accepted and pending settlement."
+      : "Refund request was not accepted.");
+
+  const providerReference =
+    payload?.["refund-id"] ||
+    payload?.refund_id ||
+    payload?.["transaction-id"] ||
+    payload?.transaction_id ||
+    payload?.token ||
+    transactionId ||
+    token ||
+    "";
+
+  return {
+    status,
+    message,
+    providerReference,
+    payload,
+  };
+}
+
 export function createExpressPaySdkClient() {
   return {
     submit: submitExpressPayInvoice,
     query: queryExpressPayTransaction,
+    refund: requestExpressPayRefund,
     checkout: buildExpressPayCheckoutUrl,
     resolveCheckoutUrl: resolveExpressPayCheckoutUrl,
     mapResultToOrderStatus: mapExpressPayResultToOrderStatus,
